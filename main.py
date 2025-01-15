@@ -2,7 +2,6 @@ import discord
 from discord.ext import commands
 import os
 import importlib
-from config import TOKEN
 import json
 
 intents = discord.Intents.all()
@@ -12,6 +11,9 @@ bot = commands.Bot(command_prefix="mrtv!", intents=intents, help_command=None)
 async def on_ready():
     print(f'We have logged in as {bot.user}')
     print(f'Prefix is set to: {bot.command_prefix}')
+    print("Syncing commands...")
+    await bot.tree.sync()
+    print("Commands synced successfully!")
 
 @bot.event
 async def on_message(message):
@@ -49,6 +51,10 @@ async def load_cogs():
         print("Loaded: music")
     except Exception as e:
         print(f"Failed to load music: {e}")
+
+with open('config.json', 'r') as f:
+    config = json.load(f)
+    TOKEN = config['TOKEN'] 
 
 async def create_default_files():
     if not os.path.exists('config'):

@@ -13,12 +13,13 @@ class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.node = None
-        self.repeating = {}  # Для хранения состояния повторения треков
+        self.repeating = {}
+        self.nightcore_enabled = {}  # Словник для відстеження стану Nightcore для кожного сервера
         bot.loop.create_task(self.connect_nodes())
         
-        # Добавляем обработчики событий
         bot.event(self.on_wavelink_track_end)
         bot.event(self.on_wavelink_track_start)
+        bot.event(self.on_voice_state_update)
 
     async def connect_nodes(self):
         """Подключение к серверу Lavalink"""
@@ -113,7 +114,7 @@ class Music(commands.Cog):
             )
             return
 
-        # Сохраняем канал для отправки уведомлений
+        
         if not hasattr(player, 'home'):
             player.home = interaction.channel
 
@@ -181,8 +182,8 @@ class Music(commands.Cog):
             )
             return
 
-        current_time = int(player.position / 1000)  # Конвертируем в секунды
-        total_time = int(track.length / 1000)  # Конвертируем в секунды
+        current_time = int(player.position / 1000)  
+        total_time = int(track.length / 1000)  
 
         progress_segments = 9
         if total_time > 0:
@@ -216,13 +217,30 @@ class Music(commands.Cog):
 
     @discord.app_commands.command(name="skip", description="Пропустить текущий трек")
     async def skip(self, interaction: discord.Interaction):
-        player = await self.is_playing(interaction)
-        if not player:
-            return
-
         await interaction.response.defer()
-
+        
         try:
+            player = await self.get_player(interaction)
+            if not player:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Я не подключен к голосовому каналу!",
+                        footer=FOOTER_ERROR
+                    ),
+                    ephemeral=True
+                )
+                return
+
+            if not player.current:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Сейчас ничего не играет!",
+                        footer=FOOTER_ERROR
+                    ),
+                    ephemeral=True
+                )
+                return
+
             await player.stop()
             await interaction.followup.send(
                 embed=create_embed(
@@ -230,8 +248,9 @@ class Music(commands.Cog):
                     footer=FOOTER_SUCCESS
                 )
             )
+            
         except Exception as e:
-            print(f"Error in skip command: {e}")
+            print(f"Ошибка в команде skip: {e}")
             await interaction.followup.send(
                 embed=create_embed(
                     description="Произошла ошибка при пропуске трека!",
@@ -241,21 +260,21 @@ class Music(commands.Cog):
 
     @discord.app_commands.command(name="queue", description="Просмотр очереди треков")
     async def queue(self, interaction: discord.Interaction):
-        # Получаем плеер
-        player: wavelink.Player = wavelink.Pool.get_node().get_player(interaction.guild.id)
-        if not player or not player.connected:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description="Я не подключен к голосовому каналу!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
-            )
-            return
-
         await interaction.response.defer()
-
+        
         try:
+            
+            player: wavelink.Player = wavelink.Pool.get_node().get_player(interaction.guild.id)
+            if not player or not player.connected:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Я не подключен к голосовому каналу!",
+                        footer=FOOTER_ERROR
+                    ),
+                    ephemeral=True
+                )
+                return
+
             current = player.current
             tracks = list(player.queue)
 
@@ -277,7 +296,7 @@ class Music(commands.Cog):
                 queue_text.append("\n**В очереди:**")
                 for i, track in enumerate(tracks, 1):
                     queue_text.append(f"**{i}.** {track.title}")
-                    if i >= 10:  # Показываем только первые 10 треков
+                    if i >= 10:  
                         remaining = len(tracks) - 10
                         if remaining > 0:
                             queue_text.append(f"\nИ еще {remaining} треков...")
@@ -301,30 +320,63 @@ class Music(commands.Cog):
 
     @discord.app_commands.command(name="leave", description="Отключить бота от голосового канала")
     async def leave(self, interaction: discord.Interaction):
-        player = wavelink.Pool.get_node().get_player(interaction.guild.id)
-        if player and player.is_connected():
+        await interaction.response.defer()
+        
+        try:
+            player = await self.get_player(interaction)
+            if not player or not player.connected:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Я не подключен к голосовому каналу!",
+                        footer=FOOTER_ERROR
+                    ),
+                    ephemeral=True
+                )
+                return
+                
             await player.disconnect()
-            embed = create_embed(
-                description="Отключился от голосового канала.",
-                footer=FOOTER_SUCCESS
+            await interaction.followup.send(
+                embed=create_embed(
+                    description="Отключился от голосового канала.",
+                    footer=FOOTER_SUCCESS
+                )
             )
-            await interaction.response.send_message(embed=embed)
-        else:
-            embed = create_embed(
-                description="Я не подключен к голосовому каналу.",
-                footer=FOOTER_ERROR
+        except Exception as e:
+            print(f"Error in leave command: {e}")
+            await interaction.followup.send(
+                embed=create_embed(
+                    description="Произошла ошибка!",
+                    footer=FOOTER_ERROR
+                ),
+                ephemeral=True
             )
-            await interaction.response.send_message(embed=embed)
 
     @discord.app_commands.command(name="pause", description="Поставить музыку на паузу")
     async def pause(self, interaction: discord.Interaction):
-        player = await self.is_playing(interaction)
-        if not player:
-            return
-
         await interaction.response.defer()
-
+        
         try:
+            player = await self.get_player(interaction)
+            if not player or not player.connected:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Я не подключен к голосовому каналу!",
+                        footer=FOOTER_ERROR
+                    ),
+                    ephemeral=True
+                )
+                return
+
+            if not player.current:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Сейчас ничего не играет!",
+                        footer=FOOTER_ERROR
+                    ),
+                    ephemeral=True
+                )
+                return
+
             await player.pause(not player.paused)
             status = "поставлена на паузу" if player.paused else "возобновлена"
             
@@ -340,18 +392,36 @@ class Music(commands.Cog):
                 embed=create_embed(
                     description="Произошла ошибка!",
                     footer=FOOTER_ERROR
-                )
+                ),
+                ephemeral=True
             )
 
     @discord.app_commands.command(name="repeat", description="Повторить текущий трек")
     async def repeat(self, interaction: discord.Interaction):
-        player = await self.is_playing(interaction)
-        if not player:
-            return
-
         await interaction.response.defer()
-
+        
         try:
+            player = await self.get_player(interaction)
+            if not player or not player.connected:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Я не подключен к голосовому каналу!",
+                        footer=FOOTER_ERROR
+                    ),
+                    ephemeral=True
+                )
+                return
+
+            if not player.current:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Сейчас ничего не играет!",
+                        footer=FOOTER_ERROR
+                    ),
+                    ephemeral=True
+                )
+                return
+
             guild_id = interaction.guild.id
             self.repeating[guild_id] = not self.repeating.get(guild_id, False)
             status = "включено" if self.repeating[guild_id] else "отключено"
@@ -368,48 +438,85 @@ class Music(commands.Cog):
                 embed=create_embed(
                     description="Произошла ошибка!",
                     footer=FOOTER_ERROR
-                )
+                ),
+                ephemeral=True
             )
 
     @discord.app_commands.command(name="shuffle", description="Перемешать очередь треков")
     async def shuffle(self, interaction: discord.Interaction):
-        player = await self.is_connected(interaction)
-        if not player:
-            return
+        await interaction.response.defer()
+        
+        try:
+            player = await self.get_player(interaction)
+            if not player or not player.connected:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Я не подключен к голосовому каналу!",
+                        footer=FOOTER_ERROR
+                    ),
+                    ephemeral=True
+                )
+                return
 
-        if not player.queue: # Используем более питоновский способ проверки пустой очереди
-            await interaction.response.send_message(
+            if not player.queue:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Очередь пуста, нечего перемешивать!",
+                        footer=FOOTER_ERROR
+                    ),
+                    ephemeral=True
+                )
+                return
+
+            queue_list = list(player.queue)
+            random.shuffle(queue_list)
+            player.queue.clear()
+            for track in queue_list:
+                player.queue.put(track)
+
+            await interaction.followup.send(
                 embed=create_embed(
-                    description="Очередь пуста, нечего перемешивать!",
+                    description="Очередь треков перемешана.",
+                    footer=FOOTER_SUCCESS
+                )
+            )
+        except Exception as e:
+            print(f"Error in shuffle command: {e}")
+            await interaction.followup.send(
+                embed=create_embed(
+                    description="Произошла ошибка!",
                     footer=FOOTER_ERROR
                 ),
                 ephemeral=True
             )
-            return
-
-        queue_list = list(player.queue)
-        random.shuffle(queue_list)
-        player.queue.clear()
-        for track in queue_list:
-            player.queue.put(track)
-
-        await interaction.response.send_message(
-            embed=create_embed(
-                description="Очередь треков перемешана.",
-                footer=FOOTER_SUCCESS
-            )
-        )
 
     @discord.app_commands.command(name="resume", description="Продолжить воспроизведение")
     async def resume(self, interaction: discord.Interaction):
-        player = await self.is_connected(interaction)
-        if not player:
-            return
-
         await interaction.response.defer()
-
+        
         try:
-            await player.resume()
+            player = await self.get_player(interaction)
+            if not player or not player.connected:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Я не подключен к голосовому каналу!",
+                        footer=FOOTER_ERROR
+                    ),
+                    ephemeral=True
+                )
+                return
+
+            if not player.paused:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Музыка уже играет!",
+                        footer=FOOTER_ERROR
+                    ),
+                    ephemeral=True
+                )
+                return
+
+            await player.pause(False)
             await interaction.followup.send(
                 embed=create_embed(
                     description="Воспроизведение продолжено.",
@@ -422,29 +529,38 @@ class Music(commands.Cog):
                 embed=create_embed(
                     description="Произошла ошибка!",
                     footer=FOOTER_ERROR
-                )
+                ),
+                ephemeral=True
             )
 
     @discord.app_commands.command(name="nightcore", description="Включить/выключить эффект Nightcore")
     async def nightcore(self, interaction: discord.Interaction):
-        player = await self.is_connected(interaction)
-        if not player:
-            return
-
         await interaction.response.defer()
-
+        
         try:
-            filters = player.filters
+            player = await self.get_player(interaction)
+            if not player or not player.connected:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Я не подключен к голосовому каналу!",
+                        footer=FOOTER_ERROR
+                    ),
+                    ephemeral=True
+                )
+                return
+
+            guild_id = interaction.guild.id
+            filters = wavelink.Filters()
             
-            # Проверяем, включен ли уже эффект
-            if filters.timescale.speed == 1.2:  # Если эффект включен
-                # Сбрасываем фильтры
-                filters.reset()
-                status = "выключен"
-            else:
-                # Устанавливаем эффект
-                filters.timescale.set(pitch=1.2, speed=1.2, rate=1)
+            # Перевіряємо поточний стан
+            if not self.nightcore_enabled.get(guild_id, False):
+                filters.timescale.set(speed=1.2, pitch=1.2, rate=1.0)
+                self.nightcore_enabled[guild_id] = True
                 status = "включен"
+            else:
+                filters = wavelink.Filters()  # Скидаємо всі фільтри
+                self.nightcore_enabled[guild_id] = False
+                status = "выключен"
 
             await player.set_filters(filters)
             await interaction.followup.send(
@@ -459,7 +575,8 @@ class Music(commands.Cog):
                 embed=create_embed(
                     description="Произошла ошибка при установке эффекта!",
                     footer=FOOTER_ERROR
-                )
+                ),
+                ephemeral=True
             )
 
     async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload) -> None:
@@ -469,12 +586,12 @@ class Music(commands.Cog):
         if not player:
             return
             
-        # Проверяем повтор
+        
         if self.repeating.get(player.guild.id):
             await player.play(payload.track)
             return
             
-        # Проверяем очередь
+        
         if player.queue:
             next_track = await player.queue.get_wait()
             await player.play(next_track)
@@ -487,16 +604,39 @@ class Music(commands.Cog):
         if not player or not track:
             return
             
-        # Создаем embed с информацией о треке
+        
         embed = create_embed(
             title="🎵 Сейчас играет:",
             description=f"**{track.title}**\nИсполнитель: {track.author}",
             footer=FOOTER_SUCCESS
         )
         
-        # Отправляем сообщение в тот же канал
+        
         if hasattr(player, 'home'):
             await player.home.send(embed=embed)
+
+    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+        """Обработчик изменения голосового канала"""
+        if member.bot:  
+            return
+        
+        player = wavelink.Pool.get_node().get_player(member.guild.id)
+        if not player:
+            return
+        
+        if not player.channel:
+            return
+        
+        channel_members = len([m for m in player.channel.members if not m.bot])
+        if channel_members == 0:
+            await player.disconnect()
+            if hasattr(player, 'home'):
+                await player.home.send(
+                    embed=create_embed(
+                        description="Все вышли из канала. Отключаюсь...",
+                        footer=FOOTER_SUCCESS
+                    )
+                )
 
 async def setup(bot):
     await bot.add_cog(Music(bot))
