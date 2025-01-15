@@ -1,0 +1,42 @@
+import discord
+from discord import Interaction
+from discord.ext import commands
+from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS
+
+class Withdraw(commands.Cog):
+    def __init__(self, client):
+        self.client = client
+
+    @discord.app_commands.command(name="withdraw", description="Снятие баланса")
+    @discord.app_commands.describe(amount="Сумма для снятия с банка")
+    async def withdraw(self,
+                      interaction: Interaction,
+                      amount: int):
+        user_id = str(interaction.user.id)
+
+        user_data = get_user(user_id)
+
+        if user_data['deposit'] < amount:
+            embed = create_embed(
+                title="Ошибка.",
+                description="У вас недостаточно средств для снятия.",
+                footer=FOOTER_ERROR
+            )
+            await interaction.response.send_message(embed=embed)
+            return
+
+        user_data['deposit'] -= amount
+        user_data['balance'] += amount
+
+        save_user(user_id, user_data)
+
+        deposit = user_data['deposit']
+        balance = user_data['balance']
+        embed = create_embed(
+            description=f"Вы вывели {amount} <:aeMoney:1266066622561517781> с депозита. Ваш баланс: {balance} <:aeMoney:1266066622561517781>.\nВаш депозит: {deposit} <:aeMoney:1266066622561517781>.",
+            footer=FOOTER_SUCCESS
+        )
+        await interaction.response.send_message(embed=embed)
+
+async def setup(client):
+    await client.add_cog(Withdraw(client))

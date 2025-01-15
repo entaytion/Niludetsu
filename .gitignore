@@ -1,0 +1,19 @@
+# Конфіденційні дані
+config.json
+config/roles.db
+config/users.db
+lavalink_config.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Віртуальне середовище
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/ 
