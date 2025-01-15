@@ -48,7 +48,9 @@ def initialize_db():
                     last_work TEXT,
                     last_rob TEXT,
                     xp INTEGER,
-                    level INTEGER
+                    level INTEGER,
+                    spouse TEXT,
+                    marriage_date TEXT
                 )
             ''')
             conn.commit()
@@ -66,8 +68,8 @@ def get_user(bot, user_id):
         
         if user is None:
             cursor.execute('''
-                INSERT INTO users (user_id, balance, deposit, last_daily, last_work, last_rob, xp, level)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO users (user_id, balance, deposit, last_daily, last_work, last_rob, xp, level, spouse, marriage_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 user_id,
                 0,  # Начальное значение balance
@@ -76,7 +78,9 @@ def get_user(bot, user_id):
                 None,  # Начальное значение last_work
                 None,  # Начальное значение last_rob
                 0,  # Начальное значение xp
-                0   # Начальное значение level
+                0,   # Начальное значение level
+                None,  # Начальное значение spouse
+                None   # Начальное значение marriage_date
             ))
             conn.commit()
             cursor.execute('SELECT * FROM users WHERE user_id = ?', (user_id,))
@@ -89,7 +93,7 @@ def save_user(user_id, user_data):
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE users
-            SET balance = ?, deposit = ?, last_daily = ?, last_work = ?, last_rob = ?, xp = ?, level = ?
+            SET balance = ?, deposit = ?, last_daily = ?, last_work = ?, last_rob = ?, xp = ?, level = ?, spouse = ?, marriage_date = ?
             WHERE user_id = ?
         ''', (
             user_data.get('balance', 0),
@@ -99,6 +103,8 @@ def save_user(user_id, user_data):
             user_data.get('last_rob', None),
             user_data.get('xp', 0),
             user_data.get('level', 0),
+            user_data.get('spouse', None),
+            user_data.get('marriage_date', None),
             user_id
         ))
         conn.commit()

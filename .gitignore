@@ -2,6 +2,7 @@
 config.json
 config/roles.db
 config/users.db
+config/level_image.png
 lavalink_config.json
 
 # Python

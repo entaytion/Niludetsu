@@ -56,6 +56,16 @@ async def load_cogs():
             except Exception as e:
                 print(f"Failed to load economy {f[:-3]}: {e}")
 
+    for f in os.listdir("./cogs/fun"):
+        if f.endswith(".py"):
+            try:
+                module = importlib.import_module(f"cogs.fun.{f[:-3]}")
+                if hasattr(module, 'setup'):
+                    await module.setup(bot)
+                print(f"Loaded fun: {f[:-3]}")
+            except Exception as e:
+                print(f"Failed to load fun {f[:-3]}: {e}")
+
 with open('config.json', 'r') as f:
     config = json.load(f)
     TOKEN = config['TOKEN'] 
