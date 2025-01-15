@@ -36,21 +36,25 @@ async def load_cogs():
             except Exception as e:
                 print(f"Failed to load {f[:-3]}: {e}")
 
-    try:
-        levels = importlib.import_module("levels")
-        if hasattr(levels, 'setup'):
-            await levels.setup(bot)
-        print("Loaded: levels")
-    except Exception as e:
-        print(f"Failed to load levels: {e}")
+    for f in os.listdir("./cogs/utilities"):
+        if f.endswith(".py"):
+            try:
+                module = importlib.import_module(f"cogs.utilities.{f[:-3]}")
+                if hasattr(module, 'setup'):
+                    await module.setup(bot)
+                print(f"Loaded utility: {f[:-3]}")
+            except Exception as e:
+                print(f"Failed to load utility {f[:-3]}: {e}")
 
-    try:
-        music = importlib.import_module("music")
-        if hasattr(music, 'setup'):
-            await music.setup(bot)
-        print("Loaded: music")
-    except Exception as e:
-        print(f"Failed to load music: {e}")
+    for f in os.listdir("./cogs/economy"):
+        if f.endswith(".py"):
+            try:
+                module = importlib.import_module(f"cogs.economy.{f[:-3]}")
+                if hasattr(module, 'setup'):
+                    await module.setup(bot)
+                print(f"Loaded economy: {f[:-3]}")
+            except Exception as e:
+                print(f"Failed to load economy {f[:-3]}: {e}")
 
 with open('config.json', 'r') as f:
     config = json.load(f)

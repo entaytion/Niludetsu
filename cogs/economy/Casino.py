@@ -10,6 +10,13 @@ class Casino(commands.Cog):
     @discord.app_commands.command(name="casino", description="Азартные игры")
     @discord.app_commands.describe(bet="Ставка на красное, черное, зелёное, чётное, нечётное",
                                    amount="Сумма для ставки")
+    @discord.app_commands.choices(bet=[
+        discord.app_commands.Choice(name="Красное", value="красное"),
+        discord.app_commands.Choice(name="Черное", value="черное"),
+        discord.app_commands.Choice(name="Зелёное", value="зелёное"),
+        discord.app_commands.Choice(name="Чётное", value="чётное"),
+        discord.app_commands.Choice(name="Нечётное", value="нечётное")
+    ])
     async def casino(self, interaction: discord.Interaction,
                      bet: str = None, 
                      amount: int = None):

@@ -44,7 +44,7 @@ class Shop(commands.Cog):
                 await interaction.response.send_message("Сервер не найден.")
                 return
 
-            user_data = get_user(user_id)
+            user_data = get_user(self.client, user_id)
 
             if user_data['balance'] < role['balance']:
                 embed = create_embed(

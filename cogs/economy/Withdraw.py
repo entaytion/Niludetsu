@@ -14,7 +14,16 @@ class Withdraw(commands.Cog):
                       amount: int):
         user_id = str(interaction.user.id)
 
-        user_data = get_user(user_id)
+        user_data = get_user(self.client, user_id)
+
+        if amount <= 0:
+            embed = create_embed(
+                title="Ошибка.",
+                description="Сумма снятия не может быть 0 или отрицательной.",
+                footer=FOOTER_ERROR
+            )
+            await interaction.response.send_message(embed=embed)
+            return
 
         if user_data['deposit'] < amount:
             embed = create_embed(
@@ -33,7 +42,8 @@ class Withdraw(commands.Cog):
         deposit = user_data['deposit']
         balance = user_data['balance']
         embed = create_embed(
-            description=f"Вы вывели {amount} <:aeMoney:1266066622561517781> с депозита. Ваш баланс: {balance} <:aeMoney:1266066622561517781>.\nВаш депозит: {deposit} <:aeMoney:1266066622561517781>.",
+            title="Снятие с депозита.",
+            description=f"Вы вывели {amount} <:aeMoney:1266066622561517781> с депозита.\nВаш баланс: {balance} <:aeMoney:1266066622561517781>.\nВаш депозит: {deposit} <:aeMoney:1266066622561517781>.",
             footer=FOOTER_SUCCESS
         )
         await interaction.response.send_message(embed=embed)

@@ -14,7 +14,7 @@ class Music(commands.Cog):
         self.bot = bot
         self.node = None
         self.repeating = {}
-        self.nightcore_enabled = {}  # Словник для відстеження стану Nightcore для кожного сервера
+        self.nightcore_enabled = {}
         bot.loop.create_task(self.connect_nodes())
         
         bot.event(self.on_wavelink_track_end)
@@ -585,12 +585,10 @@ class Music(commands.Cog):
         
         if not player:
             return
-            
         
         if self.repeating.get(player.guild.id):
             await player.play(payload.track)
             return
-            
         
         if player.queue:
             next_track = await player.queue.get_wait()
@@ -603,14 +601,12 @@ class Music(commands.Cog):
         
         if not player or not track:
             return
-            
         
         embed = create_embed(
             title="🎵 Сейчас играет:",
             description=f"**{track.title}**\nИсполнитель: {track.author}",
             footer=FOOTER_SUCCESS
         )
-        
         
         if hasattr(player, 'home'):
             await player.home.send(embed=embed)

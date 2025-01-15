@@ -13,12 +13,28 @@ class Pay(commands.Cog):
         sender_id = str(interaction.user.id)
         receiver_id = str(user.id)
 
-        sender = get_user(sender_id)
-        receiver = get_user(receiver_id)
-
-        if amount < 0:
+        if user.bot:
             embed = create_embed(
-                description="Сумма должна быть неотрицательной.",
+                description="Нельзя переводить деньги ботам.",
+                footer=FOOTER_ERROR
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+
+        if interaction.user.id == user.id:
+            embed = create_embed(
+                description="Нельзя переводить деньги самому себе.",
+                footer=FOOTER_ERROR
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+
+        sender = get_user(self.client, sender_id)
+        receiver = get_user(self.client, receiver_id)
+
+        if amount <= 0:
+            embed = create_embed(
+                description="Сумма должна быть положительной.",
                 footer=FOOTER_ERROR
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)

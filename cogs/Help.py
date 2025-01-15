@@ -62,6 +62,7 @@ class Help(commands.Cog):
                             "<:aeOutlineDot:1266066158029770833> `/pay [user] [amount]` — перевести деньги.\n"
                             "<:aeOutlineDot:1266066158029770833> `/leaderboard` — посмотреть топ юзеров по деньгам.\n"
                             "<:aeOutlineDot:1266066158029770833> `/casino [bet] [amount]` — играть в казино.\n"
+                            "<:aeOutlineDot:1266066158029770833> `/blackjack [bet]` — играть в блекджек.\n"
                             "<:aeOutlineDot:1266066158029770833> `/rob [user]` — украсть деньги с кошелька (кулдаун: `5 минут`).\n",
                 footer={
                     'text': "Справочник по командам из раздела \"Экономика\"",
