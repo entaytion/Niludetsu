@@ -57,7 +57,13 @@ class Help(commands.Cog):
                               "<:aeOutlineDot:1266066158029770833> `/blackjack [bet]` — играть в блекджек.\n"
                               "<:aeOutlineDot:1266066158029770833> `/rob [user]` — украсть деньги с кошелька (кулдаун: `5 минут`).\n",
                 "footer": "Справочник по командам из раздела \"Экономика\""
-            }
+            },
+            "moderation": {
+                "title": "Команды для модерации // unreleased",
+                "description": "<:aeOutlineDot:1266066158029770833> `/lock` — заблокировать канал/ы.\n"
+                              "<:aeOutlineDot:1266066158029770833> `/unlock` — разблокировать канал/ы.",
+                "footer": "Справочник по командам для модерации"
+            }   
         }
 
         if category is None:

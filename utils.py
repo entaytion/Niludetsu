@@ -2,9 +2,7 @@ import discord
 import sqlite3
 import os
 from discord import Embed, Colour
-
-USERS_DB = 'config/users.db'
-ROLES_DB = 'config/roles.db'
+DB_PATH = 'config/database.db'
 
 # --- EMBEDS ---
 def create_embed(title=None, description=None, color=0xf20c3c, fields=None, footer=None, image_url=None, author=None, url=None, timestamp=None):
@@ -36,32 +34,49 @@ FOOTER_ERROR = {
 
 # --- DATABASE ---
 def initialize_db():
-    if not os.path.exists(USERS_DB):
-        with sqlite3.connect(USERS_DB) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    user_id TEXT PRIMARY KEY,
-                    balance INTEGER,
-                    deposit INTEGER,
-                    last_daily TEXT,
-                    last_work TEXT,
-                    last_rob TEXT,
-                    xp INTEGER,
-                    level INTEGER,
-                    spouse TEXT,
-                    marriage_date TEXT
-                )
-            ''')
-            conn.commit()
+    if not os.path.exists('config'):
+        os.makedirs('config')
+        
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        
+        # --- USERS ---
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                user_id TEXT PRIMARY KEY,
+                balance INTEGER,
+                deposit INTEGER,
+                last_daily TEXT,
+                last_work TEXT, 
+                last_rob TEXT,
+                xp INTEGER,
+                level INTEGER,
+                spouse TEXT,
+                marriage_date TEXT
+            )
+        ''')
+        
+        # --- ROLES ---
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS roles (
+                role_id INTEGER PRIMARY KEY,
+                name TEXT,
+                balance INTEGER,
+                description TEXT,
+                discord_role_id INTEGER
+            )
+        ''')
+        
+        conn.commit()
+
 initialize_db()
 
 def get_user(bot, user_id):
     member = bot.get_user(int(user_id))
     if member and member.bot and member.id != 1264591814208262154:
-        return None  # Если это бот, вернем None
+        return None
         
-    with sqlite3.connect(USERS_DB) as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute('SELECT * FROM users WHERE user_id = ?', (user_id,))
         user = cursor.fetchone()
@@ -70,18 +85,7 @@ def get_user(bot, user_id):
             cursor.execute('''
                 INSERT INTO users (user_id, balance, deposit, last_daily, last_work, last_rob, xp, level, spouse, marriage_date)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                user_id,
-                0,  # Начальное значение balance
-                0,  # Начальное значение deposit
-                None,  # Начальное значение last_daily
-                None,  # Начальное значение last_work
-                None,  # Начальное значение last_rob
-                0,  # Начальное значение xp
-                0,   # Начальное значение level
-                None,  # Начальное значение spouse
-                None   # Начальное значение marriage_date
-            ))
+            ''', (user_id, 0, 0, None, None, None, 0, 0, None, None))
             conn.commit()
             cursor.execute('SELECT * FROM users WHERE user_id = ?', (user_id,))
             user = cursor.fetchone()
@@ -89,7 +93,7 @@ def get_user(bot, user_id):
         return dict(zip([column[0] for column in cursor.description], user))
 
 def save_user(user_id, user_data):
-    with sqlite3.connect(USERS_DB) as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE users
@@ -109,38 +113,18 @@ def save_user(user_id, user_data):
         ))
         conn.commit()
 
-# Создание базы данных и таблицы ролей
-def initialize_db_roles():
-    if not os.path.exists(ROLES_DB):
-        with sqlite3.connect(ROLES_DB) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS roles (
-                    role_id INTEGER PRIMARY KEY,
-                    name TEXT,
-                    balance INTEGER,
-                    description TEXT,
-                    discord_role_id INTEGER
-                )
-            ''')
-            conn.commit()
-initialize_db_roles()
-
-# Метод для получения всех ролей
 def load_roles():
-    with sqlite3.connect(ROLES_DB) as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute('SELECT * FROM roles')
         roles = cursor.fetchall()
         return [dict(zip([column[0] for column in cursor.description], role)) for role in roles]
 
-# Метод для получения роли по ID
 def get_role_by_id(role_id):
-    with sqlite3.connect(ROLES_DB) as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute('SELECT * FROM roles WHERE role_id = ?', (role_id,))
         role = cursor.fetchone()
-  
         if role:
             return dict(zip([column[0] for column in cursor.description], role))
         return None

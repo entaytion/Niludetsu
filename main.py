@@ -66,6 +66,16 @@ async def load_cogs():
             except Exception as e:
                 print(f"Failed to load fun {f[:-3]}: {e}")
 
+    for f in os.listdir("./cogs/moderation"):
+        if f.endswith(".py"):
+            try:
+                module = importlib.import_module(f"cogs.moderation.{f[:-3]}")
+                if hasattr(module, 'setup'):
+                    await module.setup(bot)
+                print(f"Loaded moderation: {f[:-3]}")
+            except Exception as e:
+                print(f"Failed to load moderation {f[:-3]}: {e}")
+
 with open('config.json', 'r') as f:
     config = json.load(f)
     TOKEN = config['TOKEN'] 

@@ -1,0 +1,81 @@
+import discord
+from discord import app_commands
+from discord.ext import commands
+from typing import Optional
+from utils import create_embed, FOOTER_SUCCESS, FOOTER_ERROR
+
+class Lock(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    @app_commands.command(name="lock", description="Заблокировать канал или все каналы")
+    @app_commands.default_permissions(manage_channels=True)
+    @app_commands.describe(
+        channel="Канал для блокировки (оставьте пустым для текущего канала)",
+        all_channels="Заблокировать все каналы"
+    )
+    async def lock(
+        self, 
+        interaction: discord.Interaction, 
+        channel: Optional[discord.TextChannel] = None,
+        all_channels: bool = False
+    ):
+        try:
+            if not interaction.user.guild_permissions.manage_channels:
+                if not interaction.response.is_done():
+                    return await interaction.response.send_message(
+                        embed=create_embed(
+                            description="У вас нет прав на управление каналами!",
+                            footer=FOOTER_ERROR
+                        ),
+                        ephemeral=True
+                    )
+
+            if all_channels:
+                success_count = 0
+                failed_count = 0
+                for ch in interaction.guild.channels:
+                    try:
+                        overwrites = ch.overwrites_for(interaction.guild.default_role)
+                        overwrites.connect = False
+                        overwrites.send_messages = False
+                        await ch.set_permissions(interaction.guild.default_role, overwrite=overwrites)
+                        success_count += 1
+                    except:
+                        failed_count += 1
+                
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(
+                        embed=create_embed(
+                            description=f"Заблокировано {success_count} каналов\nНе удалось заблокировать {failed_count} каналов",
+                            footer=FOOTER_SUCCESS
+                        )
+                    )
+            else:
+                target_channel = channel or interaction.channel
+                overwrites = target_channel.overwrites_for(interaction.guild.default_role)
+                overwrites.connect = False
+                overwrites.send_messages = False
+                await target_channel.set_permissions(interaction.guild.default_role, overwrite=overwrites)
+                
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(
+                        embed=create_embed(
+                            description=f"Канал {target_channel.mention} заблокирован",
+                            footer=FOOTER_SUCCESS
+                        )
+                    )
+
+        except Exception as e:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    embed=create_embed(
+                        description="Произошла ошибка при выполнении команды!",
+                        footer=FOOTER_ERROR
+                    ),
+                    ephemeral=True
+                )
+            print(f"Ошибка в команде lock: {e}")
+
+async def setup(bot):
+    await bot.add_cog(Lock(bot))

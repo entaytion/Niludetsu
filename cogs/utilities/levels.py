@@ -19,7 +19,7 @@ class LevelSystem(commands.Cog):
 
     async def check_voice_channels(self):
         for guild in self.bot.guilds:
-            text_channel_id = 1125546968517726228  # ID текстового каналу для сповіщень
+            text_channel_id = 1125546970522583070  # ID текстового каналу для сповіщень
             text_channel = guild.get_channel(text_channel_id)
             if not text_channel:
                 continue

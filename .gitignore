@@ -1,7 +1,6 @@
 # Конфіденційні дані
 config.json
-config/roles.db
-config/users.db
+config/database.db
 config/level_image.png
 lavalink_config.json
 

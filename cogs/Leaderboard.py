@@ -2,14 +2,15 @@ import discord
 from discord.ext import commands
 from discord import Interaction
 from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS
+from typing import Literal
 
 class Leaderboard(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
     @discord.app_commands.command(name="leaderboard", description="Показать топ пользователей")
-    @discord.app_commands.describe(category="Категория для сортировки (level или money)")
-    async def leaderboard(self, interaction: Interaction, category: str):
+    @discord.app_commands.describe(category="Категория для сортировки")
+    async def leaderboard(self, interaction: Interaction, category: Literal['level', 'money']):
         await interaction.response.defer()
 
         bot_id = '1264591814208262154'

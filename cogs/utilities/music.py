@@ -3,11 +3,10 @@ from discord.ext import commands
 import wavelink
 from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS
 import json
+import random
 
 with open('lavalink_config.json', 'r') as f:
     LAVALINK_SERVER = json.load(f)
-    
-import random
 
 class Music(commands.Cog):
     def __init__(self, bot):
