@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import Interaction
-from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS, EMOJIS
 from typing import Literal
 
 class Leaderboard(commands.Cog):
@@ -50,7 +50,7 @@ class Leaderboard(commands.Cog):
 
         # Если категория "money", добавляем информацию о балансе бота
         if category == "money":
-            treasury_info = f"<:aeOutlineDot:1266066158029770833> Баланс: **`{bot_balance['balance']}`** <:aeMoney:1266066622561517781>"
+            treasury_info = f"{EMOJIS['DOT']} Баланс: **`{bot_balance['balance']}`** {EMOJIS['MONEY']}"
             embed.add_field(name="Казна сервера", value=treasury_info, inline=False)
 
         # Добавляем топ-10 пользователей в embed
@@ -60,7 +60,7 @@ class Leaderboard(commands.Cog):
                 total_amount = user_data['balance'] + user_data['deposit']
                 embed.add_field(
                     name=f"{i}. {member_mention}",
-                    value=f"Наличные: **`{user_data['balance']}`** <:aeMoney:1266066622561517781> | Банк: **`{user_data['deposit']}`** <:aeMoney:1266066622561517781> | Всего: **`{total_amount}`** <:aeMoney:1266066622561517781>",
+                    value=f"Наличные: **`{user_data['balance']}`** {EMOJIS['MONEY']} | Банк: **`{user_data['deposit']}`** {EMOJIS['MONEY']} | Всего: **`{total_amount}`** {EMOJIS['MONEY']}",
                     inline=False
                 )
             elif category == "level":

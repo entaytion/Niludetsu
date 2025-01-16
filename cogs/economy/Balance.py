@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS, EMOJIS
 
 class Balance(commands.Cog):
     def __init__(self, bot):
@@ -29,7 +29,7 @@ class Balance(commands.Cog):
                 balance = user_data.get('balance', 0)
                 deposit = user_data.get('deposit', 0)
                 embed = create_embed(
-                    description=f"<:aeOutlineDot:1266066158029770833> **Наличные**: {balance} <:aeMoney:1266066622561517781>\n<:aeOutlineDot:1266066158029770833> **В банке:** {deposit} <:aeMoney:1266066622561517781>",
+                    description=f"{EMOJIS['DOT']} **Наличные**: {balance} {EMOJIS['MONEY']}\n{EMOJIS['DOT']} **В банке:** {deposit} {EMOJIS['MONEY']}",
                     author={'name': f"Баланс пользователя {user.name}:", 'icon_url': user.avatar.url})
                 await interaction.response.send_message(embed=embed)
             else:
@@ -59,7 +59,7 @@ class Balance(commands.Cog):
             save_user(user_id, user_data)
             embed = create_embed(
                 title="Баланс обновлён.",
-                description=f"Теперь баланс {user.mention} стал {amount} <:aeMoney:1266066622561517781>.",
+                description=f"Теперь баланс {user.mention} стал {amount} {EMOJIS['MONEY']}.",
                 footer=FOOTER_SUCCESS
             )
             await interaction.response.send_message(embed=embed)
@@ -69,7 +69,7 @@ class Balance(commands.Cog):
             save_user(user_id, user_data)
             embed = create_embed(
                 title="Баланс обновлён.",
-                description=f"Теперь на баланс {user.mention} добавлено {amount} <:aeMoney:1266066622561517781>.",
+                description=f"Теперь на баланс {user.mention} добавлено {amount} {EMOJIS['MONEY']}.",
                 footer=FOOTER_SUCCESS
             )
             await interaction.response.send_message(embed=embed)
@@ -79,7 +79,7 @@ class Balance(commands.Cog):
             save_user(user_id, user_data)
             embed = create_embed(
                 title="Баланс обновлён.",
-                description=f"Теперь с баланса {user.mention} снято {amount} <:aeMoney:1266066622561517781>.",
+                description=f"Теперь с баланса {user.mention} снято {amount} {EMOJIS['MONEY']}.",
                 footer=FOOTER_SUCCESS
             )
             await interaction.response.send_message(embed=embed)

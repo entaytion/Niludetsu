@@ -47,6 +47,8 @@ class Help(commands.Cog):
             "economy": {
                 "title": "Команды экономики",
                 "description": "<:aeOutlineDot:1266066158029770833> `/balance <user>` — проверить баланс.\n"
+                              "<:aeOutlineDot:1266066158029770833> `/shop` — просмотреть магазин.\n"
+                              "<:aeOutlineDot:1266066158029770833> `/sell` — продать роль.\n"
                               "<:aeOutlineDot:1266066158029770833> `/deposit [amount]` — перевести деньги в банк.\n"
                               "<:aeOutlineDot:1266066158029770833> `/withdraw [amount]` — снять деньги из банка.\n"
                               "<:aeOutlineDot:1266066158029770833> `/daily` — получить дневную награду (кулдаун: `24 часа`).\n"
@@ -57,6 +59,12 @@ class Help(commands.Cog):
                               "<:aeOutlineDot:1266066158029770833> `/blackjack [bet]` — играть в блекджек.\n"
                               "<:aeOutlineDot:1266066158029770833> `/rob [user]` — украсть деньги с кошелька (кулдаун: `5 минут`).\n",
                 "footer": "Справочник по командам из раздела \"Экономика\""
+            },
+            "profile": {
+                "title": "Команды профиля",
+                "description": "<:aeOutlineDot:1266066158029770833> `/level <user>` — проверить уровень.\n"
+                              "<:aeOutlineDot:1266066158029770833> `/inventory` — просмотреть инвентарь.\n",
+                "footer": "Справочник по командам из раздела \"Профиль\""
             },
             "moderation": {
                 "title": "Команды для модерации // unreleased",

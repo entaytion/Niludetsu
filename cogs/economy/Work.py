@@ -3,7 +3,7 @@ import random
 from datetime import datetime, timedelta
 from discord import Interaction
 from discord.ext import commands
-from utils import get_user, save_user, create_embed, FOOTER_SUCCESS, FOOTER_ERROR
+from utils import get_user, save_user, create_embed, FOOTER_SUCCESS, FOOTER_ERROR, EMOJIS
 
 class Work(commands.Cog):
     def __init__(self, client):
@@ -66,20 +66,20 @@ class Work(commands.Cog):
             wallet_amount = random.randint(5000, 15000)
             embed = create_embed(
                 title="Удача!",
-                description=f"Вы нашли кошелек на улице и получили {wallet_amount} <:aeMoney:1266066622561517781>!",
+                description=f"Вы нашли кошелек на улице и получили {wallet_amount} {EMOJIS['MONEY']}!",
             )
             user_data['balance'] += wallet_amount
         elif chance <= 50:  # штраф
             fine_amount = random.randint(100, 500)
             embed = create_embed(
                 title="Штраф.",
-                description=f"Вас оштрафовали на {fine_amount} <:aeMoney:1266066622561517781>!",
+                description=f"Вас оштрафовали на {fine_amount} {EMOJIS['MONEY']}!",
             )
             user_data['balance'] -= fine_amount
         else:  # обычная работа
             embed = create_embed(
                 title="Работа",
-                description=f"Вы поработали **{job}** и получили {amount} <:aeMoney:1266066622561517781>!",
+                description=f"Вы поработали **{job}** и получили {amount} {EMOJIS['MONEY']}!",
             )
             user_data['balance'] += amount
 

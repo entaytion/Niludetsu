@@ -3,7 +3,7 @@ import random
 from datetime import datetime, timedelta
 from discord import Interaction
 from discord.ext import commands
-from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS, EMOJIS
 
 class Rob(commands.Cog):
     def __init__(self, client):
@@ -55,7 +55,7 @@ class Rob(commands.Cog):
             stolen_amount = random.uniform(0.01, victim_data['balance'])
             embed = create_embed(
                 title="Успех!",
-                description=f"Вы успешно украли у {user.mention} {stolen_amount:.2f} <:aeMoney:1266066622561517781>",
+                description=f"Вы успешно украли у {user.mention} {stolen_amount:.2f} {EMOJIS['MONEY']}",
                 footer=FOOTER_SUCCESS
             )
             author_data['balance'] += stolen_amount

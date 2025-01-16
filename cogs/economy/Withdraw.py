@@ -1,7 +1,7 @@
 import discord
 from discord import Interaction
 from discord.ext import commands
-from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS, EMOJIS
 
 class Withdraw(commands.Cog):
     def __init__(self, client):
@@ -43,7 +43,7 @@ class Withdraw(commands.Cog):
         balance = user_data['balance']
         embed = create_embed(
             title="Снятие с депозита.",
-            description=f"Вы вывели {amount} <:aeMoney:1266066622561517781> с депозита.\nВаш баланс: {balance} <:aeMoney:1266066622561517781>.\nВаш депозит: {deposit} <:aeMoney:1266066622561517781>.",
+            description=f"Вы вывели {amount} {EMOJIS['MONEY']} с депозита.\nВаш баланс: {balance} {EMOJIS['MONEY']}.\nВаш депозит: {deposit} {EMOJIS['MONEY']}.",
             footer=FOOTER_SUCCESS
         )
         await interaction.response.send_message(embed=embed)

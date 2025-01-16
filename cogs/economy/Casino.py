@@ -1,7 +1,7 @@
 import discord
 import random
 from discord.ext import commands
-from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS, EMOJIS
 
 class Casino(commands.Cog):
     def __init__(self, bot):
@@ -76,13 +76,16 @@ class Casino(commands.Cog):
         # Обновление баланса
         user_data['balance'] += winnings
         save_user(user_id, user_data)
+        description = (
+            f"{EMOJIS['DOT']} **Ваша ставка:** `{bet}`\n"
+            f"{EMOJIS['DOT']} **Выпавший результат:** `{result}`\n"
+            f"{EMOJIS['DOT']} **Выигрыш:** {winnings} {EMOJIS['MONEY']}\n"
+            f"{EMOJIS['DOT']} **Ваш баланс:** {user_data['balance']} {EMOJIS['MONEY']}"
+        )
 
         embed = create_embed(
             title="Казино \"NaibalovaNet\"",
-            description=f"<:aeOutlineDot:1266066158029770833> **Ваша ставка:** `{bet}`\n"
-                        f"<:aeOutlineDot:1266066158029770833> **Выпавший результат:** `{result}`\n"
-                        f"<:aeOutlineDot:1266066158029770833> **Выигрыш:** {winnings} <:aeMoney:1266066622561517781>\n"
-                        f"<:aeOutlineDot:1266066158029770833> **Ваш баланс:** {user_data['balance']} <:aeMoney:1266066622561517781>",
+            description=description,
             color=0xf20c3c
         )
         await interaction.response.send_message(embed=embed)

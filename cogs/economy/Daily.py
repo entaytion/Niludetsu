@@ -2,7 +2,7 @@ import discord
 import random
 from datetime import datetime, timedelta
 from discord.ext import commands
-from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS, EMOJIS
 
 class Daily(commands.Cog):
     def __init__(self, bot):
@@ -40,7 +40,7 @@ class Daily(commands.Cog):
         # Создаем и отправляем успешное сообщение
         embed = create_embed(
             title="Ежедневный бонус!",
-            description=f"Вы получили {reward_amount} <:aeMoney:1266066622561517781>! Ваш баланс: {user_data['balance']} <:aeMoney:1266066622561517781>.",
+            description=f"Вы получили {reward_amount} {EMOJIS['MONEY']}! Ваш баланс: {user_data['balance']} {EMOJIS['MONEY']}.",
             footer=FOOTER_SUCCESS
         )
         await interaction.response.send_message(embed=embed)

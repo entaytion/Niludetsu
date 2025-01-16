@@ -22,6 +22,15 @@ def create_embed(title=None, description=None, color=0xf20c3c, fields=None, foot
         embed.timestamp = timestamp
     return embed
 
+# --- EMOJIS ---
+EMOJIS = {
+    'DOT': '<:aeOutlineDot:1266066158029770833>',
+    'MONEY': '<:aeMoney:1266066622561517781>',
+    'SUCCESS': '<:aeSuccess:1266062451049365574>',
+    'ERROR': '<:aeError:1266062540052365343>'
+}
+
+# --- FOOTERS ---
 FOOTER_SUCCESS = {
     'text': "Операция выполнена успешно.",
     'icon_url': "https://cdn.discordapp.com/emojis/1266062451049365574.webp?size=64&quality=lossless"
@@ -52,9 +61,15 @@ def initialize_db():
                 xp INTEGER,
                 level INTEGER,
                 spouse TEXT,
-                marriage_date TEXT
+                marriage_date TEXT,
+                roles TEXT DEFAULT ''
             )
         ''')
+        
+        cursor.execute("PRAGMA table_info(users)")
+        columns = [column[1] for column in cursor.fetchall()]
+        if 'roles' not in columns:
+            cursor.execute('ALTER TABLE users ADD COLUMN roles TEXT DEFAULT ""')
         
         # --- ROLES ---
         cursor.execute('''
@@ -83,9 +98,10 @@ def get_user(bot, user_id):
         
         if user is None:
             cursor.execute('''
-                INSERT INTO users (user_id, balance, deposit, last_daily, last_work, last_rob, xp, level, spouse, marriage_date)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (user_id, 0, 0, None, None, None, 0, 0, None, None))
+                INSERT INTO users (user_id, balance, deposit, last_daily, last_work, 
+                                last_rob, xp, level, spouse, marriage_date, roles)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (user_id, 0, 0, None, None, None, 0, 0, None, None, ''))
             conn.commit()
             cursor.execute('SELECT * FROM users WHERE user_id = ?', (user_id,))
             user = cursor.fetchone()
@@ -97,7 +113,9 @@ def save_user(user_id, user_data):
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE users
-            SET balance = ?, deposit = ?, last_daily = ?, last_work = ?, last_rob = ?, xp = ?, level = ?, spouse = ?, marriage_date = ?
+            SET balance = ?, deposit = ?, last_daily = ?, last_work = ?, 
+                last_rob = ?, xp = ?, level = ?, spouse = ?, 
+                marriage_date = ?, roles = ?
             WHERE user_id = ?
         ''', (
             user_data.get('balance', 0),
@@ -109,6 +127,7 @@ def save_user(user_id, user_data):
             user_data.get('level', 0),
             user_data.get('spouse', None),
             user_data.get('marriage_date', None),
+            user_data.get('roles', ''),
             user_id
         ))
         conn.commit()
@@ -128,7 +147,70 @@ def get_role_by_id(role_id):
         if role:
             return dict(zip([column[0] for column in cursor.description], role))
         return None
-
+    
+def count_role_owners(role_id):
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT COUNT(*) FROM users 
+            WHERE roles LIKE ? 
+            OR roles LIKE ? 
+            OR roles LIKE ?
+            OR roles = ?
+        ''', (
+            f'%,{role_id},%',  # роль в середині списку
+            f'{role_id},%',    # роль на початку списку
+            f'%,{role_id}',    # роль в кінці списку
+            f'{role_id}'       # тільки одна роль
+        ))
+        return cursor.fetchone()[0]
+    
+def get_user_roles(user_id):
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT roles FROM users WHERE user_id = ?', (user_id,))
+        result = cursor.fetchone()
+        if result and result[0]:
+            # Фільтруємо пусті значення та конвертуємо в int
+            return [int(role_id) for role_id in result[0].split(',') if role_id.strip()]
+        return []
+    
+def add_role_to_user(user_id, role_id):
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        current_roles = get_user_roles(user_id)
+        
+        if role_id not in current_roles:
+            current_roles.append(role_id)
+            new_roles = ','.join(map(str, current_roles))
+            
+            cursor.execute('''
+                UPDATE users 
+                SET roles = ? 
+                WHERE user_id = ?
+            ''', (new_roles, user_id))
+            conn.commit()
+            return True
+        return False
+    
+def remove_role_from_user(user_id, role_id):
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        current_roles = get_user_roles(user_id)
+        
+        if role_id in current_roles:
+            current_roles.remove(role_id)
+            new_roles = ','.join(map(str, current_roles)) if current_roles else ''
+            
+            cursor.execute('''
+                UPDATE users 
+                SET roles = ? 
+                WHERE user_id = ?
+            ''', (new_roles, user_id))
+            conn.commit()
+            return True
+        return False
+    
 # --- LEVELING ---
 def calculate_next_level_xp(level):
     if level == 0:

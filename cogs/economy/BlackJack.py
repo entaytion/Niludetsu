@@ -1,8 +1,7 @@
 import discord
 from discord.ext import commands
 import random
-import asyncio
-from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS, get_user, save_user
+from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS, get_user, save_user, EMOJIS
 
 class BlackJack(commands.Cog):
     def __init__(self, bot):
@@ -158,12 +157,18 @@ class BlackJack(commands.Cog):
             user_data['balance'] += winnings
             save_user(str(interaction.user.id), user_data)
 
+        description = (
+            f"**Ваши карты:** {' '.join(game['player_hand'])} (Сумма: {player_value})\n"
+            f"**Карты дилера:** {' '.join(game['dealer_hand'])} (Сумма: {dealer_value})\n\n"
+            f"{result}\n"
+        )
+        
+        if winnings > 0:
+            description += f"{EMOJIS['DOT']} **Выигрыш:** {winnings} {EMOJIS['MONEY']}"
+
         embed = create_embed(
             title="Блекджек - Конец игры",
-            description=f"**Ваши карты:** {' '.join(game['player_hand'])} (Сумма: {player_value})\n"
-                       f"**Карты дилера:** {' '.join(game['dealer_hand'])} (Сумма: {dealer_value})\n\n"
-                       f"{result}\n"
-                       f"{'<:aeOutlineDot:1266066158029770833> **Выигрыш:** ' + str(winnings) + ' монет' if winnings > 0 else ''}",
+            description=description,
             footer=FOOTER_SUCCESS
         )
         

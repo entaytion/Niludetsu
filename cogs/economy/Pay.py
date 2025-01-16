@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS, EMOJIS
 
 class Pay(commands.Cog):
     def __init__(self, client):
@@ -56,7 +56,7 @@ class Pay(commands.Cog):
 
         embed = create_embed(
             title="Баланс обновлён.",
-            description=f"{interaction.user.mention} перевёл {user.mention} {amount} <:aeMoney:1266066622561517781>",
+            description=f"{interaction.user.mention} перевёл {user.mention} {amount} {EMOJIS['MONEY']}",
             footer=FOOTER_SUCCESS
         )
         await interaction.response.send_message(embed=embed)

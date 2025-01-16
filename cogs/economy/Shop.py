@@ -1,7 +1,7 @@
 import discord
 from discord import Interaction
 from discord.ext import commands
-from utils import load_roles, get_user, save_user, create_embed, FOOTER_SUCCESS, FOOTER_ERROR
+from utils import load_roles, get_user, save_user, create_embed, FOOTER_SUCCESS, FOOTER_ERROR, count_role_owners, add_role_to_user, get_user_roles, EMOJIS
 
 class Shop(commands.Cog):
     def __init__(self, client):
@@ -17,65 +17,92 @@ class Shop(commands.Cog):
 
             if id_role is None:
                 roles = load_roles()
-
+                description = "Основной список ролей:\n\n"
+                
+                for role in roles:
+                    owners = count_role_owners(role['role_id'])
+                    description += f"{EMOJIS['DOT']} **{role['name']}** | {role['balance']} {EMOJIS['MONEY']}\n"
+                    description += f"{role['description']}\n"
+                    description += f"👥 **Владельцев:** {owners}\n"
+                    description += f"🔑 **ID роли:** `{role['role_id']}`\n\n"
+                
                 embed = create_embed(
                     title="Магазин",
-                    description="Основной список ролей (бета-тест):\n\n" + "\n".join([
-                        f"<:aeOutlineDot:1266066158029770833> **{role['name']}** | {role['balance']} <:aeMoney:1266066622561517781>\n{role['description']}\n**Чтобы купить роль, напишите:** `/shop id_role:{role['role_id']}`\n"
-                        for role in roles
-                    ])
+                    description=description
+                )
+                await interaction.response.send_message(embed=embed)
+                return
+
+            # Покупка роли
+            roles = load_roles()
+            role = next((r for r in roles if r["role_id"] == id_role), None)
+
+            if role is None:
+                await interaction.response.send_message(
+                    embed=create_embed(
+                        description="Роль не найдена.",
+                        footer=FOOTER_ERROR
+                    )
+                )
+                return
+
+            guild = interaction.guild
+            if not guild:
+                await interaction.response.send_message("Сервер не найден.")
+                return
+
+            user_data = get_user(self.client, user_id)
+            if user_data['balance'] < role['balance']:
+                embed = create_embed(
+                    description="Недостаточно средств для покупки.",
+                    footer=FOOTER_ERROR
+                )
+                await interaction.response.send_message(embed=embed)
+                return
+
+            # Перевірка чи є вже роль у користувача
+            user_roles = get_user_roles(user_id)
+            if id_role in user_roles:
+                await interaction.response.send_message(
+                    embed=create_embed(
+                        description="У вас уже есть эта роль!",
+                        footer=FOOTER_ERROR
+                    )
+                )
+                return
+
+            # Додаємо роль користувачу
+            role_obj = guild.get_role(role['discord_role_id'])
+            if role_obj:
+                # Спочатку знімаємо гроші і додаємо Discord роль
+                user_data['balance'] -= role['balance']
+                await interaction.user.add_roles(role_obj, reason="Buy from shop")
+                
+                # Оновлюємо роль в базі даних
+                current_roles = user_data.get('roles', '')
+                if current_roles:
+                    new_roles = f"{current_roles},{id_role}"
+                else:
+                    new_roles = str(id_role)
+                
+                user_data['roles'] = new_roles
+                save_user(user_id, user_data)
+
+                embed = create_embed(
+                    description=f"Вы купили роль! Ваш баланс: {user_data['balance']} {EMOJIS['MONEY']}.",
+                    footer=FOOTER_SUCCESS
                 )
                 await interaction.response.send_message(embed=embed)
             else:
-                roles = load_roles()
-
-                role = next((r for r in roles if r["role_id"] == id_role), None)
-
-                if role is None:
-                    await interaction.response.send_message(
-                        embed=create_embed(
-                            description="Роль не найдена.",
-                            footer=FOOTER_ERROR
-                        )
-                    )
-                    return
-
-                guild = interaction.guild
-                if not guild:
-                    await interaction.response.send_message("Сервер не найден.")
-                    return
-
-                user_data = get_user(self.client, user_id)
-
-                if user_data['balance'] < role['balance']:
-                    embed = create_embed(
-                        description="Недостаточно средств для покупки.",
+                await interaction.response.send_message(
+                    embed=create_embed(
+                        description="Роль не найдена на сервере.",
                         footer=FOOTER_ERROR
                     )
-                    await interaction.response.send_message(embed=embed)
-                    return
+                )
 
-                user_data['balance'] -= role['balance']
-                save_user(user_id, user_data)
-
-                role_obj_id = role['discord_role_id']
-                member = interaction.user
-                role_obj = guild.get_role(role_obj_id)
-                if role_obj:
-                    await member.add_roles(role_obj, reason="Buy from shop")
-                    embed = create_embed(
-                        description="Вы купили роль! Ваш баланс: " + str(user_data['balance']) + " <:aeMoney:1266066622561517781>.",
-                        footer=FOOTER_SUCCESS
-                    )
-                    await interaction.response.send_message(embed=embed)
-                else:
-                    await interaction.response.send_message(
-                        embed=create_embed(
-                            description="Роль не найдена на сервере.",
-                            footer=FOOTER_ERROR
-                        )
-                    )
         except Exception as e:
+            print(f"Error in shop command: {e}")
             await interaction.response.send_message(
                 embed=create_embed(
                     description="Произошла ошибка при выполнении команды.",

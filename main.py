@@ -26,57 +26,27 @@ async def on_message(message):
     await bot.process_commands(message)
 
 async def load_cogs():
-    for f in os.listdir("./cogs"):
-        if f.endswith(".py"):
-            try:
-                module = importlib.import_module(f"cogs.{f[:-3]}")
-                if hasattr(module, 'setup'):
-                    await module.setup(bot)
-                print(f"Loaded: {f[:-3]}")
-            except Exception as e:
-                print(f"Failed to load {f[:-3]}: {e}")
+    cog_directories = [
+        "./cogs",
+        "./cogs/utilities",
+        "./cogs/economy", 
+        "./cogs/fun",
+        "./cogs/moderation"
+    ]
+    
+    for directory in cog_directories:
+        category = directory.split('/')[-1]
+        for f in os.listdir(directory):
+            if f.endswith(".py"):
+                try:
+                    module = importlib.import_module(f"{directory[2:].replace('/', '.')}.{f[:-3]}")
+                    if hasattr(module, 'setup'):
+                        await module.setup(bot)
+                    print(f"Loaded {category}: {f[:-3]}")
+                except Exception as e:
+                    print(f"Failed to load {category} {f[:-3]}: {e}")
 
-    for f in os.listdir("./cogs/utilities"):
-        if f.endswith(".py"):
-            try:
-                module = importlib.import_module(f"cogs.utilities.{f[:-3]}")
-                if hasattr(module, 'setup'):
-                    await module.setup(bot)
-                print(f"Loaded utility: {f[:-3]}")
-            except Exception as e:
-                print(f"Failed to load utility {f[:-3]}: {e}")
-
-    for f in os.listdir("./cogs/economy"):
-        if f.endswith(".py"):
-            try:
-                module = importlib.import_module(f"cogs.economy.{f[:-3]}")
-                if hasattr(module, 'setup'):
-                    await module.setup(bot)
-                print(f"Loaded economy: {f[:-3]}")
-            except Exception as e:
-                print(f"Failed to load economy {f[:-3]}: {e}")
-
-    for f in os.listdir("./cogs/fun"):
-        if f.endswith(".py"):
-            try:
-                module = importlib.import_module(f"cogs.fun.{f[:-3]}")
-                if hasattr(module, 'setup'):
-                    await module.setup(bot)
-                print(f"Loaded fun: {f[:-3]}")
-            except Exception as e:
-                print(f"Failed to load fun {f[:-3]}: {e}")
-
-    for f in os.listdir("./cogs/moderation"):
-        if f.endswith(".py"):
-            try:
-                module = importlib.import_module(f"cogs.moderation.{f[:-3]}")
-                if hasattr(module, 'setup'):
-                    await module.setup(bot)
-                print(f"Loaded moderation: {f[:-3]}")
-            except Exception as e:
-                print(f"Failed to load moderation {f[:-3]}: {e}")
-
-with open('config.json', 'r') as f:
+with open('config/config.json', 'r') as f:
     config = json.load(f)
     TOKEN = config['TOKEN'] 
 
@@ -84,24 +54,20 @@ async def create_default_files():
     if not os.path.exists('config'):
         os.makedirs('config')
         
-    if not os.path.exists('config/roles.db'):
-        open('config/roles.db', 'w').close()
-        
-    if not os.path.exists('config/users.db'):
-        open('config/users.db', 'w').close()
-        
-    if not os.path.exists('config.json'):
-        with open('config.json', 'w') as f:
-            json.dump({"TOKEN": "YOUR_BOT_TOKEN_HERE"}, f, indent=4)
-            
-    if not os.path.exists('lavalink_config.json'):
+    if not os.path.exists('config/database.db'):
+        open('config/database.db', 'w').close()
+                
+    if not os.path.exists('config/config.json'):
         default_config = {
+            "TOKEN": "YOUR_BOT_TOKEN_HERE",
+            "LAVALINK": {
             "host": "localhost",
-            "port": 2333,
+            "port": 2333, 
             "password": "youshallnotpass",
             "region": "europe"
+            }
         }
-        with open('lavalink_config.json', 'w') as f:
+        with open('config/config.json', 'w') as f:
             json.dump(default_config, f, indent=4)
 
 async def main():

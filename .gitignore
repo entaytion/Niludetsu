@@ -2,7 +2,6 @@
 config.json
 config/database.db
 config/level_image.png
-lavalink_config.json
 
 # Python
 __pycache__/

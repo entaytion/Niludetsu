@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS, EMOJIS
 
 class Deposit(commands.Cog):
     def __init__(self, bot):
@@ -37,7 +37,7 @@ class Deposit(commands.Cog):
         deposit = user_data['deposit']
         embed = create_embed(
             title="Пополнение депозита.",
-            description=f"Вы положили в депозит {amount} <:aeMoney:1266066622561517781>.\nВаш баланс: {balance} <:aeMoney:1266066622561517781>.\nВаш депозит: {deposit} <:aeMoney:1266066622561517781>.",
+            description=f"Вы положили в депозит {amount} {EMOJIS['MONEY']}.\nВаш баланс: {balance} {EMOJIS['MONEY']}.\nВаш депозит: {deposit} {EMOJIS['MONEY']}.",
             footer=FOOTER_SUCCESS
         )
         await interaction.response.send_message(embed=embed)

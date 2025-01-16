@@ -5,8 +5,8 @@ from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS
 import json
 import random
 
-with open('lavalink_config.json', 'r') as f:
-    LAVALINK_SERVER = json.load(f)
+with open('config/config.json', 'r') as f:
+    LAVALINK_SERVER = json.load(f)['LAVALINK']
 
 class Music(commands.Cog):
     def __init__(self, bot):
