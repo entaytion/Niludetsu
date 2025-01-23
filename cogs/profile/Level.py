@@ -6,12 +6,13 @@ import aiohttp
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import os
+import io
 
 class Level(commands.Cog):
     def __init__(self, client):
         self.client = client
-        self.font_path_regular = os.path.join(os.path.dirname(__file__), '..', 'config', 'fonts', 'TTNormsPro-Regular.ttf')
-        self.font_path_bold = os.path.join(os.path.dirname(__file__), '..', 'config', 'fonts', 'TTNormsPro-Bold.ttf')
+        self.font_path_regular = os.path.join('config', 'fonts', 'TTNormsPro-Regular.ttf')
+        self.font_path_bold = os.path.join('config', 'fonts', 'TTNormsPro-Bold.ttf')
 
     async def load_image_async(self, url: str) -> Image:
         async with aiohttp.ClientSession() as session:
@@ -104,9 +105,13 @@ class Level(commands.Cog):
                                   10,
                                   fill="#f20c3c") 
 
-            file_path = "config/level_image.png"
-            background.save(file_path)
-            await interaction.response.send_message(file=discord.File(file_path))
+            # Конвертуємо зображення в байти і відправляємо
+            with io.BytesIO() as image_binary:
+                background.image.save(image_binary, 'PNG')
+                image_binary.seek(0)
+                await interaction.response.send_message(
+                    file=discord.File(fp=image_binary, filename='level.png')
+                )
         except Exception as e:
             await interaction.response.send_message(f"Произошла ошибка: {str(e)}", ephemeral=True)
 

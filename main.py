@@ -14,24 +14,18 @@ async def on_ready():
     print("Syncing commands...")
     await bot.tree.sync()
     print("Commands synced successfully!")
-
-@bot.event
-async def on_message(message):
-    if message.author == bot.user:
-        return
-        
-    if message.content.startswith('mrtv!'):
-        print(f"Command detected: {message.content}")
-        
-    await bot.process_commands(message)
-
+    
 async def load_cogs():
     cog_directories = [
         "./cogs",
         "./cogs/utilities",
         "./cogs/economy", 
         "./cogs/fun",
-        "./cogs/moderation"
+        "./cogs/music",
+        "./cogs/moderation",
+        "./cogs/profile",
+        "./cogs/main",
+        "./cogs/utils"
     ]
     
     for directory in cog_directories:
@@ -61,10 +55,10 @@ async def create_default_files():
         default_config = {
             "TOKEN": "YOUR_BOT_TOKEN_HERE",
             "LAVALINK": {
-            "host": "localhost",
-            "port": 2333, 
-            "password": "youshallnotpass",
-            "region": "europe"
+                "host": "localhost",
+                "port": 2333,
+                "password": "youshallnotpass",
+                "region": "europe"
             }
         }
         with open('config/config.json', 'w') as f:
