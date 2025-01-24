@@ -3,7 +3,7 @@ from discord.ext import commands
 from PIL import Image, ImageDraw, ImageFont
 import io
 import aiohttp
-from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed
 import textwrap
 import os
 
@@ -91,8 +91,7 @@ class Quote(commands.Cog):
                 except:
                     await interaction.followup.send(
                         embed=create_embed(
-                            description="Не удалось найти сообщение с указанным ID!",
-                            footer=FOOTER_ERROR
+                            description="Не удалось найти сообщение с указанным ID!"
                         )
                     )
                     return
@@ -105,8 +104,7 @@ class Quote(commands.Cog):
                 if not reference_message:
                     await interaction.followup.send(
                         embed=create_embed(
-                            description="Используйте команду сразу после сообщения, которое хотите процитировать, или укажите ID сообщения!",
-                            footer=FOOTER_ERROR
+                            description="Используйте команду сразу после сообщения, которое хотите процитировать, или укажите ID сообщения!"
                         )
                     )
                     return
@@ -136,8 +134,7 @@ class Quote(commands.Cog):
             print(f"Error in quote command: {e}")
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Произошла ошибка при создании цитаты!",
-                    footer=FOOTER_ERROR
+                    description="Произошла ошибка при создании цитаты!"
                 )
             )
 

@@ -3,7 +3,7 @@ import random
 from datetime import datetime, timedelta
 from discord import Interaction
 from discord.ext import commands
-from utils import get_user, save_user, create_embed, FOOTER_SUCCESS, FOOTER_ERROR, EMOJIS
+from utils import get_user, save_user, create_embed, EMOJIS
 
 class Work(commands.Cog):
     def __init__(self, client):
@@ -17,8 +17,7 @@ class Work(commands.Cog):
         user_data = get_user(self.client, user_id)
         if user_data is None:
             embed = create_embed(
-                description="Пользователь не найден. Пожалуйста, зарегистрируйтесь сначала.",
-                footer=FOOTER_ERROR
+                description="Пользователь не найден. Пожалуйста, зарегистрируйтесь сначала."
             )
             await interaction.response.send_message(embed=embed)
             return
@@ -31,8 +30,7 @@ class Work(commands.Cog):
             hours, remainder = divmod(time_remaining, 3600)
             minutes, seconds = divmod(remainder, 60)
             embed = create_embed(
-                description=f"Следующий раз поработать можно будет через **`{int(minutes)}` минут и `{int(seconds)}` секунд.**",
-                footer=FOOTER_ERROR
+                description=f"Следующий раз поработать можно будет через **`{int(minutes)}` минут и `{int(seconds)}` секунд.**"
             )
             await interaction.response.send_message(embed=embed)
             return

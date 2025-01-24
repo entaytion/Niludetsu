@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import wavelink
-from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed
 from .Core import Core
 
 class Play(commands.Cog):
@@ -18,47 +18,44 @@ class Play(commands.Cog):
         if not interaction.user.voice:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы должны находиться в голосовом канале!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Вы должны находиться в голосовом канале!"
+                )
             )
             return
 
-        await interaction.response.defer(thinking=True)
-
+        # Проверяем доступность музыкального сервера сразу
         if not self.core.node or not wavelink.Pool.get_node():
-            await interaction.followup.send(
+            await interaction.response.send_message(
                 embed=create_embed(
-                    description="Музыкальный сервер недоступен. Попробуйте позже!",
-                    footer=FOOTER_ERROR
+                    description="Музыкальный сервер недоступен. Попробуйте позже!"
                 )
             )
             return
 
-        player = await self.core.get_player(interaction)
-        if not player:
-            await interaction.followup.send(
-                embed=create_embed(
-                    description="Ошибка подключения к голосовому каналу!",
-                    footer=FOOTER_ERROR
-                )
-            )
-            return
-
-        if not hasattr(player, 'home'):
-            player.home = interaction.channel
-
+        # Ищем треки до отложенного ответа
         try:
             tracks = await wavelink.Playable.search(query)
             if not tracks:
-                await interaction.followup.send(
+                await interaction.response.send_message(
                     embed=create_embed(
-                        description="По вашему запросу ничего не найдено!",
-                        footer=FOOTER_ERROR
+                        description="По вашему запросу ничего не найдено!"
                     )
                 )
                 return
+
+            await interaction.response.defer(thinking=True)
+            
+            player = await self.core.get_player(interaction)
+            if not player:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Ошибка подключения к голосовому каналу!"
+                    )
+                )
+                return
+
+            if not hasattr(player, 'home'):
+                player.home = interaction.channel
 
             track = tracks[0]
 
@@ -67,8 +64,7 @@ class Play(commands.Cog):
                 await interaction.followup.send(
                     embed=create_embed(
                         title="🎶 Добавлено в очередь:",
-                        description=f"**{track.title}**\nЗапросил: {interaction.user.mention}",
-                        footer=FOOTER_SUCCESS
+                        description=f"**{track.title}**\nЗапросил: {interaction.user.mention}"
                     )
                 )
             else:
@@ -76,16 +72,13 @@ class Play(commands.Cog):
                 await interaction.followup.send(
                     embed=create_embed(
                         title="🎵 Сейчас играет:",
-                        description=f"**{track.title}**\nЗапросил: {interaction.user.mention}",
-                        footer=FOOTER_SUCCESS
+                        description=f"**{track.title}**\nЗапросил: {interaction.user.mention}"
                     )
                 )
         except Exception as e:
-            print(f"Error in play command: {e}")
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Произошла ошибка при воспроизведении трека!",
-                    footer=FOOTER_ERROR
+                    description=f"Произошла ошибка при воспроизведении трека: {str(e)}"
                 )
             )
 

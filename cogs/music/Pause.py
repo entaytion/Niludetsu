@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import wavelink
-from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed
 from .Core import Core
 
 class Pause(commands.Cog):
@@ -21,20 +21,16 @@ class Pause(commands.Cog):
             if not player or not player.connected:
                 await interaction.followup.send(
                     embed=create_embed(
-                        description="Я не подключен к голосовому каналу!",
-                        footer=FOOTER_ERROR
-                    ),
-                    ephemeral=True
+                        description="Я не подключен к голосовому каналу!"
+                    )
                 )
                 return
 
             if not player.current:
                 await interaction.followup.send(
                     embed=create_embed(
-                        description="Сейчас ничего не играет!",
-                        footer=FOOTER_ERROR
-                    ),
-                    ephemeral=True
+                        description="Сейчас ничего не играет!"
+                    )
                 )
                 return
 
@@ -43,18 +39,15 @@ class Pause(commands.Cog):
             
             await interaction.followup.send(
                 embed=create_embed(
-                    description=f"Музыка {status}.",
-                    footer=FOOTER_SUCCESS
+                    description=f"Музыка {status}."
                 )
             )
         except Exception as e:
             print(f"Error in pause command: {e}")
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Произошла ошибка!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Произошла ошибка!"
+                )
             )
 
 async def setup(bot):

@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from utils import create_embed, FOOTER_SUCCESS, FOOTER_ERROR
+from utils import create_embed
 import random
 
 class Pat(commands.Cog):
@@ -27,16 +27,13 @@ class Pat(commands.Cog):
         if user.id == interaction.user.id:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы не можете погладить самого себя!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Вы не можете погладить самого себя!"
+                )
             )
             return
             
         embed = create_embed(
-            description=f"🤚 {interaction.user.mention} {random.choice(self.pat_messages)} {user.mention}!",
-            footer=FOOTER_SUCCESS
+            description=f"🤚 {interaction.user.mention} {random.choice(self.pat_messages)} {user.mention}!"
         )
         embed.set_image(url=random.choice(self.pat_gifs))
         

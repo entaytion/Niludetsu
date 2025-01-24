@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import wavelink
-from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed
 from .Core import Core
 
 class NowPlaying(commands.Cog):
@@ -20,8 +20,7 @@ class NowPlaying(commands.Cog):
         if not player or not player.playing:
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Сейчас ничего не играет!",
-                    footer=FOOTER_ERROR
+                    description="Сейчас ничего не играет!"
                 )
             )
             return
@@ -30,8 +29,7 @@ class NowPlaying(commands.Cog):
         if not track:
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Не удалось получить информацию о треке!",
-                    footer=FOOTER_ERROR
+                    description="Не удалось получить информацию о треке!"
                 )
             )
             return
@@ -58,8 +56,7 @@ class NowPlaying(commands.Cog):
 
         embed = create_embed(
             title="🎵 Сейчас играет:",
-            description=f"**{track.title}**\nИсполнитель: {track.author}",
-            footer=FOOTER_SUCCESS
+            description=f"**{track.title}**\nИсполнитель: {track.author}"
         )
         embed.add_field(
             name="🔊 Прогресс:",

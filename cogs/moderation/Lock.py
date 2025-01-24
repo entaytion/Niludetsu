@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from typing import Optional
-from utils import create_embed, FOOTER_SUCCESS, FOOTER_ERROR
+from utils import create_embed
 
 class Lock(commands.Cog):
     def __init__(self, bot):
@@ -25,10 +25,8 @@ class Lock(commands.Cog):
                 if not interaction.response.is_done():
                     return await interaction.response.send_message(
                         embed=create_embed(
-                            description="У вас нет прав на управление каналами!",
-                            footer=FOOTER_ERROR
-                        ),
-                        ephemeral=True
+                            description="У вас нет прав на управление каналами!"
+                        )
                     )
 
             if all_channels:
@@ -47,8 +45,7 @@ class Lock(commands.Cog):
                 if not interaction.response.is_done():
                     await interaction.response.send_message(
                         embed=create_embed(
-                            description=f"Заблокировано {success_count} каналов\nНе удалось заблокировать {failed_count} каналов",
-                            footer=FOOTER_SUCCESS
+                            description=f"Заблокировано {success_count} каналов\nНе удалось заблокировать {failed_count} каналов"
                         )
                     )
             else:
@@ -61,8 +58,7 @@ class Lock(commands.Cog):
                 if not interaction.response.is_done():
                     await interaction.response.send_message(
                         embed=create_embed(
-                            description=f"Канал {target_channel.mention} заблокирован",
-                            footer=FOOTER_SUCCESS
+                            description=f"Канал {target_channel.mention} заблокирован"
                         )
                     )
 
@@ -70,10 +66,8 @@ class Lock(commands.Cog):
             if not interaction.response.is_done():
                 await interaction.response.send_message(
                     embed=create_embed(
-                        description="Произошла ошибка при выполнении команды!",
-                        footer=FOOTER_ERROR
-                    ),
-                    ephemeral=True
+                        description="Произошла ошибка при выполнении команды!"
+                    )
                 )
             print(f"Ошибка в команде lock: {e}")
 

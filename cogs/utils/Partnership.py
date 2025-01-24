@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed
 import re
 
 class Partnership(commands.Cog):
@@ -13,8 +13,7 @@ class Partnership(commands.Cog):
     async def partnership(self, interaction: discord.Interaction, user: discord.Member, text: str):
         if interaction.user.id != 636570363605680139:
             embed = create_embed(
-                description="У вас нет прав для выполнения этой команды.",
-                footer=FOOTER_ERROR)
+                description="У вас нет прав для выполнения этой команды.")
             await interaction.response.send_message(embed=embed)
             return
         
@@ -27,8 +26,7 @@ class Partnership(commands.Cog):
                 guild = self.client.get_guild(guild_id)
                 if not guild:
                     embed = create_embed(
-                        description="Бот не находится на сервере, с которого вы пытаетесь получить сообщение.",
-                        footer=FOOTER_ERROR
+                        description="Бот не находится на сервере, с которого вы пытаетесь получить сообщение."
                     )
                     await interaction.response.send_message(embed=embed)
                     return
@@ -36,8 +34,7 @@ class Partnership(commands.Cog):
                 channel = guild.get_channel(channel_id)
                 if not channel:
                     embed = create_embed(
-                        description="Канал не найден.",
-                        footer=FOOTER_ERROR
+                        description="Канал не найден."
                     )
                     await interaction.response.send_message(embed=embed)
                     return
@@ -45,8 +42,7 @@ class Partnership(commands.Cog):
                 message = await channel.fetch_message(message_id)
                 if not message:
                     embed = create_embed(
-                        description="Сообщение не найдено.",
-                        footer=FOOTER_ERROR
+                        description="Сообщение не найдено."
                     )
                     await interaction.response.send_message(embed=embed)
                     return
@@ -55,15 +51,13 @@ class Partnership(commands.Cog):
                 cleaned_text = message.content
             except discord.Forbidden:
                 embed = create_embed(
-                    description="У бота нет прав для чтения сообщений в указанном канале.",
-                    footer=FOOTER_ERROR
+                    description="У бота нет прав для чтения сообщений в указанном канале."
                 )
                 await interaction.response.send_message(embed=embed)
                 return
             except Exception as e:
                 embed = create_embed(
-                    description=f"Произошла ошибка при получении сообщения: {str(e)}",
-                    footer=FOOTER_ERROR
+                    description=f"Произошла ошибка при получении сообщения: {str(e)}"
                 )
                 await interaction.response.send_message(embed=embed)
                 return
@@ -83,12 +77,11 @@ class Partnership(commands.Cog):
             embed = create_embed(
                 description=f"{cleaned_text}",
             )
-            await interaction.response.send_message("Сообщение о партнерстве отправлено!", ephemeral=True)
+            await interaction.response.send_message("Сообщение о партнерстве отправлено!")
             await interaction.channel.send(embed=embed)
         else:
             embed = create_embed(
-                description="Не найдена ссылка на Discord сервер в сообщении.",
-                footer=FOOTER_ERROR
+                description="Не найдена ссылка на Discord сервер в сообщении."
             )
             await interaction.response.send_message(embed=embed)
 

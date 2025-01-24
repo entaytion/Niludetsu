@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from utils import get_user, save_user, create_embed, FOOTER_SUCCESS, FOOTER_ERROR
+from utils import get_user, save_user, create_embed
 from datetime import datetime
 
 class Marry(commands.Cog):
@@ -14,20 +14,16 @@ class Marry(commands.Cog):
         if user.bot:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы не можете пожениться с ботом!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Вы не можете пожениться с ботом!"
+                )
             )
             return
 
         if user.id == interaction.user.id:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы не можете пожениться сами с собой!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Вы не можете пожениться сами с собой!"
+                )
             )
             return
 
@@ -37,30 +33,24 @@ class Marry(commands.Cog):
         if not author_data or not target_data:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Оба пользователя должны быть зарегистрированы!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Оба пользователя должны быть зарегистрированы!"
+                )
             )
             return
 
         if author_data.get('spouse'):
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы уже женаты!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Вы уже женаты!"
+                )
             )
             return
 
         if target_data.get('spouse'):
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Этот пользователь уже женат!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Этот пользователь уже женат!"
+                )
             )
             return
 
@@ -73,7 +63,7 @@ class Marry(commands.Cog):
             @discord.ui.button(label="Принять", style=discord.ButtonStyle.green)
             async def accept(self, button_interaction: discord.Interaction, button: discord.ui.Button):
                 if button_interaction.user.id != user.id:
-                    await button_interaction.response.send_message("Это не ваше предложение!", ephemeral=True)
+                    await button_interaction.response.send_message("Это не ваше предложение!")
                     return
                 self.value = True
                 self.stop()
@@ -84,7 +74,7 @@ class Marry(commands.Cog):
             @discord.ui.button(label="Отклонить", style=discord.ButtonStyle.red)
             async def decline(self, button_interaction: discord.Interaction, button: discord.ui.Button):
                 if button_interaction.user.id != user.id:
-                    await button_interaction.response.send_message("Это не ваше предложение!", ephemeral=True)
+                    await button_interaction.response.send_message("Это не ваше предложение!")
                     return
                 self.value = False
                 self.stop()
@@ -97,8 +87,7 @@ class Marry(commands.Cog):
             embed=create_embed(
                 title="💍 Предложение руки и сердца",
                 description=f"{interaction.user.mention} делает предложение {user.mention}!\n"
-                           f"У вас есть 60 секунд, чтобы ответить.",
-                footer=FOOTER_SUCCESS
+                           f"У вас есть 60 секунд, чтобы ответить."
             ),
             view=view
         )
@@ -109,8 +98,7 @@ class Marry(commands.Cog):
         if view.value is None:
             await interaction.edit_original_response(
                 embed=create_embed(
-                    description="Время на ответ вышло!",
-                    footer=FOOTER_ERROR
+                    description="Время на ответ вышло!"
                 ),
                 view=None
             )
@@ -145,16 +133,14 @@ class Marry(commands.Cog):
                 embed=create_embed(
                     title="💑 Поздравляем молодых!",
                     description=f"{interaction.user.mention} и {user.mention} теперь женаты!\n"
-                               f"Ваш общий банк: {joint_balance} <:aeMoney:1266066622561517781>",
-                    footer=FOOTER_SUCCESS
+                               f"Ваш общий банк: {joint_balance} <:aeMoney:1266066622561517781>"
                 ),
                 view=None
             )
         else:
             await interaction.edit_original_response(
                 embed=create_embed(
-                    description=f"{user.mention} отклонил(а) предложение {interaction.user.mention}!",
-                    footer=FOOTER_ERROR
+                    description=f"{user.mention} отклонил(а) предложение {interaction.user.mention}!"
                 ),
                 view=None
             )

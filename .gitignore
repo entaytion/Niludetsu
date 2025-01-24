@@ -1,7 +1,8 @@
 # Конфіденційні дані
 config.json
 config/database.db
-config/level_image.png
+config/words.json
+config/voice_channels.json
 
 # Python
 __pycache__/

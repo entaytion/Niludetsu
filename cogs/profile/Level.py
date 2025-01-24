@@ -52,14 +52,14 @@ class Level(commands.Cog):
             user = user or interaction.user
             
             if user.bot:
-                await interaction.response.send_message("Вы не можете использовать эту команду на ботов.", ephemeral=True)
+                await interaction.response.send_message("Вы не можете использовать эту команду на ботов.")
                 return
 
             user_id = str(user.id)
             user_data = get_user(self.client, user_id)
 
             if not user_data:
-                await interaction.response.send_message("Пользователь не найден в базе данных.", ephemeral=True)
+                await interaction.response.send_message("Пользователь не найден в базе данных.")
                 return
                 
             xp = user_data.get('xp', 0)
@@ -113,7 +113,7 @@ class Level(commands.Cog):
                     file=discord.File(fp=image_binary, filename='level.png')
                 )
         except Exception as e:
-            await interaction.response.send_message(f"Произошла ошибка: {str(e)}", ephemeral=True)
+            await interaction.response.send_message(f"Произошла ошибка: {str(e)}")
 
 async def setup(client):
     await client.add_cog(Level(client))

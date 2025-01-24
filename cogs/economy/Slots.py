@@ -3,7 +3,7 @@ from discord import Interaction, ButtonStyle
 from discord.ext import commands
 import random
 import asyncio
-from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS, get_user, save_user, EMOJIS
+from utils import create_embed, get_user, save_user, EMOJIS
 
 class SpinAgainButton(discord.ui.Button):
     def __init__(self, slots_instance, bet):
@@ -22,10 +22,8 @@ class SpinAgainNewBetButton(discord.ui.Button):
     async def callback(self, interaction: Interaction):
         await interaction.response.send_message(
             embed=create_embed(
-                description="Используйте команду `/slots` чтобы сделать новую ставку",
-                footer=FOOTER_SUCCESS
-            ),
-            ephemeral=True
+                description="Используйте команду `/slots` чтобы сделать новую ставку"
+            )
         )
 
 class SlotsView(discord.ui.View):
@@ -71,15 +69,13 @@ class Slots(commands.Cog):
                 if message:
                     await message.edit(
                         embed=create_embed(
-                            description=f"Недостаточно средств! У вас есть: {user_data['balance']} {EMOJIS['MONEY']}",
-                            footer=FOOTER_ERROR
+                            description=f"Недостаточно средств! У вас есть: {user_data['balance']} {EMOJIS['MONEY']}"
                         )
                     )
                 else:
                     await interaction.followup.send(
                         embed=create_embed(
-                            description=f"Недостаточно средств! У вас есть: {user_data['balance']} {EMOJIS['MONEY']}",
-                            footer=FOOTER_ERROR
+                            description=f"Недостаточно средств! У вас есть: {user_data['balance']} {EMOJIS['MONEY']}"
                         )
                     )
                 return
@@ -120,19 +116,14 @@ class Slots(commands.Cog):
                 description += f"**{EMOJIS['DOT']} Множитель:** x{multiplier}\n"
                 description += f"**{EMOJIS['DOT']} Выигрыш:** {winnings} {EMOJIS['MONEY']}\n"
                 description += f"**{EMOJIS['DOT']} Баланс:** {user_data['balance']} {EMOJIS['MONEY']}"
-                
-                footer = FOOTER_SUCCESS
             else:
                 description += f"**{EMOJIS['DOT']} К сожалению, вы проиграли!**\n"
                 description += f"**{EMOJIS['DOT']} Ставка:** {bet} {EMOJIS['MONEY']}\n"
                 description += f"**{EMOJIS['DOT']} Баланс:** {user_data['balance']} {EMOJIS['MONEY']}"
-                
-                footer = FOOTER_ERROR
 
             embed = create_embed(
                 title="🎰 Слот-машина",
-                description=description,
-                footer=footer
+                description=description
             )
 
             view = SlotsView(self, bet)
@@ -141,8 +132,7 @@ class Slots(commands.Cog):
         except Exception as e:
             print(f"Error in slots command: {e}")
             error_embed = create_embed(
-                description="Произошла ошибка при выполнении команды.",
-                footer=FOOTER_ERROR
+                description="Произошла ошибка при выполнении команды."
             )
             if message:
                 await message.edit(embed=error_embed)
@@ -155,8 +145,7 @@ class Slots(commands.Cog):
         if bet <= 0:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Ставка должна быть больше 0!",
-                    footer=FOOTER_ERROR
+                    description="Ставка должна быть больше 0!"
                 )
             )
             return
@@ -169,8 +158,7 @@ class Slots(commands.Cog):
         if isinstance(error, commands.MissingRequiredArgument):
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Пожалуйста, укажите сумму ставки: `/slots bet:сумма`",
-                    footer=FOOTER_ERROR
+                    description="Пожалуйста, укажите сумму ставки: `/slots bet:сумма`"
                 )
             )
 

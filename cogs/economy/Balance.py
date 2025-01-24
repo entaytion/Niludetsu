@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS, EMOJIS
+from utils import create_embed, get_user, save_user, EMOJIS
 
 class Balance(commands.Cog):
     def __init__(self, bot):
@@ -39,16 +39,14 @@ class Balance(commands.Cog):
         # Проверка прав
         if interaction.user.id != 636570363605680139:
             embed = create_embed(
-                description="У вас нет прав для выполнения этой команды.",
-                footer=FOOTER_ERROR)
+                description="У вас нет прав для выполнения этой команды.")
             await interaction.response.send_message(embed=embed)
             return
 
         # Проверка указания суммы
         if amount is None and action in ["set", "add", "del"]:
             embed = create_embed(
-                description="Не указана сумма для изменения баланса.",
-                footer=FOOTER_ERROR
+                description="Не указана сумма для изменения баланса."
             )
             await interaction.response.send_message(embed=embed)
             return
@@ -59,8 +57,7 @@ class Balance(commands.Cog):
             save_user(user_id, user_data)
             embed = create_embed(
                 title="Баланс обновлён.",
-                description=f"Теперь баланс {user.mention} стал {amount} {EMOJIS['MONEY']}.",
-                footer=FOOTER_SUCCESS
+                description=f"Теперь баланс {user.mention} стал {amount} {EMOJIS['MONEY']}."
             )
             await interaction.response.send_message(embed=embed)
 
@@ -69,8 +66,7 @@ class Balance(commands.Cog):
             save_user(user_id, user_data)
             embed = create_embed(
                 title="Баланс обновлён.",
-                description=f"Теперь на баланс {user.mention} добавлено {amount} {EMOJIS['MONEY']}.",
-                footer=FOOTER_SUCCESS
+                description=f"Теперь на баланс {user.mention} добавлено {amount} {EMOJIS['MONEY']}."
             )
             await interaction.response.send_message(embed=embed)
 
@@ -79,15 +75,13 @@ class Balance(commands.Cog):
             save_user(user_id, user_data)
             embed = create_embed(
                 title="Баланс обновлён.",
-                description=f"Теперь с баланса {user.mention} снято {amount} {EMOJIS['MONEY']}.",
-                footer=FOOTER_SUCCESS
+                description=f"Теперь с баланса {user.mention} снято {amount} {EMOJIS['MONEY']}."
             )
             await interaction.response.send_message(embed=embed)
 
         else:
             embed = create_embed(
-                description="Произошла какая-то мистическая ошибка, о которой даже не знает разработчик.",
-                footer=FOOTER_ERROR
+                description="Произошла какая-то мистическая ошибка, о которой даже не знает разработчик."
             )
             await interaction.response.send_message(embed=embed)
 

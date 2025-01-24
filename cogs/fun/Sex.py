@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from utils import create_embed, FOOTER_SUCCESS, FOOTER_ERROR, get_user
+from utils import create_embed, get_user
 import random
 
 class Sex(commands.Cog):
@@ -27,10 +27,8 @@ class Sex(commands.Cog):
         if user.id == interaction.user.id:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы не можете заниматься этим сами с собой!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Вы не можете заниматься этим сами с собой!"
+                )
             )
             return
 
@@ -39,10 +37,8 @@ class Sex(commands.Cog):
         if not author_data:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы не зарегистрированы в системе!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Вы не зарегистрированы в системе!"
+                )
             )
             return
 
@@ -53,10 +49,8 @@ class Sex(commands.Cog):
             
             await interaction.response.send_message(
                 embed=create_embed(
-                    description=f"Вы женаты с {spouse_mention}! Зрада это плохо!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description=f"Вы женаты с {spouse_mention}! Зрада это плохо!"
+                )
             )
             return
 
@@ -65,16 +59,13 @@ class Sex(commands.Cog):
         if target_data and target_data.get('spouse') and target_data['spouse'] != str(interaction.user.id):
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Этот пользователь уже в браке!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Этот пользователь уже в браке!"
+                )
             )
             return
             
         embed = create_embed(
-            description=f"💕 {interaction.user.mention} {random.choice(self.sex_messages)} {user.mention}!",
-            footer=FOOTER_SUCCESS
+            description=f"💕 {interaction.user.mention} {random.choice(self.sex_messages)} {user.mention}!"
         )
         embed.set_image(url=random.choice(self.sex_gifs))
         

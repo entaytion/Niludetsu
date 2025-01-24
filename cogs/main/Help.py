@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS, EMOJIS
+from utils import create_embed, EMOJIS
 
 class CategorySelect(discord.ui.Select):
     def __init__(self, categories):
@@ -30,10 +30,8 @@ class CategorySelect(discord.ui.Select):
         except discord.errors.NotFound:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Это меню устарело. Используйте `/help` еще раз!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Это меню устарело. Используйте `/help` еще раз!"
+                )
             )
 
 class AllCommandsButton(discord.ui.Button):
@@ -61,10 +59,8 @@ class AllCommandsButton(discord.ui.Button):
         except discord.errors.NotFound:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Это меню устарело. Используйте `/help` еще раз!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Это меню устарело. Используйте `/help` еще раз!"
+                )
             )
 
 class HelpView(discord.ui.View):
@@ -100,16 +96,19 @@ class Help(commands.Cog):
             "fun": {
                 "title": "Команды для развлечений",
                 "emoji": "🎮",
-                "commands": ["/marry", "/divorce", "/hug", "/kiss", "/slap", "/pat", "/sex", "/bite", "/cry"],
-                "description": f"{EMOJIS['DOT']} `/marry` — жениться на кого-то.\n"
-                              f"{EMOJIS['DOT']} `/divorce` — развестись с кем-то.\n"
-                              f"{EMOJIS['DOT']} `/hug` — обнять кого-то.\n"
-                              f"{EMOJIS['DOT']} `/kiss` — поцеловать кого-то.\n"
-                              f"{EMOJIS['DOT']} `/slap` — ударить кого-то.\n"
-                              f"{EMOJIS['DOT']} `/pat` — погладить кого-то.\n"
-                              f"{EMOJIS['DOT']} `/sex` — логично.\n"
-                              f"{EMOJIS['DOT']} `/bite` — укусить кого-то.\n"
-                              f"{EMOJIS['DOT']} `/cry` — заплакать.",
+                "commands": ["/marry", "/divorce", "/hug", "/kiss", "/slap", "/pat", "/sex", "/bite", "/cry", "/tictactoe", "/wordle", "/rps"],
+                "description": f"{EMOJIS['DOT']} `/marry [user]` — жениться на кого-то.\n"
+                              f"{EMOJIS['DOT']} `/divorce [user]` — развестись с кем-то.\n"
+                              f"{EMOJIS['DOT']} `/hug [user]` — обнять кого-то.\n"
+                              f"{EMOJIS['DOT']} `/kiss [user]` — поцеловать кого-то.\n"
+                              f"{EMOJIS['DOT']} `/slap [user]` — ударить кого-то.\n"
+                              f"{EMOJIS['DOT']} `/pat [user]` — погладить кого-то.\n"
+                              f"{EMOJIS['DOT']} `/sex [user]` — логично.\n"
+                              f"{EMOJIS['DOT']} `/bite [user]` — укусить кого-то.\n"
+                              f"{EMOJIS['DOT']} `/cry [user]` — заплакать.\n"
+                              f"{EMOJIS['DOT']} `/tictactoe [user]` — играть в крестики-нолики.\n"
+                              f"{EMOJIS['DOT']} `/wordle [user]` — играть в слова.\n"
+                              f"{EMOJIS['DOT']} `/rps [user]` — играть в камень, ножницы, бумага.",
                 "footer": "Справочник по командам для развлечений"
             },
             "music": {
@@ -132,10 +131,10 @@ class Help(commands.Cog):
                 "title": "Команды экономики",
                 "emoji": "💰",
                 "commands": ["/balance", "/shop", "/sell", "/slots", "/deposit", "/withdraw", "/daily", "/work", "/pay", "/leaderboard", "/casino", "/blackjack", "/rob"],
-                "description": f"{EMOJIS['DOT']} `/balance <user>` — проверить баланс.\n"
+                "description": f"{EMOJIS['DOT']} `/balance [user]` — проверить баланс.\n"
                               f"{EMOJIS['DOT']} `/shop` — просмотреть магазин.\n"
                               f"{EMOJIS['DOT']} `/sell` — продать роль.\n"
-                              f"{EMOJIS['DOT']} `/slots` — играть в слот-машину.\n"
+                              f"{EMOJIS['DOT']} `/slots [amount]` — играть в слот-машину.\n"
                               f"{EMOJIS['DOT']} `/deposit [amount]` — перевести деньги в банк.\n"
                               f"{EMOJIS['DOT']} `/withdraw [amount]` — снять деньги из банка.\n"
                               f"{EMOJIS['DOT']} `/daily` — получить дневную награду (кулдаун: `24 часа`).\n"
@@ -151,26 +150,36 @@ class Help(commands.Cog):
                 "title": "Команды профиля",
                 "emoji": "👤",
                 "commands": ["/level", "/inventory"],
-                "description": f"{EMOJIS['DOT']} `/level <user>` — проверить уровень.\n"
+                "description": f"{EMOJIS['DOT']} `/level [user]` — проверить уровень.\n"
                               f"{EMOJIS['DOT']} `/inventory` — просмотреть инвентарь.\n",
                 "footer": "Справочник по командам из раздела \"Профиль\""
             },
             "moderation": {
-                "title": "Команды для модерации // unreleased",
+                "title": "Команды для модерации",
                 "emoji": "🛡️",
-                "commands": ["/lock", "/unlock"],
-                "description": f"{EMOJIS['DOT']} `/lock` — заблокировать канал/ы.\n"
-                              f"{EMOJIS['DOT']} `/unlock` — разблокировать канал/ы.",
+                "commands": ["/lock", "/unlock", "/kick", "/ban", "/unban", "/warn", "/mute", "/unmute", "/clear", "/warns"],
+                "description": f"{EMOJIS['DOT']} `/lock [channel] / [all_channels]` — заблокировать канал/ы.\n"
+                              f"{EMOJIS['DOT']} `/unlock [channel] / [all_channels]` — разблокировать канал/ы.\n   "
+                              f"{EMOJIS['DOT']} `/kick [user] [reason]` — кикнуть кого-то.\n"
+                              f"{EMOJIS['DOT']} `/ban [user] [reason] [delete_days]` — забанить кого-то.\n"
+                              f"{EMOJIS['DOT']} `/unban [user]` — разбанить кого-то.\n"
+                              f"{EMOJIS['DOT']} `/warn [add/remove/clear] [user] <reason>` — предупредить кого-то.\n"
+                              f"{EMOJIS['DOT']} `/warns <user>` — посмотреть предупреждения.\n"
+                              f"{EMOJIS['DOT']} `/mute [user] [reason]` — замутить кого-то.\n"
+                              f"{EMOJIS['DOT']} `/unmute [user]` — размутить кого-то.\n"
+                              f"{EMOJIS['DOT']} `/clear [amount]` — очистить сообщения.\n",
                 "footer": "Справочник по командам для модерации"
             },
             "utils": {
                 "title": "Команды для утилит",
                 "emoji": "🧷",
-                "commands": ["/reminder create", "/reminder list", "/reminder delete", "/quote"],
-                "description": f"{EMOJIS['DOT']} `/reminder create` — создать напоминание.\n"
-                              f"{EMOJIS['DOT']} `/reminder list` — посмотреть список напоминаний.\n"
-                              f"{EMOJIS['DOT']} `/reminder delete` — удалить напоминание.",
-                              f"{EMOJIS['DOT']} `/quote` — сделать цитату."
+                "commands": ["/reminder", "/quote", "/weather", "/translate", "/poll", "/qr"],
+                "description": f"{EMOJIS['DOT']} `/reminder [create] / [list] / [delete]` — напоминания.\n"
+                              f"{EMOJIS['DOT']} `/quote` — сделать цитату.\n"
+                              f"{EMOJIS['DOT']} `/weather` — узнать погоду.\n"
+                              f"{EMOJIS['DOT']} `/translate` — перевести текст.\n"
+                              f"{EMOJIS['DOT']} `/poll` — создать опрос.\n"
+                              f"{EMOJIS['DOT']} `/qr` — создать QR-код.",
                 "footer": "Справочник по командам для утилит"
             },
         }

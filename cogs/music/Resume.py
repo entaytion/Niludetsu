@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import wavelink
-from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed
 from .Core import Core
 
 class Resume(commands.Cog):
@@ -21,38 +21,31 @@ class Resume(commands.Cog):
             if not player or not player.connected:
                 await interaction.followup.send(
                     embed=create_embed(
-                        description="Я не подключен к голосовому каналу!",
-                        footer=FOOTER_ERROR
-                    ),
-                    ephemeral=True
+                        description="Я не подключен к голосовому каналу!"
+                    )
                 )
                 return
 
             if not player.paused:
                 await interaction.followup.send(
                     embed=create_embed(
-                        description="Музыка уже играет!",
-                        footer=FOOTER_ERROR
-                    ),
-                    ephemeral=True
+                        description="Музыка уже играет!"
+                    )
                 )
                 return
 
             await player.pause(False)
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Воспроизведение продолжено.",
-                    footer=FOOTER_SUCCESS
+                    description="Воспроизведение продолжено."
                 )
             )
         except Exception as e:
             print(f"Error in resume command: {e}")
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Произошла ошибка!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Произошла ошибка!"
+                )
             )
 
 async def setup(bot):

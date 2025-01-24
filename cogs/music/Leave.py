@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import wavelink
-from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed
 from .Core import Core
 
 class Leave(commands.Cog):
@@ -21,28 +21,23 @@ class Leave(commands.Cog):
             if not player or not player.connected:
                 await interaction.followup.send(
                     embed=create_embed(
-                        description="Я не подключен к голосовому каналу!",
-                        footer=FOOTER_ERROR
-                    ),
-                    ephemeral=True
+                        description="Я не подключен к голосовому каналу!"
+                    )
                 )
                 return
                 
             await player.disconnect()
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Отключился от голосового канала.",
-                    footer=FOOTER_SUCCESS
+                    description="Отключился от голосового канала."
                 )
             )
         except Exception as e:
             print(f"Error in leave command: {e}")
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Произошла ошибка!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Произошла ошибка!"
+                )
             )
 
 async def setup(bot):

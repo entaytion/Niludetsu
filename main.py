@@ -14,7 +14,7 @@ async def on_ready():
     print("Syncing commands...")
     await bot.tree.sync()
     print("Commands synced successfully!")
-    
+
 async def load_cogs():
     cog_directories = [
         "./cogs",
@@ -54,12 +54,19 @@ async def create_default_files():
     if not os.path.exists('config/config.json'):
         default_config = {
             "TOKEN": "YOUR_BOT_TOKEN_HERE",
+            "WEATHER_API_KEY": "YOUR_WEATHER_API_KEY_HERE",
+            "DETECT_LANG_API_KEY": "YOUR_DETECT_LANG_API_KEY_HERE",
             "LAVALINK": {
                 "host": "localhost",
                 "port": 2333,
                 "password": "youshallnotpass",
                 "region": "europe"
-            }
+            },
+            "LOG_CHANNEL_ID": "ID",
+            "MOD_ROLE_ID": "ID",
+            "VOICE_CHANNEL_ID": "ID",
+            "VOICE_CHAT_ID": "ID",
+            "MESSAGE_VOICE_CHAT_ID": "ID"
         }
         with open('config/config.json', 'w') as f:
             json.dump(default_config, f, indent=4)

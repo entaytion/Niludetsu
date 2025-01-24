@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import wavelink
-from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed
 import json
 
 with open('config/config.json', 'r') as f:
@@ -36,7 +36,17 @@ class Core(commands.Cog):
             player = wavelink.Pool.get_node().get_player(interaction.guild.id)
             if player:
                 return player
-            return await interaction.user.voice.channel.connect(cls=wavelink.Player)
+            
+            voice_client = await interaction.user.voice.channel.connect(
+                self_deaf=True,
+                self_mute=False
+            )
+
+            if voice_client.guild.me.voice:
+                await voice_client.guild.me.edit(mute=False)
+            
+            player = wavelink.Player(voice_client)
+            return player
         except Exception as e:
             print(f"Error getting/creating player: {e}")
             return None
@@ -44,13 +54,11 @@ class Core(commands.Cog):
     async def is_connected(self, interaction: discord.Interaction) -> wavelink.Player | None:
         """Проверка подключения к голосовому каналу и получение плеера."""
         player = wavelink.Pool.get_node().get_player(interaction.guild.id)
-        if not player or not player.is_connected():
+        if not player or not player.connected:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Я не подключен к голосовому каналу!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Я не подключен к голосовому каналу!"
+                )
             )
             return None
         return player
@@ -61,19 +69,15 @@ class Core(commands.Cog):
         if not player or not player.is_connected():
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Я не подключен к голосовому каналу!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Я не подключен к голосовому каналу!"
+                )
             )
             return None
         if not player.playing:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Сейчас ничего не играет!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Сейчас ничего не играет!"
+                )
             )
             return None
         return player
@@ -103,8 +107,7 @@ class Core(commands.Cog):
         
         embed = create_embed(
             title="🎵 Сейчас играет:",
-            description=f"**{track.title}**\nИсполнитель: {track.author}",
-            footer=FOOTER_SUCCESS
+            description=f"**{track.title}**\nИсполнитель: {track.author}"
         )
         
         if hasattr(player, 'home'):
@@ -128,8 +131,7 @@ class Core(commands.Cog):
             if hasattr(player, 'home'):
                 await player.home.send(
                     embed=create_embed(
-                        description="Все вышли из канала. Отключаюсь...",
-                        footer=FOOTER_SUCCESS
+                        description="Все вышли из канала. Отключаюсь..."
                     )
                 )
 

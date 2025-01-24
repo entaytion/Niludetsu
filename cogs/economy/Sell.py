@@ -1,7 +1,7 @@
 import discord
 from discord import Interaction
 from discord.ext import commands
-from utils import load_roles, get_user, save_user, create_embed, FOOTER_SUCCESS, FOOTER_ERROR, remove_role_from_user, get_user_roles, get_role_by_id, EMOJIS
+from utils import load_roles, get_user, save_user, create_embed, remove_role_from_user, get_user_roles, get_role_by_id, EMOJIS
 from typing import List
 
 class Sell(commands.Cog):
@@ -34,8 +34,7 @@ class Sell(commands.Cog):
             user_roles = get_user_roles(user_id)
             if not user_roles:
                 embed = create_embed(
-                    description="У вас нет ролей, которые можно продать.",
-                    footer=FOOTER_ERROR
+                    description="У вас нет ролей, которые можно продать."
                 )
                 await interaction.response.send_message(embed=embed)
                 return
@@ -60,8 +59,7 @@ class Sell(commands.Cog):
 
         if role is None:
             embed = create_embed(
-                description="Роль не найдена!",
-                footer=FOOTER_ERROR
+                description="Роль не найдена!"
             )
             await interaction.response.send_message(embed=embed)
             return
@@ -69,8 +67,7 @@ class Sell(commands.Cog):
         user_roles = get_user_roles(user_id)
         if id_role not in user_roles:
             embed = create_embed(
-                description="У вас нет этой роли!",
-                footer=FOOTER_ERROR
+                description="У вас нет этой роли!"
             )
             await interaction.response.send_message(embed=embed)
             return
@@ -94,14 +91,12 @@ class Sell(commands.Cog):
             
             embed = create_embed(
                 title="Роль продана!",
-                description=f"Вы продали роль за {sale_price} {EMOJIS['MONEY']}. Ваш новый баланс: {user_data['balance']} {EMOJIS['MONEY']}.\nС продажи роли, 10% отправляется в **казну сервера**.",
-                footer=FOOTER_SUCCESS
+                description=f"Вы продали роль за {sale_price} {EMOJIS['MONEY']}. Ваш новый баланс: {user_data['balance']} {EMOJIS['MONEY']}.\nС продажи роли, 10% отправляется в **казну сервера**."
             )
             await interaction.response.send_message(embed=embed)
         else:
             embed = create_embed(
-                description="Роль не найдена на сервере.",
-                footer=FOOTER_ERROR
+                description="Роль не найдена на сервере."
             )
             await interaction.response.send_message(embed=embed)
 

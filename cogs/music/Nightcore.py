@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import wavelink
-from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed
 from .Core import Core
 
 class Nightcore(commands.Cog):
@@ -21,10 +21,8 @@ class Nightcore(commands.Cog):
             if not player or not player.connected:
                 await interaction.followup.send(
                     embed=create_embed(
-                        description="Я не подключен к голосовому каналу!",
-                        footer=FOOTER_ERROR
-                    ),
-                    ephemeral=True
+                        description="Я не подключен к голосовому каналу!"
+                    )
                 )
                 return
 
@@ -43,18 +41,15 @@ class Nightcore(commands.Cog):
             await player.set_filters(filters)
             await interaction.followup.send(
                 embed=create_embed(
-                    description=f"Эффект Nightcore {status}!",
-                    footer=FOOTER_SUCCESS
+                    description=f"Эффект Nightcore {status}!"
                 )
             )
         except Exception as e:
             print(f"Error in nightcore command: {e}")
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Произошла ошибка при установке эффекта!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Произошла ошибка при установке эффекта!"
+                )
             )
 
 async def setup(bot):

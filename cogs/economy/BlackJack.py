@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import random
-from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS, get_user, save_user, EMOJIS
+from utils import create_embed, get_user, save_user, EMOJIS
 
 class BlackJack(commands.Cog):
     def __init__(self, bot):
@@ -47,10 +47,8 @@ class BlackJack(commands.Cog):
         if bet <= 0:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Ставка должна быть больше 0!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Ставка должна быть больше 0!"
+                )
             )
             return
 
@@ -58,10 +56,8 @@ class BlackJack(commands.Cog):
         if not user_data or user_data['balance'] < bet:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="У вас недостаточно средств для такой ставки! Снимите деньги с банка командой /withdraw",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="У вас недостаточно средств для такой ставки! Снимите деньги с банка командой /withdraw"
+                )
             )
             return
 
@@ -83,8 +79,7 @@ class BlackJack(commands.Cog):
             title="Блекджек",
             description=f"**Ваши карты:** {' '.join(player_hand)} (Сумма: {self.calculate_hand(player_hand)})\n"
                        f"**Карты дилера:** {dealer_hand[0]} ?\n\n"
-                       "Выберите действие:",
-            footer=FOOTER_SUCCESS
+                       "Выберите действие:"
         )
 
         view = discord.ui.View()
@@ -106,8 +101,7 @@ class BlackJack(commands.Cog):
                     title="Блекджек",
                     description=f"**Ваши карты:** {' '.join(game['player_hand'])} (Сумма: {player_value})\n"
                                f"**Карты дилера:** {game['dealer_hand'][0]} ?\n\n"
-                               "Выберите действие:",
-                    footer=FOOTER_SUCCESS
+                               "Выберите действие:"
                 )
                 await interaction.response.edit_message(embed=embed, view=view)
 
@@ -167,9 +161,8 @@ class BlackJack(commands.Cog):
             description += f"{EMOJIS['DOT']} **Выигрыш:** {winnings} {EMOJIS['MONEY']}"
 
         embed = create_embed(
-            title="Блекджек - Конец игры",
-            description=description,
-            footer=FOOTER_SUCCESS
+            title="Конец игры",
+            description=description
         )
         
         del self.active_games[interaction.user.id]

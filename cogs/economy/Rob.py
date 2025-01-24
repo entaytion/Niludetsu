@@ -3,7 +3,7 @@ import random
 from datetime import datetime, timedelta
 from discord import Interaction
 from discord.ext import commands
-from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS, EMOJIS
+from utils import create_embed, get_user, save_user, EMOJIS
 
 class Rob(commands.Cog):
     def __init__(self, client):
@@ -18,24 +18,21 @@ class Rob(commands.Cog):
 
         if str(user.id) == '1264591814208262154':
             embed = create_embed(
-                description="Вы не можете украсть деньги у казны сервера.",
-                footer=FOOTER_ERROR
+                description="Вы не можете украсть деньги у казны сервера."
             )
             await interaction.response.send_message(embed=embed)
             return
 
         if interaction.user.id == user.id:
             embed = create_embed(
-                description="Вы не можете украсть деньги у самого себя.",
-                footer=FOOTER_ERROR
+                description="Вы не можете украсть деньги у самого себя."
             )
             await interaction.response.send_message(embed=embed)
             return
 
         if victim_data.get('balance', 0) <= 0:
             embed = create_embed(
-                description=f"У {user.mention} нету денег на балансе.",
-                footer=FOOTER_ERROR
+                description=f"У {user.mention} нету денег на балансе."
             )
             await interaction.response.send_message(embed=embed)
             return
@@ -44,8 +41,7 @@ class Rob(commands.Cog):
         if last_rob_time and datetime.utcnow() < datetime.fromisoformat(last_rob_time) + timedelta(minutes=5):
             minutes_left = (datetime.fromisoformat(last_rob_time) + timedelta(minutes=5) - datetime.utcnow()).seconds // 60
             embed = create_embed(
-                description=f"Вы не можете украсть деньги у {user.mention} еще {minutes_left} минут.",
-                footer=FOOTER_ERROR
+                description=f"Вы не можете украсть деньги у {user.mention} еще {minutes_left} минут."
             )
             await interaction.response.send_message(embed=embed)
             return
@@ -55,8 +51,7 @@ class Rob(commands.Cog):
             stolen_amount = random.uniform(0.01, victim_data['balance'])
             embed = create_embed(
                 title="Успех!",
-                description=f"Вы успешно украли у {user.mention} {stolen_amount:.2f} {EMOJIS['MONEY']}",
-                footer=FOOTER_SUCCESS
+                description=f"Вы успешно украли у {user.mention} {stolen_amount:.2f} {EMOJIS['MONEY']}"
             )
             author_data['balance'] += stolen_amount
             victim_data['balance'] -= stolen_amount
@@ -64,8 +59,7 @@ class Rob(commands.Cog):
             save_user(self.client, str(user.id), victim_data)
         else:
             embed = create_embed(
-                description=f"Не получилось украсть деньги у {user.mention}. Попробуйте еще раз.",
-                footer=FOOTER_ERROR
+                description=f"Не получилось украсть деньги у {user.mention}. Попробуйте еще раз."
             )
 
         author_data['last_rob'] = datetime.utcnow().isoformat()

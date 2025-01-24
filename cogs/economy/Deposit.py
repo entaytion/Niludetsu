@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS, EMOJIS
+from utils import create_embed, get_user, save_user, EMOJIS
 
 class Deposit(commands.Cog):
     def __init__(self, bot):
@@ -15,8 +15,7 @@ class Deposit(commands.Cog):
         if user_data['balance'] < amount:
             embed = create_embed(
                 title="Ошибка.",
-                description="У вас недостаточно средств для пополнения.",
-                footer=FOOTER_ERROR
+                description="У вас недостаточно средств для пополнения."
             )
             await interaction.response.send_message(embed=embed)
             return
@@ -24,8 +23,7 @@ class Deposit(commands.Cog):
         if amount <= 0:
             embed = create_embed(
                 title="Ошибка.",
-                description="Сумма пополнения не может быть 0 или отрицательной.",
-                footer=FOOTER_ERROR
+                description="Сумма пополнения не может быть 0 или отрицательной."
             )
             await interaction.response.send_message(embed=embed)
             return
@@ -37,8 +35,7 @@ class Deposit(commands.Cog):
         deposit = user_data['deposit']
         embed = create_embed(
             title="Пополнение депозита.",
-            description=f"Вы положили в депозит {amount} {EMOJIS['MONEY']}.\nВаш баланс: {balance} {EMOJIS['MONEY']}.\nВаш депозит: {deposit} {EMOJIS['MONEY']}.",
-            footer=FOOTER_SUCCESS
+            description=f"Вы положили в депозит {amount} {EMOJIS['MONEY']}.\nВаш баланс: {balance} {EMOJIS['MONEY']}.\nВаш депозит: {deposit} {EMOJIS['MONEY']}."
         )
         await interaction.response.send_message(embed=embed)
 

@@ -1,7 +1,7 @@
 import discord
 from discord import Interaction
 from discord.ext import commands
-from utils import load_roles, get_user, save_user, create_embed, FOOTER_SUCCESS, FOOTER_ERROR, count_role_owners, add_role_to_user, get_user_roles, EMOJIS
+from utils import load_roles, get_user, save_user, create_embed, count_role_owners, add_role_to_user, get_user_roles, EMOJIS
 
 class Shop(commands.Cog):
     def __init__(self, client):
@@ -40,8 +40,7 @@ class Shop(commands.Cog):
             if role is None:
                 await interaction.response.send_message(
                     embed=create_embed(
-                        description="Роль не найдена.",
-                        footer=FOOTER_ERROR
+                        description="Роль не найдена."
                     )
                 )
                 return
@@ -54,8 +53,7 @@ class Shop(commands.Cog):
             user_data = get_user(self.client, user_id)
             if user_data['balance'] < role['balance']:
                 embed = create_embed(
-                    description="Недостаточно средств для покупки.",
-                    footer=FOOTER_ERROR
+                    description="Недостаточно средств для покупки."
                 )
                 await interaction.response.send_message(embed=embed)
                 return
@@ -65,8 +63,7 @@ class Shop(commands.Cog):
             if id_role in user_roles:
                 await interaction.response.send_message(
                     embed=create_embed(
-                        description="У вас уже есть эта роль!",
-                        footer=FOOTER_ERROR
+                        description="У вас уже есть эта роль!"
                     )
                 )
                 return
@@ -89,15 +86,13 @@ class Shop(commands.Cog):
                 save_user(user_id, user_data)
 
                 embed = create_embed(
-                    description=f"Вы купили роль! Ваш баланс: {user_data['balance']} {EMOJIS['MONEY']}.",
-                    footer=FOOTER_SUCCESS
+                    description=f"Вы купили роль! Ваш баланс: {user_data['balance']} {EMOJIS['MONEY']}."
                 )
                 await interaction.response.send_message(embed=embed)
             else:
                 await interaction.response.send_message(
                     embed=create_embed(
-                        description="Роль не найдена на сервере.",
-                        footer=FOOTER_ERROR
+                        description="Роль не найдена на сервере."
                     )
                 )
 
@@ -105,8 +100,7 @@ class Shop(commands.Cog):
             print(f"Error in shop command: {e}")
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Произошла ошибка при выполнении команды.",
-                    footer=FOOTER_ERROR
+                    description="Произошла ошибка при выполнении команды."
                 )
             )
 

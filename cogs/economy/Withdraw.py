@@ -1,7 +1,7 @@
 import discord
 from discord import Interaction
 from discord.ext import commands
-from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS, EMOJIS
+from utils import create_embed, get_user, save_user, EMOJIS
 
 class Withdraw(commands.Cog):
     def __init__(self, client):
@@ -19,8 +19,7 @@ class Withdraw(commands.Cog):
         if amount <= 0:
             embed = create_embed(
                 title="Ошибка.",
-                description="Сумма снятия не может быть 0 или отрицательной.",
-                footer=FOOTER_ERROR
+                description="Сумма снятия не может быть 0 или отрицательной."
             )
             await interaction.response.send_message(embed=embed)
             return
@@ -28,8 +27,7 @@ class Withdraw(commands.Cog):
         if user_data['deposit'] < amount:
             embed = create_embed(
                 title="Ошибка.",
-                description="У вас недостаточно средств для снятия.",
-                footer=FOOTER_ERROR
+                description="У вас недостаточно средств для снятия."
             )
             await interaction.response.send_message(embed=embed)
             return
@@ -43,8 +41,7 @@ class Withdraw(commands.Cog):
         balance = user_data['balance']
         embed = create_embed(
             title="Снятие с депозита.",
-            description=f"Вы вывели {amount} {EMOJIS['MONEY']} с депозита.\nВаш баланс: {balance} {EMOJIS['MONEY']}.\nВаш депозит: {deposit} {EMOJIS['MONEY']}.",
-            footer=FOOTER_SUCCESS
+            description=f"Вы вывели {amount} {EMOJIS['MONEY']} с депозита.\nВаш баланс: {balance} {EMOJIS['MONEY']}.\nВаш депозит: {deposit} {EMOJIS['MONEY']}."
         )
         await interaction.response.send_message(embed=embed)
 

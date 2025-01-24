@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS, EMOJIS
+from utils import create_embed, get_user, save_user, EMOJIS
 
 class Pay(commands.Cog):
     def __init__(self, client):
@@ -15,18 +15,16 @@ class Pay(commands.Cog):
 
         if user.bot:
             embed = create_embed(
-                description="Нельзя переводить деньги ботам.",
-                footer=FOOTER_ERROR
+                description="Нельзя переводить деньги ботам."
             )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.response.send_message(embed=embed)
             return
 
         if interaction.user.id == user.id:
             embed = create_embed(
-                description="Нельзя переводить деньги самому себе.",
-                footer=FOOTER_ERROR
+                description="Нельзя переводить деньги самому себе."
             )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.response.send_message(embed=embed)
             return
 
         sender = get_user(self.client, sender_id)
@@ -34,18 +32,16 @@ class Pay(commands.Cog):
 
         if amount <= 0:
             embed = create_embed(
-                description="Сумма должна быть положительной.",
-                footer=FOOTER_ERROR
+                description="Сумма должна быть положительной."
             )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.response.send_message(embed=embed)
             return
 
         if sender['balance'] < amount:
             embed = create_embed(
-                description="У вас недостаточно средств.",
-                footer=FOOTER_ERROR
+                description="У вас недостаточно средств."
             )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.response.send_message(embed=embed)
             return
 
         sender['balance'] -= amount
@@ -56,8 +52,7 @@ class Pay(commands.Cog):
 
         embed = create_embed(
             title="Баланс обновлён.",
-            description=f"{interaction.user.mention} перевёл {user.mention} {amount} {EMOJIS['MONEY']}",
-            footer=FOOTER_SUCCESS
+            description=f"{interaction.user.mention} перевёл {user.mention} {amount} {EMOJIS['MONEY']}"
         )
         await interaction.response.send_message(embed=embed)
 

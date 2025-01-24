@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import wavelink
-from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed
 from .Core import Core
 
 class Queue(commands.Cog):
@@ -21,10 +21,8 @@ class Queue(commands.Cog):
             if not player or not player.connected:
                 await interaction.followup.send(
                     embed=create_embed(
-                        description="Я не подключен к голосовому каналу!",
-                        footer=FOOTER_ERROR
-                    ),
-                    ephemeral=True
+                        description="Я не подключен к голосовому каналу!"
+                    )
                 )
                 return
 
@@ -34,8 +32,7 @@ class Queue(commands.Cog):
             if not current and not tracks:
                 await interaction.followup.send(
                     embed=create_embed(
-                        description="Очередь пуста!",
-                        footer=FOOTER_ERROR
+                        description="Очередь пуста!"
                     )
                 )
                 return
@@ -58,16 +55,14 @@ class Queue(commands.Cog):
             await interaction.followup.send(
                 embed=create_embed(
                     title="🎵 Очередь треков:",
-                    description="\n".join(queue_text),
-                    footer=FOOTER_SUCCESS
+                    description="\n".join(queue_text)
                 )
             )
         except Exception as e:
             print(f"Error in queue command: {e}")
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Произошла ошибка при получении очереди!",
-                    footer=FOOTER_ERROR
+                    description="Произошла ошибка при получении очереди!"
                 )
             )
 

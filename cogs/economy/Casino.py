@@ -1,7 +1,7 @@
 import discord
 import random
 from discord.ext import commands
-from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS, EMOJIS
+from utils import create_embed, get_user, save_user, EMOJIS
 
 class Casino(commands.Cog):
     def __init__(self, bot):
@@ -23,16 +23,14 @@ class Casino(commands.Cog):
         # Проверка ставки
         if bet not in ["красное", "черное", "зелёное", "чётное", "нечётное"]:
             embed = create_embed(
-                description="Неверный выбор ставки. Доступные ставки: красное, черное, зелёное, чётное, нечётное.",
-                footer=FOOTER_ERROR
+                description="Неверный выбор ставки. Доступные ставки: красное, черное, зелёное, чётное, нечётное."
             )
             await interaction.response.send_message(embed=embed)
             return
 
         if amount is None:
             embed = create_embed(
-                description="Не указана сумма для ставки.",
-                footer=FOOTER_ERROR
+                description="Не указана сумма для ставки."
             )
             await interaction.response.send_message(embed=embed)
             return
@@ -42,8 +40,7 @@ class Casino(commands.Cog):
 
         if user_data['balance'] < amount: 
             embed = create_embed(
-                description="Недостаточно средств для ставки.",
-                footer=FOOTER_ERROR
+                description="Недостаточно средств для ставки."
             )
             await interaction.response.send_message(embed=embed)
             return
@@ -84,7 +81,7 @@ class Casino(commands.Cog):
         )
 
         embed = create_embed(
-            title="Казино \"NaibalovaNet\"",
+            title="Казино",
             description=description,
             color=0xf20c3c
         )

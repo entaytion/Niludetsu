@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from utils import create_embed, FOOTER_SUCCESS, FOOTER_ERROR
+from utils import create_embed
 import random
 
 class Cry(commands.Cog):
@@ -25,8 +25,7 @@ class Cry(commands.Cog):
     async def cry(self, interaction: discord.Interaction):
         try:
             embed = create_embed(
-                description=f"{interaction.user.mention} {random.choice(self.cry_messages)}",
-                footer=FOOTER_SUCCESS
+                description=f"{interaction.user.mention} {random.choice(self.cry_messages)}"
             )
             embed.set_image(url=random.choice(self.cry_gifs))
             
@@ -35,10 +34,8 @@ class Cry(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Произошла ошибка при выполнении команды!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Произошла ошибка при выполнении команды!"
+                )
             )
             print(f"Ошибка у команды cry: {e}")
 

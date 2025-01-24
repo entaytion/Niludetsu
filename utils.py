@@ -6,21 +6,49 @@ DB_PATH = 'config/database.db'
 
 # --- EMBEDS ---
 def create_embed(title=None, description=None, color=0xf20c3c, fields=None, footer=None, image_url=None, author=None, url=None, timestamp=None):
-    embed = Embed(title=title, description=description, colour=Colour(color))
-    if fields:
-        for field in fields:
-            embed.add_field(name=field.get('name'), value=field.get('value'), inline=field.get('inline', False))
-    if footer:
-        embed.set_footer(text=footer.get('text'), icon_url=footer.get('icon_url'))
-    if image_url:
-        embed.set_image(url=image_url)
-    if author:
-        embed.set_author(name=author.get('name'), icon_url=author.get('icon_url'), url=author.get('url'))
-    if url:
-        embed.url = url
-    if timestamp:
-        embed.timestamp = timestamp
-    return embed
+    try:
+        embed = Embed(title=title, description=description, colour=Colour(color))
+        
+        if fields:
+            for field in fields:
+                if not all(key in field for key in ['name', 'value']):
+                    continue
+                embed.add_field(
+                    name=field['name'],
+                    value=field['value'], 
+                    inline=field.get('inline', False)
+                )
+                
+        if footer:
+            if isinstance(footer, dict):
+                embed.set_footer(
+                    text=footer.get('text', ''),
+                    icon_url=footer.get('icon_url', '')
+                )
+            else:
+                print(f"⚠️ Помилка: footer має бути словником, отримано {type(footer)}. Footer: {footer}")
+                
+        if image_url:
+            embed.set_image(url=image_url)
+            
+        if author and isinstance(author, dict):
+            embed.set_author(
+                name=author.get('name'),
+                icon_url=author.get('icon_url'),
+                url=author.get('url')
+            )
+            
+        if url:
+            embed.url = url
+            
+        if timestamp:
+            embed.timestamp = timestamp
+            
+        return embed
+        
+    except Exception as e:
+        print(f"⚠️ Помилка при створенні ембеду: {str(e)}")
+        return Embed(description="Помилка при створенні ембеду", colour=Colour.red())
 
 # --- EMOJIS ---
 EMOJIS = {
@@ -28,17 +56,6 @@ EMOJIS = {
     'MONEY': '<:aeMoney:1266066622561517781>',
     'SUCCESS': '<:aeSuccess:1266062451049365574>',
     'ERROR': '<:aeError:1266062540052365343>'
-}
-
-# --- FOOTERS ---
-FOOTER_SUCCESS = {
-    'text': "Операция выполнена успешно.",
-    'icon_url': "https://cdn.discordapp.com/emojis/1266062451049365574.webp?size=64&quality=lossless"
-}
-
-FOOTER_ERROR = {
-    'text': "Операция не выполнена успешно.",
-    'icon_url': "https://cdn.discordapp.com/emojis/1266062540052365343.webp?size=64&quality=lossless"
 }
 
 # --- DATABASE ---

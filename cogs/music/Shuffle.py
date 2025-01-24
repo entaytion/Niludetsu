@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import wavelink
-from utils import create_embed, FOOTER_ERROR, FOOTER_SUCCESS
+from utils import create_embed
 from .Core import Core
 import random
 
@@ -22,20 +22,16 @@ class Shuffle(commands.Cog):
             if not player or not player.connected:
                 await interaction.followup.send(
                     embed=create_embed(
-                        description="Я не подключен к голосовому каналу!",
-                        footer=FOOTER_ERROR
-                    ),
-                    ephemeral=True
+                        description="Я не подключен к голосовому каналу!"
+                    )
                 )
                 return
 
             if not player.queue:
                 await interaction.followup.send(
                     embed=create_embed(
-                        description="Очередь пуста, нечего перемешивать!",
-                        footer=FOOTER_ERROR
-                    ),
-                    ephemeral=True
+                        description="Очередь пуста, нечего перемешивать!"
+                    )
                 )
                 return
 
@@ -47,18 +43,15 @@ class Shuffle(commands.Cog):
 
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Очередь треков перемешана.",
-                    footer=FOOTER_SUCCESS
+                    description="Очередь треков перемешана."
                 )
             )
         except Exception as e:
             print(f"Error in shuffle command: {e}")
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Произошла ошибка!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Произошла ошибка!"
+                )
             )
 
 async def setup(bot):

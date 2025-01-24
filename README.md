@@ -12,7 +12,17 @@
    - Create a `config.json` file in the root directory:
    ```json
    {
-       "TOKEN": "your-bot-token-here",
+    "TOKEN": "YOUR_BOT_TOKEN_HERE",
+    "WEATHER_API_KEY": "YOUR_WEATHER_API_KEY_HERE", 
+    "DETECT_LANG_API_KEY": "YOUR_DETECT_LANG_API_KEY_HERE",
+    "LAVALINK": {
+        "host": "localhost",
+        "port": 2333,
+        "password": "youshallnotpass",
+        "region": "europe"
+    },
+    "LOG_CHANNEL_ID": "ID",
+    "MOD_ROLE_ID": "ID"
    }
    ```
 
@@ -33,3 +43,9 @@
 - **discord.py** - Main library for working with Discord API
 - **wavelink** - Library for music and audio handling
 - **PIL** - For image processing and manipulation
+- **deep_translator** - For text translation
+- **aiohttp** - For making HTTP requests
+- **transliterate** - For transliteration
+- **sqlite3** - For database handling
+- **qrcode** - For generating QR codes
+- **requests** - For making HTTP requests

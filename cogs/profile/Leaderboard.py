@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import Interaction
-from utils import create_embed, get_user, save_user, FOOTER_ERROR, FOOTER_SUCCESS, EMOJIS
+from utils import create_embed, get_user, save_user, EMOJIS
 from typing import Literal
 
 class Leaderboard(commands.Cog):
@@ -18,7 +18,7 @@ class Leaderboard(commands.Cog):
 
         # Проверка, есть ли данные о боте
         if bot_balance is None:
-            await interaction.followup.send("Не удалось получить баланс для бота. Попробуйте позже.", ephemeral=True)
+            await interaction.followup.send("Не удалось получить баланс для бота. Попробуйте позже.")
             return
 
         users = {}
@@ -36,7 +36,7 @@ class Leaderboard(commands.Cog):
             sorted_users = sorted(users.items(), key=lambda x: (x[1].get('balance', 0) + x[1].get('deposit', 0)), reverse=True)
             value_title = "деньгам"
         else:
-            await interaction.followup.send("Категория не найдена.", ephemeral=True)
+            await interaction.followup.send("Категория не найдена.")
             return
 
         # Создаем embed с рейтингом

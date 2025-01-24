@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from utils import get_user, save_user, create_embed, FOOTER_SUCCESS, FOOTER_ERROR
+from utils import get_user, save_user, create_embed
 
 class Divorce(commands.Cog):
     def __init__(self, client):
@@ -13,20 +13,16 @@ class Divorce(commands.Cog):
         if not user_data:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы не зарегистрированы в системе!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Вы не зарегистрированы в системе!"
+                )
             )
             return
 
         if not user_data.get('spouse'):
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы не женаты!",
-                    footer=FOOTER_ERROR
-                ),
-                ephemeral=True
+                    description="Вы не женаты!"
+                )
             )
             return
 
@@ -43,8 +39,7 @@ class Divorce(commands.Cog):
             save_user(str(interaction.user.id), user_data)
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Развод оформлен.",
-                    footer=FOOTER_SUCCESS
+                    description="Развод оформлен."
                 )
             )
             return
@@ -79,8 +74,7 @@ class Divorce(commands.Cog):
             embed=create_embed(
                 title="💔 Развод оформлен",
                 description=f"{interaction.user.mention} разводится с {spouse_mention}.\n"
-                           f"Банк разделен поровну: по {half_balance} <:aeMoney:1266066622561517781>",
-                footer=FOOTER_SUCCESS
+                           f"Банк разделен поровну: по {half_balance} <:aeMoney:1266066622561517781>"
             )
         )
 
