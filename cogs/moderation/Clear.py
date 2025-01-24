@@ -22,17 +22,18 @@ class Clear(commands.Cog):
     async def clear(self, interaction: discord.Interaction, amount: int, member: discord.Member = None):
         if amount > 1000:
             return await interaction.response.send_message(
-                embed=create_embed(description="Нельзя удалить больше 1000 сообщений за раз!")
+                embed=create_embed(description="Нельзя удалить больше 1000 сообщений за раз!"),
+                ephemeral=True
             )
         
         if amount < 1:
             return await interaction.response.send_message(
-                embed=create_embed(description="Количество сообщений должно быть больше 0!")
+                embed=create_embed(description="Количество сообщений должно быть больше 0!"),
+                ephemeral=True
             )
         
         try:
-            # Сначала отправляем отложенный ответ
-            await interaction.response.defer()
+            await interaction.response.defer(thinking=True)
             
             if member:
                 # Если указан пользователь, удаляем только его сообщения
@@ -46,31 +47,34 @@ class Clear(commands.Cog):
                 await interaction.channel.delete_messages(messages)
                 deleted = len(messages)
             else:
-                # Иначе удаляем все сообщения
+                # Иначе удаляем все сообщения, кроме команды
                 deleted = 0
                 while amount > 0:
-                    # Discord позволяет удалять максимум 100 сообщений за раз
-                    to_delete = min(amount, 100)
-                    messages = await interaction.channel.purge(limit=to_delete)
+                    to_delete = min(amount, 100)  # Discord позволяет удалять максимум 100 сообщений за раз
+                    messages = [msg async for msg in interaction.channel.history(limit=to_delete) 
+                              if msg.id != interaction.id]
+                    if not messages:
+                        break
+                        
+                    await interaction.channel.delete_messages(messages)
                     deleted += len(messages)
-                    amount -= to_delete
+                    amount -= len(messages)
                     
-                    # Если вернулось меньше сообщений чем запрошено, значит больше нет сообщений
                     if len(messages) < to_delete:
                         break
-            
-            # Отправляем сообщение об успешном удалении
+
+            # Отправляем сообщение о завершении очистки
             await interaction.followup.send(
                 embed=create_embed(
-                    title="🗑️ Очистка сообщений",
+                    title="🗑️ Очистка сообщений", 
                     description=f"**Модератор:** {interaction.user.mention}\n"
                               f"**Канал:** {interaction.channel.mention}\n"
                               f"**Удалено сообщений:** `{deleted}`\n"
                               f"{'**Пользователь:** ' + member.mention if member else ''}"
                 )
             )
-            
-            # Логируем действие если указан канал логов
+
+            # Логирование действия, если указана лог-комната
             log_channel_id = self.config.get('LOG_CHANNEL_ID')
             if log_channel_id:
                 log_channel = self.bot.get_channel(int(log_channel_id))
@@ -87,11 +91,13 @@ class Clear(commands.Cog):
         
         except discord.Forbidden:
             await interaction.followup.send(
-                embed=create_embed(description="У меня недостаточно прав для удаления сообщений!")
+                embed=create_embed(description="У меня недостаточно прав для удаления сообщений!"),
+                ephemeral=True
             )
         except discord.HTTPException as e:
             await interaction.followup.send(
-                embed=create_embed(description=f"Произошла ошибка при удалении сообщений: {str(e)}")
+                embed=create_embed(description=f"Произошла ошибка при удалении сообщений: {str(e)}"),
+                ephemeral=True
             )
 
 async def setup(bot):

@@ -88,15 +88,28 @@ class Help(commands.Cog):
             "main": {
                 "title": "Основные команды",
                 "emoji": "⚙️",
-                "commands": ["/help", "/reload"],
+                "commands": ["/help", "/botinfo", "/serverinfo", "/userinfo", "/emoji", "/crash"],
                 "description": f"{EMOJIS['DOT']} `/help` — помощь.\n"
-                              f"{EMOJIS['DOT']} `/reload` — перезагрузка бота.\n",
+                              f"{EMOJIS['DOT']} `/botinfo` — информация о боте.\n"
+                              f"{EMOJIS['DOT']} `/serverinfo` — информация о сервере.\n"
+                              f"{EMOJIS['DOT']} `/userinfo` — информация о пользователе.\n"
+                              f"{EMOJIS['DOT']} `/emoji <emoji>` — скачать эмодзи.\n"
+                              f"{EMOJIS['DOT']} `/crash` — завершить работу бота.",
                 "footer": "Справочник по командам из раздела \"Основное\""
+            },
+            "games": {
+                "title": "Команды для игр",
+                "emoji": "🎮",
+                "commands": ["/rps", "/wordle", "/tictactoe"],
+                "description": f"{EMOJIS['DOT']} `/rps [user]` — играть в камень, ножницы, бумага.\n"
+                              f"{EMOJIS['DOT']} `/wordle [user]` — играть в слова.\n"
+                              f"{EMOJIS['DOT']} `/tictactoe [user]` — играть в крестики-нолики.",
+                "footer": "Справочник по командам из раздела \"Игры\""
             },
             "fun": {
                 "title": "Команды для развлечений",
-                "emoji": "🎮",
-                "commands": ["/marry", "/divorce", "/hug", "/kiss", "/slap", "/pat", "/sex", "/bite", "/cry", "/tictactoe", "/wordle", "/rps"],
+                "emoji": "🎉",
+                "commands": ["/marry", "/divorce", "/hug", "/kiss", "/slap", "/pat", "/sex", "/bite", "/cry", "/lgbt"],
                 "description": f"{EMOJIS['DOT']} `/marry [user]` — жениться на кого-то.\n"
                               f"{EMOJIS['DOT']} `/divorce [user]` — развестись с кем-то.\n"
                               f"{EMOJIS['DOT']} `/hug [user]` — обнять кого-то.\n"
@@ -106,9 +119,7 @@ class Help(commands.Cog):
                               f"{EMOJIS['DOT']} `/sex [user]` — логично.\n"
                               f"{EMOJIS['DOT']} `/bite [user]` — укусить кого-то.\n"
                               f"{EMOJIS['DOT']} `/cry [user]` — заплакать.\n"
-                              f"{EMOJIS['DOT']} `/tictactoe [user]` — играть в крестики-нолики.\n"
-                              f"{EMOJIS['DOT']} `/wordle [user]` — играть в слова.\n"
-                              f"{EMOJIS['DOT']} `/rps [user]` — играть в камень, ножницы, бумага.",
+                              f"{EMOJIS['DOT']} `/lgbt [user]` — аватар пользователя в стиле ЛГБТ.",
                 "footer": "Справочник по командам для развлечений"
             },
             "music": {
@@ -149,9 +160,11 @@ class Help(commands.Cog):
             "profile": {
                 "title": "Команды профиля",
                 "emoji": "👤",
-                "commands": ["/level", "/inventory"],
-                "description": f"{EMOJIS['DOT']} `/level [user]` — проверить уровень.\n"
-                              f"{EMOJIS['DOT']} `/inventory` — просмотреть инвентарь.\n",
+                "commands": ["/level", "/inventory", "/userinfo", "/avatar"],
+                "description": f"{EMOJIS['DOT']} `/level <user>` — проверить уровень.\n"
+                              f"{EMOJIS['DOT']} `/inventory` — просмотреть инвентарь.\n"
+                              f"{EMOJIS['DOT']} `/userinfo <user>` — просмотреть информацию о пользователе.\n"
+                              f"{EMOJIS['DOT']} `/avatar <user>` — просмотреть аватар пользователя.",
                 "footer": "Справочник по командам из раздела \"Профиль\""
             },
             "moderation": {
@@ -173,13 +186,14 @@ class Help(commands.Cog):
             "utils": {
                 "title": "Команды для утилит",
                 "emoji": "🧷",
-                "commands": ["/reminder", "/quote", "/weather", "/translate", "/poll", "/qr"],
+                "commands": ["/reminder", "/quote", "/weather", "/translate", "/poll", "/qr", "/ai"],
                 "description": f"{EMOJIS['DOT']} `/reminder [create] / [list] / [delete]` — напоминания.\n"
                               f"{EMOJIS['DOT']} `/quote` — сделать цитату.\n"
                               f"{EMOJIS['DOT']} `/weather` — узнать погоду.\n"
                               f"{EMOJIS['DOT']} `/translate` — перевести текст.\n"
                               f"{EMOJIS['DOT']} `/poll` — создать опрос.\n"
-                              f"{EMOJIS['DOT']} `/qr` — создать QR-код.",
+                              f"{EMOJIS['DOT']} `/qr` — создать QR-код.\n"
+                              f"{EMOJIS['DOT']} `/ai` — спросить что-то у ИИ.",
                 "footer": "Справочник по командам для утилит"
             },
         }

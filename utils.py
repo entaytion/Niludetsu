@@ -5,7 +5,7 @@ from discord import Embed, Colour
 DB_PATH = 'config/database.db'
 
 # --- EMBEDS ---
-def create_embed(title=None, description=None, color=0xf20c3c, fields=None, footer=None, image_url=None, author=None, url=None, timestamp=None):
+def create_embed(title=None, description=None, color=0xf20c3c, fields=None, footer=None, image_url=None, author=None, url=None, timestamp=None, thumbnail_url=None):
     try:
         embed = Embed(title=title, description=description, colour=Colour(color))
         
@@ -30,6 +30,9 @@ def create_embed(title=None, description=None, color=0xf20c3c, fields=None, foot
                 
         if image_url:
             embed.set_image(url=image_url)
+            
+        if thumbnail_url:
+            embed.set_thumbnail(url=thumbnail_url)
             
         if author and isinstance(author, dict):
             embed.set_author(
@@ -79,7 +82,8 @@ def initialize_db():
                 level INTEGER,
                 spouse TEXT,
                 marriage_date TEXT,
-                roles TEXT DEFAULT ''
+                roles TEXT DEFAULT '',
+                reputation INTEGER DEFAULT 0
             )
         ''')
         

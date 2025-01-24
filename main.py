@@ -3,46 +3,36 @@ from discord.ext import commands
 import os
 import importlib
 import json
+from discord.ext import commands
+from discord import app_commands
+import asyncio
 
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="mrtv!", intents=intents, help_command=None)
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+# Загружаем конфигурацию
+with open('config/config.json', 'r') as f:
+    config = json.load(f)
+
+async def load_cogs():
+    for folder in os.listdir("cogs"):
+        if os.path.isdir(f"cogs/{folder}"):
+            for filename in os.listdir(f"cogs/{folder}"):
+                if filename.endswith(".py"):
+                    try:
+                        await bot.load_extension(f"cogs.{folder}.{filename[:-3]}")
+                        print(f"✅ Загружено расширение cogs: {folder}/{filename[:-3]}")
+                    except Exception as e:
+                        print(f"❌ Ошибка при загрузке расширения: {folder}/{filename[:-3]}: {str(e)}")
 
 @bot.event
 async def on_ready():
-    print(f'We have logged in as {bot.user}')
-    print(f'Prefix is set to: {bot.command_prefix}')
-    print("Syncing commands...")
-    await bot.tree.sync()
-    print("Commands synced successfully!")
-
-async def load_cogs():
-    cog_directories = [
-        "./cogs",
-        "./cogs/utilities",
-        "./cogs/economy", 
-        "./cogs/fun",
-        "./cogs/music",
-        "./cogs/moderation",
-        "./cogs/profile",
-        "./cogs/main",
-        "./cogs/utils"
-    ]
-    
-    for directory in cog_directories:
-        category = directory.split('/')[-1]
-        for f in os.listdir(directory):
-            if f.endswith(".py"):
-                try:
-                    module = importlib.import_module(f"{directory[2:].replace('/', '.')}.{f[:-3]}")
-                    if hasattr(module, 'setup'):
-                        await module.setup(bot)
-                    print(f"Loaded {category}: {f[:-3]}")
-                except Exception as e:
-                    print(f"Failed to load {category} {f[:-3]}: {e}")
-
-with open('config/config.json', 'r') as f:
-    config = json.load(f)
-    TOKEN = config['TOKEN'] 
+    print(f"✅ Бот {bot.user} успешно запущен!")
+    try:
+        synced = await bot.tree.sync()
+        print(f"✅ Синхронизировано {len(synced)} команд")
+    except Exception as e:
+        print(f"❌ Ошибка при синхронизации команд: {e}")
 
 async def create_default_files():
     if not os.path.exists('config'):
@@ -71,11 +61,20 @@ async def create_default_files():
         with open('config/config.json', 'w') as f:
             json.dump(default_config, f, indent=4)
 
-async def main():
-    await create_default_files()
-    async with bot:
-        await load_cogs()
-        await bot.start(TOKEN)
+# Добавляем глобальный обработчик ошибок
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    # Получаем экземпляр логгера
+    logs_cog = bot.get_cog('Logs')
+    if logs_cog:
+        await logs_cog.on_app_command_error(interaction, error)
+    else:
+        # Если логгер не найден, просто отправляем сообщение об ошибке
+        await interaction.response.send_message("Произошла ошибка при выполнении команды!", ephemeral=True)
 
-import asyncio
-asyncio.run(main())
+@bot.event
+async def setup_hook():
+    await create_default_files()
+    await load_cogs()
+
+bot.run(config['TOKEN'])
