@@ -48,8 +48,7 @@ class Rand(commands.Cog):
             await interaction.response.send_message(
                 embed=create_embed(
                     description=f"{EMOJIS['ERROR']} Ошибка: {str(e)}"
-                ),
-                ephemeral=True
+                )
             )
 
 async def setup(bot):

@@ -107,7 +107,7 @@ class IdeaView(View):
         response_message = f"{status_emoji} Идея пользователя {user.mention} была {status}"
         if reason:
             response_message += f"\n**Причина:** {reason}"
-        await interaction.response.send_message(response_message, ephemeral=True)
+        await interaction.response.send_message(response_message)
 
     async def _handle_accept(self, interaction: discord.Interaction, reason: str = None):
         await self._update_idea_status(interaction, "принята", 0x00FF00, reason)
@@ -165,12 +165,12 @@ class Ideas(commands.Cog):
 
     async def handle_idea_submit(self, interaction: discord.Interaction, title: str, description: str):
         if "IDEAS_CHANNEL_ID" not in self.config:
-            await interaction.response.send_message("❌ Канал для идей не настроен!", ephemeral=True)
+            await interaction.response.send_message("❌ Канал для идей не настроен!")
             return
 
         channel = self.bot.get_channel(int(self.config["IDEAS_CHANNEL_ID"]))
         if not channel:
-            await interaction.response.send_message("❌ Канал для идей не найден!", ephemeral=True)
+            await interaction.response.send_message("❌ Канал для идей не найден!")
             return
 
         embed = create_embed(
@@ -192,14 +192,14 @@ class Ideas(commands.Cog):
             description="Ваша идея успешно отправлена!\nОжидайте ответа от администрации.",
             color=0x00FF00,
         )
-        await interaction.response.send_message(embed=success_embed, ephemeral=True)
+        await interaction.response.send_message(embed=success_embed)
 
     @app_commands.command(name="ideas", description="Управление панелью идей")
     @commands.has_permissions(administrator=True)
     async def ideas(self, interaction: discord.Interaction, action: str, message_id: str = None, ideas_channel: str = None):
         action = action.lower()
         if action not in ["create", "set"]:
-            await interaction.response.send_message("❌ Неверное действие! Используйте 'create' или 'set'", ephemeral=True)
+            await interaction.response.send_message("❌ Неверное действие! Используйте 'create' или 'set'")
             return
 
         try:
@@ -208,22 +208,22 @@ class Ideas(commands.Cog):
             else:
                 await self._handle_set_ideas(interaction, ideas_channel)
         except Exception as e:
-            await interaction.response.send_message(f"❌ Произошла ошибка: {str(e)}", ephemeral=True)
+            await interaction.response.send_message(f"❌ Произошла ошибка: {str(e)}")
 
     async def _handle_create_ideas(self, interaction, message_id, ideas_channel):
         try:
             message = await interaction.channel.fetch_message(int(message_id))
         except (discord.NotFound, ValueError):
-            await interaction.response.send_message("❌ Сообщение не найдено!", ephemeral=True)
+            await interaction.response.send_message("❌ Сообщение не найдено!")
             return
 
         try:
             ideas_channel_id = int(ideas_channel)
             if not (channel := self.bot.get_channel(ideas_channel_id)):
-                await interaction.response.send_message("❌ Канал для идей не найден!", ephemeral=True)
+                await interaction.response.send_message("❌ Канал для идей не найден!")
                 return
         except ValueError:
-            await interaction.response.send_message("❌ Неверный формат ID канала!", ephemeral=True)
+            await interaction.response.send_message("❌ Неверный формат ID канала!")
             return
 
         embed = create_embed(
@@ -254,7 +254,7 @@ class Ideas(commands.Cog):
             ),
             color=0x00FF00,
         )
-        await interaction.response.send_message(embed=success_embed, ephemeral=True)
+        await interaction.response.send_message(embed=success_embed)
 
     async def _handle_set_ideas(self, interaction, ideas_channel):
         channel = await commands.TextChannelConverter().convert(interaction, ideas_channel)

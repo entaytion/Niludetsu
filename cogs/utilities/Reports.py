@@ -121,7 +121,7 @@ class ReportView(View):
         response_message = f"{status_emoji} Жалоба пользователя {user.mention} была {status}"
         if reason:
             response_message += f"\n**Причина:** {reason}"
-        await interaction.response.send_message(response_message, ephemeral=True)
+        await interaction.response.send_message(response_message)
 
     async def _handle_accept(self, interaction: discord.Interaction, reason: str = None):
         await self._update_report_status(interaction, "принята", 0x00FF00, reason)
@@ -178,17 +178,17 @@ class Reports(commands.Cog):
 
     async def handle_report_submit(self, interaction: discord.Interaction, user: str, reason: str, proof: str = None, additional: str = None):
         if 'REPORTS_CHANNEL_ID' not in self.config:
-            await interaction.response.send_message("❌ Канал для жалоб не настроен!", ephemeral=True)
+            await interaction.response.send_message("❌ Канал для жалоб не настроен!")
             return
 
         channel = self.bot.get_channel(int(self.config['REPORTS_CHANNEL_ID']))
         if not channel:
-            await interaction.response.send_message("❌ Канал для жалоб не найден!", ephemeral=True)
+            await interaction.response.send_message("❌ Канал для жалоб не найден!")
             return
 
         file_attachment = None
         if proof and proof.lower() == 'файл':
-            await interaction.response.send_message("Пожалуйста, прикрепите файл-доказательство:", ephemeral=True)
+            await interaction.response.send_message("Пожалуйста, прикрепите файл-доказательство:")
             
             try:
                 file_msg = await self.bot.wait_for(
@@ -272,9 +272,9 @@ class Reports(commands.Cog):
         )
             
         if not interaction.response.is_done():
-            await interaction.response.send_message(embed=success_embed, ephemeral=True)
+            await interaction.response.send_message(embed=success_embed)
         else:
-            await interaction.followup.send(embed=success_embed, ephemeral=True)
+            await interaction.followup.send(embed=success_embed)
 
     @app_commands.command(name="reports", description="Управление панелью жалоб")
     @app_commands.describe(
@@ -284,7 +284,7 @@ class Reports(commands.Cog):
     async def reports(self, interaction: discord.Interaction, action: str):
         action = action.lower()
         if action not in ["create", "set"]:
-            await interaction.response.send_message("❌ Неверное действие! Используйте 'create' или 'set'", ephemeral=True)
+            await interaction.response.send_message("❌ Неверное действие! Используйте 'create' или 'set'")
             return
 
         try:
@@ -318,7 +318,7 @@ class Reports(commands.Cog):
                     description=f"Панель жалоб успешно создана в канале {interaction.channel.mention}",
                     color=0x00FF00
                 )
-                await interaction.response.send_message(embed=success_embed, ephemeral=True)
+                await interaction.response.send_message(embed=success_embed)
             else:
                 self.config['REPORTS_CHANNEL_ID'] = str(interaction.channel_id)
                 
@@ -331,7 +331,7 @@ class Reports(commands.Cog):
                 )
                 await interaction.response.send_message(embed=embed)
         except Exception as e:
-            await interaction.response.send_message(f"❌ Произошла ошибка: {str(e)}", ephemeral=True)
+            await interaction.response.send_message(f"❌ Произошла ошибка: {str(e)}")
 
 async def setup(bot):
     await bot.add_cog(Reports(bot)) 

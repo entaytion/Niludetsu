@@ -13,14 +13,31 @@ class Volume(commands.Cog):
     async def cog_load(self):
         self.core = self.bot.get_cog('Core')
 
-    @app_commands.command(name="volume", description="Изменить громкость музыки (0-150%)")
-    @app_commands.describe(volume="Уровень громкости от 0 до 150")
+    @app_commands.command(name="volume", description="Изменить громкость музыки")
+    @app_commands.describe(volume="Громкость от 0 до 100")
     async def volume(self, interaction: discord.Interaction, volume: int):
         await interaction.response.defer()
         
         try:
+            if not 0 <= volume <= 100:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Громкость должна быть от 0 до 100!"
+                    )
+                )
+                return
+
             player = await self.core.get_player(interaction)
-            if not player or not player.is_playing():
+            if not player or not player.connected:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Я не подключен к голосовому каналу!"
+                    )
+                )
+                return
+
+            current: wavelink.Track = player.current
+            if not current:
                 await interaction.followup.send(
                     embed=create_embed(
                         description="Сейчас ничего не играет!"
@@ -28,45 +45,12 @@ class Volume(commands.Cog):
                 )
                 return
 
-            # Проверяем диапазон громкости
-            if not 0 <= volume <= 150:
-                await interaction.followup.send(
-                    embed=create_embed(
-                        description="Громкость должна быть от 0 до 150%!"
-                    )
-                )
-                return
-
-            # Устанавливаем новую громкость
             await player.set_volume(volume)
-            
-            # Создаем эмбед с информацией
-            embed = create_embed(
-                title="🔊 Громкость изменена",
-                description=f"Установлена громкость: **{volume}%**"
+            await interaction.followup.send(
+                embed=create_embed(
+                    description=f"Громкость установлена на {volume}%"
+                )
             )
-            
-            # Добавляем индикатор громкости
-            if volume == 0:
-                indicator = "🔇"
-            elif volume < 30:
-                indicator = "🔈"
-            elif volume < 70:
-                indicator = "🔉"
-            else:
-                indicator = "🔊"
-            
-            # Добавляем визуальную шкалу громкости
-            bars = int((volume / 150) * 10)
-            volume_bar = "▰" * bars + "▱" * (10 - bars)
-            embed.add_field(
-                name=f"{indicator} Уровень громкости:",
-                value=f"```{volume_bar}```",
-                inline=False
-            )
-
-            await interaction.followup.send(embed=embed)
-
         except Exception as e:
             print(f"Error in volume command: {e}")
             await interaction.followup.send(

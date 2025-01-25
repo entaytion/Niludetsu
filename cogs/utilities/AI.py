@@ -11,8 +11,10 @@ class AI(commands.Cog):
         self.bot = bot
         # Список доступних провайдерів
         self.providers = [
-            g4f.Provider.DarkAI,
-            g4f.Provider.Copilot
+            g4f.Provider.AIChatFree,
+            g4f.Provider.Blackbox,
+            g4f.Provider.ChatGptt,
+            g4f.Provider.PerplexityLabs
         ]
 
     async def get_ai_response(self, prompt: str) -> str:
@@ -65,7 +67,7 @@ class AI(commands.Cog):
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.followup.send(f"❌ Произошла ошибка: {str(e)}", ephemeral=True)
+            await interaction.followup.send(f"❌ Произошла ошибка: {str(e)}")
 
 async def setup(bot):
     await bot.add_cog(AI(bot)) 

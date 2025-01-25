@@ -96,8 +96,7 @@ class Logs(commands.Cog):
 
         except Exception as e:
             await interaction.response.send_message(
-                f"❌ Произошла ошибка: {str(e)}", 
-                ephemeral=True
+                f"❌ Произошла ошибка: {str(e)}"
             )
 
     @commands.Cog.listener()

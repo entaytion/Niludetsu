@@ -43,8 +43,7 @@ class AFK(commands.Cog):
                     embed=create_embed(
                         title="👋 С возвращением!",
                         description="Ваш статус AFK был снят"
-                    ),
-                    ephemeral=True
+                    )
                 )
                 return
             
@@ -67,8 +66,7 @@ class AFK(commands.Cog):
                 embed=create_embed(
                     title="💤 AFK статус установлен",
                     description=f"**Причина:** {reason}"
-                ),
-                ephemeral=True
+                )
             )
             
     @commands.Cog.listener()

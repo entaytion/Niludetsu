@@ -19,19 +19,19 @@ class Duel(commands.Cog):
     async def duel(self, interaction: discord.Interaction, opponent: discord.Member, bet: int):
         # Проверки
         if bet < 100:
-            await interaction.response.send_message(f"{EMOJIS['ERROR']} Минимальная ставка: 100 монет!", ephemeral=True)
+            await interaction.response.send_message(f"{EMOJIS['ERROR']} Минимальная ставка: 100 монет!")
             return
 
         if opponent.bot:
-            await interaction.response.send_message(f"{EMOJIS['ERROR']} Вы не можете вызвать бота на дуэль!", ephemeral=True)
+            await interaction.response.send_message(f"{EMOJIS['ERROR']} Вы не можете вызвать бота на дуэль!")
             return
 
         if opponent.id == interaction.user.id:
-            await interaction.response.send_message(f"{EMOJIS['ERROR']} Вы не можете вызвать себя на дуэль!", ephemeral=True)
+            await interaction.response.send_message(f"{EMOJIS['ERROR']} Вы не можете вызвать себя на дуэль!")
             return
 
         if interaction.user.id in self.active_duels or opponent.id in self.active_duels:
-            await interaction.response.send_message(f"{EMOJIS['ERROR']} Один из участников уже участвует в дуэли!", ephemeral=True)
+            await interaction.response.send_message(f"{EMOJIS['ERROR']} Один из участников уже участвует в дуэли!")
             return
 
         # Проверка балансов
@@ -42,11 +42,11 @@ class Duel(commands.Cog):
         opponent_balance = opponent_data["balance"]
 
         if challenger_balance < bet:
-            await interaction.response.send_message(f"{EMOJIS['ERROR']} У вас недостаточно монет! Ваш баланс: {challenger_balance}", ephemeral=True)
+            await interaction.response.send_message(f"{EMOJIS['ERROR']} У вас недостаточно монет! Ваш баланс: {challenger_balance}")
             return
 
         if opponent_balance < bet:
-            await interaction.response.send_message(f"{EMOJIS['ERROR']} У оппонента недостаточно монет! Баланс оппонента: {opponent_balance}", ephemeral=True)
+            await interaction.response.send_message(f"{EMOJIS['ERROR']} У оппонента недостаточно монет! Баланс оппонента: {opponent_balance}")
             return
 
         # Создаем эмбед для вызова
@@ -66,7 +66,7 @@ class Duel(commands.Cog):
             @discord.ui.button(label="Принять", style=discord.ButtonStyle.green, emoji="⚔️")
             async def accept(self, button_interaction: discord.Interaction, button: discord.ui.Button):
                 if button_interaction.user.id != opponent.id:
-                    await button_interaction.response.send_message(f"{EMOJIS['ERROR']} Только {opponent.mention} может принять этот вызов!", ephemeral=True)
+                    await button_interaction.response.send_message(f"{EMOJIS['ERROR']} Только {opponent.mention} может принять этот вызов!")
                     return
                 self.value = True
                 for item in self.children:
@@ -77,7 +77,7 @@ class Duel(commands.Cog):
             @discord.ui.button(label="Отклонить", style=discord.ButtonStyle.red, emoji="❌")
             async def decline(self, button_interaction: discord.Interaction, button: discord.ui.Button):
                 if button_interaction.user.id != opponent.id:
-                    await button_interaction.response.send_message(f"{EMOJIS['ERROR']} Только {opponent.mention} может отклонить этот вызов!", ephemeral=True)
+                    await button_interaction.response.send_message(f"{EMOJIS['ERROR']} Только {opponent.mention} может отклонить этот вызов!")
                     return
                 self.value = False
                 for item in self.children:

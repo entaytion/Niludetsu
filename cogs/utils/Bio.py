@@ -28,12 +28,11 @@ class Bio(commands.GroupCog, group_name="bio"):
         country: str = None,
         bio: str = None
     ):
-        if age is not None and (age < 13 or age > 80):
+        if age is not None and (age < 13 or age > 100):
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Возраст должен быть от 13 до 80 лет!"
-                ),
-                ephemeral=True
+                    description="Возраст должен быть от 13 до 100 лет!"
+                )
             )
             return
             
@@ -41,8 +40,7 @@ class Bio(commands.GroupCog, group_name="bio"):
             await interaction.response.send_message(
                 embed=create_embed(
                     description="Биография не может быть длиннее 1024 символов!"
-                ),
-                ephemeral=True
+                )
             )
             return
 
@@ -87,8 +85,7 @@ class Bio(commands.GroupCog, group_name="bio"):
             embed=create_embed(
                 title="✅ Профиль обновлен",
                 description="Информация в вашем профиле была успешно обновлена!"
-            ),
-            ephemeral=True
+            )
         )
 
     @app_commands.command(name="view", description="Посмотреть профиль пользователя")
@@ -105,8 +102,7 @@ class Bio(commands.GroupCog, group_name="bio"):
                 await interaction.response.send_message(
                     embed=create_embed(
                         description=f"{'Ваш профиль' if target_user == interaction.user else f'Профиль {target_user.display_name}'} еще не настроен!"
-                    ),
-                    ephemeral=True
+                    )
                 )
                 return
                 
@@ -153,8 +149,7 @@ class Bio(commands.GroupCog, group_name="bio"):
             embed=create_embed(
                 title="✅ Профиль очищен",
                 description="Вся информация из вашего профиля была удалена!"
-            ),
-            ephemeral=True
+            )
         )
 
 async def setup(bot):

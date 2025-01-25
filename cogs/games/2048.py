@@ -120,51 +120,51 @@ class GameView(View):
     @discord.ui.button(label="⬆️", style=discord.ButtonStyle.primary, custom_id="up")
     async def up(self, interaction: discord.Interaction, button: Button):
         if interaction.user.id != self.user_id:
-            await interaction.response.send_message("Это не ваша игра!", ephemeral=True)
+            await interaction.response.send_message("Это не ваша игра!")
             return
             
         if self.game.move("up"):
             await self.update_game(interaction)
         else:
-            await interaction.response.send_message("Недопустимый ход!", ephemeral=True)
+            await interaction.response.send_message("Недопустимый ход!")
     
     @discord.ui.button(label="⬅️", style=discord.ButtonStyle.primary, custom_id="left")
     async def left(self, interaction: discord.Interaction, button: Button):
         if interaction.user.id != self.user_id:
-            await interaction.response.send_message("Это не ваша игра!", ephemeral=True)
+            await interaction.response.send_message("Это не ваша игра!")
             return
             
         if self.game.move("left"):
             await self.update_game(interaction)
         else:
-            await interaction.response.send_message("Недопустимый ход!", ephemeral=True)
+            await interaction.response.send_message("Недопустимый ход!")
     
     @discord.ui.button(label="⬇️", style=discord.ButtonStyle.primary, custom_id="down")
     async def down(self, interaction: discord.Interaction, button: Button):
         if interaction.user.id != self.user_id:
-            await interaction.response.send_message("Это не ваша игра!", ephemeral=True)
+            await interaction.response.send_message("Это не ваша игра!")
             return
             
         if self.game.move("down"):
             await self.update_game(interaction)
         else:
-            await interaction.response.send_message("Недопустимый ход!", ephemeral=True)
+            await interaction.response.send_message("Недопустимый ход!")
     
     @discord.ui.button(label="➡️", style=discord.ButtonStyle.primary, custom_id="right")
     async def right(self, interaction: discord.Interaction, button: Button):
         if interaction.user.id != self.user_id:
-            await interaction.response.send_message("Это не ваша игра!", ephemeral=True)
+            await interaction.response.send_message("Это не ваша игра!")
             return
             
         if self.game.move("right"):
             await self.update_game(interaction)
         else:
-            await interaction.response.send_message("Недопустимый ход!", ephemeral=True)
+            await interaction.response.send_message("Недопустимый ход!")
             
     @discord.ui.button(label="🔄", style=discord.ButtonStyle.danger, custom_id="restart")
     async def restart(self, interaction: discord.Interaction, button: Button):
         if interaction.user.id != self.user_id:
-            await interaction.response.send_message("Это не ваша игра!", ephemeral=True)
+            await interaction.response.send_message("Это не ваша игра!")
             return
             
         self.game = Game2048()

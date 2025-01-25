@@ -28,10 +28,10 @@ class Backup(commands.Cog):
     async def backup_info(self, interaction: discord.Interaction):
         """Показывает детальную информацию о сервере"""
         if interaction.user.id != interaction.guild.owner_id:
-            await interaction.response.send_message("❌ Эту команду может использовать только владелец сервера!", ephemeral=True)
+            await interaction.response.send_message("❌ Эту команду может использовать только владелец сервера!")
             return
             
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         
         # Создаем эмбед с основной информацией
         embed = discord.Embed(
@@ -121,10 +121,10 @@ class Backup(commands.Cog):
     async def backup_create(self, interaction: discord.Interaction):
         # Проверяем, является ли пользователь владельцем сервера
         if interaction.user.id != interaction.guild.owner_id:
-            await interaction.response.send_message("❌ Эту команду может использовать только владелец сервера!", ephemeral=True)
+            await interaction.response.send_message("❌ Эту команду может использовать только владелец сервера!")
             return
             
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         
         backup_data = {
             # Основная информация о сервере
@@ -367,13 +367,13 @@ class Backup(commands.Cog):
     async def backup_restore(self, interaction: discord.Interaction, file: discord.Attachment):
         # Проверяем, является ли пользователь владельцем сервера
         if interaction.user.id != interaction.guild.owner_id:
-            await interaction.response.send_message("❌ Эту команду может использовать только владелец сервера!", ephemeral=True)
+            await interaction.response.send_message("❌ Эту команду может использовать только владелец сервера!")
             return
             
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         
         if not file.filename.endswith('.json'):
-            await interaction.followup.send("❌ Пожалуйста, загрузите файл резервной копии в формате JSON!", ephemeral=True)
+            await interaction.followup.send("❌ Пожалуйста, загрузите файл резервной копии в формате JSON!")
             return
             
         try:
@@ -382,7 +382,7 @@ class Backup(commands.Cog):
             
             # Проверяем версию бэкапа
             if "backup_version" not in backup_data:
-                await interaction.followup.send("❌ Неверный формат файла бэкапа!", ephemeral=True)
+                await interaction.followup.send("❌ Неверный формат файла бэкапа!")
                 return
             
             # Обновляем основные настройки сервера
@@ -477,10 +477,10 @@ class Backup(commands.Cog):
                 except Exception as e:
                     print(f"Ошибка при восстановлении категории {category_data['name']}: {e}")
             
-            await interaction.followup.send("✅ Сервер успешно восстановлен из резервной копии!", ephemeral=True)
+            await interaction.followup.send("✅ Сервер успешно восстановлен из резервной копии!")
             
         except Exception as e:
-            await interaction.followup.send(f"❌ Произошла ошибка при восстановлении: {str(e)}", ephemeral=True)
+            await interaction.followup.send(f"❌ Произошла ошибка при восстановлении: {str(e)}")
 
     async def _restore_channel(self, guild, channel_data, category=None):
         """Восстанавливает канал определенного типа"""

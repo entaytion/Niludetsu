@@ -94,7 +94,7 @@ class CapitalsView(View):
     @discord.ui.button(label="Сделать предположение", style=discord.ButtonStyle.primary)
     async def guess(self, interaction: discord.Interaction, button: Button):
         if len(self.game.attempts) >= self.game.max_attempts:
-            await interaction.response.send_message("❌ Игра окончена! У вас закончились попытки.", ephemeral=True)
+            await interaction.response.send_message("❌ Игра окончена! У вас закончились попытки.")
             return
             
         modal = GuessModal()

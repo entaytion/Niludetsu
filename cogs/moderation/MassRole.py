@@ -53,7 +53,7 @@ class MassRole(commands.GroupCog, group_name="massrole"):
 
     async def _process_mass_role(self, interaction: discord.Interaction, role: discord.Role, filter_type: str, action: str):
         if self.processing:
-            await interaction.response.send_message("❌ Уже выполняется другая массовая операция с ролями!", ephemeral=True)
+            await interaction.response.send_message("❌ Уже выполняется другая массовая операция с ролями!")
             return
 
         try:

@@ -126,8 +126,7 @@ class Demotivator(commands.Cog):
             await interaction.followup.send(
                 embed=create_embed(
                     description=f"{EMOJIS['ERROR']} Произошла ошибка при создании демотиватора: {str(e)}"
-                ),
-                ephemeral=True
+                )
             )
 
 async def setup(bot):

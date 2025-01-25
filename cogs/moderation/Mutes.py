@@ -21,15 +21,13 @@ class Mutes(commands.Cog):
         mute_role_id = self.config.get('MUTE_ROLE_ID')
         if not mute_role_id:
             return await interaction.response.send_message(
-                embed=create_embed(description="Роль мута не настроена в конфигурации!"),
-                ephemeral=True
+                embed=create_embed(description="Роль мута не настроена в конфигурации!")
             )
 
         mute_role = interaction.guild.get_role(int(mute_role_id))
         if not mute_role:
             return await interaction.response.send_message(
-                embed=create_embed(description="Роль мута не найдена на сервере!"),
-                ephemeral=True
+                embed=create_embed(description="Роль мута не найдена на сервере!")
             )
 
         # Получаем список замученных участников

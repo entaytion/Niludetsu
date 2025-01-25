@@ -59,7 +59,7 @@ class Avatar(commands.Cog):
                     embed.set_image(url=avatar_formats['jpg'])
                     await i.response.edit_message(embed=embed)
                 else:
-                    await i.response.send_message("JPG формат недоступен", ephemeral=True)
+                    await i.response.send_message("JPG формат недоступен")
             
             @discord.ui.button(label="WEBP", style=discord.ButtonStyle.gray)
             async def webp_button(self, i: discord.Interaction, button: discord.ui.Button):
@@ -67,7 +67,7 @@ class Avatar(commands.Cog):
                     embed.set_image(url=avatar_formats['webp'])
                     await i.response.edit_message(embed=embed)
                 else:
-                    await i.response.send_message("WEBP формат недоступен", ephemeral=True)
+                    await i.response.send_message("WEBP формат недоступен")
             
             @discord.ui.button(label="GIF", style=discord.ButtonStyle.gray)
             async def gif_button(self, i: discord.Interaction, button: discord.ui.Button):
@@ -75,7 +75,7 @@ class Avatar(commands.Cog):
                     embed.set_image(url=avatar_formats['gif'])
                     await i.response.edit_message(embed=embed)
                 else:
-                    await i.response.send_message("GIF формат недоступен", ephemeral=True)
+                    await i.response.send_message("GIF формат недоступен")
         
         # Отправляем сообщение
         await interaction.response.send_message(

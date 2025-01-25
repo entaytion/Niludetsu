@@ -114,8 +114,7 @@ class Warns(commands.GroupCog, group_name="warns"):
             return await interaction.response.send_message(
                 embed=create_embed(
                     description="Предупреждение с указанным ID не найдено!"
-                ),
-                ephemeral=True
+                )
             )
             
         user_id, mod_id, reason, timestamp = warning

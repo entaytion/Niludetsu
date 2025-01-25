@@ -220,7 +220,7 @@ class UserInfo(commands.Cog):
             
         except Exception as e:
             print(f"Ошибка в команде userinfo: {str(e)}")
-            await interaction.followup.send("Произошла ошибка при выполнении команды.", ephemeral=True)
+            await interaction.followup.send("Произошла ошибка при выполнении команды.")
 
 async def setup(bot):
     await bot.add_cog(UserInfo(bot))

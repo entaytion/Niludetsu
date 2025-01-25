@@ -57,24 +57,21 @@ class Warn(commands.GroupCog, group_name="warn"):
                 return await interaction.response.send_message(
                     embed=create_embed(
                         description="Вы не можете выдать предупреждение самому себе!"
-                    ),
-                    ephemeral=True
+                    )
                 )
 
             if user.bot:
                 return await interaction.response.send_message(
                     embed=create_embed(
                         description="Нельзя выдать предупреждение боту!"
-                    ),
-                    ephemeral=True
+                    )
                 )
 
             if user.guild_permissions.administrator:
                 return await interaction.response.send_message(
                     embed=create_embed(
                         description="Нельзя выдать предупреждение администратору!"
-                    ),
-                    ephemeral=True
+                    )
                 )
 
             await interaction.response.defer()
@@ -126,15 +123,13 @@ class Warn(commands.GroupCog, group_name="warn"):
                 await interaction.response.send_message(
                     embed=create_embed(
                         description=f"Произошла ошибка: {str(e)}"
-                    ),
-                    ephemeral=True
+                    )
                 )
             else:
                 await interaction.followup.send(
                     embed=create_embed(
                         description=f"Произошла ошибка: {str(e)}"
-                    ),
-                    ephemeral=True
+                    )
                 )
 
     @app_commands.command(name="remove", description="Удалить предупреждение у пользователя")

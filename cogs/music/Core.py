@@ -36,17 +36,7 @@ class Core(commands.Cog):
             player = wavelink.Pool.get_node().get_player(interaction.guild.id)
             if player:
                 return player
-            
-            voice_client = await interaction.user.voice.channel.connect(
-                self_deaf=True,
-                self_mute=False
-            )
-
-            if voice_client.guild.me.voice:
-                await voice_client.guild.me.edit(mute=False)
-            
-            player = wavelink.Player(voice_client)
-            return player
+            return await interaction.user.voice.channel.connect(cls=wavelink.Player)
         except Exception as e:
             print(f"Error getting/creating player: {e}")
             return None
@@ -54,7 +44,7 @@ class Core(commands.Cog):
     async def is_connected(self, interaction: discord.Interaction) -> wavelink.Player | None:
         """Проверка подключения к голосовому каналу и получение плеера."""
         player = wavelink.Pool.get_node().get_player(interaction.guild.id)
-        if not player or not player.connected:
+        if not player or not player.is_connected():
             await interaction.response.send_message(
                 embed=create_embed(
                     description="Я не подключен к голосовому каналу!"

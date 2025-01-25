@@ -93,16 +93,14 @@ class Minesweeper(commands.Cog):
             return await interaction.response.send_message(
                 embed=create_embed(
                     description=f"❌ Количество строк должно быть от {self.limits['min_size']} до {self.limits['max_size']}!"
-                ),
-                ephemeral=True
+                )
             )
 
         if cols < self.limits["min_size"] or cols > self.limits["max_size"]:
             return await interaction.response.send_message(
                 embed=create_embed(
                     description=f"❌ Количество столбцов должно быть от {self.limits['min_size']} до {self.limits['max_size']}!"
-                ),
-                ephemeral=True
+                )
             )
 
         max_possible_mines = (rows * cols) - 1
@@ -110,8 +108,7 @@ class Minesweeper(commands.Cog):
             return await interaction.response.send_message(
                 embed=create_embed(
                     description=f"❌ Количество мин должно быть от 1 до {min(max_possible_mines, self.limits['max_mines'])}!"
-                ),
-                ephemeral=True
+                )
             )
 
         # Создаем игровое поле

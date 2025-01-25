@@ -60,6 +60,10 @@ EMOJIS = {
     'MONEY': '<:BotMoney:1266063131457880105>',
     'SUCCESS': '<:BotOk:1266062451049365574>',
     'ERROR': '<:BotError:1266062540052365343>',
+    'INFO': '<:BotInfo:1332835368365719592>',
+    'WARNING': '<:BotWarning:1332836101487984781>',
+    # --- STREAK ---
+    'FLAME': '<:BotFlame:1332836327137349642>',
     # --- TEMP VOICES ---
     'VoiceCrown': '<:VoiceCrown:1332417411370057781>',
     'VoiceUsers': '<:VoiceUsers:1332418260435603476>',
@@ -85,6 +89,11 @@ EMOJIS = {
     'ROLES': '<:AnalyticsRoles:1332733459893846089>',
     'CROWN': '<:AnalyticsCrown:1332733632896303186>',
     'BOT': '<:AnalyticsBot:1332734596449697823>',
+    # --- STREAK INFO ---
+    'CALENDAR': '<:BotCalendar:1332836632449257525>',
+    'MESSAGE': '<:BotMessages:1332836789383073893>',
+    'STATUS': '<:BotStatus:1332837240929255464>',
+    'CLOCK': '<:BotClock:1332837421603360799>',
 }
 
 # --- DATABASE SCHEMAS ---

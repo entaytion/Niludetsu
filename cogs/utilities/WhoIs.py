@@ -76,8 +76,7 @@ class WhoIs(commands.Cog):
             
         except Exception as e:
             await interaction.followup.send(
-                embed=create_embed(description=f"{EMOJIS['ERROR']} Произошла ошибка при получении информации: {str(e)}"),
-                ephemeral=True
+                embed=create_embed(description=f"{EMOJIS['ERROR']} Произошла ошибка при получении информации: {str(e)}")
             )
 
 async def setup(bot):

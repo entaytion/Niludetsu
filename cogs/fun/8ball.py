@@ -39,8 +39,7 @@ class Magic8Ball(commands.Cog):
             await interaction.response.send_message(
                 embed=create_embed(
                     description=f"{EMOJIS['ERROR']} Это не похоже на вопрос! Добавь знак вопроса в конце."
-                ),
-                ephemeral=True
+                )
             )
             return
 

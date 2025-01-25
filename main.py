@@ -82,7 +82,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
         await logs_cog.on_app_command_error(interaction, error)
     else:
         # Если логгер не найден, просто отправляем сообщение об ошибке
-        await interaction.response.send_message("Произошла ошибка при выполнении команды!", ephemeral=True)
+        await interaction.response.send_message("Произошла ошибка при выполнении команды!")
 
 @bot.event
 async def setup_hook():

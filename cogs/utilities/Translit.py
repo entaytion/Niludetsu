@@ -119,8 +119,7 @@ class Translit(commands.Cog):
             await interaction.response.send_message(
                 embed=create_embed(
                     description=f"{EMOJIS['ERROR']} Произошла ошибка при транслитерации: {str(e)}"
-                ),
-                ephemeral=True
+                )
             )
 
     @app_commands.command(name="k", description="Исправление текста, набранного в неправильной раскладке")
@@ -146,8 +145,7 @@ class Translit(commands.Cog):
             await interaction.response.send_message(
                 embed=create_embed(
                     description=f"{EMOJIS['ERROR']} Произошла ошибка при исправлении раскладки: {str(e)}"
-                ),
-                ephemeral=True
+                )
             )
 
 async def setup(bot):

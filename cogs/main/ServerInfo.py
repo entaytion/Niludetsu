@@ -164,7 +164,7 @@ class ServerInfo(commands.Cog):
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.followup.send(f"❌ Произошла ошибка: {str(e)}", ephemeral=True)
+            await interaction.followup.send(f"❌ Произошла ошибка: {str(e)}")
 
 async def setup(bot):
     await bot.add_cog(ServerInfo(bot)) 

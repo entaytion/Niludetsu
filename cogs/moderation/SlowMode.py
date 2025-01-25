@@ -96,7 +96,7 @@ class SlowMode(commands.Cog):
         channel = channel or interaction.channel
         
         if not isinstance(channel, discord.TextChannel):
-            await interaction.followup.send("❌ Медленный режим можно установить только в текстовом канале!", ephemeral=True)
+            await interaction.followup.send("❌ Медленный режим можно установить только в текстовом канале!")
             return
             
         try:
@@ -118,9 +118,9 @@ class SlowMode(commands.Cog):
             await interaction.followup.send(embed=embed)
             
         except discord.Forbidden:
-            await interaction.followup.send("❌ У меня нет прав для изменения медленного режима в этом канале!", ephemeral=True)
+            await interaction.followup.send("❌ У меня нет прав для изменения медленного режима в этом канале!")
         except Exception as e:
-            await interaction.followup.send(f"❌ Произошла ошибка: {str(e)}", ephemeral=True)
+            await interaction.followup.send(f"❌ Произошла ошибка: {str(e)}")
     
     @slowmode_group.command(name="off", description="Отключить медленный режим в канале")
     @app_commands.describe(
@@ -182,7 +182,7 @@ class SlowMode(commands.Cog):
         channel = channel or interaction.channel
         
         if not isinstance(channel, discord.TextChannel):
-            await interaction.followup.send("❌ Медленный режим можно отключить только в текстовом канале!", ephemeral=True)
+            await interaction.followup.send("❌ Медленный режим можно отключить только в текстовом канале!")
             return
             
         try:
@@ -204,9 +204,9 @@ class SlowMode(commands.Cog):
             await interaction.followup.send(embed=embed)
             
         except discord.Forbidden:
-            await interaction.followup.send("❌ У меня нет прав для изменения медленного режима в этом канале!", ephemeral=True)
+            await interaction.followup.send("❌ У меня нет прав для изменения медленного режима в этом канале!")
         except Exception as e:
-            await interaction.followup.send(f"❌ Произошла ошибка: {str(e)}", ephemeral=True)
+            await interaction.followup.send(f"❌ Произошла ошибка: {str(e)}")
     
     @slowmode_group.command(name="info", description="Показать информацию о медленном режиме в канале")
     @app_commands.describe(
@@ -256,7 +256,7 @@ class SlowMode(commands.Cog):
         channel = channel or interaction.channel
         
         if not isinstance(channel, discord.TextChannel):
-            await interaction.followup.send("❌ Медленный режим есть только в текстовых каналах!", ephemeral=True)
+            await interaction.followup.send("❌ Медленный режим есть только в текстовых каналах!")
             return
             
         embed = create_embed(

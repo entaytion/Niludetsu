@@ -23,20 +23,18 @@ class Clear(commands.Cog):
     async def clear(self, interaction: discord.Interaction, amount: int, member: discord.Member = None):
         if amount > 1000:
             await interaction.response.send_message(
-                embed=create_embed(description="Нельзя удалить больше 1000 сообщений за раз!"),
-                ephemeral=True
+                embed=create_embed(description="Нельзя удалить больше 1000 сообщений за раз!")
             )
             return
         
         if amount < 1:
             await interaction.response.send_message(
-                embed=create_embed(description="Количество сообщений должно быть больше 0!"),
-                ephemeral=True
+                embed=create_embed(description="Количество сообщений должно быть больше 0!")
             )
             return
         
         try:
-            await interaction.response.defer(ephemeral=True)
+            await interaction.response.defer()
             deleted = 0
             
             if member:
@@ -80,18 +78,15 @@ class Clear(commands.Cog):
         
         except discord.Forbidden:
             await interaction.followup.send(
-                embed=create_embed(description="У меня недостаточно прав для удаления сообщений!"),
-                ephemeral=True
+                embed=create_embed(description="У меня недостаточно прав для удаления сообщений!")
             )
         except discord.HTTPException as e:
             await interaction.followup.send(
-                embed=create_embed(description=f"Произошла ошибка при удалении сообщений: {str(e)}"),
-                ephemeral=True
+                embed=create_embed(description=f"Произошла ошибка при удалении сообщений: {str(e)}")
             )
         except Exception as e:
             await interaction.followup.send(
-                embed=create_embed(description=f"Произошла неизвестная ошибка: {str(e)}"),
-                ephemeral=True
+                embed=create_embed(description=f"Произошла неизвестная ошибка: {str(e)}")
             )
 
 async def setup(bot):

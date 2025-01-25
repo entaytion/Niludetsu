@@ -16,7 +16,7 @@ class ReputationView(View):
         
     async def interaction_check(self, interaction: Interaction) -> bool:
         if interaction.user.id != self.original_interaction.user.id:
-            await interaction.response.send_message("Вы не можете использовать эти кнопки!", ephemeral=True)
+            await interaction.response.send_message("Вы не можете использовать эти кнопки!")
             return False
         return True
         

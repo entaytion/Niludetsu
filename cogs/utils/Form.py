@@ -42,7 +42,7 @@ class BaseButton(View):
     async def submit(self, interaction: discord.Interaction, button: Button):
         view = View(timeout=None)
         view.add_item(PositionSelect())
-        await interaction.response.send_message("Выберите должность:", view=view, ephemeral=True)
+        await interaction.response.send_message("Выберите должность:", view=view)
 
 class ApplicationButton(BaseButton):
     pass
@@ -164,7 +164,7 @@ class ApplicationView(View):
         if reason:
             response_message += f"\n**Причина:** {reason}"
         
-        await interaction.response.send_message(response_message, ephemeral=True)
+        await interaction.response.send_message(response_message)
 
     async def _handle_accept(self, interaction: discord.Interaction, reason: str = None):
         await self._update_application_status(interaction, "принята", 0x00FF00, reason)
@@ -231,7 +231,7 @@ class Forms(commands.Cog):
     async def form(self, interaction: discord.Interaction, action: str, message_id: str = None, applications_channel: str = None):
         action = action.lower()
         if action not in ["create", "set"]:
-            await interaction.response.send_message("❌ Неверное действие! Используйте 'create' или 'set'", ephemeral=True)
+            await interaction.response.send_message("❌ Неверное действие! Используйте 'create' или 'set'")
             return
 
         try:
@@ -240,22 +240,22 @@ class Forms(commands.Cog):
             else:
                 await self._handle_set_form(interaction, applications_channel)
         except Exception as e:
-            await interaction.response.send_message(f"❌ Произошла ошибка: {str(e)}", ephemeral=True)
+            await interaction.response.send_message(f"❌ Произошла ошибка: {str(e)}")
 
     async def _handle_create_form(self, interaction, message_id, applications_channel):
         try:
             message = await interaction.channel.fetch_message(int(message_id))
         except (discord.NotFound, ValueError):
-            await interaction.response.send_message("❌ Сообщение не найдено!", ephemeral=True)
+            await interaction.response.send_message("❌ Сообщение не найдено!")
             return
 
         try:
             applications_channel_id = int(applications_channel)
             if not (channel := self.bot.get_channel(applications_channel_id)):
-                await interaction.response.send_message("❌ Канал для заявок не найден!", ephemeral=True)
+                await interaction.response.send_message("❌ Канал для заявок не найден!")
                 return
         except ValueError:
-            await interaction.response.send_message("❌ Неверный формат ID канала!", ephemeral=True)
+            await interaction.response.send_message("❌ Неверный формат ID канала!")
             return
 
         embed = create_embed(
@@ -287,8 +287,7 @@ class Forms(commands.Cog):
         await interaction.response.send_message(
             f"✅ Панель подачи заявок успешно создана!\n"
             f"📝 ID сообщения: `{message_id}`\n"
-            f"📨 Канал для заявок: {channel.mention}",
-            ephemeral=True
+            f"📨 Канал для заявок: {channel.mention}"
         )
 
     async def _handle_set_form(self, interaction, applications_channel):
@@ -306,11 +305,11 @@ class Forms(commands.Cog):
 
     async def handle_modal_submit(self, interaction: discord.Interaction, modal, position: str):
         if 'FORM_CHANNEL_ID' not in self.config:
-            await interaction.response.send_message("❌ Канал для заявок не настроен в конфиге!", ephemeral=True)
+            await interaction.response.send_message("❌ Канал для заявок не настроен в конфиге!")
             return
 
         if not (channel := self.bot.get_channel(int(self.config['FORM_CHANNEL_ID']))):
-            await interaction.response.send_message("❌ Канал для заявок не найден!", ephemeral=True)
+            await interaction.response.send_message("❌ Канал для заявок не найден!")
             return
 
         application_data = {field_name: field.value for field_name, field in modal.fields.items()}
@@ -342,7 +341,7 @@ class Forms(commands.Cog):
             color=0x00FF00
         )
         
-        await interaction.response.send_message(embed=success_embed, ephemeral=True)
+        await interaction.response.send_message(embed=success_embed)
 
 async def setup(bot):
     await bot.add_cog(Forms(bot))

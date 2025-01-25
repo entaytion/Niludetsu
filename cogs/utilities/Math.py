@@ -137,8 +137,7 @@ class Math(commands.Cog):
             await interaction.response.send_message(
                 embed=create_embed(
                     description=f"{EMOJIS['ERROR']} Ошибка в выражении: {str(e)}"
-                ),
-                ephemeral=True
+                )
             )
 
 async def setup(bot):

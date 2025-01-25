@@ -89,7 +89,7 @@ class MCServer(commands.Cog):
             error_embed = create_embed(
                 description=f"{EMOJIS['ERROR']} Не удалось получить информацию о сервере: {str(e)}"
             )
-            await interaction.followup.send(embed=error_embed, ephemeral=True)
+            await interaction.followup.send(embed=error_embed)
 
 async def setup(bot):
     await bot.add_cog(MCServer(bot)) 

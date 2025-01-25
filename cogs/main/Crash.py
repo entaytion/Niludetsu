@@ -13,7 +13,7 @@ class Crash(commands.Cog):
 
     @app_commands.command(name="crash", description="Создать тестовую ошибку для проверки логирования")
     async def crash(self, interaction: discord.Interaction):
-        await interaction.response.send_message("🔨 Создаю тестовую ошибку...", ephemeral=True)
+        await interaction.response.send_message("🔨 Создаю тестовую ошибку...")
         raise CrashError("Это тестовая ошибка для проверки системы логирования!")
 
 async def setup(bot):

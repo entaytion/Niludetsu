@@ -23,39 +23,37 @@ class Play(commands.Cog):
             )
             return
 
-        # Проверяем доступность музыкального сервера сразу
+        await interaction.response.defer(thinking=True)
+
         if not self.core.node or not wavelink.Pool.get_node():
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 embed=create_embed(
                     description="Музыкальный сервер недоступен. Попробуйте позже!"
                 )
             )
             return
 
-        # Ищем треки до отложенного ответа
+        player = await self.core.get_player(interaction)
+        if not player:
+            await interaction.followup.send(
+                embed=create_embed(
+                    description="Ошибка подключения к голосовому каналу!"
+                )
+            )
+            return
+
+        if not hasattr(player, 'home'):
+            player.home = interaction.channel
+
         try:
             tracks = await wavelink.Playable.search(query)
             if not tracks:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     embed=create_embed(
                         description="По вашему запросу ничего не найдено!"
                     )
                 )
                 return
-
-            await interaction.response.defer(thinking=True)
-            
-            player = await self.core.get_player(interaction)
-            if not player:
-                await interaction.followup.send(
-                    embed=create_embed(
-                        description="Ошибка подключения к голосовому каналу!"
-                    )
-                )
-                return
-
-            if not hasattr(player, 'home'):
-                player.home = interaction.channel
 
             track = tracks[0]
 
@@ -76,9 +74,10 @@ class Play(commands.Cog):
                     )
                 )
         except Exception as e:
+            print(f"Error in play command: {e}")
             await interaction.followup.send(
                 embed=create_embed(
-                    description=f"Произошла ошибка при воспроизведении трека: {str(e)}"
+                    description="Произошла ошибка при воспроизведении трека!"
                 )
             )
 
