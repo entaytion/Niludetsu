@@ -7,7 +7,7 @@ import json
 import datetime
 import asyncio
 import os
-
+import io
 class Logs(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -825,87 +825,99 @@ class Logs(commands.Cog):
             await self.log_event(embed)
 
     @commands.Cog.listener()
-    async def on_guild_channel_update(self, before, after):
-        """Расширенное логирование изменений каналов"""
+    async def on_guild_channel_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel):
+        """Логирование изменений каналов"""
         if not self.log_channel:
             return
 
+        moderator = None
+        try:
+            async for entry in before.guild.audit_logs(limit=1, action=discord.AuditLogAction.channel_update):
+                if entry.target.id == before.id:
+                    moderator = entry.user
+                    break
+        except discord.Forbidden:
+            pass
+
+        embed = create_embed(
+            title="📝 Канал изменен",
+            description=f"Канал: {after.mention}"
+        )
+
         changes = []
-        
-        # Основные изменения
+
         if before.name != after.name:
-            changes.append(f"Название: `{before.name}` → `{after.name}`")
-        if before.position != after.position:
-            changes.append(f"Позиция: `{before.position}` → `{after.position}`")
-        if before.category != after.category:
-            changes.append(f"Категория: `{before.category}` → `{after.category}`")
+            changes.append(f"**Название:** {before.name} ➜ {after.name}")
 
-        # Изменения прав доступа
-        if before.overwrites != after.overwrites:
-            # Находим добавленные права
-            for target in after.overwrites:
-                if target not in before.overwrites:
-                    changes.append(f"Добавлены права для: {target.mention if hasattr(target, 'mention') else target.name}")
-                else:
-                    # Проверяем изменения в существующих правах
-                    if before.overwrites[target].pair() != after.overwrites[target].pair():
-                        changes.append(f"Изменены права для: {target.mention if hasattr(target, 'mention') else target.name}")
-
-            # Находим удаленные права
-            for target in before.overwrites:
-                if target not in after.overwrites:
-                    changes.append(f"Удалены права для: {target.mention if hasattr(target, 'mention') else target.name}")
-
-        # Специфичные изменения для текстовых каналов
-        if isinstance(after, discord.TextChannel):
+        if isinstance(before, discord.TextChannel) and isinstance(after, discord.TextChannel):
             if before.topic != after.topic:
-                changes.append(f"Тема: `{before.topic or 'Отсутствует'}` → `{after.topic or 'Отсутствует'}`")
+                changes.append(f"**Тема:** {before.topic or 'Нет'} ➜ {after.topic or 'Нет'}")
             if before.slowmode_delay != after.slowmode_delay:
-                changes.append(f"Медленный режим: `{before.slowmode_delay}с` → `{after.slowmode_delay}с`")
+                changes.append(f"**Медленный режим:** {before.slowmode_delay}с ➜ {after.slowmode_delay}с")
             if before.nsfw != after.nsfw:
-                changes.append(f"NSFW: `{'Да' if after.nsfw else 'Нет'}`")
-            if before.default_auto_archive_duration != after.default_auto_archive_duration:
-                changes.append(f"Время автоархивации: `{before.default_auto_archive_duration}` → `{after.default_auto_archive_duration}`")
+                changes.append(f"**NSFW:** {before.nsfw} ➜ {after.nsfw}")
 
-        # Специфичные изменения для голосовых каналов
-        if isinstance(after, discord.VoiceChannel):
+        if isinstance(before, discord.VoiceChannel) and isinstance(after, discord.VoiceChannel):
             if before.bitrate != after.bitrate:
-                changes.append(f"Битрейт: `{before.bitrate//1000}kbps` → `{after.bitrate//1000}kbps`")
+                changes.append(f"**Битрейт:** {before.bitrate//1000}kbps ➜ {after.bitrate//1000}kbps")
             if before.user_limit != after.user_limit:
-                changes.append(f"Лимит пользователей: `{before.user_limit or 'Без лимита'}` → `{after.user_limit or 'Без лимита'}`")
-            if before.rtc_region != after.rtc_region:
-                changes.append(f"Регион: `{before.rtc_region or 'Авто'}` → `{after.rtc_region or 'Авто'}`")
-            if before.video_quality_mode != after.video_quality_mode:
-                changes.append(f"Качество видео: `{before.video_quality_mode}` → `{after.video_quality_mode}`")
+                changes.append(f"**Лимит пользователей:** {before.user_limit or 'Нет'} ➜ {after.user_limit or 'Нет'}")
+
+        if before.category != after.category:
+            changes.append(f"**Категория:** {before.category or 'Нет'} ➜ {after.category or 'Нет'}")
+
+        if before.position != after.position:
+            changes.append(f"**Позиция:** {before.position} ➜ {after.position}")
 
         if changes:
-            try:
-                async for entry in after.guild.audit_logs(limit=1, action=discord.AuditLogAction.channel_update):
-                    if entry.target.id == after.id:
-                        moderator = entry.user
-                        reason = entry.reason
-                        break
-            except discord.Forbidden:
-                moderator = None
-                reason = None
-
-            embed = create_embed(
-                title="📝 Канал обновлен",
-                description=f"{EMOJIS['DOT']} **Канал:** {after.mention}\n"
-                          f"{EMOJIS['DOT']} **Тип:** `{str(after.type)}`\n"
-                          f"{EMOJIS['DOT']} **Изменения:**\n" + 
-                          "\n".join(f"{EMOJIS['DOT']} {change}" for change in changes)
-            )
-
+            embed.add_field(name="Изменения", value="\n".join(changes), inline=False)
+            
             if moderator:
-                embed.add_field(
-                    name="👮 Модератор",
-                    value=f"{EMOJIS['DOT']} **Модератор:** {moderator.mention}\n"
-                          f"{EMOJIS['DOT']} **Причина:** `{reason or 'Не указана'}`",
-                    inline=False
-                )
+                embed.add_field(name="Модератор", value=f"{moderator.mention} ({moderator.id})", inline=False)
+            
+            await self.log_channel.send(embed=embed)
 
-            await self.log_event(embed)
+    @commands.Cog.listener()
+    async def on_message_delete(self, message: discord.Message):
+        """Логирование удаленных сообщений"""
+        if not self.log_channel or not message.guild:
+            return
+
+        if message.author.bot and message.author != self.bot.user:
+            return
+
+        moderator = None
+        try:
+            async for entry in message.guild.audit_logs(limit=1, action=discord.AuditLogAction.message_delete):
+                if entry.target.id == message.author.id and (datetime.datetime.now(datetime.timezone.utc) - entry.created_at).total_seconds() < 5:
+                    moderator = entry.user
+                    break
+        except discord.Forbidden:
+            pass
+
+        embed = create_embed(
+            title="🗑️ Сообщение удалено",
+            description=f"**Автор:** {message.author.mention} ({message.author.id})\n"
+                       f"**Канал:** {message.channel.mention}\n"
+                       f"**Создано:** <t:{int(message.created_at.timestamp())}:R>"
+        )
+
+        if message.content:
+            if len(message.content) > 1024:
+                embed.add_field(name="Содержание", value=f"{message.content[:1021]}...", inline=False)
+            else:
+                embed.add_field(name="Содержание", value=message.content, inline=False)
+
+        if message.attachments:
+            attachments = "\n".join([f"[{a.filename}]({a.proxy_url})" for a in message.attachments])
+            if len(attachments) > 1024:
+                attachments = attachments[:1021] + "..."
+            embed.add_field(name="Вложения", value=attachments, inline=False)
+
+        if moderator and moderator != message.author:
+            embed.add_field(name="Удалил", value=f"{moderator.mention} ({moderator.id})", inline=False)
+
+        await self.log_channel.send(embed=embed)
 
     @commands.Cog.listener()
     async def on_guild_role_update(self, before, after):
@@ -1629,22 +1641,26 @@ class Logs(commands.Cog):
         if not self.log_channel or len(messages) < 2:
             return
 
-        # Создаем текстовый файл с удаленными сообщениями
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
-        filename = f"allianceofentaytion?_DeletedMessages_{timestamp}.txt"
+        # Создаем текстовое содержимое
+        content = []
+        content.append(f"Удаленные сообщения из канала: #{messages[0].channel.name}")
+        content.append(f"Время: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        content.append("-" * 50 + "\n")
         
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write(f"Удаленные сообщения из канала: #{messages[0].channel.name}\n")
-            f.write(f"Время: {timestamp}\n")
-            f.write("-" * 50 + "\n\n")
-            
-            for message in sorted(messages, key=lambda m: m.created_at):
-                f.write(f"[{message.created_at.strftime('%d/%m/%Y - %H:%M:%S')}] {message.author} ({message.author.id}): {message.content}\n")
-                if message.attachments:
-                    f.write(f"Вложения: {', '.join([a.url for a in message.attachments])}\n")
-                if message.embeds:
-                    f.write(f"Количество эмбедов: {len(message.embeds)}\n")
-                f.write("\n")
+        for message in sorted(messages, key=lambda m: m.created_at):
+            content.append(f"[{message.created_at.strftime('%d/%m/%Y - %H:%M:%S')}] {message.author} ({message.author.id}): {message.content}")
+            if message.attachments:
+                content.append(f"Вложения: {', '.join([a.url for a in message.attachments])}")
+            if message.embeds:
+                content.append(f"Количество эмбедов: {len(message.embeds)}")
+            content.append("")
+
+        # Создаем файл в памяти
+        file_content = "\n".join(content)
+        file = discord.File(
+            io.BytesIO(file_content.encode('utf-8')),
+            filename=f"DeletedMessages_{datetime.datetime.now().strftime('%Y-%m-%dT%H-%M-%S')}.txt"
+        )
 
         # Получаем информацию о модераторе
         try:
@@ -1662,21 +1678,12 @@ class Logs(commands.Cog):
                       f"{EMOJIS['DOT']} **Количество сообщений:** `{len(messages)}`\n"
                       f"{EMOJIS['DOT']} **Модератор:** {moderator.mention if moderator else 'Неизвестно'}\n"
                       f"{EMOJIS['DOT']} **Причина:** `{reason or 'Не указана'}`\n\n"
-                      f"📎 Полный список удаленных сообщений сохранен в файле.",
+                      f"📎 Полный список удаленных сообщений в файле.",
             footer={"text": f"ID канала: {messages[0].channel.id}"}
         )
 
         # Отправляем файл в канал логов
-        await self.log_channel.send(
-            embed=embed,
-            file=discord.File(filename, filename=filename)
-        )
-
-        # Удаляем временный файл
-        try:
-            os.remove(filename)
-        except Exception as e:
-            print(f"Ошибка при удалении файла: {e}")
+        await self.log_channel.send(embed=embed, file=file)
 
 async def setup(bot):
     await bot.add_cog(Logs(bot)) 

@@ -88,22 +88,35 @@ class Help(commands.Cog):
             "main": {
                 "title": "Основные команды",
                 "emoji": "⚙️",
-                "commands": ["/help", "/botinfo", "/serverinfo", "/userinfo", "/emoji", "/crash"],
+                "commands": ["/help", "/botinfo", "/serverinfo", "/userinfo", "/roleinfo", "/emoji"],
                 "description": f"{EMOJIS['DOT']} `/help` — помощь.\n"
                               f"{EMOJIS['DOT']} `/botinfo` — информация о боте.\n"
                               f"{EMOJIS['DOT']} `/serverinfo` — информация о сервере.\n"
                               f"{EMOJIS['DOT']} `/userinfo` — информация о пользователе.\n"
-                              f"{EMOJIS['DOT']} `/emoji <emoji>` — скачать эмодзи.\n"
-                              f"{EMOJIS['DOT']} `/crash` — завершить работу бота.",
+                              f"{EMOJIS['DOT']} `/roleinfo` — информация о роли.\n"
+                              f"{EMOJIS['DOT']} `/emoji <emoji>` — скачать эмодзи.",
                 "footer": "Справочник по командам из раздела \"Основное\""
+            },
+            "admin": {
+                "title": "Команды администратора",
+                "emoji": "🛡️",
+                "commands": ["/crash", "/idea", "/complaint", "/form", "/applications"],
+                "description": f"{EMOJIS['DOT']} `/crash` — завершить работу бота.\n"
+                              f"{EMOJIS['DOT']} `/idea` — отправить идею.\n"
+                              f"{EMOJIS['DOT']} `/complaint` — подать жалобу.\n"
+                              f"{EMOJIS['DOT']} `/form` — отправить заявку на участие в проекте.",
+                "footer": "Справочник по командам из раздела \"Администратор\""
             },
             "games": {
                 "title": "Команды для игр",
                 "emoji": "🎮",
-                "commands": ["/rps", "/wordle", "/tictactoe"],
+                "commands": ["/rps", "/wordle", "/tictactoe", "/2048", "/country", "/capitals"],
                 "description": f"{EMOJIS['DOT']} `/rps [user]` — играть в камень, ножницы, бумага.\n"
                               f"{EMOJIS['DOT']} `/wordle [user]` — играть в слова.\n"
-                              f"{EMOJIS['DOT']} `/tictactoe [user]` — играть в крестики-нолики.",
+                              f"{EMOJIS['DOT']} `/tictactoe [user]` — играть в крестики-нолики.\n"
+                              f"{EMOJIS['DOT']} `/2048` — играть в 2048.\n"
+                              f"{EMOJIS['DOT']} `/country` — играть в угадай страну.\n"
+                              f"{EMOJIS['DOT']} `/capitals` — играть в угадай столицу.",
                 "footer": "Справочник по командам из раздела \"Игры\""
             },
             "fun": {
@@ -141,7 +154,7 @@ class Help(commands.Cog):
             "economy": {
                 "title": "Команды экономики",
                 "emoji": "💰",
-                "commands": ["/balance", "/shop", "/sell", "/slots", "/deposit", "/withdraw", "/daily", "/work", "/pay", "/leaderboard", "/casino", "/blackjack", "/rob"],
+                "commands": ["/balance", "/shop", "/sell", "/slots", "/deposit", "/withdraw", "/daily", "/work", "/pay", "/leaderboard", "/casino", "/blackjack", "/rob", "/duel"],
                 "description": f"{EMOJIS['DOT']} `/balance [user]` — проверить баланс.\n"
                               f"{EMOJIS['DOT']} `/shop` — просмотреть магазин.\n"
                               f"{EMOJIS['DOT']} `/sell` — продать роль.\n"
@@ -154,7 +167,8 @@ class Help(commands.Cog):
                               f"{EMOJIS['DOT']} `/leaderboard` — посмотреть топ юзеров по деньгам.\n"
                               f"{EMOJIS['DOT']} `/casino [bet] [amount]` — играть в казино.\n"
                               f"{EMOJIS['DOT']} `/blackjack [bet]` — играть в блекджек.\n"
-                              f"{EMOJIS['DOT']} `/rob [user]` — украсть деньги с кошелька (кулдаун: `5 минут`).\n",
+                              f"{EMOJIS['DOT']} `/rob [user]` — украсть деньги с кошелька (кулдаун: `5 минут`)."
+                              f"{EMOJIS['DOT']} `/duel [user] [bet]` — позвать кого-то на дуэль.\n",
                 "footer": "Справочник по командам из раздела \"Экономика\""
             },
             "profile": {

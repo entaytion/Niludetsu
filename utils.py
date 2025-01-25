@@ -55,10 +55,10 @@ def create_embed(title=None, description=None, color=0xf20c3c, fields=None, foot
 
 # --- EMOJIS ---
 EMOJIS = {
-    'DOT': '<:aeOutlineDot:1266066158029770833>',
-    'MONEY': '<:aeMoney:1266066622561517781>',
-    'SUCCESS': '<:aeSuccess:1266062451049365574>',
-    'ERROR': '<:aeError:1266062540052365343>'
+    'DOT': '<:BotDot:1266063532517232701>',
+    'MONEY': '<:BotMoney:1266063131457880105>',
+    'SUCCESS': '<:BotOk:1266062451049365574>',
+    'ERROR': '<:BotError:1266062540052365343>'
 }
 
 # --- DATABASE ---

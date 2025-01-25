@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 from utils import create_embed
 import json
+import asyncio
 
 def load_config():
     with open('config/config.json', 'r') as f:
@@ -21,19 +22,22 @@ class Clear(commands.Cog):
     @app_commands.checks.has_permissions(manage_messages=True)
     async def clear(self, interaction: discord.Interaction, amount: int, member: discord.Member = None):
         if amount > 1000:
-            return await interaction.response.send_message(
+            await interaction.response.send_message(
                 embed=create_embed(description="Нельзя удалить больше 1000 сообщений за раз!"),
                 ephemeral=True
             )
+            return
         
         if amount < 1:
-            return await interaction.response.send_message(
+            await interaction.response.send_message(
                 embed=create_embed(description="Количество сообщений должно быть больше 0!"),
                 ephemeral=True
             )
+            return
         
         try:
-            await interaction.response.defer(thinking=True)
+            await interaction.response.defer(ephemeral=True)
+            deleted = 0
             
             if member:
                 # Если указан пользователь, удаляем только его сообщения
@@ -44,15 +48,14 @@ class Clear(commands.Cog):
                     if message.author == member:
                         messages.append(message)
                 
-                await interaction.channel.delete_messages(messages)
-                deleted = len(messages)
+                if messages:
+                    await interaction.channel.delete_messages(messages)
+                    deleted = len(messages)
             else:
-                # Иначе удаляем все сообщения, кроме команды
-                deleted = 0
+                # Иначе удаляем все сообщения
                 while amount > 0:
                     to_delete = min(amount, 100)  # Discord позволяет удалять максимум 100 сообщений за раз
-                    messages = [msg async for msg in interaction.channel.history(limit=to_delete) 
-                              if msg.id != interaction.id]
+                    messages = [msg async for msg in interaction.channel.history(limit=to_delete)]
                     if not messages:
                         break
                         
@@ -64,30 +67,16 @@ class Clear(commands.Cog):
                         break
 
             # Отправляем сообщение о завершении очистки
-            await interaction.followup.send(
-                embed=create_embed(
-                    title="🗑️ Очистка сообщений", 
-                    description=f"**Модератор:** {interaction.user.mention}\n"
-                              f"**Канал:** {interaction.channel.mention}\n"
-                              f"**Удалено сообщений:** `{deleted}`\n"
-                              f"{'**Пользователь:** ' + member.mention if member else ''}"
-                )
+            embed = create_embed(
+                title="🗑️ Очистка сообщений", 
+                description=f"**Модератор:** {interaction.user.mention}\n"
+                          f"**Канал:** {interaction.channel.mention}\n"
+                          f"**Удалено сообщений:** `{deleted}`\n"
+                          f"{'**Пользователь:** ' + member.mention if member else ''}"
             )
-
-            # Логирование действия, если указана лог-комната
-            log_channel_id = self.config.get('LOG_CHANNEL_ID')
-            if log_channel_id:
-                log_channel = self.bot.get_channel(int(log_channel_id))
-                if log_channel:
-                    await log_channel.send(
-                        embed=create_embed(
-                            title="🗑️ Очистка сообщений",
-                            description=f"**Модератор:** {interaction.user.mention}\n"
-                                      f"**Канал:** {interaction.channel.mention}\n"
-                                      f"**Удалено сообщений:** `{deleted}`\n"
-                                      f"{'**Пользователь:** ' + member.mention if member else ''}"
-                        )
-                    )
+            message = await interaction.followup.send(embed=embed)
+            await asyncio.sleep(10)
+            await message.delete()
         
         except discord.Forbidden:
             await interaction.followup.send(
@@ -97,6 +86,11 @@ class Clear(commands.Cog):
         except discord.HTTPException as e:
             await interaction.followup.send(
                 embed=create_embed(description=f"Произошла ошибка при удалении сообщений: {str(e)}"),
+                ephemeral=True
+            )
+        except Exception as e:
+            await interaction.followup.send(
+                embed=create_embed(description=f"Произошла неизвестная ошибка: {str(e)}"),
                 ephemeral=True
             )
 

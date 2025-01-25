@@ -3,6 +3,8 @@ config.json
 config/database.db
 config/words.json
 config/voice_channels.json
+config/tickets.json
+data/*
 
 # Python
 __pycache__/
