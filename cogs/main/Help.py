@@ -100,23 +100,25 @@ class Help(commands.Cog):
             "admin": {
                 "title": "Команды администратора",
                 "emoji": "🛡️",
-                "commands": ["/crash", "/idea", "/complaint", "/form", "/applications"],
+                "commands": ["/crash", "/reports", "/form", "/ideas"],
                 "description": f"{EMOJIS['DOT']} `/crash` — завершить работу бота.\n"
-                              f"{EMOJIS['DOT']} `/idea` — отправить идею.\n"
-                              f"{EMOJIS['DOT']} `/complaint` — подать жалобу.\n"
-                              f"{EMOJIS['DOT']} `/form` — отправить заявку на участие в проекте.",
+                              f"{EMOJIS['DOT']} `/reports` — конфигурация жалоб.\n"
+                              f"{EMOJIS['DOT']} `/form` — конфигурация заявок.\n"
+                              f"{EMOJIS['DOT']} `/ideas` — конфигурация идей.",
                 "footer": "Справочник по командам из раздела \"Администратор\""
             },
             "games": {
                 "title": "Команды для игр",
                 "emoji": "🎮",
-                "commands": ["/rps", "/wordle", "/tictactoe", "/2048", "/country", "/capitals"],
+                "commands": ["/rps", "/wordle", "/tictactoe", "/2048", "/country", "/capitals", "/minesweeper", "/coin"],
                 "description": f"{EMOJIS['DOT']} `/rps [user]` — играть в камень, ножницы, бумага.\n"
                               f"{EMOJIS['DOT']} `/wordle [user]` — играть в слова.\n"
                               f"{EMOJIS['DOT']} `/tictactoe [user]` — играть в крестики-нолики.\n"
                               f"{EMOJIS['DOT']} `/2048` — играть в 2048.\n"
                               f"{EMOJIS['DOT']} `/country` — играть в угадай страну.\n"
-                              f"{EMOJIS['DOT']} `/capitals` — играть в угадай столицу.",
+                              f"{EMOJIS['DOT']} `/capitals` — играть в угадай столицу.\n"
+                              f"{EMOJIS['DOT']} `/minesweeper` — играть в сапёр.\n"
+                              f"{EMOJIS['DOT']} `/coin` — орёл или решка.",
                 "footer": "Справочник по командам из раздела \"Игры\""
             },
             "fun": {
@@ -138,7 +140,7 @@ class Help(commands.Cog):
             "music": {
                 "title": "Команды для управления музыкой",
                 "emoji": "🎵",
-                "commands": ["/play", "/queue", "/skip", "/stop", "/pause", "/np", "/repeat", "/shuffle", "/nightcore", "/resume"],
+                "commands": ["/play", "/queue", "/skip", "/stop", "/pause", "/np", "/repeat", "/shuffle", "/nightcore", "/resume", "/volume"],
                 "description": f"{EMOJIS['DOT']} `/play` — воспроизвести песню или добавить в очередь.\n"
                               f"{EMOJIS['DOT']} `/queue` — показать текущую очередь воспроизведения.\n"
                               f"{EMOJIS['DOT']} `/skip` — пропустить текущую песню.\n"
@@ -148,7 +150,8 @@ class Help(commands.Cog):
                               f"{EMOJIS['DOT']} `/repeat` — повторить текущую песню.\n"
                               f"{EMOJIS['DOT']} `/shuffle` — перемешать песни.\n"
                               f"{EMOJIS['DOT']} `/nightcore` — включить эффект Nightcore.\n"
-                              f"{EMOJIS['DOT']} `/resume` — возобновить воспроизведение.",
+                              f"{EMOJIS['DOT']} `/resume` — возобновить воспроизведение.\n"
+                              f"{EMOJIS['DOT']} `/volume` — изменить громкость музыки.",
                 "footer": "Справочник по командам управления музыкой"
             },
             "economy": {
@@ -174,17 +177,19 @@ class Help(commands.Cog):
             "profile": {
                 "title": "Команды профиля",
                 "emoji": "👤",
-                "commands": ["/level", "/inventory", "/userinfo", "/avatar"],
+                "commands": ["/level", "/inventory", "/userinfo", "/avatar", "/bio", "/streak"],
                 "description": f"{EMOJIS['DOT']} `/level <user>` — проверить уровень.\n"
                               f"{EMOJIS['DOT']} `/inventory` — просмотреть инвентарь.\n"
                               f"{EMOJIS['DOT']} `/userinfo <user>` — просмотреть информацию о пользователе.\n"
-                              f"{EMOJIS['DOT']} `/avatar <user>` — просмотреть аватар пользователя.",
+                              f"{EMOJIS['DOT']} `/avatar <user>` — просмотреть аватар пользователя.\n"
+                              f"{EMOJIS['DOT']} `/bio [set/view/clear]` — просмотреть профиль.\n"
+                              f"{EMOJIS['DOT']} `/streak` — просмотреть вашого питомца Огонька.",
                 "footer": "Справочник по командам из раздела \"Профиль\""
             },
             "moderation": {
                 "title": "Команды для модерации",
                 "emoji": "🛡️",
-                "commands": ["/lock", "/unlock", "/kick", "/ban", "/unban", "/warn", "/mute", "/unmute", "/clear", "/warns"],
+                "commands": ["/lock", "/unlock", "/kick", "/ban", "/unban", "/warn", "/mute", "/unmute", "/clear", "/warns", "/massrole", "/mutes", "/reset"],
                 "description": f"{EMOJIS['DOT']} `/lock [channel] / [all_channels]` — заблокировать канал/ы.\n"
                               f"{EMOJIS['DOT']} `/unlock [channel] / [all_channels]` — разблокировать канал/ы.\n   "
                               f"{EMOJIS['DOT']} `/kick [user] [reason]` — кикнуть кого-то.\n"
@@ -194,20 +199,28 @@ class Help(commands.Cog):
                               f"{EMOJIS['DOT']} `/warns <user>` — посмотреть предупреждения.\n"
                               f"{EMOJIS['DOT']} `/mute [user] [reason]` — замутить кого-то.\n"
                               f"{EMOJIS['DOT']} `/unmute [user]` — размутить кого-то.\n"
-                              f"{EMOJIS['DOT']} `/clear [amount]` — очистить сообщения.\n",
+                              f"{EMOJIS['DOT']} `/clear [amount]` — очистить сообщения.\n"
+                              f"{EMOJIS['DOT']} `/massrole [add/remove] [role] [filter]` — массовая выдача/удаление роли.\n"
+                              f"{EMOJIS['DOT']} `/mutes` — список мутов.\n"
+                              f"{EMOJIS['DOT']} `/reset` — сбросить муты/варны.",
                 "footer": "Справочник по командам для модерации"
             },
             "utils": {
                 "title": "Команды для утилит",
                 "emoji": "🧷",
-                "commands": ["/reminder", "/quote", "/weather", "/translate", "/poll", "/qr", "/ai"],
+                "commands": ["/reminder", "/quote", "/weather", "/translate", "/poll", "/qr", "/ai", "/afk", "/t", "/k", "/math", "/rand"],
                 "description": f"{EMOJIS['DOT']} `/reminder [create] / [list] / [delete]` — напоминания.\n"
                               f"{EMOJIS['DOT']} `/quote` — сделать цитату.\n"
                               f"{EMOJIS['DOT']} `/weather` — узнать погоду.\n"
                               f"{EMOJIS['DOT']} `/translate` — перевести текст.\n"
                               f"{EMOJIS['DOT']} `/poll` — создать опрос.\n"
                               f"{EMOJIS['DOT']} `/qr` — создать QR-код.\n"
-                              f"{EMOJIS['DOT']} `/ai` — спросить что-то у ИИ.",
+                              f"{EMOJIS['DOT']} `/ai` — спросить что-то у ИИ.\n"
+                              f"{EMOJIS['DOT']} `/afk` — установить статус AFK.\n"
+                              f"{EMOJIS['DOT']} `/t` — транслитерация слов.\n"
+                              f"{EMOJIS['DOT']} `/k` — исправление раскладки.\n"
+                              f"{EMOJIS['DOT']} `/math` — решить математическую задачу.\n"
+                              f"{EMOJIS['DOT']} `/rand` — рандомный выбор.",
                 "footer": "Справочник по командам для утилит"
             },
         }

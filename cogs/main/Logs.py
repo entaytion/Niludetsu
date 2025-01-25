@@ -710,6 +710,8 @@ class Logs(commands.Cog):
             return
 
         changes = []
+        moderator = None
+        reason = None
         
         # Изменение никнейма
         if before.nick != after.nick:
@@ -719,6 +721,16 @@ class Logs(commands.Cog):
         if before.roles != after.roles:
             added_roles = [role for role in after.roles if role not in before.roles]
             removed_roles = [role for role in before.roles if role not in after.roles]
+            
+            if added_roles or removed_roles:
+                try:
+                    async for entry in after.guild.audit_logs(limit=1, action=discord.AuditLogAction.member_role_update):
+                        if entry.target.id == after.id:
+                            moderator = entry.user
+                            reason = entry.reason
+                            break
+                except discord.Forbidden:
+                    pass
             
             if added_roles:
                 changes.append(f"Добавлены роли: {', '.join(role.mention for role in added_roles)}")
@@ -744,16 +756,6 @@ class Logs(commands.Cog):
             changes.append("Изменены флаги участника")
 
         if changes:
-            try:
-                async for entry in after.guild.audit_logs(limit=1):
-                    if entry.target.id == after.id:
-                        moderator = entry.user
-                        reason = entry.reason
-                        break
-            except discord.Forbidden:
-                moderator = None
-                reason = None
-
             embed = create_embed(
                 title="👤 Участник обновлен",
                 description=f"{EMOJIS['DOT']} **Участник:** {after.mention} (`{after.id}`)\n"
@@ -920,86 +922,49 @@ class Logs(commands.Cog):
         await self.log_channel.send(embed=embed)
 
     @commands.Cog.listener()
-    async def on_guild_role_update(self, before, after):
-        """Расширенное логирование изменений ролей"""
-        if not self.log_channel:
+    async def on_guild_role_update(self, before: discord.Role, after: discord.Role):
+        if not self.bot.is_ready():
             return
 
-        changes = []
-        
-        # Основные изменения
-        if before.name != after.name:
-            changes.append(f"Название: `{before.name}` → `{after.name}`")
-        if before.color != after.color:
-            changes.append(f"Цвет: `{before.color}` → `{after.color}`")
-        if before.hoist != after.hoist:
-            changes.append(f"Отображение отдельно: `{'Да' if after.hoist else 'Нет'}`")
-        if before.mentionable != after.mentionable:
-            changes.append(f"Упоминаемость: `{'Да' if after.mentionable else 'Нет'}`")
-        if before.position != after.position:
-            changes.append(f"Позиция: `{before.position}` → `{after.position}`")
+        moderator = None
+        reason = None
 
-        # Изменения прав
-        if before.permissions != after.permissions:
-            added_perms = []
-            removed_perms = []
-            
-            for perm, value in after.permissions:
-                if getattr(before.permissions, perm) != value:
-                    if value:
-                        added_perms.append(perm)
-                    else:
-                        removed_perms.append(perm)
-
-            if added_perms:
-                changes.append(f"Добавлены права: `{', '.join(added_perms)}`")
-            if removed_perms:
-                changes.append(f"Удалены права: `{', '.join(removed_perms)}`")
-
-        # Изменения иконки
-        if before.icon != after.icon:
-            changes.append("Иконка роли изменена")
-
-        if changes:
+        if before.name != after.name or before.color != after.color or before.permissions != after.permissions:
             try:
                 async for entry in after.guild.audit_logs(limit=1, action=discord.AuditLogAction.role_update):
-                    if entry.target.id == after.id:
-                        moderator = entry.user
-                        reason = entry.reason
-                        break
+                    moderator = entry.user
+                    reason = entry.reason
+                    break
             except discord.Forbidden:
-                moderator = None
-                reason = None
+                pass
 
-            embed = create_embed(
-                title="👑 Роль обновлена",
-                description=f"{EMOJIS['DOT']} **Роль:** {after.mention}\n"
-                          f"{EMOJIS['DOT']} **Изменения:**\n" + 
-                          "\n".join(f"{EMOJIS['DOT']} {change}" for change in changes)
-            )
-
+            embed = discord.Embed(title="Роль изменена", color=after.color)
+            
             if moderator:
-                embed.add_field(
-                    name="👮 Модератор",
-                    value=f"{EMOJIS['DOT']} **Модератор:** {moderator.mention}\n"
-                          f"{EMOJIS['DOT']} **Причина:** `{reason or 'Не указана'}`",
-                    inline=False
-                )
-
-            # Добавляем информацию о роли
-            role_info = (
-                f"{EMOJIS['DOT']} **ID:** `{after.id}`\n"
-                f"{EMOJIS['DOT']} **Создана:** <t:{int(after.created_at.timestamp())}:F>\n"
-                f"{EMOJIS['DOT']} **Участников с ролью:** `{len(after.members)}`\n"
-                f"{EMOJIS['DOT']} **Интеграция:** `{'Да' if after.managed else 'Нет'}`\n"
-                f"{EMOJIS['DOT']} **Позиция:** `{after.position}`"
-            )
-            embed.add_field(name="📊 Информация о роли", value=role_info, inline=False)
-
-            if after.icon:
-                embed.set_thumbnail(url=after.icon.url)
-
-            await self.log_event(embed)
+                embed.set_author(name=f"{moderator.name}", icon_url=moderator.display_avatar.url)
+            
+            if before.name != after.name:
+                embed.add_field(name="Название", value=f"**До:** {before.name}\n**После:** {after.name}", inline=False)
+            
+            if before.color != after.color:
+                embed.add_field(name="Цвет", value=f"**До:** {before.color}\n**После:** {after.color}", inline=False)
+            
+            if before.permissions != after.permissions:
+                added_perms = [perm[0] for perm in after.permissions if perm not in before.permissions and perm[1]]
+                removed_perms = [perm[0] for perm in before.permissions if perm not in after.permissions and perm[1]]
+                
+                if added_perms:
+                    embed.add_field(name="Добавленные права", value="\n".join(f"✅ {perm}" for perm in added_perms), inline=False)
+                if removed_perms:
+                    embed.add_field(name="Удаленные права", value="\n".join(f"❌ {perm}" for perm in removed_perms), inline=False)
+            
+            if reason:
+                embed.add_field(name="Причина", value=reason, inline=False)
+            
+            embed.set_footer(text=f"ID: {after.id}")
+            embed.timestamp = discord.utils.utcnow()
+            
+            await self.send_log(after.guild, embed, "role_logs")
 
     @commands.Cog.listener()
     async def on_thread_create(self, thread):

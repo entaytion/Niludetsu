@@ -25,16 +25,37 @@ class Unmute(commands.Cog):
             return await interaction.response.send_message(
                 embed=create_embed(description="У меня нет прав на размут участников!")
             )
-        
-        # Проверяем, замучен ли участник
-        if not member.is_timed_out():
+
+        # Получаем роль мута из конфига
+        mute_role_id = self.config.get('MUTE_ROLE_ID')
+        if not mute_role_id:
+            return await interaction.response.send_message(
+                embed=create_embed(description="Роль мута не настроена в конфигурации!")
+            )
+
+        mute_role = interaction.guild.get_role(int(mute_role_id))
+        if not mute_role:
+            return await interaction.response.send_message(
+                embed=create_embed(description="Роль мута не найдена на сервере!")
+            )
+
+        # Проверяем, есть ли у участника роль мута или таймаут
+        has_mute_role = mute_role in member.roles
+        is_timed_out = member.is_timed_out()
+
+        if not has_mute_role and not is_timed_out:
             return await interaction.response.send_message(
                 embed=create_embed(description="Этот участник не замучен!")
             )
-        
+
         try:
-            # Размучиваем участника
-            await member.timeout(None, reason=reason)
+            # Снимаем роль мута, если она есть
+            if has_mute_role:
+                await member.remove_roles(mute_role, reason=reason)
+
+            # Снимаем таймаут, если он есть
+            if is_timed_out:
+                await member.timeout(None, reason=reason)
             
             # Отправляем сообщение
             await interaction.response.send_message(
@@ -46,20 +67,19 @@ class Unmute(commands.Cog):
                 )
             )
             
-            # Логируем действие если указан канал логов
-            log_channel_id = self.config.get('LOG_CHANNEL_ID')
-            if log_channel_id:
-                log_channel = self.bot.get_channel(int(log_channel_id))
-                if log_channel:
-                    await log_channel.send(
-                        embed=create_embed(
-                            title="🔊 Размут",
-                            description=f"**Модератор:** {interaction.user.mention}\n"
-                                      f"**Участник:** {member.mention}\n"
-                                      f"**Причина:** `{reason}`"
-                        )
+            # Отправляем сообщение участнику в ЛС
+            try:
+                await member.send(
+                    embed=create_embed(
+                        title="🔊 Вы были размучены",
+                        description=f"**Сервер:** {interaction.guild.name}\n"
+                                  f"**Модератор:** {interaction.user}\n"
+                                  f"**Причина:** `{reason}`"
                     )
-        
+                )
+            except discord.Forbidden:
+                pass  # Если у пользователя закрыты ЛС, просто пропускаем
+            
         except discord.Forbidden:
             await interaction.response.send_message(
                 embed=create_embed(description="У меня недостаточно прав для размута этого участника!")

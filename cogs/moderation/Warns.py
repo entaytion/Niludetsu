@@ -5,14 +5,14 @@ import sqlite3
 from datetime import datetime
 from utils import create_embed
 
-class Warns(commands.Cog):
+class Warns(commands.GroupCog, group_name="warns"):
     def __init__(self, bot):
         self.bot = bot
         self.db = sqlite3.connect('config/database.db')
 
-    @app_commands.command(name="warns", description="Посмотреть предупреждения пользователя")
+    @app_commands.command(name="list", description="Посмотреть предупреждения пользователя")
     @app_commands.describe(user="Пользователь для просмотра предупреждений")
-    async def warns(
+    async def warns_list(
         self,
         interaction: discord.Interaction,
         user: discord.Member = None
@@ -76,5 +76,69 @@ class Warns(commands.Cog):
             embed=embed
         )
 
+    @app_commands.command(name="info", description="Посмотреть информацию о конкретном предупреждении")
+    @app_commands.describe(
+        warning_id="ID предупреждения",
+        user="Пользователь (необязательно)"
+    )
+    async def warn_info(
+        self,
+        interaction: discord.Interaction,
+        warning_id: int,
+        user: discord.Member = None
+    ):
+        cursor = self.db.cursor()
+        
+        if user:
+            cursor.execute(
+                """
+                SELECT user_id, moderator_id, reason, timestamp
+                FROM warnings
+                WHERE id = ? AND user_id = ? AND guild_id = ? AND active = TRUE
+                """,
+                (warning_id, user.id, interaction.guild.id)
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT user_id, moderator_id, reason, timestamp
+                FROM warnings
+                WHERE id = ? AND guild_id = ? AND active = TRUE
+                """,
+                (warning_id, interaction.guild.id)
+            )
+            
+        warning = cursor.fetchone()
+        
+        if not warning:
+            return await interaction.response.send_message(
+                embed=create_embed(
+                    description="Предупреждение с указанным ID не найдено!"
+                ),
+                ephemeral=True
+            )
+            
+        user_id, mod_id, reason, timestamp = warning
+        warned_user = interaction.guild.get_member(user_id)
+        mod = interaction.guild.get_member(mod_id)
+        
+        try:
+            warn_time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+            time_str = warn_time.strftime('%d.%m.%Y %H:%M')
+        except:
+            time_str = "Неизвестное время"
+            
+        embed = create_embed(
+            title=f"ℹ️ Информация о предупреждении #{warning_id}",
+            description=(
+                f"**Пользователь:** {warned_user.mention if warned_user else 'Пользователь покинул сервер'}\n"
+                f"**Модератор:** {mod.mention if mod else 'Неизвестный модератор'}\n"
+                f"**Причина:** `{reason}`\n"
+                f"**Дата:** `{time_str}`"
+            )
+        )
+        
+        await interaction.response.send_message(embed=embed)
+
 async def setup(bot):
-    await bot.add_cog(Warns(bot)) 
+    await bot.add_cog(Warns(bot))
