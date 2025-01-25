@@ -88,23 +88,23 @@ class Help(commands.Cog):
             "main": {
                 "title": "Основные команды",
                 "emoji": "⚙️",
-                "commands": ["/help", "/botinfo", "/serverinfo", "/userinfo", "/roleinfo", "/emoji"],
+                "commands": ["/help", "/serverinfo", "/userinfo", "/roleinfo", "/analytics", "/crash"],
                 "description": f"{EMOJIS['DOT']} `/help` — помощь.\n"
-                              f"{EMOJIS['DOT']} `/botinfo` — информация о боте.\n"
                               f"{EMOJIS['DOT']} `/serverinfo` — информация о сервере.\n"
                               f"{EMOJIS['DOT']} `/userinfo` — информация о пользователе.\n"
                               f"{EMOJIS['DOT']} `/roleinfo` — информация о роли.\n"
-                              f"{EMOJIS['DOT']} `/emoji <emoji>` — скачать эмодзи.",
+                              f"{EMOJIS['DOT']} `/analytics` — статистика сервера.\n"
+                              f"{EMOJIS['DOT']} `/crash` — завершить работу бота.",
                 "footer": "Справочник по командам из раздела \"Основное\""
             },
             "admin": {
                 "title": "Команды администратора",
                 "emoji": "🛡️",
-                "commands": ["/crash", "/reports", "/form", "/ideas"],
-                "description": f"{EMOJIS['DOT']} `/crash` — завершить работу бота.\n"
-                              f"{EMOJIS['DOT']} `/reports` — конфигурация жалоб.\n"
+                "commands": ["/reports", "/form", "/ideas", "/backup"],
+                "description": f"{EMOJIS['DOT']} `/reports` — конфигурация жалоб.\n"
                               f"{EMOJIS['DOT']} `/form` — конфигурация заявок.\n"
-                              f"{EMOJIS['DOT']} `/ideas` — конфигурация идей.",
+                              f"{EMOJIS['DOT']} `/ideas` — конфигурация идей.\n"
+                              f"{EMOJIS['DOT']} `/backup` — конфигурация бэкапов.",
                 "footer": "Справочник по командам из раздела \"Администратор\""
             },
             "games": {
@@ -124,7 +124,7 @@ class Help(commands.Cog):
             "fun": {
                 "title": "Команды для развлечений",
                 "emoji": "🎉",
-                "commands": ["/marry", "/divorce", "/hug", "/kiss", "/slap", "/pat", "/sex", "/bite", "/cry", "/lgbt"],
+                "commands": ["/marry", "/divorce", "/hug", "/kiss", "/slap", "/pat", "/sex", "/bite", "/cry", "/lgbt", "/8ball", "/mcserver", "/coin", "/demotivator"],
                 "description": f"{EMOJIS['DOT']} `/marry [user]` — жениться на кого-то.\n"
                               f"{EMOJIS['DOT']} `/divorce [user]` — развестись с кем-то.\n"
                               f"{EMOJIS['DOT']} `/hug [user]` — обнять кого-то.\n"
@@ -134,7 +134,11 @@ class Help(commands.Cog):
                               f"{EMOJIS['DOT']} `/sex [user]` — логично.\n"
                               f"{EMOJIS['DOT']} `/bite [user]` — укусить кого-то.\n"
                               f"{EMOJIS['DOT']} `/cry [user]` — заплакать.\n"
-                              f"{EMOJIS['DOT']} `/lgbt [user]` — аватар пользователя в стиле ЛГБТ.",
+                              f"{EMOJIS['DOT']} `/lgbt [user]` — аватар пользователя в стиле ЛГБТ.\n"
+                              f"{EMOJIS['DOT']} `/8ball [question]` — магический шар ответит на твой вопрос.\n"
+                              f"{EMOJIS['DOT']} `/mcserver` — информация о сервере Minecraft.\n"
+                              f"{EMOJIS['DOT']} `/coin` — орёл или решка.\n"
+                              f"{EMOJIS['DOT']} `/demotivator` — демотиватор.",
                 "footer": "Справочник по командам для развлечений"
             },
             "music": {
@@ -208,7 +212,7 @@ class Help(commands.Cog):
             "utils": {
                 "title": "Команды для утилит",
                 "emoji": "🧷",
-                "commands": ["/reminder", "/quote", "/weather", "/translate", "/poll", "/qr", "/ai", "/afk", "/t", "/k", "/math", "/rand"],
+                "commands": ["/reminder", "/quote", "/weather", "/translate", "/poll", "/qr", "/ai", "/afk", "/t", "/k", "/math", "/rand", "/whois"],
                 "description": f"{EMOJIS['DOT']} `/reminder [create] / [list] / [delete]` — напоминания.\n"
                               f"{EMOJIS['DOT']} `/quote` — сделать цитату.\n"
                               f"{EMOJIS['DOT']} `/weather` — узнать погоду.\n"
@@ -220,7 +224,8 @@ class Help(commands.Cog):
                               f"{EMOJIS['DOT']} `/t` — транслитерация слов.\n"
                               f"{EMOJIS['DOT']} `/k` — исправление раскладки.\n"
                               f"{EMOJIS['DOT']} `/math` — решить математическую задачу.\n"
-                              f"{EMOJIS['DOT']} `/rand` — рандомный выбор.",
+                              f"{EMOJIS['DOT']} `/rand` — рандомный выбор.\n"
+                              f"{EMOJIS['DOT']} `/whois` — информация о пользователе.",
                 "footer": "Справочник по командам для утилит"
             },
         }

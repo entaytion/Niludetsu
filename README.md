@@ -88,6 +88,7 @@
 
 - **discord.py** - Robust Discord API integration
 - **wavelink** - Professional audio streaming
+- **easy_pil** - Streamlined image creation
 - **PIL/Pillow** - Advanced image processing
 - **deep_translator** - Seamless language translation
 - **aiohttp** - Efficient async HTTP requests
@@ -97,7 +98,8 @@
 - **psutil** - System monitoring
 - **pytz** - Global timezone support
 - **g4f** - AI-powered interactions
-- **easy_pil** - Streamlined image creation
+- **mcstatus** - Minecraft server status
+- **python_whois** - Whois lookup
 
 ## 💫 Why Choose Niludetsu?
 

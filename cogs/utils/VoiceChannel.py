@@ -4,6 +4,7 @@ from discord import ui
 import asyncio
 import json
 import os
+from utils import create_embed, EMOJIS
 
 def load_config():
     with open('config/config.json', 'r') as f:
@@ -479,21 +480,20 @@ class VoiceChannelCog(commands.Cog):
             message = await channel.send("Создание панели управления...")
         
         # Создаем эмбед
-        embed = discord.Embed(
+        embed = create_embed(
             title="⚙️ Приватные комнаты",
             description=(
                 "Измените конфигурацию вашей комнаты с помощью панели управления.\n\n"
-                "<:VoiceCrown:1332417411370057781> — назначить нового создателя комнаты\n"
-                "<:VoiceUsers:1332418260435603476> — ограничить/выдать доступ к комнате\n"
-                "<:VoiceNumbers:1332418493915725854> — задать новый лимит участников\n"
-                "<:VoiceLock:1332418712304615495> — закрыть/открыть комнату\n"
-                "<:VoiceEdit:1332418910242471967> — изменить название комнаты\n"
-                "<:VoiceVisible:1332419077184163920> — скрыть/открыть комнату\n"
-                "<:VoiceKick:1332419383003447427> — выгнать участника из комнаты\n"
-                "<:VoiceMute:1332419509830553601> — ограничить/выдать право говорить\n"
-                "<:VoiceBitrate:1332419630672904294> — изменить битрейт канала"
-            ),
-            color=0xF20C3C
+                f"{EMOJIS['VoiceCrown']} — назначить нового создателя комнаты\n"
+                f"{EMOJIS['VoiceUsers']} — ограничить/выдать доступ к комнате\n"
+                f"{EMOJIS['VoiceNumbers']} — задать новый лимит участников\n"
+                f"{EMOJIS['VoiceLock']} — закрыть/открыть комнату\n"
+                f"{EMOJIS['VoiceEdit']} — изменить название комнаты\n"
+                f"{EMOJIS['VoiceVisible']} — скрыть/открыть комнату\n"
+                f"{EMOJIS['VoiceKick']} — выгнать участника из комнаты\n"
+                f"{EMOJIS['VoiceMute']} — ограничить/выдать право говорить\n"
+                f"{EMOJIS['VoiceBitrate']} — изменить битрейт канала"
+            )
         )
         
         await message.edit(content=None, embed=embed, view=VoiceChannelView())

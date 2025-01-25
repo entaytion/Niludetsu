@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import random
+from utils import create_embed, EMOJIS
 
 class Coin(commands.Cog):
     def __init__(self, bot):
@@ -22,18 +23,16 @@ class Coin(commands.Cog):
         result = random.choice(["орёл", "решка"])
         
         # Создаем embed сообщение
-        embed = discord.Embed(
-            title="🪙 Подбрасываю монетку...",
-            color=0x2F3136
+        embed = create_embed(
+            title="🪙 Подбрасываю монетку..."
         )
 
         # Добавляем анимацию подбрасывания
         await interaction.response.send_message(embed=embed)
         await interaction.edit_original_response(
-            embed=discord.Embed(
+            embed=create_embed(
                 title="🪙 Монетка подброшена!",
-                description=f"**Выпало:** {result}",
-                color=0x2F3136
+                description=f"**Выпало:** {result}"
             )
         )
 
@@ -41,16 +40,16 @@ class Coin(commands.Cog):
         if guess:
             # Добавляем информацию об угадывании через 1 секунду
             await interaction.edit_original_response(
-                embed=discord.Embed(
+                embed=create_embed(
                     title="🪙 Монетка подброшена!",
                     description=(
                         f"**Выпало:** {result}\n"
                         f"**Ваша догадка:** {guess}\n\n"
-                        f"**Результат:** {'🎉 Вы угадали!' if guess == result else '😔 Вы не угадали'}"
+                        f"**Результат:** {EMOJIS['SUCCESS'] + ' Вы угадали!' if guess == result else EMOJIS['ERROR'] + ' Вы не угадали'}"
                     ),
-                    color=0x2F3136 if guess != result else 0x57F287
+                    color=0x57F287 if guess == result else None
                 )
             )
 
 async def setup(bot):
-    await bot.add_cog(Coin(bot)) 
+    await bot.add_cog(Coin(bot))

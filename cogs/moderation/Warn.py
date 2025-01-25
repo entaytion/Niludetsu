@@ -4,7 +4,7 @@ from discord import app_commands
 import json
 import sqlite3
 from datetime import datetime, timedelta
-from utils import create_embed
+from utils import create_embed, initialize_table, TABLES_SCHEMAS
 import traceback
 
 # Загрузка конфигурации
@@ -30,19 +30,7 @@ class Warn(commands.GroupCog, group_name="warn"):
         self.setup_database()
 
     def setup_database(self):
-        cursor = self.db.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS warnings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                guild_id INTEGER,
-                moderator_id INTEGER,
-                reason TEXT,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                active BOOLEAN DEFAULT TRUE
-            )
-        ''')
-        self.db.commit()
+        initialize_table('warnings', TABLES_SCHEMAS['warnings'])
 
     def get_user_active_warnings(self, user_id: int, guild_id: int) -> int:
         cursor = self.db.cursor()

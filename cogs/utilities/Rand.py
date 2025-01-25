@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import random
+from utils import create_embed, EMOJIS
 
 class Rand(commands.Cog):
     def __init__(self, bot):
@@ -32,10 +33,9 @@ class Rand(commands.Cog):
                 result = random.randint(0, max)
                 range_text = f"от 0 до {max}"
 
-            embed = discord.Embed(
+            embed = create_embed(
                 title="🎲 Случайное число",
-                description=f"В диапазоне {range_text}",
-                color=0x2F3136
+                description=f"В диапазоне {range_text}"
             )
             embed.add_field(
                 name="Результат:",
@@ -46,9 +46,8 @@ class Rand(commands.Cog):
             
         except Exception as e:
             await interaction.response.send_message(
-                embed=discord.Embed(
-                    description=f"❌ Ошибка: {str(e)}",
-                    color=0xFF0000
+                embed=create_embed(
+                    description=f"{EMOJIS['ERROR']} Ошибка: {str(e)}"
                 ),
                 ephemeral=True
             )

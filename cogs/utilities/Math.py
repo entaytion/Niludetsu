@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import math
 import re
+from utils import create_embed, EMOJIS
 
 class Math(commands.Cog):
     def __init__(self, bot):
@@ -118,9 +119,8 @@ class Math(commands.Cog):
             else:
                 formatted_result = f"{result:.2f}"
 
-            embed = discord.Embed(
-                title="🔢 Калькулятор",
-                color=0x2F3136
+            embed = create_embed(
+                title="🔢 Калькулятор"
             )
             embed.add_field(
                 name="Выражение:",
@@ -135,9 +135,8 @@ class Math(commands.Cog):
             await interaction.response.send_message(embed=embed)
         except Exception as e:
             await interaction.response.send_message(
-                embed=discord.Embed(
-                    description=f"❌ Ошибка в выражении: {str(e)}",
-                    color=0xFF0000
+                embed=create_embed(
+                    description=f"{EMOJIS['ERROR']} Ошибка в выражении: {str(e)}"
                 ),
                 ephemeral=True
             )

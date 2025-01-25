@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed, DB_PATH
+from utils import create_embed, DB_PATH, initialize_table, TABLES_SCHEMAS
 import sqlite3
 from datetime import datetime
 import asyncio
@@ -10,36 +10,25 @@ class AFK(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.setup_database()
-        self.afk_users = {}  # Кэш для хранения AFK статусов
         
     def setup_database(self):
-        with sqlite3.connect(DB_PATH) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS afk_status (
-                    user_id TEXT PRIMARY KEY,
-                    guild_id TEXT,
-                    reason TEXT,
-                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            conn.commit()
+        initialize_table('afk', TABLES_SCHEMAS['afk'])
 
     @app_commands.command(name="afk", description="Установить статус AFK")
     @app_commands.describe(reason="Причина отсутствия (необязательно)")
     async def afk(self, interaction: discord.Interaction, reason: str = "Причина не указана"):
-        user_id = str(interaction.user.id)
-        guild_id = str(interaction.guild.id)
+        user_id = interaction.user.id
+        guild_id = interaction.guild.id
         
         # Проверяем, не в AFK ли уже пользователь
         with sqlite3.connect(DB_PATH) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT reason FROM afk_status WHERE user_id = ?", (user_id,))
+            cursor.execute("SELECT reason FROM afk WHERE user_id = ? AND guild_id = ?", (user_id, guild_id))
             existing = cursor.fetchone()
             
             if existing:
                 # Удаляем AFK статус
-                cursor.execute("DELETE FROM afk_status WHERE user_id = ?", (user_id,))
+                cursor.execute("DELETE FROM afk WHERE user_id = ? AND guild_id = ?", (user_id, guild_id))
                 conn.commit()
                 
                 # Убираем [AFK] из никнейма
@@ -61,7 +50,7 @@ class AFK(commands.Cog):
             
             # Устанавливаем AFK статус
             cursor.execute(
-                "INSERT OR REPLACE INTO afk_status (user_id, guild_id, reason, timestamp) VALUES (?, ?, ?, ?)",
+                "INSERT OR REPLACE INTO afk (user_id, guild_id, reason, timestamp) VALUES (?, ?, ?, ?)",
                 (user_id, guild_id, reason, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
             )
             conn.commit()
@@ -89,58 +78,57 @@ class AFK(commands.Cog):
             
         # Проверяем упоминания в сообщении
         mentioned_users = message.mentions
-        if not mentioned_users:
-            return
-            
-        with sqlite3.connect(DB_PATH) as conn:
-            cursor = conn.cursor()
-            
-            for user in mentioned_users:
-                cursor.execute(
-                    "SELECT reason, timestamp FROM afk_status WHERE user_id = ?",
-                    (str(user.id),)
-                )
-                afk_data = cursor.fetchone()
+        if mentioned_users:
+            with sqlite3.connect(DB_PATH) as conn:
+                cursor = conn.cursor()
                 
-                if afk_data:
-                    reason, timestamp = afk_data
-                    afk_time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
-                    time_passed = datetime.now() - afk_time
-                    
-                    # Форматируем время отсутствия
-                    hours = time_passed.seconds // 3600
-                    minutes = (time_passed.seconds % 3600) // 60
-                    time_str = ""
-                    if time_passed.days > 0:
-                        time_str += f"{time_passed.days}д "
-                    if hours > 0:
-                        time_str += f"{hours}ч "
-                    time_str += f"{minutes}м"
-                    
-                    await message.reply(
-                        embed=create_embed(
-                            title="💤 Пользователь AFK",
-                            description=f"{user.mention} сейчас отсутствует\n"
-                                      f"**Причина:** {reason}\n"
-                                      f"**Отсутствует:** {time_str}"
-                        ),
-                        delete_after=10
+                for user in mentioned_users:
+                    cursor.execute(
+                        "SELECT reason, timestamp FROM afk WHERE user_id = ? AND guild_id = ?",
+                        (user.id, message.guild.id)
                     )
-    
-    @commands.Cog.listener()
-    async def on_message(self, message):
-        if message.author.bot:
-            return
-            
+                    afk_data = cursor.fetchone()
+                    
+                    if afk_data:
+                        reason, timestamp = afk_data
+                        afk_time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+                        time_passed = datetime.now() - afk_time
+                        
+                        # Форматируем время отсутствия
+                        hours = time_passed.seconds // 3600
+                        minutes = (time_passed.seconds % 3600) // 60
+                        time_str = ""
+                        if time_passed.days > 0:
+                            time_str += f"{time_passed.days}д "
+                        if hours > 0:
+                            time_str += f"{hours}ч "
+                        time_str += f"{minutes}м"
+                        
+                        await message.reply(
+                            embed=create_embed(
+                                title="💤 Пользователь AFK",
+                                description=f"{user.mention} сейчас отсутствует\n"
+                                          f"**Причина:** {reason}\n"
+                                          f"**Отсутствует:** {time_str}"
+                            ),
+                            delete_after=10
+                        )
+        
         # Проверяем, не вернулся ли AFK пользователь
         with sqlite3.connect(DB_PATH) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT reason FROM afk_status WHERE user_id = ?", (str(message.author.id),))
+            cursor.execute(
+                "SELECT reason FROM afk WHERE user_id = ? AND guild_id = ?", 
+                (message.author.id, message.guild.id)
+            )
             afk_data = cursor.fetchone()
             
             if afk_data:
                 # Удаляем AFK статус при любой активности
-                cursor.execute("DELETE FROM afk_status WHERE user_id = ?", (str(message.author.id),))
+                cursor.execute(
+                    "DELETE FROM afk WHERE user_id = ? AND guild_id = ?", 
+                    (message.author.id, message.guild.id)
+                )
                 conn.commit()
                 
                 # Убираем [AFK] из никнейма

@@ -1,6 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+from utils import create_embed, EMOJIS
 
 class Translit(commands.Cog):
     def __init__(self, bot):
@@ -100,9 +101,8 @@ class Translit(commands.Cog):
     async def translit(self, interaction: discord.Interaction, text: str):
         try:
             translated = self.transliterate(text)
-            embed = discord.Embed(
-                title="🔄 Транслитерация",
-                color=0x2F3136
+            embed = create_embed(
+                title="🔄 Транслитерация"
             )
             embed.add_field(
                 name="Исходный текст:",
@@ -117,9 +117,8 @@ class Translit(commands.Cog):
             await interaction.response.send_message(embed=embed)
         except Exception as e:
             await interaction.response.send_message(
-                embed=discord.Embed(
-                    description=f"❌ Произошла ошибка при транслитерации: {str(e)}",
-                    color=0xFF0000
+                embed=create_embed(
+                    description=f"{EMOJIS['ERROR']} Произошла ошибка при транслитерации: {str(e)}"
                 ),
                 ephemeral=True
             )
@@ -129,9 +128,8 @@ class Translit(commands.Cog):
     async def keyboard(self, interaction: discord.Interaction, text: str):
         try:
             fixed = self.fix_layout(text)
-            embed = discord.Embed(
-                title="⌨️ Исправление раскладки",
-                color=0x2F3136
+            embed = create_embed(
+                title="⌨️ Исправление раскладки"
             )
             embed.add_field(
                 name="Исходный текст:",
@@ -146,9 +144,8 @@ class Translit(commands.Cog):
             await interaction.response.send_message(embed=embed)
         except Exception as e:
             await interaction.response.send_message(
-                embed=discord.Embed(
-                    description=f"❌ Произошла ошибка при исправлении раскладки: {str(e)}",
-                    color=0xFF0000
+                embed=create_embed(
+                    description=f"{EMOJIS['ERROR']} Произошла ошибка при исправлении раскладки: {str(e)}"
                 ),
                 ephemeral=True
             )

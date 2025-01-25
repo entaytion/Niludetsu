@@ -1,193 +1,161 @@
 import discord
-from discord import app_commands
 from discord.ext import commands
+from discord import app_commands
+from utils import create_embed, DB_PATH, initialize_table, TABLES_SCHEMAS
 import sqlite3
-import os
 from datetime import datetime
-from utils import create_embed, EMOJIS
 
-class Bio(commands.Cog):
+class Bio(commands.GroupCog, group_name="bio"):
     def __init__(self, bot):
         self.bot = bot
-        self.db_path = "config/database.db"
         self.setup_database()
-
+        
     def setup_database(self):
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        with sqlite3.connect(self.db_path) as db:
-            cursor = db.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS user_profiles (
-                    user_id INTEGER PRIMARY KEY,
-                    name TEXT,
-                    age INTEGER,
-                    country TEXT,
-                    bio TEXT
-                )
-            """)
-            db.commit()
+        initialize_table('user_profiles', TABLES_SCHEMAS['user_profiles'])
 
-    bio_group = app_commands.Group(name="bio", description="Команды для управления профилем")
-
-    @bio_group.command(name="set", description="Установить данные профиля")
+    @app_commands.command(name="set", description="Установить информацию в профиле")
     @app_commands.describe(
-        name="Ваше имя (макс. 32 символа)",
-        age="Ваш возраст (13-99)",
-        country="Страна (макс. 32 символа)",
-        bio="Ваша биография (макс. 1000 символов)"
+        name="Ваше имя",
+        age="Ваш возраст",
+        country="Страна проживания",
+        bio="О себе"
     )
-    async def bio_set(self, interaction: discord.Interaction, name: str = None, age: int = None, country: str = None, bio: str = None):
-        if not any([name, age, country, bio]):
-            await interaction.response.send_message(
-                embed=create_embed(description=f"{EMOJIS['ERROR']} Укажите хотя бы один параметр для изменения!"),
-                ephemeral=True
-            )
-            return
-
-        if name and len(name) > 32:
-            await interaction.response.send_message(
-                embed=create_embed(description=f"{EMOJIS['ERROR']} Имя не должно превышать 32 символа!"),
-                ephemeral=True
-            )
-            return
-
-        if age and (age < 13 or age > 99):
-            await interaction.response.send_message(
-                embed=create_embed(description=f"{EMOJIS['ERROR']} Возраст должен быть от 13 до 99 лет!"),
-                ephemeral=True
-            )
-            return
-
-        if country and len(country) > 32:
-            await interaction.response.send_message(
-                embed=create_embed(description=f"{EMOJIS['ERROR']} Название страны не должно превышать 32 символа!"),
-                ephemeral=True
-            )
-            return
-
-        if bio and len(bio) > 1000:
-            await interaction.response.send_message(
-                embed=create_embed(description=f"{EMOJIS['ERROR']} Биография не должна превышать 1000 символов!"),
-                ephemeral=True
-            )
-            return
-
-        try:
-            with sqlite3.connect(self.db_path) as db:
-                cursor = db.cursor()
-                cursor.execute(
-                    """
-                    INSERT OR REPLACE INTO user_profiles 
-                    (user_id, name, age, country, bio) 
-                    VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (interaction.user.id, name, age, country, bio or "")
-                )
-                db.commit()
-
-            embed = create_embed(
-                title="✏️ Профиль обновлён",
-                description=f"{EMOJIS['SUCCESS']} Ваш профиль был успешно обновлён!",
-                fields=[
-                    {"name": "Имя:", "value": name, "inline": True},
-                    {"name": "Возраст:", "value": f"{age} лет", "inline": True},
-                    {"name": "Страна:", "value": country, "inline": True}
-                ]
-            )
-            
-            if bio:
-                embed.add_field(name="О себе:", value=f"```{bio}```", inline=False)
-            
-            await interaction.response.send_message(embed=embed)
-
-        except Exception as e:
+    async def bio_set(
+        self, 
+        interaction: discord.Interaction, 
+        name: str = None,
+        age: int = None,
+        country: str = None,
+        bio: str = None
+    ):
+        if age is not None and (age < 13 or age > 80):
             await interaction.response.send_message(
                 embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Произошла ошибка при обновлении профиля: {str(e)}"
+                    description="Возраст должен быть от 13 до 80 лет!"
                 ),
                 ephemeral=True
             )
+            return
+            
+        if bio and len(bio) > 1024:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description="Биография не может быть длиннее 1024 символов!"
+                ),
+                ephemeral=True
+            )
+            return
 
-    @bio_group.command(name="view", description="Посмотреть профиль пользователя")
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            
+            # Получаем текущие данные
+            cursor.execute("SELECT * FROM user_profiles WHERE user_id = ?", (interaction.user.id,))
+            current_data = cursor.fetchone()
+            
+            if current_data:
+                # Обновляем только предоставленные данные
+                update_data = {}
+                if name is not None:
+                    update_data['name'] = name
+                if age is not None:
+                    update_data['age'] = age
+                if country is not None:
+                    update_data['country'] = country
+                if bio is not None:
+                    update_data['bio'] = bio
+                    
+                if update_data:
+                    set_clause = ", ".join(f"{k} = ?" for k in update_data.keys())
+                    values = list(update_data.values())
+                    values.append(interaction.user.id)
+                    
+                    cursor.execute(
+                        f"UPDATE user_profiles SET {set_clause} WHERE user_id = ?",
+                        values
+                    )
+            else:
+                # Создаем новую запись
+                cursor.execute(
+                    "INSERT INTO user_profiles (user_id, name, age, country, bio) VALUES (?, ?, ?, ?, ?)",
+                    (interaction.user.id, name, age, country, bio)
+                )
+            
+            conn.commit()
+            
+        await interaction.response.send_message(
+            embed=create_embed(
+                title="✅ Профиль обновлен",
+                description="Информация в вашем профиле была успешно обновлена!"
+            ),
+            ephemeral=True
+        )
+
+    @app_commands.command(name="view", description="Посмотреть профиль пользователя")
     @app_commands.describe(user="Пользователь, чей профиль вы хотите посмотреть")
-    async def bio_view(self, interaction: discord.Interaction, user: discord.User = None):
+    async def bio_view(self, interaction: discord.Interaction, user: discord.Member = None):
         target_user = user or interaction.user
-
-        try:
-            with sqlite3.connect(self.db_path) as db:
-                cursor = db.cursor()
-                cursor.execute(
-                    """
-                    SELECT name, age, country, bio
-                    FROM user_profiles
-                    WHERE user_id = ?
-                    """,
-                    (target_user.id,)
+        
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM user_profiles WHERE user_id = ?", (target_user.id,))
+            profile = cursor.fetchone()
+            
+            if not profile:
+                await interaction.response.send_message(
+                    embed=create_embed(
+                        description=f"{'Ваш профиль' if target_user == interaction.user else f'Профиль {target_user.display_name}'} еще не настроен!"
+                    ),
+                    ephemeral=True
                 )
-                result = cursor.fetchone()
-
-            if not result:
-                if target_user == interaction.user:
-                    message = f"{EMOJIS['ERROR']} У вас ещё нет профиля. Используйте `/bio set`, чтобы создать его!"
-                else:
-                    message = f"{EMOJIS['ERROR']} У пользователя {target_user.mention} нет профиля."
-                
-                await interaction.response.send_message(embed=create_embed(description=message))
                 return
-
-            name, age, country, bio = result
-
-            fields = []
+                
+            # Распаковываем данные
+            user_id, name, age, country, bio, timestamp = profile
+            
+            # Формируем описание
+            description = []
             if name:
-                fields.append({"name": "Имя:", "value": name, "inline": True})
+                description.append(f"**Имя:** {name}")
             if age:
-                fields.append({"name": "Возраст:", "value": f"{age} лет", "inline": True})
+                description.append(f"**Возраст:** {age}")
             if country:
-                fields.append({"name": "Страна:", "value": country, "inline": True})
+                description.append(f"**Страна:** {country}")
             if bio:
-                fields.append({"name": "О себе:", "value": bio, "inline": False})
-
+                description.append(f"**О себе:** `{bio}`")
+                
             embed = create_embed(
-                title=f"👤 Профиль {target_user.name}",
-                fields=fields,
-                thumbnail_url=target_user.display_avatar.url,
-                footer={"text": f"Последнее обновление: {datetime.now().strftime('%d.%m.%Y %H:%M')}"}
+                title=f"Профиль {target_user.display_name}",
+                description="\n".join(description) if description else "Профиль пуст"
             )
+            
+            embed.set_thumbnail(url=target_user.display_avatar.url)
+            
+            if timestamp:
+                try:
+                    # Обрезаем миллисекунды перед парсингом
+                    timestamp = timestamp.split('.')[0]
+                    formatted_time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S').strftime('%d.%m.%Y %H:%M')
+                    embed.set_footer(text=f"Последнее обновление: {formatted_time}")
+                except Exception as e:
+                    print(f"Ошибка форматирования времени: {e}")
             
             await interaction.response.send_message(embed=embed)
 
-        except Exception as e:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Произошла ошибка при получении профиля: {str(e)}"
-                ),
-                ephemeral=True
-            )
-
-    @bio_group.command(name="clear", description="Удалить свой профиль")
+    @app_commands.command(name="clear", description="Очистить свой профиль")
     async def bio_clear(self, interaction: discord.Interaction):
-        try:
-            with sqlite3.connect(self.db_path) as db:
-                cursor = db.cursor()
-                cursor.execute(
-                    "DELETE FROM user_profiles WHERE user_id = ?",
-                    (interaction.user.id,)
-                )
-                db.commit()
-
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"{EMOJIS['SUCCESS']} Ваш профиль был успешно удалён!"
-                )
-            )
-
-        except Exception as e:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Произошла ошибка при удалении профиля: {str(e)}"
-                ),
-                ephemeral=True
-            )
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM user_profiles WHERE user_id = ?", (interaction.user.id,))
+            conn.commit()
+            
+        await interaction.response.send_message(
+            embed=create_embed(
+                title="✅ Профиль очищен",
+                description="Вся информация из вашего профиля была удалена!"
+            ),
+            ephemeral=True
+        )
 
 async def setup(bot):
     await bot.add_cog(Bio(bot)) 

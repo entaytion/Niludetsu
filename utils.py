@@ -55,13 +55,106 @@ def create_embed(title=None, description=None, color=0xf20c3c, fields=None, foot
 
 # --- EMOJIS ---
 EMOJIS = {
+    # --- MAIN ---
     'DOT': '<:BotDot:1266063532517232701>',
     'MONEY': '<:BotMoney:1266063131457880105>',
     'SUCCESS': '<:BotOk:1266062451049365574>',
-    'ERROR': '<:BotError:1266062540052365343>'
+    'ERROR': '<:BotError:1266062540052365343>',
+    # --- TEMP VOICES ---
+    'VoiceCrown': '<:VoiceCrown:1332417411370057781>',
+    'VoiceUsers': '<:VoiceUsers:1332418260435603476>',
+    'VoiceNumbers': '<:VoiceNumbers:1332418493915725854>',
+    'VoiceLock': '<:VoiceLock:1332418712304615495>',
+    'VoiceEdit': '<:VoiceEdit:1332418910242471967>',
+    'VoiceVisible': '<:VoiceVisible:1332419077184163920>',
+    'VoiceKick': '<:VoiceKick:1332419383003447427>',
+    'VoiceMute': '<:VoiceMute:1332419509830553601>',
+    'VoiceBitrate': '<:VoiceBitrate:1332419630672904294>',
+    # --- ANALYTICS ---
+    'STATS': '<:AnalyticsStats:1332731704015847455>',
+    'INFO': '<:AnalyticsInfo:1332731894491779164>',
+    'MEMBERS': '<:AnalyticsMembers:1332732020991721502>',
+    'BOOST': '<:AnalyticsBoost:1332732537956466698>',
+    'SHIELD': '<:AnalyticsSecurity:1332732698611023882>',
+    'FEATURES': '<:AnalyticsFeature:1332732366812221440>',
+    'CHANNELS': '<:AnalyticsChannels:1332732203242750092>',
+    'SETTINGS': '<:AnalyticsSettings:1332732862004461638>',
+    'OTHER': '<:AnalyticsOther:1332731704015847455>',
+    'PC': '<:AnalyticsPC:1332733064375177288>',
+    'LINK': '<:AnalyticsLink:1332733206956474478>',
+    'ROLES': '<:AnalyticsRoles:1332733459893846089>',
+    'CROWN': '<:AnalyticsCrown:1332733632896303186>',
+    'BOT': '<:AnalyticsBot:1332734596449697823>',
 }
 
-# --- DATABASE ---
+# --- DATABASE SCHEMAS ---
+TABLES_SCHEMAS = {
+    'users': '''
+        CREATE TABLE IF NOT EXISTS users (
+            user_id TEXT PRIMARY KEY,
+            balance INTEGER,
+            deposit INTEGER,
+            last_daily TEXT,
+            last_work TEXT, 
+            last_rob TEXT,
+            xp INTEGER,
+            level INTEGER,
+            spouse TEXT,
+            marriage_date TEXT,
+            roles TEXT DEFAULT '',
+            reputation INTEGER DEFAULT 0
+        )
+    ''',
+    'roles': '''
+        CREATE TABLE IF NOT EXISTS roles (
+            role_id INTEGER PRIMARY KEY,
+            name TEXT,
+            balance INTEGER,
+            description TEXT,
+            discord_role_id INTEGER
+        )
+    ''',
+    'warnings': '''
+        CREATE TABLE IF NOT EXISTS warnings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            guild_id INTEGER,
+            moderator_id INTEGER,
+            reason TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            active BOOLEAN DEFAULT TRUE
+        )
+    ''',
+    'afk': '''
+        CREATE TABLE IF NOT EXISTS afk (
+            user_id INTEGER,
+            guild_id INTEGER,
+            reason TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, guild_id)
+        )
+    ''',
+    'user_profiles': '''
+        CREATE TABLE IF NOT EXISTS user_profiles (
+            user_id INTEGER PRIMARY KEY,
+            name TEXT,
+            age INTEGER,
+            country TEXT,
+            bio TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''',
+    'user_streaks': '''
+        CREATE TABLE IF NOT EXISTS user_streaks (
+            user_id INTEGER PRIMARY KEY,
+            streak_count INTEGER DEFAULT 0,
+            last_message_date TIMESTAMP,
+            total_messages INTEGER DEFAULT 0,
+            highest_streak INTEGER DEFAULT 0
+        )
+    '''
+}
+
 def initialize_db():
     if not os.path.exists('config'):
         os.makedirs('config')
@@ -69,40 +162,26 @@ def initialize_db():
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         
-        # --- USERS ---
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                user_id TEXT PRIMARY KEY,
-                balance INTEGER,
-                deposit INTEGER,
-                last_daily TEXT,
-                last_work TEXT, 
-                last_rob TEXT,
-                xp INTEGER,
-                level INTEGER,
-                spouse TEXT,
-                marriage_date TEXT,
-                roles TEXT DEFAULT '',
-                reputation INTEGER DEFAULT 0
-            )
-        ''')
+        # Инициализируем все таблицы
+        for table_name, schema in TABLES_SCHEMAS.items():
+            cursor.execute(schema)
+            
+            # Специальная проверка для таблицы users
+            if table_name == 'users':
+                cursor.execute("PRAGMA table_info(users)")
+                columns = [column[1] for column in cursor.fetchall()]
+                if 'roles' not in columns:
+                    cursor.execute('ALTER TABLE users ADD COLUMN roles TEXT DEFAULT ""')
         
-        cursor.execute("PRAGMA table_info(users)")
-        columns = [column[1] for column in cursor.fetchall()]
-        if 'roles' not in columns:
-            cursor.execute('ALTER TABLE users ADD COLUMN roles TEXT DEFAULT ""')
+        conn.commit()
+
+def initialize_table(table_name, schema):
+    if not os.path.exists('config'):
+        os.makedirs('config')
         
-        # --- ROLES ---
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS roles (
-                role_id INTEGER PRIMARY KEY,
-                name TEXT,
-                balance INTEGER,
-                description TEXT,
-                discord_role_id INTEGER
-            )
-        ''')
-        
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute(schema)
         conn.commit()
 
 initialize_db()

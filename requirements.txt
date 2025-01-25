@@ -4,9 +4,12 @@ discord.py==2.4.0
 easy_pil==0.4.0
 g4f==0.4.2.4
 humanize==4.11.0
+mcstatus==11.1.1
 Pillow==11.1.0
 psutil==6.1.1
+python_whois==0.9.5
 pytz==2024.2
 qrcode==8.0
+Requests==2.32.3
 transliterate==1.10.2
 wavelink==3.4.1

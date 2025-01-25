@@ -4,7 +4,9 @@ config/database.db
 config/words.json
 config/voice_channels.json
 config/tickets.json
+config/allowed_servers.json
 data/*
+backups/*
 
 # Python
 __pycache__/

@@ -610,7 +610,7 @@ class Logs(commands.Cog):
 
         if changes:
             try:
-                async for entry in after.guild.audit_logs(limit=1, action=discord.AuditLogAction.guild_update):
+                async for entry in after.audit_logs(limit=1, action=discord.AuditLogAction.guild_update):
                     moderator = entry.user
                     reason = entry.reason
                     break
@@ -938,7 +938,7 @@ class Logs(commands.Cog):
             except discord.Forbidden:
                 pass
 
-            embed = discord.Embed(title="Роль изменена", color=after.color)
+            embed = create_embed(title=f"{EMOJIS['DOT']} Роль изменена", color=after.color)
             
             if moderator:
                 embed.set_author(name=f"{moderator.name}", icon_url=moderator.display_avatar.url)
@@ -1593,7 +1593,7 @@ class Logs(commands.Cog):
             embed = create_embed(
                 title="⚠️ Ошибка slash-команды",
                 description=f"Произошла ошибка!\n\n"
-                          f"{EMOJIS['DOT']} **Команда:** `{interaction.command.name}`\n"
+                          f"{EMOJIS['DOT']} **Команда:** `/{interaction.command.parent.name if interaction.command.parent else ''}{' ' if interaction.command.parent else ''}{interaction.command.name}`\n"
                           f"{EMOJIS['DOT']} **Автор:** {interaction.user.mention} (`{interaction.user.id}`)\n"
                           f"{EMOJIS['DOT']} **Канал:** {interaction.channel.mention}\n"
                           f"{EMOJIS['DOT']} **Ошибка:**\n```py\n{error_trace[:1900]}```"

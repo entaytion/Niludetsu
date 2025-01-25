@@ -41,10 +41,9 @@ class Volume(commands.Cog):
             await player.set_volume(volume)
             
             # Создаем эмбед с информацией
-            embed = discord.Embed(
+            embed = create_embed(
                 title="🔊 Громкость изменена",
-                description=f"Установлена громкость: **{volume}%**",
-                color=0x2F3136
+                description=f"Установлена громкость: **{volume}%**"
             )
             
             # Добавляем индикатор громкости
