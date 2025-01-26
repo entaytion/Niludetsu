@@ -3,17 +3,18 @@ from discord.ext import commands
 from discord import app_commands
 from utils import create_embed
 from deep_translator import GoogleTranslator
-import json
+import yaml
 
 # Загружаем конфиг
-with open('config/config.json', 'r', encoding='utf-8') as f:
-    config = json.load(f)
-    DETECT_LANG_API_KEY = config['DETECT_LANG_API_KEY']
+with open('config/config.yaml', 'r', encoding='utf-8') as f:
+    config = yaml.safe_load(f)
+
+DETECT_LANG_API_KEY = config.get('apis').get('language_detection').get('key')
 
 LANGUAGES = {
     'en': 'Английский',
     'ru': 'Русский',
-    'uk': 'Украинский',
+    'uk': 'Украинский', 
     'es': 'Испанский',
     'fr': 'Французский',
     'de': 'Немецкий',

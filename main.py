@@ -3,15 +3,15 @@ from discord import app_commands
 from discord.ext import commands
 import os
 import importlib
-import json
+import yaml
 import asyncio
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Загружаем конфигурацию
-with open('config/config.json', 'r') as f:
-    config = json.load(f)
+with open('config/config.yaml', 'r', encoding='utf-8') as f:
+    config = yaml.safe_load(f)
 
 async def load_cogs():
     for folder in os.listdir("cogs"):
@@ -39,39 +39,6 @@ async def create_default_files():
         
     if not os.path.exists('config/database.db'):
         open('config/database.db', 'w').close()
-                
-    if not os.path.exists('config/config.json'):
-        default_config = {
-            "TOKEN": "YOUR_BOT_TOKEN_HERE",
-            "WEATHER_API_KEY": "YOUR_WEATHER_API_KEY_HERE",
-            "DETECT_LANG_API_KEY": "YOUR_DETECT_LANG_API_KEY_HERE",
-            "LAVALINK": {
-                "host": "localhost",
-                "port": 2333,
-                "password": "youshallnotpass",
-                "region": "europe"
-            },
-            "LOG_CHANNEL_ID": "ID",
-            "MOD_ROLE_ID": "ID",
-            "VOICE_CHANNEL_ID": "ID",
-            "VOICE_CHAT_ID": "ID",
-            "MESSAGE_VOICE_CHAT_ID": "ID",
-            "TICKET_SYSTEM": {
-                "CATEGORY_ID": "ID",
-                "SUPPORT_ROLE_ID": "ID",
-                "LOGS_CHANNEL_ID": "ID",
-                "PANEL_CHANNEL_ID": "ID",
-                "PANEL_MESSAGE_ID": "ID"
-            },
-            "FORM_MESSAGE_ID": "ID",
-            "APPLICATIONS_CHANNEL_ID": "ID",
-            "IDEAS_CHANNEL_ID": "ID",
-            "COMPLAINTS_CHANNEL_ID": "ID",
-            "IDEAS_MESSAGE_ID": "ID",
-            "COMPLAINTS_MESSAGE_ID": "ID"
-        }
-        with open('config/config.json', 'w') as f:
-            json.dump(default_config, f, indent=4)
 
 # Добавляем глобальный обработчик ошибок
 @bot.tree.error
@@ -89,4 +56,4 @@ async def setup_hook():
     await create_default_files()
     await load_cogs()
 
-bot.run(config['TOKEN'])
+bot.run(config['bot']['token'])

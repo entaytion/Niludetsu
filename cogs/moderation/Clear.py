@@ -2,17 +2,11 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from utils import create_embed
-import json
 import asyncio
-
-def load_config():
-    with open('config/config.json', 'r') as f:
-        return json.load(f)
 
 class Clear(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.config = load_config()
     
     @app_commands.command(name="clear", description="Очистить сообщения")
     @app_commands.describe(

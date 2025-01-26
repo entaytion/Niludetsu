@@ -1,7 +1,10 @@
 import discord
+from discord import app_commands
 import sqlite3
 import os
 from discord import Embed, Colour
+from functools import wraps
+
 DB_PATH = 'config/database.db'
 
 # --- EMBEDS ---
@@ -160,6 +163,20 @@ TABLES_SCHEMAS = {
             last_message_date TIMESTAMP,
             total_messages INTEGER DEFAULT 0,
             highest_streak INTEGER DEFAULT 0
+        )
+    ''',
+    'giveaways': '''
+        CREATE TABLE IF NOT EXISTS giveaways (
+            giveaway_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel_id INTEGER NOT NULL,
+            message_id INTEGER NOT NULL,
+            guild_id INTEGER NOT NULL,
+            host_id INTEGER NOT NULL,
+            prize TEXT NOT NULL,
+            winners_count INTEGER NOT NULL,
+            end_time TEXT NOT NULL,
+            is_ended INTEGER DEFAULT 0,
+            participants TEXT DEFAULT "[]"
         )
     '''
 }

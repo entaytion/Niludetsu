@@ -4,6 +4,7 @@ from discord.ext import commands
 import sqlite3
 from datetime import datetime, timedelta, time
 from utils import create_embed, DB_PATH, initialize_table, TABLES_SCHEMAS, EMOJIS
+from discord.ext import tasks
 
 class Streak(commands.Cog):
     def __init__(self, bot):
@@ -11,6 +12,7 @@ class Streak(commands.Cog):
         self.setup_database()
         self.reset_time = time(22, 0)  # 22:00
         self._notified_users = set()
+        self.check_streaks.start()  # Запускаем периодическую проверку
         
     def setup_database(self):
         initialize_table('user_streaks', TABLES_SCHEMAS['user_streaks'])
@@ -158,27 +160,23 @@ class Streak(commands.Cog):
                 streak_data['reference_time'] = now
                 streak_data['is_active'] = 1
             else:
-                # Проверяем дедлайн
-                next_deadline = datetime.combine(now.date(), reference_time.time())
-                if now.time() < reference_time.time():
-                    next_deadline -= timedelta(days=1)
-                next_deadline += timedelta(days=1)
-
-                # Проверяем, пропущен ли дедлайн
-                if now > next_deadline:
-                    # Дедлайн пропущений — огонек аннулирується
-                    streak_data['streak_count'] = 0
-                    streak_data['is_active'] = 0
-                else:
-                    # Огонёк активен — оновлюємо лише дату останнього повідомлення
-                    streak_data['streak_count'] += 1
-                    streak_data['is_active'] = 1
-
-                    streak_data['last_message_date'] = now
-
-                    # Reference_time змінюється лише після ануляції огонька
-                if streak_data['streak_count'] == 0:
+                # Проверяем, прошли ли сутки с последнего сообщения
+                time_since_last = now - last_message
+                
+                if time_since_last > timedelta(hours=24):
+                    # Если прошло больше 24 часов - обнуляем
+                    streak_data['streak_count'] = 1
                     streak_data['reference_time'] = now
+                    streak_data['is_active'] = 1
+                elif time_since_last > timedelta(hours=20):  # Даем 4 часа форы до обнуления
+                    # Просто обновляем время последнего сообщения
+                    streak_data['last_message_date'] = now
+                    streak_data['is_active'] = 1
+                elif last_message.date() < now.date():
+                    # Если сообщение в новый день и не прошло 24 часа - увеличиваем огонек
+                    streak_data['streak_count'] += 1
+                    streak_data['last_message_date'] = now
+                    streak_data['is_active'] = 1
 
                 # Проверяем рекорд
                 if streak_data['streak_count'] > streak_data['highest_streak']:
@@ -286,6 +284,49 @@ class Streak(commands.Cog):
                     description=f"{EMOJIS['ERROR']} Произошла ошибка при получении информации о огоньке: {str(e)}"
                 )
             )
+
+    def cog_unload(self):
+        self.check_streaks.cancel()  # Останавливаем задачу при выгрузке кога
+
+    @tasks.loop(minutes=5)  # Проверяем каждые 5 минут
+    async def check_streaks(self):
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                cursor = conn.cursor()
+                # Получаем всех пользователей с активными огоньками
+                cursor.execute("SELECT user_id, last_message_date FROM user_streaks WHERE is_active = 1")
+                active_users = cursor.fetchall()
+
+                now = datetime.now()
+                for user_id, last_message_str in active_users:
+                    if last_message_str:
+                        last_message = datetime.fromisoformat(last_message_str)
+                        # Если прошло больше 24 часов
+                        if (now - last_message) > timedelta(hours=24):
+                            # Сбрасываем огонек
+                            cursor.execute("""
+                                UPDATE user_streaks 
+                                SET streak_count = 0,
+                                    is_active = 0
+                                WHERE user_id = ?
+                            """, (user_id,))
+                            
+                            # Пытаемся обновить никнейм пользователя
+                            try:
+                                for guild in self.bot.guilds:
+                                    member = guild.get_member(user_id)
+                                    if member:
+                                        await self.update_nickname(member, 0)
+                                        break
+                            except:
+                                pass
+                conn.commit()
+        except Exception as e:
+            print(f"Ошибка при проверке огоньков: {e}")
+
+    @check_streaks.before_loop
+    async def before_check_streaks(self):
+        await self.bot.wait_until_ready()  # Ждем готовности бота
 
 async def setup(bot):
     await bot.add_cog(Streak(bot)) 

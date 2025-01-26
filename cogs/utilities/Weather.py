@@ -3,15 +3,15 @@ from discord.ext import commands
 from discord import app_commands
 from utils import create_embed
 import aiohttp
-import json
+import yaml
 from datetime import datetime
 from transliterate import translit
 
 # Загрузка конфигурации из файла
-with open('config/config.json', 'r', encoding='utf-8') as f:
-    config = json.load(f)
+with open('config/config.yaml', 'r', encoding='utf-8') as f:
+    config = yaml.safe_load(f)
 
-WEATHER_API_KEY = config.get('WEATHER_API_KEY')
+WEATHER_API_KEY = config.get('apis').get('weather').get('key')
 
 BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
 

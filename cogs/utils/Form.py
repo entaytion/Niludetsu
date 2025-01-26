@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from discord.ui import Modal, TextInput, View, Button, Select
-import json
+import yaml
 import datetime
 from utils import create_embed, EMOJIS
 
@@ -185,18 +185,21 @@ class ApplicationView(View):
 class Forms(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        with open('config/config.json', 'r') as f:
-            self.config = json.load(f)
+        with open("config/config.yaml", "r", encoding="utf-8") as f:
+            self.config = yaml.safe_load(f)
         bot.loop.create_task(self.setup_form_view())
 
     async def setup_form_view(self):
         await self.bot.wait_until_ready()
-        if 'FORM_CHANNEL_ID' in self.config and 'FORM_MESSAGE_ID' in self.config:
+        channel_id = self.config.get('forms', {}).get('channel')
+        message_id = self.config.get('forms', {}).get('message')
+        
+        if channel_id and message_id:
             try:
-                channel = self.bot.get_channel(int(self.config['FORM_CHANNEL_ID']))
+                channel = self.bot.get_channel(int(channel_id))
                 if channel:
                     try:
-                        message = await channel.fetch_message(int(self.config['FORM_MESSAGE_ID']))
+                        message = await channel.fetch_message(int(message_id))
                         embed = create_embed(
                             title="📋 Набор в команду сервера",
                             description=(
@@ -276,13 +279,15 @@ class Forms(commands.Cog):
 
         await message.edit(embed=embed, view=ApplicationButton())
         
-        self.config.update({
-            'FORM_MESSAGE_ID': message_id,
-            'FORM_CHANNEL_ID': str(applications_channel_id)
+        if 'forms' not in self.config:
+            self.config['forms'] = {}
+        self.config['forms'].update({
+            'channel': str(applications_channel_id),
+            'message': str(message_id)
         })
         
-        with open('config/config.json', 'w') as f:
-            json.dump(self.config, f, indent=4)
+        with open('config/config.yaml', 'w', encoding='utf-8') as f:
+            yaml.dump(self.config, f, indent=4, allow_unicode=True)
 
         await interaction.response.send_message(
             f"✅ Панель подачи заявок успешно создана!\n"
@@ -292,10 +297,13 @@ class Forms(commands.Cog):
 
     async def _handle_set_form(self, interaction, applications_channel):
         channel = await commands.TextChannelConverter().convert(interaction, applications_channel)
-        self.config['FORM_CHANNEL_ID'] = str(channel.id)
         
-        with open('config/config.json', 'w') as f:
-            json.dump(self.config, f, indent=4)
+        if 'forms' not in self.config:
+            self.config['forms'] = {}
+        self.config['forms']['channel'] = str(channel.id)
+        
+        with open('config/config.yaml', 'w', encoding='utf-8') as f:
+            yaml.dump(self.config, f, indent=4, allow_unicode=True)
             
         embed = create_embed(
             title="✅ Канал для заявок установлен",
@@ -304,11 +312,12 @@ class Forms(commands.Cog):
         await interaction.response.send_message(embed=embed)
 
     async def handle_modal_submit(self, interaction: discord.Interaction, modal, position: str):
-        if 'FORM_CHANNEL_ID' not in self.config:
-            await interaction.response.send_message("❌ Канал для заявок не настроен в конфиге!")
+        channel_id = self.config.get('forms', {}).get('channel')
+        if not channel_id:
+            await interaction.response.send_message("❌ Канал для заявок не настроен!")
             return
 
-        if not (channel := self.bot.get_channel(int(self.config['FORM_CHANNEL_ID']))):
+        if not (channel := self.bot.get_channel(int(channel_id))):
             await interaction.response.send_message("❌ Канал для заявок не найден!")
             return
 

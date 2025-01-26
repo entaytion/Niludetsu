@@ -1,33 +1,14 @@
 import discord
 from discord.ext import commands
-import json
-import os
+import yaml
 
 class CheckServer(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.allowed_servers = self._load_allowed_servers()
-    
-    def _load_allowed_servers(self):
-        """Загружает список разрешенных серверов из файла"""
-        if not os.path.exists('config/allowed_servers.json'):
-            # Создаем файл с дефолтными значениями если его нет
-            default_data = {
-                "allowed_servers": [
-                    # Список ID разрешенных серверов
-                    1125344221587574866
-                ],
-                "owner_id": 636570363605680139  # ID владельца бота
-            }
-            os.makedirs('config', exist_ok=True)
-            with open('config/allowed_servers.json', 'w') as f:
-                json.dump(default_data, f, indent=4)
-            return default_data["allowed_servers"]
-        
-        # Загружаем существующий список
-        with open('config/allowed_servers.json', 'r') as f:
-            data = json.load(f)
-            return data["allowed_servers"]
+        with open("config/config.yaml", "r", encoding="utf-8") as f:
+            self.config = yaml.safe_load(f)
+            self.allowed_servers = self.config.get('settings', {}).get('allowed_servers', [])
+            self.owner_id = self.config.get('settings', {}).get('owner_id')
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild):

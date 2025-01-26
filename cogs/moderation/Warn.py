@@ -1,18 +1,18 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import json
+import yaml
 import sqlite3
 from datetime import datetime, timedelta
 from utils import create_embed, initialize_table, TABLES_SCHEMAS
 import traceback
 
 # Загрузка конфигурации
-with open('config/config.json', 'r', encoding='utf-8') as f:
-    config = json.load(f)
+with open('config/config.yaml', 'r', encoding='utf-8') as f:
+    config = yaml.safe_load(f)
 
-MOD_ROLE_ID = int(config.get('MOD_ROLE_ID', 0))
-MAX_WARNINGS = int(config.get('MAX_WARNINGS', 3))
+MOD_ROLE_ID = int(config.get('moderation', {}).get('mod_role', 0))
+MAX_WARNINGS = int(config.get('moderation', {}).get('max_warnings', 3))
 
 def has_mod_role():
     async def predicate(interaction: discord.Interaction):

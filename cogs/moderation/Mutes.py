@@ -2,23 +2,20 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from utils import create_embed
-import json
+import yaml
 from datetime import datetime
-
-def load_config():
-    with open('config/config.json', 'r') as f:
-        return json.load(f)
 
 class Mutes(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.config = load_config()
+        with open("config/config.yaml", "r", encoding="utf-8") as f:
+            self.config = yaml.safe_load(f)
     
     @app_commands.command(name="mutes", description="Показать список замученных участников")
     @app_commands.checks.has_permissions(moderate_members=True)
     async def mute_list(self, interaction: discord.Interaction):
         # Получаем роль мута из конфига
-        mute_role_id = self.config.get('MUTE_ROLE_ID')
+        mute_role_id = self.config.get('moderation', {}).get('mute_role')
         if not mute_role_id:
             return await interaction.response.send_message(
                 embed=create_embed(description="Роль мута не настроена в конфигурации!")

@@ -36,6 +36,22 @@ COLORS = {
     'grid': '#40444B'        # Цвет сетки
 }
 
+class FakeInteraction:
+    """Класс для эмуляции discord.Interaction при использовании префикс-команд"""
+    def __init__(self, ctx):
+        self.guild = ctx.guild
+        self.channel = ctx.channel
+        self.user = ctx.author
+        self.response = self
+        self.followup = ctx
+        self.client = ctx.bot
+
+    async def defer(self):
+        pass
+
+    async def send_message(self, *args, **kwargs):
+        await self.channel.send(*args, **kwargs)
+
 class Analytics(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -90,12 +106,26 @@ class Analytics(commands.Cog):
         
     analytics_group = app_commands.Group(name="analytics", description="Аналитика сервера и бота")
     
+    # Команда с префиксом для server_analytics
+    @commands.command(name="aserver", description="Показать подробную аналитику сервера")
+    async def server_prefix(self, ctx):
+        """Показывает подробную аналитику сервера (команда с префиксом)"""
+        await self._show_server_analytics(ctx)
+
     @analytics_group.command(name="server", description="Показать подробную аналитику сервера")
-    async def server_analytics(self, interaction: discord.Interaction):
-        """Показывает подробную аналитику сервера"""
-        await interaction.response.defer()
-        
-        guild = interaction.guild
+    async def server_slash(self, interaction: discord.Interaction):
+        """Показывает подробную аналитику сервера (слэш-команда)"""
+        await self._show_server_analytics(interaction)
+
+    async def _show_server_analytics(self, ctx):
+        """Общая логика для показа аналитики сервера"""
+        is_interaction = isinstance(ctx, discord.Interaction)
+        if is_interaction:
+            await ctx.response.defer()
+        else:
+            await ctx.defer()
+
+        guild = ctx.guild if not is_interaction else ctx.guild
         
         # Основная статистика
         total_members = guild.member_count
@@ -244,13 +274,30 @@ class Analytics(commands.Cog):
         if guild.icon:
             embed.set_thumbnail(url=guild.icon.url)
         
-        await interaction.followup.send(embed=embed, file=file)
+        if is_interaction:
+            await ctx.followup.send(embed=embed, file=file)
+        else:
+            await ctx.send(embed=embed, file=file)
     
+    # Команда с префиксом для bot_analytics
+    @commands.command(name="abot", description="Показать статистику бота")
+    async def stats_prefix(self, ctx):
+        """Показывает статистику бота (команда с префиксом)"""
+        await self._show_bot_analytics(ctx)
+
     @analytics_group.command(name="bot", description="Показать статистику бота")
-    async def bot_analytics(self, interaction: discord.Interaction):
-        """Показывает статистику бота"""
-        await interaction.response.defer()
-        
+    async def bot_slash(self, interaction: discord.Interaction):
+        """Показывает статистику бота (слэш-команда)"""
+        await self._show_bot_analytics(interaction)
+
+    async def _show_bot_analytics(self, ctx):
+        """Общая логика для показа статистики бота"""
+        is_interaction = isinstance(ctx, discord.Interaction)
+        if is_interaction:
+            await ctx.response.defer()
+        else:
+            await ctx.defer()
+
         # Получаем информацию о системе
         system_info = self.get_system_info()
         
@@ -302,14 +349,31 @@ class Analytics(commands.Cog):
         embed.set_footer(text=f"ID: {self.bot.user.id} • Создан")
         embed.timestamp = self.bot.user.created_at
         
-        await interaction.followup.send(embed=embed)
+        if is_interaction:
+            await ctx.followup.send(embed=embed)
+        else:
+            await ctx.send(embed=embed)
     
+    # Команда с префиксом для roles_analytics
+    @commands.command(name="aroles", description="Показать аналитику ролей")
+    async def roles_prefix(self, ctx):
+        """Показывает аналитику ролей сервера (команда с префиксом)"""
+        await self._show_roles_analytics(ctx)
+
     @analytics_group.command(name="roles", description="Показать аналитику ролей")
-    async def roles_analytics(self, interaction: discord.Interaction):
-        """Показывает аналитику ролей сервера"""
-        await interaction.response.defer()
-        
-        guild = interaction.guild
+    async def roles_slash(self, interaction: discord.Interaction):
+        """Показывает аналитику ролей сервера (слэш-команда)"""
+        await self._show_roles_analytics(interaction)
+
+    async def _show_roles_analytics(self, ctx):
+        """Общая логика для показа аналитики ролей"""
+        is_interaction = isinstance(ctx, discord.Interaction)
+        if is_interaction:
+            await ctx.response.defer()
+        else:
+            await ctx.defer()
+
+        guild = ctx.guild
         
         # Собираем статистику по ролям
         role_stats = []
@@ -406,14 +470,31 @@ class Analytics(commands.Cog):
         if guild.icon:
             embed.set_thumbnail(url=guild.icon.url)
         
-        await interaction.followup.send(embed=embed, file=discord.File(buffer, filename='roles.png'))
+        if is_interaction:
+            await ctx.followup.send(embed=embed, file=discord.File(buffer, filename='roles.png'))
+        else:
+            await ctx.send(embed=embed, file=discord.File(buffer, filename='roles.png'))
     
+    # Команда с префиксом для channels_analytics
+    @commands.command(name="achannels", description="Показать аналитику каналов")
+    async def channels_prefix(self, ctx):
+        """Показывает аналитику каналов сервера (команда с префиксом)"""
+        await self._show_channels_analytics(ctx)
+
     @analytics_group.command(name="channels", description="Показать аналитику каналов")
-    async def channels_analytics(self, interaction: discord.Interaction):
-        """Показывает аналитику каналов сервера"""
-        await interaction.response.defer()
-        
-        guild = interaction.guild
+    async def channels_slash(self, interaction: discord.Interaction):
+        """Показывает аналитику каналов сервера (слэш-команда)"""
+        await self._show_channels_analytics(interaction)
+
+    async def _show_channels_analytics(self, ctx):
+        """Общая логика для показа аналитики каналов"""
+        is_interaction = isinstance(ctx, discord.Interaction)
+        if is_interaction:
+            await ctx.response.defer()
+        else:
+            await ctx.defer()
+
+        guild = ctx.guild
         
         # Собираем статистику по типам каналов
         text_channels = guild.text_channels
@@ -522,7 +603,10 @@ class Analytics(commands.Cog):
         if guild.icon:
             embed.set_thumbnail(url=guild.icon.url)
         
-        await interaction.followup.send(embed=embed, file=discord.File(buffer, filename='channels.png'))
+        if is_interaction:
+            await ctx.followup.send(embed=embed, file=discord.File(buffer, filename='channels.png'))
+        else:
+            await ctx.send(embed=embed, file=discord.File(buffer, filename='channels.png'))
 
 async def setup(bot):
     await bot.add_cog(Analytics(bot)) 

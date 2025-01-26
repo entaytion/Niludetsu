@@ -3,24 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 from utils import create_embed
 import random
-import json
-import os
-
-# Загружаем слова из файла
-WORDS_FILE = 'config/words.json'
-
-# Создаем файл со словами, если его нет
-if not os.path.exists(WORDS_FILE):
-    WORDS = {
-        "5": ["книга", "место", "город", "школа", "форма", "право", "семья", "центр", "глава", "театр", "месяц", "музей", "весна", "лампа", "поезд", "князь", "песня", "рынок", "спина", "ветер", "огонь", "земля", "трава", "ручка", "полка", "океан", "фижма"],
-        "6": ["солнце", "правда", "работа", "дорога", "письмо", "победа", "радуга", "музыка", "сердце", "память", "знание", "судьба", "дружба", "любовь", "печаль", "улыбка", "восток", "облако", "корона", "звезда", "космос", "остров", "дерево", "цветок", "яблоко", "персик", "собака"]
-    }
-    os.makedirs(os.path.dirname(WORDS_FILE), exist_ok=True)
-    with open(WORDS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(WORDS, f, ensure_ascii=False, indent=4)
-else:
-    with open(WORDS_FILE, 'r', encoding='utf-8') as f:
-        WORDS = json.load(f)
+import yaml
 
 LETTERS = "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
 CORRECT = "🟩"  # Правильная буква на правильном месте
@@ -29,7 +12,13 @@ ABSENT = "⬛"   # Буква отсутствует в слове
 
 class WordleGame:
     def __init__(self, channel_id: int, message_id: int, word_length: int = 5):
-        self.word = random.choice(WORDS[str(word_length)]).upper()
+        with open("config/config.yaml", "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+            words = config.get('words', {}).get(str(word_length), [])
+            if not words:
+                raise ValueError(f"Нет слов длины {word_length} в конфигурации")
+            self.word = random.choice(words).upper()
+        
         self.attempts = []
         self.max_attempts = 6
         self.is_won = False
@@ -115,14 +104,25 @@ class Wordle(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.active_games = {}  # {channel_id: {user_id: game}}
+        with open("config/config.yaml", "r", encoding="utf-8") as f:
+            self.config = yaml.safe_load(f)
+            self.available_lengths = [
+                length for length in map(int, self.config.get('words', {}).keys())
+                if self.config['words'].get(str(length))
+            ]
+            self.available_lengths.sort()
 
     @app_commands.command(name="wordle", description="Начать игру в Wordle")
-    @app_commands.describe(word_length="Длина загаданного слова (5 или 6 букв)")
-    @app_commands.choices(word_length=[
-        app_commands.Choice(name="5 букв", value=5),
-        app_commands.Choice(name="6 букв", value=6)
-    ])
+    @app_commands.describe(word_length="Длина загаданного слова")
     async def wordle(self, interaction: discord.Interaction, word_length: int = 5):
+        if word_length not in self.available_lengths:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description=f"❌ Доступные длины слов: {', '.join(map(str, self.available_lengths))}"
+                )
+            )
+            return
+
         channel_id = interaction.channel_id
         user_id = interaction.user.id
 
@@ -135,31 +135,38 @@ class Wordle(commands.Cog):
             )
             return
 
-        # Создаем сообщение с игрой
-        message = await interaction.response.send_message(
-            embed=create_embed(
-                title="🎯 Wordle",
-                description=(
-                    f"**{interaction.user.mention} начал игру в Wordle!**\n\n"
-                    f"Я загадал слово из {word_length} букв. У вас есть 6 попыток, чтобы угадать его!\n\n"
-                    "🟩 - буква на правильном месте\n"
-                    "🟨 - буква есть в слове, но не на этом месте\n"
-                    "⬛ - такой буквы нет в слове\n\n"
-                    "Просто напишите слово в чат для попытки.\n\n"
-                    "Доступные буквы:\n" +
-                    " ".join(f"⬜[{letter}]" for letter in LETTERS)
+        try:
+            # Создаем сообщение с игрой
+            message = await interaction.response.send_message(
+                embed=create_embed(
+                    title="🎯 Wordle",
+                    description=(
+                        f"**{interaction.user.mention} начал игру в Wordle!**\n\n"
+                        f"Я загадал слово из {word_length} букв. У вас есть 6 попыток, чтобы угадать его!\n\n"
+                        "🟩 - буква на правильном месте\n"
+                        "🟨 - буква есть в слове, но не на этом месте\n"
+                        "⬛ - такой буквы нет в слове\n\n"
+                        "Просто напишите слово в чат для попытки.\n\n"
+                        "Доступные буквы:\n" +
+                        " ".join(f"⬜[{letter}]" for letter in LETTERS)
+                    )
                 )
             )
-        )
-        message = await interaction.original_response()
+            message = await interaction.original_response()
 
-        # Создаем новую игру
-        game = WordleGame(channel_id, message.id, word_length)
-        
-        # Сохраняем игру
-        if channel_id not in self.active_games:
-            self.active_games[channel_id] = {}
-        self.active_games[channel_id][user_id] = game
+            # Создаем новую игру
+            game = WordleGame(channel_id, message.id, word_length)
+            
+            # Сохраняем игру
+            if channel_id not in self.active_games:
+                self.active_games[channel_id] = {}
+            self.active_games[channel_id][user_id] = game
+        except ValueError as e:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description=f"❌ {str(e)}"
+                )
+            )
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):

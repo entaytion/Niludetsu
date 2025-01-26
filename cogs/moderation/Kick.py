@@ -2,14 +2,14 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from utils import create_embed
-import json
+import yaml
 
 # Загрузка конфигурации
-CONFIG_FILE = 'config/config.json'
+CONFIG_FILE = 'config/config.yaml'
 with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-    config = json.load(f)
+    config = yaml.safe_load(f)
 
-MOD_ROLE_ID = int(config['MOD_ROLE_ID'])  # Преобразование строки в целое число
+MOD_ROLE_ID = int(config.get('moderation', {}).get('mod_role', 0)) # Преобразование строки в целое число
 
 # Проверка роли модератора
 def has_mod_role():

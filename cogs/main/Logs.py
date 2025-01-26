@@ -3,11 +3,12 @@ from discord.ext import commands
 from discord import app_commands
 from utils import create_embed, EMOJIS
 import traceback
-import json
+import yaml
 import datetime
 import asyncio
 import os
 import io
+
 class Logs(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -21,10 +22,10 @@ class Logs(commands.Cog):
         """Инициализация канала логов с задержкой"""
         await self.bot.wait_until_ready()  # Ждем пока бот будет готов
         try:
-            with open('config/config.json', 'r') as f:
-                config = json.load(f)
-                if 'LOG_CHANNEL_ID' in config:
-                    channel_id = int(config['LOG_CHANNEL_ID'])
+            with open('config/config.yaml', 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+                if 'logging' in config and 'main_channel' in config['logging']:
+                    channel_id = int(config['logging']['main_channel'])
                     self.log_channel = self.bot.get_channel(channel_id)
                     if not self.log_channel:
                         print(f"❌ Канал логов не найден! ID: {channel_id}")
@@ -53,28 +54,81 @@ class Logs(commands.Cog):
     def save_config(self, channel_id):
         """Сохранение конфигурации"""
         try:
-            with open('config/config.json', 'r') as f:
-                config = json.load(f)
+            with open('config/config.yaml', 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
             
-            config['LOG_CHANNEL_ID'] = str(channel_id)
+            config['logging']['main_channel'] = str(channel_id)
             
-            with open('config/config.json', 'w') as f:
-                json.dump(config, f, indent=4)
+            with open('config/config.yaml', 'w', encoding='utf-8') as f:
+                yaml.dump(config, f, indent=4)
         except Exception as e:
             print(f"Error saving config: {e}")
 
-    async def log_event(self, embed):
-        """Отправка лога в канал"""
-        if not self.log_channel:
-            self.initialize_logs()  # Пробуем перезагрузить конфиг
+    async def get_webhook(self, channel: discord.TextChannel) -> discord.Webhook:
+        """Получает или создает вебхук для канала"""
+        try:
+            # Пытаемся найти существующий вебхук
+            webhooks = await channel.webhooks()
+            webhook = discord.utils.get(webhooks, name='NiluBot Logs')
             
-        if self.log_channel:
+            # Если вебхук не найден, создаем новый
+            if webhook is None:
+                webhook = await channel.create_webhook(name='NiluBot Logs')
+            
+            return webhook
+        except discord.Forbidden:
+            print(f"❌ Нет прав для управления вебхуками в канале {channel.name}")
+            return None
+
+    async def log_event(self, embed, file: discord.File = None):
+        """Отправка лога через вебхук"""
+        if not self.log_channel:
+            await self.initialize_logs()
+            return
+            
+        if not embed:
+            print("❌ Эмбед не был передан")
+            return
+            
+        try:
+            # Проверяем, что эмбед является инстансом discord.Embed
+            if not isinstance(embed, discord.Embed):
+                print("❌ Переданный объект не является discord.Embed")
+                return
+                
+            # Проверяем обязательные поля эмбеда
+            if not hasattr(embed, 'title') and not hasattr(embed, 'description'):
+                print("❌ У эмбеда отсутствуют обязательные поля (title или description)")
+                return
+                
+            webhook = await self.get_webhook(self.log_channel)
+            
             try:
-                await self.log_channel.send(embed=embed)
-            except Exception as e:
-                print(f"❌ Ошибка отправки лога: {e}")
-        else:
-            print("❌ Канал логов не настроен!")
+                if webhook:
+                    if file:
+                        # Создаем новый файл для каждой отправки
+                        new_file = discord.File(
+                            io.BytesIO(file.fp.read()),
+                            filename=file.filename,
+                            description=file.description,
+                            spoiler=file.spoiler
+                        )
+                        file.fp.seek(0)  # Сбрасываем позицию чтения для возможного повторного использования
+                        await webhook.send(embed=embed, file=new_file)
+                    else:
+                        await webhook.send(embed=embed)
+                else:
+                    # Если не удалось получить вебхук, отправляем обычным способом
+                    await self.log_channel.send(embed=embed, file=file)
+            except discord.HTTPException as e:
+                print(f"❌ Ошибка отправки через вебхук: {e}")
+                # Пробуем отправить через обычный канал
+                await self.log_channel.send(embed=embed, file=file)
+                
+        except Exception as e:
+            print(f"❌ Ошибка отправки лога: {str(e)}")
+            if hasattr(e, '__traceback__'):
+                print(''.join(traceback.format_tb(e.__traceback__)))
 
     @app_commands.command(name="logs", description="Показать текущий канал логов")
     @commands.has_permissions(administrator=True)
@@ -108,7 +162,7 @@ class Logs(commands.Cog):
             embed = create_embed(
                 title="⚠️ Ошибка команды",
                 description=f"<@{self.owner_id}>, произошла ошибка!\n\n"
-                          f"{EMOJIS['DOT']} **Команда:** `{ctx.command}`\n"
+                          f"{EMOJIS['DOT']} **Команда:** `{ctx.message.content}`\n"
                           f"{EMOJIS['DOT']} **Автор:** {ctx.author.mention} (`{ctx.author.id}`)\n"
                           f"{EMOJIS['DOT']} **Канал:** {ctx.channel.mention}\n"
                           f"{EMOJIS['DOT']} **Ошибка:**\n```py\n{error_trace[:1900]}```"
@@ -776,56 +830,6 @@ class Logs(commands.Cog):
             await self.log_event(embed)
 
     @commands.Cog.listener()
-    async def on_presence_update(self, before, after):
-        """Логирование изменений статуса участников"""
-        if not self.log_channel:
-            return
-
-        changes = []
-        
-        # Изменение статуса
-        if before.status != after.status:
-            status_names = {
-                discord.Status.online: "В сети",
-                discord.Status.offline: "Не в сети",
-                discord.Status.idle: "Неактивен",
-                discord.Status.dnd: "Не беспокоить"
-            }
-            changes.append(f"Статус: `{status_names.get(before.status, str(before.status))}` → "
-                         f"`{status_names.get(after.status, str(after.status))}`")
-
-        # Изменение активности
-        if before.activities != after.activities:
-            before_activities = [a.name for a in before.activities] if before.activities else []
-            after_activities = [a.name for a in after.activities] if after.activities else []
-            
-            if before_activities != after_activities:
-                if after_activities:
-                    changes.append(f"Активность: `{', '.join(after_activities)}`")
-                else:
-                    changes.append("Активность очищена")
-
-        # Изменение клиента
-        if before.desktop_status != after.desktop_status:
-            changes.append(f"Статус на ПК: `{after.desktop_status}`")
-        if before.mobile_status != after.mobile_status:
-            changes.append(f"Статус на телефоне: `{after.mobile_status}`")
-        if before.web_status != after.web_status:
-            changes.append(f"Статус в браузере: `{after.web_status}`")
-
-        if changes:
-            embed = create_embed(
-                title="👀 Статус участника изменен",
-                description=f"{EMOJIS['DOT']} **Участник:** {after.mention} (`{after.id}`)\n"
-                          f"{EMOJIS['DOT']} **Изменения:**\n" + 
-                          "\n".join(f"{EMOJIS['DOT']} {change}" for change in changes),
-                footer={"text": f"ID: {after.id}"}
-            )
-            if after.avatar:
-                embed.set_thumbnail(url=after.avatar.url)
-            await self.log_event(embed)
-
-    @commands.Cog.listener()
     async def on_guild_channel_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel):
         """Логирование изменений каналов"""
         if not self.log_channel:
@@ -876,7 +880,7 @@ class Logs(commands.Cog):
             if moderator:
                 embed.add_field(name="Модератор", value=f"{moderator.mention} ({moderator.id})", inline=False)
             
-            await self.log_channel.send(embed=embed)
+            await self.log_event(embed)
 
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message):
@@ -918,7 +922,7 @@ class Logs(commands.Cog):
         if moderator and moderator != message.author:
             embed.add_field(name="Удалил", value=f"{moderator.mention} ({moderator.id})", inline=False)
 
-        await self.log_channel.send(embed=embed)
+        await self.log_event(embed)
 
     @commands.Cog.listener()
     async def on_guild_role_update(self, before: discord.Role, after: discord.Role):
@@ -1334,17 +1338,47 @@ class Logs(commands.Cog):
         if not self.log_channel:
             return
 
-        embed = create_embed(
-            title="🔄 Интеграция обновлена",
-            description=f"{EMOJIS['DOT']} **Название:** `{integration.name}`\n"
-                      f"{EMOJIS['DOT']} **Тип:** `{integration.type}`\n"
-                      f"{EMOJIS['DOT']} **Включена:** `{'Да' if integration.enabled else 'Нет'}`\n"
-                      f"{EMOJIS['DOT']} **Синхронизируется:** `{'Да' if integration.syncing else 'Нет'}`\n"
-                      f"{EMOJIS['DOT']} **Роль:** {integration.role.mention if integration.role else 'Не указана'}\n"
-                      f"{EMOJIS['DOT']} **Время последней синхронизации:** <t:{int(integration.synced_at.timestamp()) if integration.synced_at else 0}:F>",
-            footer={"text": f"ID: {integration.id}"}
-        )
-        await self.log_event(embed)
+        try:
+            description = [
+                f"{EMOJIS['DOT']} **Название:** `{integration.name}`",
+                f"{EMOJIS['DOT']} **Тип:** `{integration.type}`",
+                f"{EMOJIS['DOT']} **Включена:** `{'Да' if getattr(integration, 'enabled', False) else 'Нет'}`"
+            ]
+
+            # Добавляем дополнительные поля только если они существуют
+            if hasattr(integration, 'syncing'):
+                description.append(f"{EMOJIS['DOT']} **Синхронизируется:** `{'Да' if integration.syncing else 'Нет'}`")
+            
+            if hasattr(integration, 'role') and integration.role:
+                description.append(f"{EMOJIS['DOT']} **Роль:** {integration.role.mention}")
+            
+            if hasattr(integration, 'synced_at') and integration.synced_at:
+                description.append(f"{EMOJIS['DOT']} **Время последней синхронизации:** <t:{int(integration.synced_at.timestamp())}:F>")
+            
+            if hasattr(integration, 'expire_behavior'):
+                description.append(f"{EMOJIS['DOT']} **Поведение при истечении:** `{integration.expire_behavior}`")
+            
+            if hasattr(integration, 'expire_grace_period'):
+                description.append(f"{EMOJIS['DOT']} **Льготный период:** `{integration.expire_grace_period} дней`")
+            
+            if hasattr(integration, 'user') and integration.user:
+                description.append(f"{EMOJIS['DOT']} **Пользователь:** {integration.user.mention}")
+            
+            if hasattr(integration, 'account') and integration.account:
+                description.append(f"{EMOJIS['DOT']} **Аккаунт:** `{integration.account.name}`")
+
+            embed = create_embed(
+                title="🔄 Интеграция обновлена",
+                description="\n".join(description),
+                footer={"text": f"ID: {integration.id}"}
+            )
+            
+            await self.log_event(embed)
+            
+        except Exception as e:
+            print(f"❌ Ошибка при логировании обновления интеграции: {e}")
+            if hasattr(e, '__traceback__'):
+                print(''.join(traceback.format_tb(e.__traceback__)))
 
     @commands.Cog.listener()
     async def on_webhooks_update(self, channel):
@@ -1588,16 +1622,15 @@ class Logs(commands.Cog):
         """Логирование ошибок slash-команд"""
         if self.log_channel:
             error_trace = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
-            
+            await self.log_channel.send(f"<@{self.owner_id}>, произошла ошибка!")
             embed = create_embed(
-                title="⚠️ Ошибка slash-команды",
-                description=f"Произошла ошибка!\n\n"
-                          f"{EMOJIS['DOT']} **Команда:** `/{interaction.command.parent.name if interaction.command.parent else ''}{' ' if interaction.command.parent else ''}{interaction.command.name}`\n"
+                title="⚠️ Ошибка slash-команды", 
+                description=f"{EMOJIS['DOT']} **Команда:** `/{interaction.command.parent.name if interaction.command.parent else ''}{' ' if interaction.command.parent else ''}{interaction.command.name}`\n"
                           f"{EMOJIS['DOT']} **Автор:** {interaction.user.mention} (`{interaction.user.id}`)\n"
                           f"{EMOJIS['DOT']} **Канал:** {interaction.channel.mention}\n"
                           f"{EMOJIS['DOT']} **Ошибка:**\n```py\n{error_trace[:1900]}```"
             )
-            await self.log_channel.send(content=f"<@{self.owner_id}>", embed=embed)
+            await self.log_event(embed)
 
     @commands.Cog.listener()
     async def on_bulk_message_delete(self, messages):
@@ -1647,7 +1680,7 @@ class Logs(commands.Cog):
         )
 
         # Отправляем файл в канал логов
-        await self.log_channel.send(embed=embed, file=file)
+        await self.log_event(embed, file=file)
 
 async def setup(bot):
     await bot.add_cog(Logs(bot)) 

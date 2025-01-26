@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from discord.ui import Modal, TextInput, View, Button
-import json
+import yaml
 from utils import create_embed, EMOJIS
 import asyncio
 
@@ -142,18 +142,21 @@ class ReportView(View):
 class Reports(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        with open('config/config.json', 'r') as f:
-            self.config = json.load(f)
+        with open("config/config.yaml", "r", encoding="utf-8") as f:
+            self.config = yaml.safe_load(f)
         bot.loop.create_task(self.setup_reports_view())
 
     async def setup_reports_view(self):
         await self.bot.wait_until_ready()
-        if 'REPORTS_CHANNEL_ID' in self.config and 'REPORTS_MESSAGE_ID' in self.config:
+        channel_id = self.config.get('reports', {}).get('channel')
+        message_id = self.config.get('reports', {}).get('message')
+        
+        if channel_id and message_id:
             try:
-                channel = self.bot.get_channel(int(self.config['REPORTS_CHANNEL_ID']))
+                channel = self.bot.get_channel(int(channel_id))
                 if channel:
                     try:
-                        message = await channel.fetch_message(int(self.config['REPORTS_MESSAGE_ID']))
+                        message = await channel.fetch_message(int(message_id))
                         embed = create_embed(
                             title="⚠️ Подать жалобу",
                             description=(
@@ -177,11 +180,12 @@ class Reports(commands.Cog):
                 print(f"❌ Ошибка при загрузке панели жалоб: {e}")
 
     async def handle_report_submit(self, interaction: discord.Interaction, user: str, reason: str, proof: str = None, additional: str = None):
-        if 'REPORTS_CHANNEL_ID' not in self.config:
+        channel_id = self.config.get('reports', {}).get('channel')
+        if not channel_id:
             await interaction.response.send_message("❌ Канал для жалоб не настроен!")
             return
 
-        channel = self.bot.get_channel(int(self.config['REPORTS_CHANNEL_ID']))
+        channel = self.bot.get_channel(int(channel_id))
         if not channel:
             await interaction.response.send_message("❌ Канал для жалоб не найден!")
             return
@@ -305,13 +309,15 @@ class Reports(commands.Cog):
                 view = ReportButton()
                 message = await interaction.channel.send(embed=embed, view=view)
                 
-                self.config.update({
-                    'REPORTS_MESSAGE_ID': str(message.id),
-                    'REPORTS_CHANNEL_ID': str(interaction.channel_id)
+                if 'reports' not in self.config:
+                    self.config['reports'] = {}
+                self.config['reports'].update({
+                    'message': str(message.id),
+                    'channel': str(interaction.channel_id)
                 })
                 
-                with open('config/config.json', 'w') as f:
-                    json.dump(self.config, f, indent=4)
+                with open('config/config.yaml', 'w', encoding='utf-8') as f:
+                    yaml.dump(self.config, f, indent=4, allow_unicode=True)
 
                 success_embed = create_embed(
                     title="✅ Панель жалоб создана",
@@ -320,10 +326,12 @@ class Reports(commands.Cog):
                 )
                 await interaction.response.send_message(embed=success_embed)
             else:
-                self.config['REPORTS_CHANNEL_ID'] = str(interaction.channel_id)
+                if 'reports' not in self.config:
+                    self.config['reports'] = {}
+                self.config['reports']['channel'] = str(interaction.channel_id)
                 
-                with open('config/config.json', 'w') as f:
-                    json.dump(self.config, f, indent=4)
+                with open('config/config.yaml', 'w', encoding='utf-8') as f:
+                    yaml.dump(self.config, f, indent=4, allow_unicode=True)
                     
                 embed = create_embed(
                     title="✅ Канал для жалоб установлен",

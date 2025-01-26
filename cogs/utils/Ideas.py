@@ -2,9 +2,8 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from discord.ui import Modal, TextInput, View, Button
-import json
+import yaml
 from utils import create_embed, EMOJIS
-
 
 class ReasonModal(Modal):
     def __init__(self, title: str, callback):
@@ -129,18 +128,21 @@ class IdeaView(View):
 class Ideas(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        with open("config/config.json", "r") as f:
-            self.config = json.load(f)
+        with open("config/config.yaml", "r", encoding="utf-8") as f:
+            self.config = yaml.safe_load(f)
         bot.loop.create_task(self.setup_ideas_view())
 
     async def setup_ideas_view(self):
         await self.bot.wait_until_ready()
-        if "IDEAS_CHANNEL_ID" in self.config and "IDEAS_MESSAGE_ID" in self.config:
+        channel_id = self.config.get('ideas', {}).get('channel')
+        message_id = self.config.get('ideas', {}).get('message')
+        
+        if channel_id and message_id:
             try:
-                channel = self.bot.get_channel(int(self.config["IDEAS_CHANNEL_ID"]))
+                channel = self.bot.get_channel(int(channel_id))
                 if channel:
                     try:
-                        message = await channel.fetch_message(int(self.config["IDEAS_MESSAGE_ID"]))
+                        message = await channel.fetch_message(int(message_id))
                         embed = create_embed(
                             title="💡 Предложить идею",
                             description=(
@@ -164,11 +166,12 @@ class Ideas(commands.Cog):
                 print(f"❌ Ошибка при загрузке панели идей: {e}")
 
     async def handle_idea_submit(self, interaction: discord.Interaction, title: str, description: str):
-        if "IDEAS_CHANNEL_ID" not in self.config:
+        channel_id = self.config.get('ideas', {}).get('channel')
+        if not channel_id:
             await interaction.response.send_message("❌ Канал для идей не настроен!")
             return
 
-        channel = self.bot.get_channel(int(self.config["IDEAS_CHANNEL_ID"]))
+        channel = self.bot.get_channel(int(channel_id))
         if not channel:
             await interaction.response.send_message("❌ Канал для идей не найден!")
             return
@@ -241,10 +244,15 @@ class Ideas(commands.Cog):
 
         await message.edit(embed=embed, view=IdeaButton())
 
-        self.config.update({"IDEAS_MESSAGE_ID": message_id, "IDEAS_CHANNEL_ID": str(ideas_channel_id)})
+        if 'ideas' not in self.config:
+            self.config['ideas'] = {}
+        self.config['ideas'].update({
+            'channel': str(ideas_channel_id),
+            'message': str(message_id)
+        })
 
-        with open("config/config.json", "w") as f:
-            json.dump(self.config, f, indent=4)
+        with open("config/config.yaml", "w", encoding='utf-8') as f:
+            yaml.dump(self.config, f, indent=4, allow_unicode=True)
 
         success_embed = create_embed(
             title="✅ Панель идей создана",
@@ -258,10 +266,13 @@ class Ideas(commands.Cog):
 
     async def _handle_set_ideas(self, interaction, ideas_channel):
         channel = await commands.TextChannelConverter().convert(interaction, ideas_channel)
-        self.config["IDEAS_CHANNEL_ID"] = str(channel.id)
+        
+        if 'ideas' not in self.config:
+            self.config['ideas'] = {}
+        self.config['ideas']['channel'] = str(channel.id)
 
-        with open("config/config.json", "w") as f:
-            json.dump(self.config, f, indent=4)
+        with open("config/config.yaml", "w", encoding='utf-8') as f:
+            yaml.dump(self.config, f, indent=4, allow_unicode=True)
 
         embed = create_embed(
             title="✅ Канал для идей установлен",

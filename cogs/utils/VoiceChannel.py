@@ -2,13 +2,13 @@ import discord
 from discord.ext import commands
 from discord import ui
 import asyncio
-import json
+import yaml
 import os
 from utils import create_embed, EMOJIS
 
 def load_config():
-    with open('config/config.json', 'r') as f:
-        return json.load(f)
+    with open('config/config.yaml', 'r', encoding='utf-8') as f:
+        return yaml.safe_load(f)
 
 class VoiceChannelManager:
     def __init__(self):
@@ -17,13 +17,13 @@ class VoiceChannelManager:
         self.config = load_config()
     
     def load_channels(self):
-        if os.path.exists('config/voice_channels.json'):
-            with open('config/voice_channels.json', 'r') as f:
-                self.voice_channels = json.load(f)
+        if os.path.exists('config/voice_channels.yaml'):
+            with open('config/voice_channels.yaml', 'r', encoding='utf-8') as f:
+                self.voice_channels = yaml.safe_load(f)
     
     def save_channels(self):
-        with open('config/voice_channels.json', 'w') as f:
-            json.dump(self.voice_channels, f)
+        with open('config/voice_channels.yaml', 'w', encoding='utf-8') as f:
+            yaml.dump(self.voice_channels, f)
     
     def add_channel(self, user_id: str, channel_id: int):
         self.voice_channels[str(user_id)] = channel_id
@@ -464,20 +464,25 @@ class VoiceChannelCog(commands.Cog):
     
     async def setup_voice_channel(self):
         await self.bot.wait_until_ready()
-        channel_id = self.config.get('VOICE_CHAT_ID')
-        message_id = self.config.get('MESSAGE_VOICE_CHAT_ID')
+        
+        # Получаем ID каналов из конфига
+        channel_id = self.config.get('voice', {}).get('chat_channel')
+        message_id = self.config.get('voice', {}).get('message_channel')
         
         if not channel_id or not message_id:
+            print("❌ Не настроены ID каналов для голосовых комнат")
             return
             
         channel = self.bot.get_channel(int(channel_id))
         if not channel:
+            print(f"❌ Канал с ID {channel_id} не найден")
             return
             
         try:
             message = await channel.fetch_message(int(message_id))
         except discord.NotFound:
             message = await channel.send("Создание панели управления...")
+            print(f"✅ Создано новое сообщение для панели управления: {message.id}")
         
         # Создаем эмбед
         embed = create_embed(
@@ -497,39 +502,50 @@ class VoiceChannelCog(commands.Cog):
         )
         
         await message.edit(content=None, embed=embed, view=VoiceChannelView())
+        print("✅ Панель управления голосовыми комнатами обновлена")
     
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        voice_channel_id = self.config.get('VOICE_CHANNEL_ID')
+        # Получаем ID канала создания из конфига
+        voice_channel_id = self.config.get('voice', {}).get('main_channel')
         
+        if not voice_channel_id:
+            return
+            
         # Если пользователь зашел в канал создания
         if after.channel and str(after.channel.id) == str(voice_channel_id):
-            # Создаем новый канал
-            new_channel = await after.channel.guild.create_voice_channel(
-                name=f"🎮 Канал {member.name}",
-                category=after.channel.category
-            )
-            
-            # Выдаем права создателю
-            await new_channel.set_permissions(member,
-                manage_channels=True,
-                move_members=True,
-                view_channel=True,
-                connect=True,
-                speak=True
-            )
-            
-            # Устанавливаем права по умолчанию
-            await new_channel.set_permissions(member.guild.default_role,
-                connect=True,  # По умолчанию канал закрыт
-                view_channel=True  # Но виден всем
-            )
-            
-            # Перемещаем пользователя
-            await member.move_to(new_channel)
-            
-            # Сохраняем информацию о канале
-            self.manager.add_channel(str(member.id), new_channel.id)
+            try:
+                # Создаем новый канал
+                new_channel = await after.channel.guild.create_voice_channel(
+                    name=f"🎮 Канал {member.name}",
+                    category=after.channel.category,
+                    bitrate=64000  # Устанавливаем стандартный битрейт
+                )
+                
+                # Выдаем права создателю
+                await new_channel.set_permissions(member,
+                    manage_channels=True,
+                    move_members=True,
+                    view_channel=True,
+                    connect=True,
+                    speak=True
+                )
+                
+                # Устанавливаем права по умолчанию
+                await new_channel.set_permissions(member.guild.default_role,
+                    connect=True,
+                    view_channel=True
+                )
+                
+                # Перемещаем пользователя
+                await member.move_to(new_channel)
+                
+                # Сохраняем информацию о канале
+                self.manager.add_channel(str(member.id), new_channel.id)
+                print(f"✅ Создан новый голосовой канал для {member.name} (ID: {new_channel.id})")
+                
+            except Exception as e:
+                print(f"❌ Ошибка при создании канала: {e}")
         
         # Проверяем, не покинул ли кто-то канал
         if before.channel:
@@ -541,8 +557,12 @@ class VoiceChannelCog(commands.Cog):
                     if channel.id == before.channel.id:
                         # Если в канале никого не осталось
                         if len(channel.members) == 0:
-                            await channel.delete()
-                            self.manager.remove_channel(user_id)
+                            try:
+                                await channel.delete()
+                                self.manager.remove_channel(user_id)
+                                print(f"✅ Удален пустой голосовой канал (ID: {channel_id})")
+                            except Exception as e:
+                                print(f"❌ Ошибка при удалении канала: {e}")
                             break
 
 async def setup(bot):

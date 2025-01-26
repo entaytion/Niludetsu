@@ -2,16 +2,13 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from utils import create_embed
-import json
-
-def load_config():
-    with open('config/config.json', 'r') as f:
-        return json.load(f)
+import yaml
 
 class Reset(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.config = load_config()
+        with open("config/config.yaml", "r", encoding="utf-8") as f:
+            self.config = yaml.safe_load(f)
 
     @app_commands.command(name="reset", description="Сбросить различные настройки сервера")
     @app_commands.describe(
@@ -27,7 +24,7 @@ class Reset(commands.Cog):
 
         if type == "mutes":
             # Получаем роль мута из конфига
-            mute_role_id = self.config.get('MUTE_ROLE_ID')
+            mute_role_id = self.config.get('moderation', {}).get('mute_role')
             if not mute_role_id:
                 return await interaction.followup.send(
                     embed=create_embed(description="❌ Роль мута не настроена в конфигурации!")

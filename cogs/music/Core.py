@@ -2,10 +2,11 @@ import discord
 from discord.ext import commands
 import wavelink
 from utils import create_embed
-import json
+import yaml
 
-with open('config/config.json', 'r') as f:
-    LAVALINK_SERVER = json.load(f)['LAVALINK']
+with open('config/config.yaml', 'r', encoding='utf-8') as f:
+    config = yaml.safe_load(f)
+    LAVALINK_SERVER = config.get('music', {}).get('lavalink', {})
 
 class Core(commands.Cog):
     def __init__(self, bot):

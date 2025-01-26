@@ -1,10 +1,6 @@
 # Конфіденційні дані
 config.json
-config/database.db
-config/words.json
-config/voice_channels.json
-config/tickets.json
-config/allowed_servers.json
+config/*
 data/*
 backups/*
 
@@ -13,7 +9,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Віртуальне середовище
+# Virtual environment
 venv/
 env/
 ENV/
