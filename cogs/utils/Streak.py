@@ -116,19 +116,20 @@ class Streak(commands.Cog):
             
         now = datetime.now()
         
-        # Вычисляем следующее время истечения на основе reference_time
+        # Расчет следующего дедлайна
         next_expiry = datetime.combine(now.date(), reference_time.time())
         if now.time() < reference_time.time():
             next_expiry -= timedelta(days=1)
         next_expiry += timedelta(days=1)
             
-        # Если последнее сообщение было более 24 часов назад
-        if (now - last_message) > timedelta(hours=24):
+        # Проверка, было ли последнее сообщение более 24 часов назад
+        time_since_last_message = now - last_message
+        if time_since_last_message > timedelta(hours=24):
             return True, False, next_expiry
             
-        # Если близко к истечению (за час до)
+        # Близость к дедлайну (уведомление)
         time_until_expiry = (next_expiry - now).total_seconds()
-        if time_until_expiry <= 3600:  # За час до истечения
+        if time_until_expiry <= 3600:  # за 1 час
             return False, True, next_expiry
             
         return False, False, next_expiry
@@ -150,62 +151,72 @@ class Streak(commands.Cog):
             streak_data['total_messages'] += 1
             
             if not last_message or not reference_time:
-                # Первое сообщение пользователя или нет reference_time
+                # Первое сообщение пользователя
                 streak_data['streak_count'] = 1
                 streak_data['highest_streak'] = 1
                 streak_data['last_message_date'] = now
                 streak_data['reference_time'] = now
                 streak_data['is_active'] = 1
             else:
-                # Проверяем время последнего сброса (22:00)
-                last_reset = datetime.combine(now.date(), self.reset_time)
-                if now.time() < self.reset_time:
-                    last_reset -= timedelta(days=1)
+                # Проверяем дедлайн
+                next_deadline = datetime.combine(now.date(), reference_time.time())
+                if now.time() < reference_time.time():
+                    next_deadline -= timedelta(days=1)
+                next_deadline += timedelta(days=1)
 
-                # Проверяем, прошло ли больше 24 часов с последнего сообщения
-                time_since_last = now - last_message
-                if time_since_last > timedelta(hours=24):
-                    if streak_data['streak_count'] > 0:
-                        try:
-                            await message.author.send(
-                                embed=create_embed(
-                                    title=f"{EMOJIS['ERROR']} Огонек потух!",
-                                    description=f"Вы слишком долго не писали сообщений. Ваш огонек **{streak_data['streak_count']} дней** потух!"
-                                )
-                            )
-                        except discord.Forbidden:
-                            print(f"Не удалось отправить уведомление о потухшем огоньке пользователю {message.author.name} - ЛС закрыты")
+                # Проверяем, пропущен ли дедлайн
+                if now > next_deadline:
+                    # Дедлайн пропущений — огонек аннулирується
                     streak_data['streak_count'] = 0
-                    streak_data['reference_time'] = now
-                    streak_data['is_active'] = 1
+                    streak_data['is_active'] = 0
                 else:
-                    # Если сейчас после 22:00 и огонек активен
-                    if now.time() >= self.reset_time and streak_data['is_active']:
-                        streak_data['is_active'] = 0
+                    # Огонёк активен — оновлюємо лише дату останнього повідомлення
+                    streak_data['streak_count'] += 1
+                    streak_data['is_active'] = 1
 
-                    # Если огонек неактивен и сейчас после 22:00, и последнее сообщение было до 22:00
-                    if not streak_data['is_active'] and now > last_reset and last_message < last_reset:
-                        streak_data['streak_count'] += 1
-                        streak_data['is_active'] = 1
-                        if streak_data['streak_count'] > streak_data['highest_streak']:
-                            streak_data['highest_streak'] = streak_data['streak_count']
-                            try:
-                                await message.author.send(
-                                    embed=create_embed(
-                                        title=f"{EMOJIS['SUCCESS']} Новый рекорд!",
-                                        description=f"Вы установили новый рекорд активности: **{streak_data['streak_count']} дней**!"
-                                    )
-                                )
-                            except discord.Forbidden:
-                                print(f"Не удалось отправить уведомление о рекорде пользователю {message.author.name} - ЛС закрыты")
+                    streak_data['last_message_date'] = now
 
-                streak_data['last_message_date'] = now
+                    # Reference_time змінюється лише після ануляції огонька
+                if streak_data['streak_count'] == 0:
+                    streak_data['reference_time'] = now
+
+                # Проверяем рекорд
+                if streak_data['streak_count'] > streak_data['highest_streak']:
+                    streak_data['highest_streak'] = streak_data['streak_count']
+                    try:
+                        await message.author.send(
+                            embed=create_embed(
+                                title=f"{EMOJIS['SUCCESS']} Новый рекорд!",
+                                description=f"Вы установили новый рекорд активности: **{streak_data['streak_count']} дней**!"
+                            )
+                        )
+                    except discord.Forbidden:
+                        print(f"Не удалось отправить уведомление о рекорде пользователю {message.author.name} - ЛС закрыты")
 
             self.update_streak(user_id, streak_data)
             await self.update_nickname(message.author, streak_data['streak_count'])
 
         except Exception as e:
             print(f"Ошибка при обновлении огонька: {e}")
+
+    def check_streak_status(self, streak_data: dict) -> tuple[bool, int, datetime]:
+        """Проверяет актуальность огонька и возвращает (is_active, current_streak, next_reset)"""
+        current_time = datetime.now()
+        last_message = streak_data['last_message_date']
+        reference_time = streak_data['reference_time']
+        
+        if not last_message or not reference_time:
+            return False, 0, current_time
+
+        # Вычисляем следующий дедлайн
+        next_deadline = datetime.combine(current_time.date(), reference_time.time())
+        if current_time.time() < reference_time.time():
+            next_deadline -= timedelta(days=1)
+        next_deadline += timedelta(days=1)
+
+        # Огонек активен если не пропущен дедлайн
+        is_active = current_time <= next_deadline and streak_data['is_active'] == 1
+        return is_active, streak_data['streak_count'], next_deadline
 
     @app_commands.command(name="streak", description="Показать информацию о вашем огоньке общения")
     @app_commands.describe(user="Пользователь, чей огонек вы хотите посмотреть")
@@ -215,63 +226,48 @@ class Streak(commands.Cog):
         try:
             streak_data = self.get_user_streak(target_user.id)
             last_message = streak_data['last_message_date']
-            reference_time = streak_data['reference_time']
-            current_time = datetime.now()
             
-            streak_count = streak_data['streak_count']
-            total_messages = streak_data['total_messages']
-            highest_streak = streak_data['highest_streak']
-            is_active = streak_data['is_active']
-            
-            # Проверяем время последнего сброса (22:00)
-            last_reset = datetime.combine(current_time.date(), self.reset_time)
-            if current_time.time() < self.reset_time:
-                last_reset -= timedelta(days=1)
-            
-            # Проверяем, не истек ли огонек (24 часа)
             if not last_message:
-                streak_status = f"{EMOJIS['INFO']} Нет активности"
-            elif (current_time - last_message) > timedelta(hours=24):
-                streak_status = f"{EMOJIS['ERROR']} Огонёк потух! Прошло более 24 часов с последнего сообщения"
-            elif not is_active:
-                if current_time.time() >= self.reset_time:
-                    streak_status = f"{EMOJIS['WARNING']} Напишите сообщение, чтобы продолжить огонёк!"
-                else:
-                    next_reset = datetime.combine(current_time.date(), self.reset_time)
-                    hours_left = (next_reset - current_time).total_seconds() / 3600
-                    streak_status = f"{EMOJIS['WARNING']} Огонёк станет неактивным в {next_reset.strftime('%H:%M')} (через {int(hours_left * 60)} минут)"
+                await interaction.response.send_message(
+                    embed=create_embed(
+                        title="❌ Нет огонька",
+                        description=f"У {target_user.mention} пока нет огонька. Начните общаться, чтобы получить огонек!"
+                    )
+                )
+                return
+            
+            # Проверяем актуальный статус огонька
+            is_active, current_streak, next_reset = self.check_streak_status(streak_data)
+            
+            if not is_active:
+                status = f"{EMOJIS['ERROR']} Огонёк потух! Напишите сообщение, чтобы начать новый."
             else:
-                next_reset = datetime.combine(current_time.date(), self.reset_time)
-                if current_time.time() >= self.reset_time:
-                    next_reset += timedelta(days=1)
-                
-                hours_left = (next_reset - current_time).total_seconds() / 3600
-                if hours_left <= 1:
-                    streak_status = f"{EMOJIS['WARNING']} Огонёк станет неактивным через {int(hours_left * 60)} минут!"
-                else:
-                    streak_status = f"{EMOJIS['SUCCESS']} Огонёк активен до {next_reset.strftime('%H:%M')} (через {int(hours_left * 60)} минут)"
+                time_left = int((next_reset - datetime.now()).total_seconds())
+                hours_left, minutes_left = divmod(time_left // 60, 60)
+                status = f"{EMOJIS['SUCCESS']} Огонёк активен ещё {hours_left}ч {minutes_left}м."
 
+            # Создаем embed с обновленной информацией
             embed = create_embed(
-                title=f"{self.get_flame_emoji(streak_count)} Статистика общения",
+                title=f"{self.get_flame_emoji(current_streak)} Статистика общения",
                 description=f"Статистика для {target_user.mention}",
                 fields=[
-                    {"name": f"{EMOJIS['FLAME']} Текущий огонёк:", "value": f"{streak_count} дней", "inline": True},
-                    {"name": f"{EMOJIS['CROWN']} Рекордный огонёк:", "value": f"{highest_streak} дней", "inline": True},
-                    {"name": f"{EMOJIS['MESSAGE']} Всего сообщений:", "value": str(total_messages), "inline": True},
-                    {"name": f"{EMOJIS['STATUS']} Статус:", "value": streak_status, "inline": False}
+                    {"name": f"{EMOJIS['FLAME']} Текущий огонёк:", "value": f"{current_streak} дней", "inline": True},
+                    {"name": f"{EMOJIS['CROWN']} Рекордный огонёк:", "value": f"{streak_data['highest_streak']} дней", "inline": True},
+                    {"name": f"{EMOJIS['MESSAGE']} Всего сообщений:", "value": str(streak_data['total_messages']), "inline": True},
+                    {"name": f"{EMOJIS['STATUS']} Статус:", "value": status, "inline": False}
                 ],
                 thumbnail_url=target_user.display_avatar.url
             )
             
-            if reference_time:
+            if streak_data['reference_time']:
                 embed.add_field(
                     name=f"{EMOJIS['CALENDAR']} Начало общения",
-                    value=f"**{reference_time.strftime('%d.%m.%Y %H:%M')}**",
+                    value=f"**{streak_data['reference_time'].strftime('%d.%m.%Y %H:%M')}**",
                     inline=True
                 )
             
             if last_message:
-                time_since = current_time - last_message
+                time_since = datetime.now() - last_message
                 hours_since = int(time_since.total_seconds() / 3600)
                 minutes_since = int((time_since.total_seconds() % 3600) / 60)
                 time_ago = f" (прошло {hours_since}ч {minutes_since}м)" if hours_since > 0 or minutes_since > 0 else ""
