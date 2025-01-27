@@ -99,13 +99,13 @@ async def update_presence():
         start_time = time.time()
         await asyncio.to_thread(
             rpc.update,
-            state="Создаём вайб на Discord!",
-            details="В процессе разработки...",
+            state="Creating a Discord bot!",
+            details="In development...",
             start=start_time,
             large_image="bot_icon",
-            large_text="Бот в действии!",
+            large_text="Bot in action!",
             buttons=[
-                {"label": "Сервер", "url": "https://discord.gg/HxwZ6ceKKj"},
+                {"label": "Server", "url": "https://discord.gg/HxwZ6ceKKj"},
                 {"label": "GitHub", "url": "https://github.com/entaytion/Niludetsu"},
             ],
         )

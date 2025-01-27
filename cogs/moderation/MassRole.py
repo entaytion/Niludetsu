@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed
+from utils import create_embed, has_admin_role, command_cooldown
 import asyncio
 from typing import List
 
@@ -12,14 +12,16 @@ class MassRole(commands.GroupCog, group_name="massrole"):
 
     @app_commands.command(name="add")
     @app_commands.describe(role="Роль для выдачи", filter_type="Фильтр (all/members/bots)")
-    @commands.has_permissions(manage_roles=True)
+    @has_admin_role()  # Используем проверку роли админа
+    @command_cooldown()
     async def massrole_add(self, interaction: discord.Interaction, role: discord.Role, filter_type: str):
         """Массовая выдача роли участникам"""
         await self._process_mass_role(interaction, role, filter_type, "add")
 
     @app_commands.command(name="remove") 
     @app_commands.describe(role="Роль для удаления", filter_type="Фильтр (all/members/bots)")
-    @commands.has_permissions(manage_roles=True)
+    @has_admin_role()  # Используем проверку роли админа
+    @command_cooldown()
     async def massrole_remove(self, interaction: discord.Interaction, role: discord.Role, filter_type: str):
         """Массовое удаление роли у участников"""
         await self._process_mass_role(interaction, role, filter_type, "remove")

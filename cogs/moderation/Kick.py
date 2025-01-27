@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed
+from utils import create_embed, has_mod_role, command_cooldown
 import yaml
 
 # Загрузка конфигурации
@@ -109,6 +109,7 @@ class Kick(commands.Cog):
         reason="Причина кика",
     )
     @has_mod_role()
+    @command_cooldown()
     async def kick(
         self,
         interaction: discord.Interaction,

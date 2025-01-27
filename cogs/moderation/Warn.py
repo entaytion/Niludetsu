@@ -4,7 +4,7 @@ from discord import app_commands
 import yaml
 import sqlite3
 from datetime import datetime, timedelta
-from utils import create_embed, initialize_table, TABLES_SCHEMAS
+from utils import create_embed, initialize_table, TABLES_SCHEMAS, has_helper_role, command_cooldown
 
 # Загрузка конфигурации
 with open('config/config.yaml', 'r', encoding='utf-8') as f:
@@ -14,6 +14,15 @@ MOD_ROLE_ID = int(config.get('moderation', {}).get('mod_role', 0))
 MAX_WARNINGS = int(config.get('moderation', {}).get('max_warnings', 3))
 
 def has_mod_role():
+    async def predicate(interaction: discord.Interaction):
+        if MOD_ROLE_ID == 0:
+            return False
+        return interaction.user.guild_permissions.administrator or any(
+            role.id == MOD_ROLE_ID for role in interaction.user.roles
+        )
+    return app_commands.check(predicate)
+
+def has_helper_role():
     async def predicate(interaction: discord.Interaction):
         if MOD_ROLE_ID == 0:
             return False
@@ -44,7 +53,8 @@ class Warn(commands.GroupCog, group_name="warn"):
         user="Пользователь для предупреждения",
         reason="Причина предупреждения"
     )
-    @has_mod_role()
+    @has_helper_role()
+    @command_cooldown()
     async def warn_add(
         self,
         interaction: discord.Interaction,
@@ -135,7 +145,8 @@ class Warn(commands.GroupCog, group_name="warn"):
         user="Пользователь",
         warning_id="ID предупреждения для удаления"
     )
-    @has_mod_role()
+    @has_helper_role()
+    @command_cooldown()
     async def warn_remove(
         self,
         interaction: discord.Interaction,
@@ -200,7 +211,8 @@ class Warn(commands.GroupCog, group_name="warn"):
 
     @app_commands.command(name="clear", description="Удалить все предупреждения у пользователя")
     @app_commands.describe(user="Пользователь для очистки предупреждений")
-    @has_mod_role()
+    @has_helper_role()
+    @command_cooldown()
     async def warn_clear(
         self,
         interaction: discord.Interaction,

@@ -3,15 +3,16 @@ from discord.ext import commands
 from discord import app_commands
 import sqlite3
 from datetime import datetime
-from utils import create_embed
+from utils import create_embed, has_mod_role
 
 class Warns(commands.GroupCog, group_name="warns"):
     def __init__(self, bot):
         self.bot = bot
         self.db = sqlite3.connect('config/database.db')
 
-    @app_commands.command(name="list", description="Посмотреть предупреждения пользователя")
+    @app_commands.command(name="list", description="Показать список предупреждений пользователя")
     @app_commands.describe(user="Пользователь для просмотра предупреждений")
+    @has_mod_role()
     async def warns_list(
         self,
         interaction: discord.Interaction,

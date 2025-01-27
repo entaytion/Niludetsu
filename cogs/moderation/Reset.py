@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed
+from utils import create_embed, has_admin_role, command_cooldown
 import yaml
 
 class Reset(commands.Cog):
@@ -18,7 +18,8 @@ class Reset(commands.Cog):
         app_commands.Choice(name="mutes", value="mutes"),
         app_commands.Choice(name="warns", value="warns")
     ])
-    @app_commands.checks.has_permissions(administrator=True)
+    @has_admin_role()
+    @command_cooldown()
     async def reset(self, interaction: discord.Interaction, type: str):
         await interaction.response.defer()
 

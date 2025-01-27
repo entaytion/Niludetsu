@@ -2,23 +2,26 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from typing import Optional
-from utils import create_embed
+from utils import create_embed, has_mod_role, command_cooldown
 
 class Unlock(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="unlock", description="Разблокировать канал или все каналы")
-    @app_commands.default_permissions(manage_channels=True)
+    @app_commands.command(name="unlock", description="Разблокировать канал")
     @app_commands.describe(
-        channel="Канал для разблокировки (оставьте пустым для текущего канала)",
+        channel="Канал для разблокировки (по умолчанию - текущий)",
+        reason="Причина разблокировки",
         all_channels="Разблокировать все каналы"
     )
+    @has_mod_role()
+    @command_cooldown()
     async def unlock(
-        self, 
-        interaction: discord.Interaction, 
+        self,
+        interaction: discord.Interaction,
         channel: Optional[discord.TextChannel] = None,
-        all_channels: bool = False
+        reason: Optional[str] = None,
+        all_channels: Optional[bool] = False
     ):
         try:
             if not interaction.user.guild_permissions.manage_channels:

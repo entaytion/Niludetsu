@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed
+from utils import create_embed, has_mod_role
 import yaml
 from datetime import datetime
 
@@ -12,7 +12,7 @@ class Mutes(commands.Cog):
             self.config = yaml.safe_load(f)
     
     @app_commands.command(name="mutes", description="Показать список замученных участников")
-    @app_commands.checks.has_permissions(moderate_members=True)
+    @has_mod_role()
     async def mute_list(self, interaction: discord.Interaction):
         # Получаем роль мута из конфига
         mute_role_id = self.config.get('moderation', {}).get('mute_role')
@@ -56,17 +56,17 @@ class Mutes(commands.Cog):
 
         if not muted_members:
             embed = create_embed(
-                title="📋 Список замученных",
-                description="На данный момент нет замученных участников",
+                title="📋 Список замьюченных",
+                description="На данный момент нет замьюченных участников",
                 color=0x2F3136
             )
         else:
             embed = create_embed(
-                title="📋 Список замученных",
+                title="📋 Список замьюченных",
                 description="\n".join(muted_members),
                 color=0xFF0000
             )
-            embed.set_footer(text=f"Всего замучено: {len(muted_members)}")
+            embed.set_footer(text=f"Всего замьючено: {len(muted_members)}")
 
         await interaction.response.send_message(embed=embed)
 

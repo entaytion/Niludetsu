@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed
+from utils import create_embed, has_helper_role, command_cooldown
 import yaml
 import datetime
 
@@ -20,7 +20,8 @@ class Mute(commands.Cog):
         reason="Причина мута",
         duration="Длительность мута (s - секунды, m - минуты, h - часы, d - дни). Если не указано - мут навсегда"
     )
-    @app_commands.checks.has_permissions(moderate_members=True)
+    @has_helper_role()
+    @command_cooldown()
     async def mute(self, interaction: discord.Interaction, member: discord.Member, reason: str = "Причина не указана", duration: str = None):
         # Проверяем, может ли бот мутить участников
         if not interaction.guild.me.guild_permissions.moderate_members:

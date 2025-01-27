@@ -11,10 +11,9 @@ class AI(commands.Cog):
         self.bot = bot
         # Список доступних провайдерів
         self.providers = [
-            g4f.Provider.AIChatFree,
             g4f.Provider.Blackbox,
             g4f.Provider.ChatGptt,
-            g4f.Provider.PerplexityLabs
+            g4f.Provider.OIVSCode
         ]
 
     async def get_ai_response(self, prompt: str) -> str:
@@ -26,7 +25,7 @@ class AI(commands.Cog):
             try:
                 response = await loop.run_in_executor(None, 
                     lambda: g4f.ChatCompletion.create(
-                        model="gpt-3.5-turbo",
+                        model="gpt-4o",
                         messages=[{
                             "role": "system",
                             "content": "Ты - полезный ассистент, который отвечает на русском языке."

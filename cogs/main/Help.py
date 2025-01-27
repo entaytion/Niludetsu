@@ -310,14 +310,15 @@ class Help(commands.Cog):
             "admin": {
                 "title": "Команды администратора",
                 "emoji": "🛡️",
-                "original_commands": ["/form", "/giveaway", "/ideas", "/reports", "/tickets"],
-                "commands": [cmd for cmd in ["/form", "/giveaway", "/ideas", "/reports", "/tickets"]
+                "original_commands": ["/form", "/giveaway", "/ideas", "/reports", "/setup", "/tickets"],
+                "commands": [cmd for cmd in ["/form", "/giveaway", "/ideas", "/reports", "/setup", "/tickets"]
                            if self.is_command_available(cmd.strip('/'), "admin")],
                 "description": "\n".join([
                     f"{EMOJIS['DOT']} `/form [setup/edit]` — конфигурация заявок.",
                     f"{EMOJIS['DOT']} `/giveaway [create/end/reroll]` — конфигурация розыгрышей.",
                     f"{EMOJIS['DOT']} `/ideas [setup/edit]` — конфигурация идей.",
                     f"{EMOJIS['DOT']} `/reports [setup/edit]` — конфигурация жалоб.",
+                    f"{EMOJIS['DOT']} `/setup` — конфигурация сервера.",
                     f"{EMOJIS['DOT']} `/tickets [setup/stats]` — конфигурация тикетов."
                 ]),
                 "footer": "Справочник по командам из раздела \"Администратор\""

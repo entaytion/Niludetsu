@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed
+from utils import create_embed, has_admin_role, command_cooldown
 import yaml
 
 # Загрузка конфигурации
@@ -9,30 +9,19 @@ CONFIG_FILE = 'config/config.yaml'
 with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
     config = yaml.safe_load(f)
 
-MOD_ROLE_ID = int(config.get('moderation', {}).get('mod_role', 0))
-
-def has_mod_role():
-    async def predicate(interaction: discord.Interaction):
-        if MOD_ROLE_ID == 0:
-            return False
-        return interaction.user.guild_permissions.administrator or any(
-            role.id == MOD_ROLE_ID for role in interaction.user.roles
-        )
-    return app_commands.check(predicate)
-
 class UnbanButton(discord.ui.Button):
     def __init__(self, user_id):
         super().__init__(style=discord.ButtonStyle.success, label="Разбанить", emoji="🔓")
         self.user_id = user_id
 
     async def callback(self, interaction: discord.Interaction):
-        if not interaction.user.guild_permissions.administrator and not any(
-            role.id == MOD_ROLE_ID for role in interaction.user.roles
-        ):
+        # Проверка прав для кнопки разбана
+        if not await has_admin_role()(interaction):
             await interaction.response.send_message(
                 embed=create_embed(
                     description="У вас недостаточно прав для выполнения этого действия!"
-                )
+                ),
+                ephemeral=True
             )
             return
 
@@ -65,13 +54,15 @@ class UnbanButton(discord.ui.Button):
             await interaction.response.send_message(
                 embed=create_embed(
                     description="Пользователь не найден!"
-                )
+                ),
+                ephemeral=True
             )
         except discord.Forbidden:
             await interaction.response.send_message(
                 embed=create_embed(
                     description="Недостаточно прав для разбана!"
-                )
+                ),
+                ephemeral=True
             )
 
 class BanView(discord.ui.View):
@@ -89,7 +80,8 @@ class Ban(commands.Cog):
         reason="Причина бана",
         delete_days="Удалить сообщения пользователя за последние X дней (0-7)"
     )
-    @has_mod_role()
+    @has_admin_role()
+    @command_cooldown()
     async def ban(
         self,
         interaction: discord.Interaction,

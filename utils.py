@@ -4,8 +4,15 @@ import sqlite3
 import os
 from discord import Embed, Colour
 from functools import wraps
+import yaml
+from datetime import datetime, timedelta
 
 DB_PATH = 'config/database.db'
+
+# Загружаем конфигурацию
+def load_config():
+    with open('config/config.yaml', 'r', encoding='utf-8') as f:
+        return yaml.safe_load(f)
 
 # --- EMBEDS ---
 def create_embed(title=None, description=None, color='DEFAULT', fields=None, footer=None, image_url=None, author=None, url=None, timestamp=None, thumbnail_url=None):
@@ -363,7 +370,102 @@ def remove_role_from_user(user_id, role_id):
             conn.commit()
             return True
         return False
+
+# --- ROLES ---
+# Функции проверки ролей
+def has_admin_role():
+    config = load_config()
+    admin_role_id = int(config.get('roles', {}).get('staff', {}).get('admin', {}).get('id', 0))
     
+    async def predicate(interaction: discord.Interaction):
+        if interaction.user.guild_permissions.administrator:
+            return True
+        return any(role.id == admin_role_id for role in interaction.user.roles)
+    return app_commands.check(predicate)
+
+def has_mod_role():
+    config = load_config()
+    mod_role_id = int(config.get('roles', {}).get('staff', {}).get('mod', {}).get('id', 0))
+    admin_role_id = int(config.get('roles', {}).get('staff', {}).get('admin', {}).get('id', 0))
+    
+    async def predicate(interaction: discord.Interaction):
+        if interaction.user.guild_permissions.administrator:
+            return True
+        return any(role.id in [mod_role_id, admin_role_id] for role in interaction.user.roles)
+    return app_commands.check(predicate)
+
+def has_helper_role():
+    config = load_config()
+    helper_role_id = int(config.get('roles', {}).get('staff', {}).get('helper', {}).get('id', 0))
+    mod_role_id = int(config.get('roles', {}).get('staff', {}).get('mod', {}).get('id', 0))
+    admin_role_id = int(config.get('roles', {}).get('staff', {}).get('admin', {}).get('id', 0))
+    
+    async def predicate(interaction: discord.Interaction):
+        if interaction.user.guild_permissions.administrator:
+            return True
+        return any(role.id in [helper_role_id, mod_role_id, admin_role_id] for role in interaction.user.roles)
+    return app_commands.check(predicate)
+
+# --- COMMAND COOLDOWN ---
+def command_cooldown():
+    cooldowns = {}
+    
+    async def predicate(interaction: discord.Interaction):
+        # Загружаем конфиг для получения ID ролей и времени кулдауна
+        config = load_config()
+        admin_role_id = int(config.get('roles', {}).get('staff', {}).get('admin', {}).get('id', 0))
+        owner_role_id = int(config.get('roles', {}).get('staff', {}).get('owner', {}).get('id', 0))
+        
+        # Получаем время кулдауна из конфига
+        cooldown_str = config.get('moderation', {}).get('cooldown', '10m')
+        cooldown_time = int(cooldown_str[:-1])
+        cooldown_unit = cooldown_str[-1].lower()
+        
+        # Конвертируем время в минуты
+        if cooldown_unit == 's':
+            cooldown_minutes = cooldown_time / 60
+        elif cooldown_unit == 'm':
+            cooldown_minutes = cooldown_time
+        elif cooldown_unit == 'h':
+            cooldown_minutes = cooldown_time * 60
+        elif cooldown_unit == 'd':
+            cooldown_minutes = cooldown_time * 1440
+        else:
+            cooldown_minutes = 10  # Значение по умолчанию
+        
+        # Проверяем, есть ли у пользователя роль админа или овнера
+        if interaction.user.guild_permissions.administrator or any(role.id in [admin_role_id, owner_role_id] for role in interaction.user.roles):
+            return True
+            
+        # Получаем текущее время
+        now = datetime.now()
+        user_id = interaction.user.id
+        command_name = interaction.command.name
+        
+        # Создаем ключ для кулдауна
+        cooldown_key = f"{user_id}:{command_name}"
+        
+        # Проверяем, есть ли активный кулдаун
+        if cooldown_key in cooldowns:
+            time_left = (cooldowns[cooldown_key] - now).total_seconds()
+            if time_left > 0:
+                minutes = int(time_left // 60)
+                seconds = int(time_left % 60)
+                await interaction.response.send_message(
+                    embed=create_embed(
+                        description=f"⏰ Подождите еще **{minutes}м {seconds}с** прежде чем использовать эту команду снова!",
+                        color='RED'
+                    ),
+                    ephemeral=True
+                )
+                return False
+                
+        # Устанавливаем новый кулдаун
+        cooldowns[cooldown_key] = now + timedelta(minutes=cooldown_minutes)
+        return True
+        
+    return app_commands.check(predicate)
+
 # --- LEVELING ---
 def calculate_next_level_xp(level):
     if level == 0:
@@ -372,3 +474,4 @@ def calculate_next_level_xp(level):
         return float('inf')
     else:
         return int(calculate_next_level_xp(level - 1) * 1.5)
+

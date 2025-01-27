@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import typing
 from datetime import timedelta
-from utils import create_embed, EMOJIS
+from utils import create_embed, EMOJIS, has_mod_role, command_cooldown
 
 def format_time(seconds: int) -> str:
     """Форматирует время в читаемый вид"""
@@ -128,7 +128,8 @@ class SlowMode(commands.Cog):
         all_channels="Отключить во всех текстовых каналах",
         reason="Причина отключения медленного режима"
     )
-    @app_commands.default_permissions(manage_channels=True)
+    @has_mod_role()
+    @command_cooldown()
     async def slowmode_off(
         self,
         interaction: discord.Interaction,

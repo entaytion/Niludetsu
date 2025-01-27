@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed
+from utils import create_embed, has_mod_role, command_cooldown
 import yaml
 
 class Unmute(commands.Cog):
@@ -12,10 +12,11 @@ class Unmute(commands.Cog):
     
     @app_commands.command(name="unmute", description="Размутить участника")
     @app_commands.describe(
-        member="Участник, которого нужно размутить",
+        member="Участник для размута",
         reason="Причина размута"
     )
-    @app_commands.checks.has_permissions(moderate_members=True)
+    @has_mod_role()
+    @command_cooldown()
     async def unmute(self, interaction: discord.Interaction, member: discord.Member, reason: str = "Причина не указана"):
         # Проверяем, может ли бот размутить участников
         if not interaction.guild.me.guild_permissions.moderate_members:
