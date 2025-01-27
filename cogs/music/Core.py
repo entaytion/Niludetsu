@@ -14,6 +14,7 @@ class Core(commands.Cog):
         self.node = None
         self.repeating = {}
         self.nightcore_enabled = {}
+        self.karaoke_enabled = {}
         bot.loop.create_task(self.connect_nodes())
         
         bot.event(self.on_wavelink_track_end)
@@ -41,6 +42,17 @@ class Core(commands.Cog):
         except Exception as e:
             print(f"Error getting/creating player: {e}")
             return None
+
+    async def check_voice(self, interaction: discord.Interaction) -> bool:
+        """Проверка голосового подключения пользователя"""
+        if not interaction.user.voice:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description="Вы должны находиться в голосовом канале!"
+                )
+            )
+            return False
+        return True
 
     async def is_connected(self, interaction: discord.Interaction) -> wavelink.Player | None:
         """Проверка подключения к голосовому каналу и получение плеера."""

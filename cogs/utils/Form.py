@@ -42,7 +42,7 @@ class BaseButton(View):
     async def submit(self, interaction: discord.Interaction, button: Button):
         view = View(timeout=None)
         view.add_item(PositionSelect())
-        await interaction.response.send_message("Выберите должность:", view=view)
+        await interaction.response.send_message("Выберите должность:", view=view, ephemeral=True)
 
 class ApplicationButton(BaseButton):
     pass
@@ -163,8 +163,7 @@ class ApplicationView(View):
         response_message = f"{status_emoji} Заявка пользователя {user.mention} была {status}"
         if reason:
             response_message += f"\n**Причина:** {reason}"
-        
-        await interaction.response.send_message(response_message)
+        await interaction.response.send_message(response_message, ephemeral=True)
 
     async def _handle_accept(self, interaction: discord.Interaction, reason: str = None):
         await self._update_application_status(interaction, "принята", 0x00FF00, reason)
@@ -347,7 +346,8 @@ class Forms(commands.Cog):
                 "Ваша заявка успешно отправлена!\n"
                 "Ожидайте ответа от администрации."
             ),
-            color=0x00FF00
+            color=0x00FF00,
+            ephemeral=True
         )
         
         await interaction.response.send_message(embed=success_embed)

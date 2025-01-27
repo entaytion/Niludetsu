@@ -5,7 +5,6 @@ import yaml
 import sqlite3
 from datetime import datetime, timedelta
 from utils import create_embed, initialize_table, TABLES_SCHEMAS
-import traceback
 
 # Загрузка конфигурации
 with open('config/config.yaml', 'r', encoding='utf-8') as f:
@@ -118,7 +117,6 @@ class Warn(commands.GroupCog, group_name="warn"):
             await interaction.followup.send(embed=channel_embed)
 
         except Exception as e:
-            traceback.print_exc()
             if not interaction.response.is_done():
                 await interaction.response.send_message(
                     embed=create_embed(
@@ -194,7 +192,6 @@ class Warn(commands.GroupCog, group_name="warn"):
             )
             
         except Exception as e:
-            traceback.print_exc()
             await interaction.response.send_message(
                 embed=create_embed(
                     description=f"Произошла ошибка: {str(e)}"
@@ -241,7 +238,6 @@ class Warn(commands.GroupCog, group_name="warn"):
                 )
             )
         except Exception as e:
-            traceback.print_exc()
             await interaction.response.send_message(
                 embed=create_embed(
                     description=f"Произошла ошибка: {str(e)}"

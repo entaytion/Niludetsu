@@ -102,9 +102,14 @@ class Streak(commands.Cog):
             for emoji in ["🔥", "💫", "⚡", "🌟", "👑"]:
                 base_name = base_name.replace(emoji, "").strip()
             
-            # Добавляем новый эмодзи
+            # Добавляем новый эмодзи только если есть активный огонек
             if streak_count > 0:
                 new_name = f"{self.get_flame_emoji(streak_count)} {base_name}"
+            else:
+                new_name = base_name
+
+            # Обновляем никнейм только если он изменился
+            if new_name != member.display_name:
                 await member.edit(nick=new_name[:32])  # Discord ограничивает длину никнейма 32 символами
         except discord.Forbidden:
             print(f"Не удалось обновить никнейм для {member.name}. Недостаточно прав.")

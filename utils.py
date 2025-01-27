@@ -8,8 +8,12 @@ from functools import wraps
 DB_PATH = 'config/database.db'
 
 # --- EMBEDS ---
-def create_embed(title=None, description=None, color=0xf20c3c, fields=None, footer=None, image_url=None, author=None, url=None, timestamp=None, thumbnail_url=None):
+def create_embed(title=None, description=None, color='DEFAULT', fields=None, footer=None, image_url=None, author=None, url=None, timestamp=None, thumbnail_url=None):
     try:
+        # Если color это строка, пытаемся получить цвет из COLORS
+        if isinstance(color, str):
+            color = COLORS.get(color.upper(), COLORS['DEFAULT'])
+            
         embed = Embed(title=title, description=description, colour=Colour(color))
         
         if fields:
@@ -54,7 +58,7 @@ def create_embed(title=None, description=None, color=0xf20c3c, fields=None, foot
         
     except Exception as e:
         print(f"⚠️ Помилка при створенні ембеду: {str(e)}")
-        return Embed(description="Помилка при створенні ембеду", colour=Colour.red())
+        return Embed(description="Помилка при створенні ембеду", colour=Colour(COLORS['RED']))
 
 # --- EMOJIS ---
 EMOJIS = {
@@ -97,6 +101,29 @@ EMOJIS = {
     'MESSAGE': '<:BotMessages:1332836789383073893>',
     'STATUS': '<:BotStatus:1332837240929255464>',
     'CLOCK': '<:BotClock:1332837421603360799>',
+    # --- 2048 ---
+    '2048_0': '<:2048_0:1333180087083991111>',
+    '2048_2': '<:2048_2:1333180133258956882>',
+    '2048_4': '<:2048_4:1333180162950565979>',
+    '2048_8': '<:2048_8:1333180190855270400>',
+    '2048_16': '<:2048_16:1333180223763775662>',
+    '2048_32': '<:2048_32:1333180256516837376>',
+    '2048_64': '<:2048_64:1333180298145435719>',
+    '2048_128': '<:2048_128:1333180326436016208>',
+    '2048_256': '<:2048_256:1333180358891409440>',
+    '2048_512': '<:2048_512:1333180385277902858>',
+    '2048_1024': '<:2048_1024:1333180415619629179>',
+    '2048_2048': '<:2048_2048:1333180450402996378>',
+}
+# --- COLORS ---
+COLORS = {
+    'DEFAULT': 0xf20c3c,  # Добавляем дефолтный цвет
+    'GREEN': 0x30f20c,
+    'YELLOW': 0xf1f20c,
+    'RED': 0xf20c3c,
+    'BLUE': 0x0c3ef2,
+    'WHITE': 0xFFFFFF,
+    'BLACK': 0x000000
 }
 
 # --- DATABASE SCHEMAS ---

@@ -106,7 +106,7 @@ class IdeaView(View):
         response_message = f"{status_emoji} Идея пользователя {user.mention} была {status}"
         if reason:
             response_message += f"\n**Причина:** {reason}"
-        await interaction.response.send_message(response_message)
+        await interaction.response.send_message(response_message, ephemeral=True)
 
     async def _handle_accept(self, interaction: discord.Interaction, reason: str = None):
         await self._update_idea_status(interaction, "принята", 0x00FF00, reason)
@@ -193,9 +193,9 @@ class Ideas(commands.Cog):
         success_embed = create_embed(
             title="✅ Идея отправлена",
             description="Ваша идея успешно отправлена!\nОжидайте ответа от администрации.",
-            color=0x00FF00,
+            color=0x00FF00
         )
-        await interaction.response.send_message(embed=success_embed)
+        await interaction.response.send_message(embed=success_embed, ephemeral=True)
 
     @app_commands.command(name="ideas", description="Управление панелью идей")
     @commands.has_permissions(administrator=True)

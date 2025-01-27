@@ -121,7 +121,7 @@ class ReportView(View):
         response_message = f"{status_emoji} Жалоба пользователя {user.mention} была {status}"
         if reason:
             response_message += f"\n**Причина:** {reason}"
-        await interaction.response.send_message(response_message)
+        await interaction.response.send_message(response_message, ephemeral=True)
 
     async def _handle_accept(self, interaction: discord.Interaction, reason: str = None):
         await self._update_report_status(interaction, "принята", 0x00FF00, reason)
@@ -202,37 +202,31 @@ class Reports(commands.Cog):
                 )
                 
                 attachment = file_msg.attachments[0]
+                file_attachment = await attachment.to_file()
+                
+                embed = create_embed(
+                    title=f"⚠️ Новая жалоба",
+                    description=(
+                        f"○ **От:** {interaction.user.mention} ({interaction.user.id})\n"
+                        f"○ **На:** ID: {user}\n\n"
+                        f"○ **Причина:**\n{reason}\n\n"
+                        f"○ **Доказательства:**\nПрикреплённый файл\n\n"
+                        f"○ **Дополнительно:**\n{additional if additional else 'Не указано'}\n\n"
+                        f"ID пользователя: {interaction.user.id}"
+                    ),
+                    color='RED'
+                )
+                
                 if attachment.content_type and attachment.content_type.startswith('image/'):
-                    proof = attachment.url
-                    embed = create_embed(
-                        title=f"⚠️ Новая жалоба",
-                        description=(
-                            f"○ **От:** {interaction.user.mention} ({interaction.user.id})\n"
-                            f"○ **На:** ID: {user}\n\n"
-                            f"○ **Причина:**\n{reason}\n\n"
-                            f"○ **Доказательства:**\n{proof}\n\n"
-                            f"○ **Дополнительно:**\n{additional if additional else 'Не указано'}\n\n"
-                            f"ID пользователя: {interaction.user.id}"
-                        ),
-                        color=0xFF0000
-                    )
-                    embed.set_image(url=attachment.url)
-                else:
-                    file_attachment = await attachment.to_file()
-                    proof = f"Файл: {attachment.filename}"
-                    embed = create_embed(
-                        title=f"⚠️ Новая жалоба",
-                        description=(
-                            f"○ **От:** {interaction.user.mention} ({interaction.user.id})\n"
-                            f"○ **На:** ID: {user}\n\n"
-                            f"○ **Причина:**\n{reason}\n\n"
-                            f"○ **Доказательства:**\n{proof}\n\n"
-                            f"○ **Дополнительно:**\n{additional if additional else 'Не указано'}\n\n"
-                            f"ID пользователя: {interaction.user.id}"
-                        ),
-                        color=0xFF0000
-                    )
+                    embed.set_image(url=attachment.proxy_url)
+                
                 await file_msg.delete()
+                
+                await channel.send(
+                    file=file_attachment,
+                    embed=embed,
+                    view=ReportView(interaction.user.id, user)
+                )
             except asyncio.TimeoutError:
                 proof = "Файл не был предоставлен"
                 embed = create_embed(
@@ -276,9 +270,9 @@ class Reports(commands.Cog):
         )
             
         if not interaction.response.is_done():
-            await interaction.response.send_message(embed=success_embed)
+            await interaction.response.send_message(embed=success_embed, ephemeral=True)
         else:
-            await interaction.followup.send(embed=success_embed)
+            await interaction.followup.send(embed=success_embed, ephemeral=True)
 
     @app_commands.command(name="reports", description="Управление панелью жалоб")
     @app_commands.describe(

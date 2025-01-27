@@ -4,7 +4,6 @@ from discord import Interaction, ButtonStyle
 from discord.ui import Button, View
 from utils import create_embed, get_user, save_user, EMOJIS, DB_PATH
 from typing import Literal
-import traceback
 import sqlite3
 
 class ReputationView(View):
@@ -27,7 +26,6 @@ class ReputationView(View):
             await self.original_interaction.edit_original_response(view=self)
         except Exception as e:
             print(f"Error in on_timeout: {e}")
-            print(traceback.format_exc())
 
     async def show_reputation_embed(self, interaction: Interaction, sorted_users, rep_type):
         try:
@@ -52,7 +50,6 @@ class ReputationView(View):
             await interaction.response.edit_message(embed=embed, view=self)
         except Exception as e:
             print(f"Error in show_reputation_embed: {e}")
-            print(traceback.format_exc())
 
     @discord.ui.button(label="Топ положительной репутации", style=ButtonStyle.green)
     async def positive_button(self, interaction: Interaction, button: Button):
@@ -64,7 +61,6 @@ class ReputationView(View):
             await self.show_reputation_embed(interaction, sorted_users, "положительной")
         except Exception as e:
             print(f"Error in positive_button: {e}")
-            print(traceback.format_exc())
         
     @discord.ui.button(label="Топ отрицательной репутации", style=ButtonStyle.red)
     async def negative_button(self, interaction: Interaction, button: Button):
@@ -76,7 +72,6 @@ class ReputationView(View):
             await self.show_reputation_embed(interaction, sorted_users, "отрицательной")
         except Exception as e:
             print(f"Error in negative_button: {e}")
-            print(traceback.format_exc())
 
 class Leaderboard(commands.Cog):
     def __init__(self, bot):
@@ -162,7 +157,6 @@ class Leaderboard(commands.Cog):
                 await interaction.followup.send(embed=embed)
         except Exception as e:
             print(f"Error in leaderboard command: {e}")
-            print(traceback.format_exc())
 
     async def get_member_mention(self, user_id, guild_id):
         try:
@@ -174,7 +168,6 @@ class Leaderboard(commands.Cog):
                 return f"<@{user_id}>"
         except Exception as e:
             print(f"Error in get_member_mention: {e}")
-            print(traceback.format_exc())
             return f"<@{user_id}>"
 
 async def setup(bot):
@@ -182,4 +175,3 @@ async def setup(bot):
         await bot.add_cog(Leaderboard(bot))
     except Exception as e:
         print(f"Error in setup: {e}")
-        print(traceback.format_exc())

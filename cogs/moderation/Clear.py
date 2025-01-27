@@ -17,18 +17,26 @@ class Clear(commands.Cog):
     async def clear(self, interaction: discord.Interaction, amount: int, member: discord.Member = None):
         if amount > 1000:
             await interaction.response.send_message(
-                embed=create_embed(description="Нельзя удалить больше 1000 сообщений за раз!")
+                embed=create_embed(
+                    description="Нельзя удалить больше 1000 сообщений за раз!",
+                    color='RED'
+                ),
+                ephemeral=True
             )
             return
         
         if amount < 1:
             await interaction.response.send_message(
-                embed=create_embed(description="Количество сообщений должно быть больше 0!")
+                embed=create_embed(
+                    description="Количество сообщений должно быть больше 0!",
+                    color='RED'
+                ),
+                ephemeral=True
             )
             return
         
         try:
-            await interaction.response.defer()
+            await interaction.response.defer(ephemeral=True)
             deleted = 0
             
             if member:
@@ -64,23 +72,43 @@ class Clear(commands.Cog):
                 description=f"**Модератор:** {interaction.user.mention}\n"
                           f"**Канал:** {interaction.channel.mention}\n"
                           f"**Удалено сообщений:** `{deleted}`\n"
-                          f"{'**Пользователь:** ' + member.mention if member else ''}"
+                          f"{'**Пользователь:** ' + member.mention if member else ''}",
+                color='GREEN'
             )
-            message = await interaction.followup.send(embed=embed)
-            await asyncio.sleep(10)
-            await message.delete()
+            
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            
+            # Отправляем временное сообщение в канал
+            temp_msg = await interaction.channel.send(embed=embed)
+            await asyncio.sleep(5)
+            try:
+                await temp_msg.delete()
+            except discord.NotFound:
+                pass
         
         except discord.Forbidden:
             await interaction.followup.send(
-                embed=create_embed(description="У меня недостаточно прав для удаления сообщений!")
+                embed=create_embed(
+                    description="У меня недостаточно прав для удаления сообщений!",
+                    color='RED'
+                ),
+                ephemeral=True
             )
         except discord.HTTPException as e:
             await interaction.followup.send(
-                embed=create_embed(description=f"Произошла ошибка при удалении сообщений: {str(e)}")
+                embed=create_embed(
+                    description=f"Произошла ошибка при удалении сообщений: {str(e)}",
+                    color='RED'
+                ),
+                ephemeral=True
             )
         except Exception as e:
             await interaction.followup.send(
-                embed=create_embed(description=f"Произошла неизвестная ошибка: {str(e)}")
+                embed=create_embed(
+                    description=f"Произошла неизвестная ошибка: {str(e)}",
+                    color='RED'
+                ),
+                ephemeral=True
             )
 
 async def setup(bot):

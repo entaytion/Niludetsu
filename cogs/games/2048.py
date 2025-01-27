@@ -4,7 +4,7 @@ from discord import app_commands
 from discord.ui import View, Button
 import random
 import json
-from utils import create_embed
+from utils import create_embed, EMOJIS
 
 class Game2048:
     def __init__(self):
@@ -93,17 +93,17 @@ class Game2048:
         # Создаем строковое представление доски с эмодзи
         number_emojis = {
             0: "⬛",
-            2: "2️⃣",
-            4: "4️⃣",
-            8: "8️⃣",
-            16: "1️⃣6️⃣",
-            32: "3️⃣2️⃣",
-            64: "6️⃣4️⃣",
-            128: "1️⃣2️⃣8️⃣",
-            256: "2️⃣5️⃣6️⃣",
-            512: "5️⃣1️⃣2️⃣",
-            1024: "1️⃣0️⃣2️⃣4️⃣",
-            2048: "2️⃣0️⃣4️⃣8️⃣"
+            2: EMOJIS['2048_2'],
+            4: EMOJIS['2048_4'],
+            8: EMOJIS['2048_8'],
+            16: EMOJIS['2048_16'],
+            32: EMOJIS['2048_32'],
+            64: EMOJIS['2048_64'],
+            128: EMOJIS['2048_128'],
+            256: EMOJIS['2048_256'],
+            512: EMOJIS['2048_512'],
+            1024: EMOJIS['2048_1024'],
+            2048: EMOJIS['2048_2048']
         }
         
         return "\n".join(

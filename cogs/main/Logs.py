@@ -158,11 +158,10 @@ class Logs(commands.Cog):
         """Логирование ошибок команд"""
         if self.log_channel:
             error_trace = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
-            
+            await self.log_channel.send(f"<@{self.owner_id}>, произошла ошибка!")
             embed = create_embed(
                 title="⚠️ Ошибка команды",
-                description=f"<@{self.owner_id}>, произошла ошибка!\n\n"
-                          f"{EMOJIS['DOT']} **Команда:** `{ctx.message.content}`\n"
+                description=f"{EMOJIS['DOT']} **Команда:** `{ctx.message.content}`\n"
                           f"{EMOJIS['DOT']} **Автор:** {ctx.author.mention} (`{ctx.author.id}`)\n"
                           f"{EMOJIS['DOT']} **Канал:** {ctx.channel.mention}\n"
                           f"{EMOJIS['DOT']} **Ошибка:**\n```py\n{error_trace[:1900]}```"
@@ -1638,13 +1637,19 @@ class Logs(commands.Cog):
         if not self.log_channel or len(messages) < 2:
             return
 
+        # Фильтруем сообщения, исключая сообщения от других ботов
+        filtered_messages = [msg for msg in messages if not msg.author.bot or msg.author == self.bot.user]
+        
+        if not filtered_messages:
+            return
+
         # Создаем текстовое содержимое
         content = []
-        content.append(f"Удаленные сообщения из канала: #{messages[0].channel.name}")
+        content.append(f"Удаленные сообщения из канала: #{filtered_messages[0].channel.name}")
         content.append(f"Время: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         content.append("-" * 50 + "\n")
         
-        for message in sorted(messages, key=lambda m: m.created_at):
+        for message in sorted(filtered_messages, key=lambda m: m.created_at):
             content.append(f"[{message.created_at.strftime('%d/%m/%Y - %H:%M:%S')}] {message.author} ({message.author.id}): {message.content}")
             if message.attachments:
                 content.append(f"Вложения: {', '.join([a.url for a in message.attachments])}")
@@ -1661,7 +1666,7 @@ class Logs(commands.Cog):
 
         # Получаем информацию о модераторе
         try:
-            async for entry in messages[0].guild.audit_logs(limit=1, action=discord.AuditLogAction.message_bulk_delete):
+            async for entry in filtered_messages[0].guild.audit_logs(limit=1, action=discord.AuditLogAction.message_bulk_delete):
                 moderator = entry.user
                 reason = entry.reason
                 break
@@ -1671,12 +1676,12 @@ class Logs(commands.Cog):
 
         embed = create_embed(
             title="🗑️ Массовое удаление сообщений",
-            description=f"{EMOJIS['DOT']} **Канал:** {messages[0].channel.mention}\n"
-                      f"{EMOJIS['DOT']} **Количество сообщений:** `{len(messages)}`\n"
+            description=f"{EMOJIS['DOT']} **Канал:** {filtered_messages[0].channel.mention}\n"
+                      f"{EMOJIS['DOT']} **Количество сообщений:** `{len(filtered_messages)}`\n"
                       f"{EMOJIS['DOT']} **Модератор:** {moderator.mention if moderator else 'Неизвестно'}\n"
                       f"{EMOJIS['DOT']} **Причина:** `{reason or 'Не указана'}`\n\n"
                       f"📎 Полный список удаленных сообщений в файле.",
-            footer={"text": f"ID канала: {messages[0].channel.id}"}
+            footer={"text": f"ID канала: {filtered_messages[0].channel.id}"}
         )
 
         # Отправляем файл в канал логов
