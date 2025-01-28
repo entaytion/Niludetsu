@@ -3,8 +3,11 @@ from discord.ext import commands
 import aiohttp
 import yaml
 import traceback
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any, Union, List
 from discord import app_commands, Embed, Colour
+from ..utils.config_loader import bot_state
+from datetime import datetime
+import asyncio
 
 # --- EMOJIS ---
 EMOJIS = {
@@ -126,63 +129,91 @@ def create_embed(title=None, description=None, color='DEFAULT', fields=None, foo
         print(f"⚠️ Помилка при створенні ембеду: {str(e)}")
         return Embed(description="Помилка при створенні ембеду", colour=Colour(COLORS['RED']))
 
-# --- BASE LOGGER ---
+class LoggingState:
+    """Глобальное состояние системы логирования"""
+    webhook: Optional[discord.Webhook] = None
+    log_channel: Optional[discord.TextChannel] = None
+    initialized: bool = False
+    last_message_time: Optional[datetime] = None
+    initialized_loggers: List[str] = []
+    event_buffer: Dict[str, List[discord.Embed]] = {}
+    buffer_timeout: float = 5.0
+    rate_limit_delay: float = 2.5
+    buffer_processor_running: bool = False
+    
+    @classmethod
+    def initialize(cls, channel: discord.TextChannel):
+        if cls.initialized and cls.log_channel and cls.log_channel.id == channel.id:
+            return
+        cls.log_channel = channel
+        cls.initialized = True
+
 class BaseLogger:
     """Базовый класс для всех логгеров."""
+    _instance = None
     
-    def __init__(self, bot: commands.Bot):
-        self.bot = bot
-        self.owner_id = "636570363605680139"
-        self.log_channel: Optional[discord.TextChannel] = None
-        self.webhook_url: Optional[str] = None
-        self.webhook: Optional[discord.Webhook] = None
-        bot.loop.create_task(self.initialize_logs())
-        
+    def __new__(cls, bot: commands.Bot):
+        if cls._instance is None:
+            cls._instance = super(BaseLogger, cls).__new__(cls)
+            cls._instance.bot = bot
+            cls._instance.owner_id = "636570363605680139"
+            if not LoggingState.initialized:
+                bot.loop.create_task(cls._instance.initialize_logs())
+                if not LoggingState.buffer_processor_running:
+                    LoggingState.buffer_processor_running = True
+                    bot.loop.create_task(cls._instance._process_event_buffer())
+        return cls._instance
+
     async def initialize_logs(self):
         """Инициализация канала логов"""
+        if LoggingState.initialized:
+            return
+            
         await self.bot.wait_until_ready()
         try:
             with open('config/config.yaml', 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
-                if 'logging' in config and 'main_channel' in config['logging']:
-                    channel_id = int(config['logging']['main_channel'])
-                    self.log_channel = self.bot.get_channel(channel_id)
+                if 'logging' not in config or 'main_channel' not in config['logging']:
+                    return
                     
-                    if not self.log_channel:
-                        print(f"❌ Канал логов не найден! ID: {channel_id}")
-                        try:
-                            self.log_channel = await self.bot.fetch_channel(channel_id)
-                            print(f"✅ Канал логов успешно получен через fetch: {self.log_channel.name}")
-                        except Exception as e:
-                            print(f"❌ Не удалось получить канал через fetch: {e}")
-                            return
-                            
-                    print(f"✅ Канал логов успешно установлен: {self.log_channel.name}")
-                    
-                    # Инициализация вебхука
-                    webhook = await self.get_webhook(self.log_channel)
-                    if webhook:
-                        self.webhook = webhook
-                        self.webhook_url = webhook.url
-                        print("✅ Система логирования активирована")
-                    
-        except Exception as e:
-            print(f"❌ Ошибка при инициализации логов: {e}")
-            print(traceback.format_exc())
-            
-    def save_config(self, channel_id: int):
-        """Сохранение конфигурации"""
-        try:
-            with open('config/config.yaml', 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f)
-            
-            config['logging']['main_channel'] = str(channel_id)
-            
-            with open('config/config.yaml', 'w', encoding='utf-8') as f:
-                yaml.dump(config, f, indent=4)
-        except Exception as e:
-            print(f"Error saving config: {e}")
-            
+                channel_id = int(config['logging']['main_channel'])
+                channel = self.bot.get_channel(channel_id)
+                
+                if not channel:
+                    try:
+                        channel = await self.bot.fetch_channel(channel_id)
+                    except Exception:
+                        return
+                
+                LoggingState.initialize(channel)
+                
+                # Получаем или создаем вебхук
+                webhook = await self.get_webhook(channel)
+                if webhook:
+                    LoggingState.webhook = webhook
+                
+                # Отправляем только одно сообщение при первой инициализации
+                if not bot_state.is_initialized('logging_system'):
+                    logger_name = self.__class__.__name__.replace('Logger', '')
+                    if logger_name not in LoggingState.initialized_loggers:
+                        LoggingState.initialized_loggers.append(logger_name)
+                        
+                    if len(LoggingState.initialized_loggers) == 15:  # Общее количество логгеров
+                        embed = discord.Embed(
+                            title="✅ Система логирования активирована",
+                            description="Инициализированы следующие логгеры:\n" + 
+                                      "\n".join([f"• {name}" for name in LoggingState.initialized_loggers]),
+                            color=discord.Color.green()
+                        )
+                        if LoggingState.webhook:
+                            await LoggingState.webhook.send(embed=embed)
+                        else:
+                            await channel.send(embed=embed)
+                        bot_state.mark_initialized('logging_system')
+                
+        except Exception:
+            pass
+
     async def get_webhook(self, channel: discord.TextChannel) -> Optional[discord.Webhook]:
         """Получение или создание вебхука"""
         try:
@@ -193,85 +224,137 @@ class BaseLogger:
                 webhook = await channel.create_webhook(name='NiluBot Logs')
             
             return webhook
-        except discord.Forbidden:
-            print(f"❌ Нет прав для управления вебхуками в канале {channel.name}")
-            return None
-        except Exception as e:
-            print(f"❌ Ошибка при работе с вебхуком: {e}")
+        except Exception:
             return None
             
-    async def log_event(self, title: str, description: str, color='DEFAULT', fields=None, footer=None, image_url=None, author=None, url=None, timestamp=None, thumbnail_url=None, file: discord.File = None) -> None:
-        """Отправка сообщения в лог-канал"""
-        if not self.log_channel:
-            return
-
+    async def _process_event_buffer(self):
+        """Обработка буфера событий"""
+        while True:
+            await asyncio.sleep(LoggingState.buffer_timeout)
+            try:
+                current_events = {}
+                # Копируем и очищаем буфер атомарно
+                for event_type, events in LoggingState.event_buffer.items():
+                    if events:
+                        current_events[event_type] = events.copy()
+                LoggingState.event_buffer.clear()
+                
+                # Обрабатываем скопированные события
+                for event_type, events in current_events.items():
+                    if len(events) == 1:
+                        await self._send_log_message(events[0])
+                    else:
+                        grouped_embed = await self._create_grouped_embed(event_type, events)
+                        if grouped_embed:
+                            await self._send_log_message(grouped_embed)
+                            
+            except Exception as e:
+                print(f"Ошибка при обработке буфера событий: {e}")
+                
+    async def _create_grouped_embed(self, event_type: str, events: List[discord.Embed]) -> Optional[discord.Embed]:
+        """Создание сгруппированного эмбеда для похожих событий"""
         try:
+            if not events:
+                return None
+                
+            base_event = events[0]
+            
+            # Создаем новый эмбед для группы событий
+            grouped_embed = discord.Embed(
+                title=f"🔄 Групповое событие ({len(events)} изменений)",
+                description=f"Произошло несколько похожих событий типа `{event_type}`",
+                color=base_event.color
+            )
+            
+            # Группируем события по их типу
+            changes = []
+            for event in events:
+                if event.description:
+                    changes.append(event.description)
+            
+            # Добавляем все изменения в поле
+            if changes:
+                changes_text = "\n".join([f"• {change}" for change in changes])
+                if len(changes_text) > 1024:
+                    changes_text = changes_text[:1021] + "..."
+                grouped_embed.add_field(name="Изменения", value=changes_text, inline=False)
+            
+            # Добавляем временную метку
+            grouped_embed.timestamp = discord.utils.utcnow()
+            
+            return grouped_embed
+            
+        except Exception as e:
+            print(f"Ошибка при создании группового эмбеда: {e}")
+            return None
+
+    def _buffer_event(self, event_type: str, embed: discord.Embed):
+        """Буферизация события для последующей групповой отправки"""
+        try:
+            # Проверяем на дубликаты перед добавлением
+            if event_type not in LoggingState.event_buffer:
+                LoggingState.event_buffer[event_type] = []
+            
+            # Проверяем, нет ли уже такого же события в буфере
+            for existing_embed in LoggingState.event_buffer[event_type]:
+                if (existing_embed.description == embed.description and 
+                    existing_embed.title == embed.title):
+                    return  # Пропускаем дубликат
+                    
+            LoggingState.event_buffer[event_type].append(embed)
+        except Exception as e:
+            print(f"Ошибка при буферизации события: {e}")
+
+    async def log_event(self, title: str, description: str = "", color: Union[str, int] = 'BLUE', 
+                       fields: Optional[List[Dict[str, Any]]] = None, event_type: str = "general", **kwargs):
+        """Логирование события с буферизацией"""
+        try:
+            if not LoggingState.initialized or not LoggingState.log_channel:
+                return
+                
+            # Создаем эмбед
+            if isinstance(color, str):
+                color = COLORS.get(color.upper(), COLORS['DEFAULT'])
+            
             embed = create_embed(
                 title=title,
                 description=description,
                 color=color,
                 fields=fields,
-                footer=footer,
-                image_url=image_url,
-                author=author,
-                url=url,
-                timestamp=timestamp,
-                thumbnail_url=thumbnail_url
+                timestamp=discord.utils.utcnow(),
+                **kwargs
             )
-
-            if self.webhook:
-                if file:
-                    await self.webhook.send(embed=embed, file=file)
-                else:
-                    await self.webhook.send(embed=embed)
+            
+            # Буферизуем событие
+            self._buffer_event(event_type, embed)
+            
         except Exception as e:
-            print(f"Error in log_event: {str(e)}")
-            
-    async def log_error(self, error, command_name: str, author_mention: str, author_id: str, channel_mention: str):
-        """Общий метод для логирования ошибок команд"""
-        if self.log_channel:
-            error_trace = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
-            await self.log_channel.send(f"<@{self.owner_id}>, произошла ошибка!")
-            
-            fields = [
-                {"name": f"{EMOJIS['DOT']} Команда", "value": f"`{command_name}`", "inline": True},
-                {"name": f"{EMOJIS['DOT']} Автор", "value": f"{author_mention} (`{author_id}`)", "inline": True},
-                {"name": f"{EMOJIS['DOT']} Канал", "value": channel_mention, "inline": True},
-                {"name": f"{EMOJIS['DOT']} Ошибка", "value": f"```py\n{error_trace[:1900]}```", "inline": False}
-            ]
-            
-            await self.log_event(
-                title="⚠️ Ошибка команды",
-                description="",
-                color='RED',
-                fields=fields,
-                author={'name': 'Command Error'}
-            )
+            print(f"Ошибка при логировании события: {e}")
 
-    @commands.Cog.listener()
-    async def on_command_error(self, ctx, error):
-        """Логирование ошибок команд"""
-        if self.log_channel:
-            if isinstance(ctx, discord.Interaction):
-                command_name = f"/{ctx.command.parent.name if ctx.command.parent else ''}{' ' if ctx.command.parent else ''}{ctx.command.name}"
-                author = ctx.user
-            else:
-                command_name = ctx.message.content
-                author = ctx.author
+    async def _send_log_message(self, embed: discord.Embed):
+        """Отправка сообщения в лог с учетом ограничений"""
+        try:
+            if not LoggingState.initialized or not LoggingState.log_channel:
+                return
                 
-            await self.log_error(
-                error=error,
-                command_name=command_name,
-                author_mention=author.mention,
-                author_id=str(author.id),
-                channel_mention=ctx.channel.mention
-            )
+            # Проверяем время последнего сообщения
+            current_time = datetime.utcnow()
+            if LoggingState.last_message_time:
+                time_diff = (current_time - LoggingState.last_message_time).total_seconds()
+                if time_diff < LoggingState.rate_limit_delay:
+                    await asyncio.sleep(LoggingState.rate_limit_delay - time_diff)
+            
+            # Отправляем сообщение
+            if LoggingState.webhook:
+                await LoggingState.webhook.send(embed=embed)
+            else:
+                await LoggingState.log_channel.send(embed=embed)
+                
+            LoggingState.last_message_time = current_time
+            
+        except Exception as e:
+            print(f"Ошибка при отправке сообщения: {e}")
 
-    @commands.Cog.listener()
-    async def on_app_command_error(self, interaction: discord.Interaction, error):
-        """Перенаправление ошибок slash-команд в основной обработчик"""
-        await self.on_command_error(interaction, error)
-        
     @staticmethod
     def format_diff(before: Any, after: Any) -> str:
         """Форматирование разницы между значениями для логов."""
@@ -280,11 +363,11 @@ class BaseLogger:
     async def show_logs_info(self, interaction: discord.Interaction):
         """Показывает информацию о текущем канале логов"""
         try:
-            if self.log_channel:
+            if LoggingState.log_channel:
                 await self.log_event(
                     title="📝 Информация о логах",
-                    description=f"Текущий канал логов: {self.log_channel.mention}\n"
-                              f"ID канала: `{self.log_channel.id}`",
+                    description=f"Текущий канал логов: {LoggingState.log_channel.mention}\n"
+                              f"ID канала: `{LoggingState.log_channel.id}`",
                     color='BLUE'
                 )
             else:

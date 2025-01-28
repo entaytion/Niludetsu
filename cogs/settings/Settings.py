@@ -408,33 +408,6 @@ class Settings(commands.Cog):
             ),
             ephemeral=True
         )
-
-    @commands.Cog.listener()
-    async def on_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
-        if isinstance(error, commands.MissingPermissions):
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} У вас недостаточно прав для использования этой команды!",
-                    color=0xe74c3c
-                ),
-                ephemeral=True
-            )
-        elif isinstance(error, app_commands.CommandNotFound):
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Команда не найдена!",
-                    color=0xe74c3c
-                ),
-                ephemeral=True
-            )
-        else:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Произошла ошибка при выполнении команды!",
-                    color=0xe74c3c
-                ),
-                ephemeral=True
-            )
-
+        
 async def setup(bot):
     await bot.add_cog(Settings(bot)) 

@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from utils import create_embed
-from core.AkinatorCore import Akinator
+from Niludetsu.game.akinator import Akinator
 import asyncio
 
 class AkinatorButtons(discord.ui.View):

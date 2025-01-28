@@ -336,25 +336,31 @@ class Setup(commands.GroupCog, name="setup"):
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel):
         """Автоматически настраивает права для Muted роли в новых каналах"""
-        muted_role = discord.utils.get(channel.guild.roles, name='Muted')
-        if muted_role:
-            try:
-                overwrites = discord.PermissionOverwrite(
-                    send_messages=False,
-                    add_reactions=False,
-                    speak=False,
-                    create_instant_invite=False,
-                    create_private_threads=False,
-                    create_public_threads=False,
-                    send_messages_in_threads=False
-                )
-                await channel.set_permissions(muted_role, overwrite=overwrites)
-            except discord.HTTPException:
-                pass
+        # Проверяем, не является ли канал временным или специальным
+        if hasattr(channel, 'guild') and not getattr(channel, 'is_temporary', False):
+            muted_role = discord.utils.get(channel.guild.roles, name='Muted')
+            if muted_role:
+                try:
+                    overwrites = discord.PermissionOverwrite(
+                        send_messages=False,
+                        add_reactions=False,
+                        speak=False,
+                        create_instant_invite=False,
+                        create_private_threads=False,
+                        create_public_threads=False,
+                        send_messages_in_threads=False
+                    )
+                    await channel.set_permissions(muted_role, overwrite=overwrites)
+                except discord.HTTPException:
+                    pass
 
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before, after):
         """Проверяет и обновляет права Muted роли при изменении канала"""
+        # Игнорируем изменения NSFW статуса
+        if before.permissions_synced == after.permissions_synced and before.overwrites == after.overwrites:
+            return
+            
         muted_role = discord.utils.get(after.guild.roles, name='Muted')
         if muted_role:
             try:

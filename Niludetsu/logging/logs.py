@@ -1,4 +1,4 @@
-from ..core.base import BaseLogger
+from ..core.base import BaseLogger, LoggingState
 import discord
 from discord.ext import commands
 from typing import Optional, Union
@@ -8,19 +8,21 @@ class Logger(BaseLogger):
     
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.log_channel_id: Optional[int] = None
         self.logging_enabled: bool = True
 
     async def setup(self, webhook_url: str, log_channel_id: int) -> None:
         """Настройка логгера."""
-        await self.initialize_webhook(webhook_url)
-        self.log_channel_id = log_channel_id
+        if not LoggingState.initialized:
+            await self.initialize_logs()
         
     async def log_error(self, 
                        error: Exception, 
                        command_name: str = None, 
                        user: Union[discord.Member, discord.User] = None) -> None:
         """Логирование ошибок."""
+        if not self.logging_enabled or not LoggingState.initialized:
+            return
+            
         title = "🚫 Ошибка"
         description = f"```py\n{str(error)}\n```"
         
@@ -34,10 +36,10 @@ class Logger(BaseLogger):
                 "inline": True
             })
             
-        await self.send_log(
+        await self.log_event(
             title=title,
             description=description,
-            color=0xFF0000,
+            color='RED',
             fields=fields,
             footer={"text": "Система логирования"}
         )
@@ -47,17 +49,20 @@ class Logger(BaseLogger):
                          command_name: str,
                          status: str = "✅ Успешно") -> None:
         """Логирование использования команд."""
-        await self.send_log(
+        if not self.logging_enabled or not LoggingState.initialized:
+            return
+            
+        await self.log_event(
             title=f"Использование команды: {command_name}",
             description=f"Статус: {status}",
             fields=[
                 {"name": "Пользователь", "value": f"{ctx.author} ({ctx.author.id})", "inline": True},
                 {"name": "Канал", "value": f"{ctx.channel.name} ({ctx.channel.id})", "inline": True}
             ],
-            color=0x2ECC71 if status.startswith("✅") else 0xE74C3C
+            color='GREEN' if status.startswith("✅") else 'RED'
         )
 
     async def log_event(self, *args, **kwargs):
         """Обертка для проверки статуса логирования"""
-        if self.logging_enabled:
+        if self.logging_enabled and LoggingState.initialized:
             await super().log_event(*args, **kwargs) 

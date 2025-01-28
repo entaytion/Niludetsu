@@ -5,7 +5,7 @@ Niludetsu — библиотека для Discord.
 
 __title__ = 'Niludetsu'
 __author__ = 'Entaytion'
-__version__ = 'beta-1'
+__version__ = 'beta-2'
 
 from .core.base import BaseLogger
 from .logging.logs import Logger

@@ -6,6 +6,57 @@ from discord.channel import TextChannel, VoiceChannel, CategoryChannel, ForumCha
 class ChannelLogger(BaseLogger):
     """Логгер для событий, связанных с каналами Discord."""
     
+    async def log_channel_update(self, before: Union[discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel], 
+                                after: Union[discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel]):
+        """Логирование изменений канала"""
+        try:
+            changes = []
+            
+            if isinstance(before, discord.TextChannel) and isinstance(after, discord.TextChannel):
+                if before.name != after.name:
+                    changes.append(f"Название: {before.name} ➜ {after.name}")
+                if before.topic != after.topic:
+                    changes.append(f"Описание: {before.topic} ➜ {after.topic}")
+                if before.nsfw != after.nsfw:
+                    changes.append(f"NSFW: {'Да' if before.nsfw else 'Нет'} ➜ {'Да' if after.nsfw else 'Нет'}")
+                if before.slowmode_delay != after.slowmode_delay:
+                    changes.append(f"Медленный режим: {before.slowmode_delay}с ➜ {after.slowmode_delay}с")
+                if before.category != after.category:
+                    before_category = before.category.name if before.category else "Нет"
+                    after_category = after.category.name if after.category else "Нет"
+                    changes.append(f"Категория: {before_category} ➜ {after_category}")
+                if before.position != after.position:
+                    changes.append(f"Позиция: {before.position} ➜ {after.position}")
+                    
+            elif isinstance(before, discord.VoiceChannel) and isinstance(after, discord.VoiceChannel):
+                if before.name != after.name:
+                    changes.append(f"Название: {before.name} ➜ {after.name}")
+                if before.bitrate != after.bitrate:
+                    changes.append(f"Битрейт: {before.bitrate//1000}kbps ➜ {after.bitrate//1000}kbps")
+                if before.user_limit != after.user_limit:
+                    changes.append(f"Лимит пользователей: {before.user_limit or 'Без лимита'} ➜ {after.user_limit or 'Без лимита'}")
+                if before.rtc_region != after.rtc_region:
+                    changes.append(f"Регион: {before.rtc_region or 'Авто'} ➜ {after.rtc_region or 'Авто'}")
+                    
+            elif isinstance(before, discord.ForumChannel) and isinstance(after, discord.ForumChannel):
+                if before.name != after.name:
+                    changes.append(f"Название: {before.name} ➜ {after.name}")
+                if before.available_tags != after.available_tags:
+                    old_tags = ", ".join([tag.name for tag in before.available_tags]) or "Нет тегов"
+                    new_tags = ", ".join([tag.name for tag in after.available_tags]) or "Нет тегов"
+                    changes.append(f"Теги: {old_tags} ➜ {new_tags}")
+                    
+            if changes:
+                await self.log_event(
+                    title=f"{EMOJIS['INFO']} Изменен канал",
+                    description=f"Канал {after.mention} был изменен\n" + "\n".join(changes),
+                    color='BLUE',
+                    event_type="channel_update"
+                )
+                
+        except Exception:
+            pass
+        
     async def log_channel_create(self, channel: discord.abc.GuildChannel):
         """Логирование создания канала"""
         channel_type = str(channel.type).replace('_', ' ').title()
@@ -21,7 +72,8 @@ class ChannelLogger(BaseLogger):
             title=f"{EMOJIS['SUCCESS']} Создан новый канал",
             description=f"Создан канал {channel.mention}",
             color='GREEN',
-            fields=fields
+            fields=fields,
+            event_type="channel_create"
         )
         
     async def log_channel_delete(self, channel: discord.abc.GuildChannel):
@@ -39,7 +91,8 @@ class ChannelLogger(BaseLogger):
             title=f"{EMOJIS['ERROR']} Канал удален",
             description=f"Удален канал #{channel.name}",
             color='RED',
-            fields=fields
+            fields=fields,
+            event_type="channel_delete"
         )
         
     async def log_channel_pins_update(self, channel: discord.TextChannel, last_pin):
@@ -51,89 +104,8 @@ class ChannelLogger(BaseLogger):
             fields=[
                 {"name": f"{EMOJIS['DOT']} Канал", "value": channel.mention, "inline": True},
                 {"name": f"{EMOJIS['DOT']} Последнее закрепление", "value": last_pin.strftime("%d.%m.%Y %H:%M:%S") if last_pin else "Нет закрепленных", "inline": True}
-            ]
-        )
-        
-    async def log_channel_update(self, before: Union[discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel], 
-                                after: Union[discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel]):
-        """Общий метод для логирования изменений канала"""
-        if isinstance(before, discord.TextChannel) and isinstance(after, discord.TextChannel):
-            if before.name != after.name:
-                await self.log_channel_name_update(before, after)
-            if before.topic != after.topic:
-                await self.log_channel_topic_update(before, after)
-            if before.nsfw != after.nsfw:
-                await self.log_channel_nsfw_update(before, after)
-            if before.slowmode_delay != after.slowmode_delay:
-                await self.log_channel_slowmode_update(before, after)
-            if before.category != after.category:
-                await self.log_channel_category_update(before, after)
-            if before.position != after.position:
-                await self.log_channel_position_update(before, after)
-        elif isinstance(before, discord.VoiceChannel) and isinstance(after, discord.VoiceChannel):
-            if before.name != after.name:
-                await self.log_channel_name_update(before, after)
-            if before.bitrate != after.bitrate:
-                await self.log_channel_bitrate_update(before, after)
-            if before.user_limit != after.user_limit:
-                await self.log_channel_user_limit_update(before, after)
-            if before.category != after.category:
-                await self.log_channel_category_update(before, after)
-            if before.position != after.position:
-                await self.log_channel_position_update(before, after)
-            if before.rtc_region != after.rtc_region:
-                await self.log_channel_rtc_region_update(before, after)
-            if before.video_quality_mode != after.video_quality_mode:
-                await self.log_channel_video_quality_update(before, after)
-        elif isinstance(before, discord.ForumChannel) and isinstance(after, discord.ForumChannel):
-            if before.name != after.name:
-                await self.log_channel_name_update(before, after)
-            if before.category != after.category:
-                await self.log_channel_category_update(before, after)
-            if before.position != after.position:
-                await self.log_channel_position_update(before, after)
-            if before.default_layout != after.default_layout:
-                await self.log_forum_layout_update(before, after)
-            if before.available_tags != after.available_tags:
-                await self.log_forum_tags_update(before, after)
-        elif isinstance(before, discord.TextChannel) and isinstance(after, discord.TextChannel):
-            if before.default_auto_archive_duration != after.default_auto_archive_duration:
-                await self.log_channel_default_archive_update(before, after)
-            if before.default_thread_slowmode_delay != after.default_thread_slowmode_delay:
-                await self.log_channel_default_thread_slowmode_update(before, after)
-        elif isinstance(before, discord.Member) and isinstance(after, discord.VoiceChannel):
-            await self.log_voice_status_update(before, before.voice, after)
-        
-    async def log_channel_name_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel):
-        """Логирование изменения имени канала"""
-        fields = [
-            {"name": f"{EMOJIS['DOT']} Канал", "value": after.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} ID", "value": str(after.id), "inline": True},
-            {"name": f"{EMOJIS['DOT']} Старое название", "value": before.name, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Новое название", "value": after.name, "inline": True}
-        ]
-        
-        await self.log_event(
-            title=f"{EMOJIS['INFO']} Изменено название канала",
-            description=f"Обновлено название канала {after.mention}",
-            color='BLUE',
-            fields=fields
-        )
-        
-    async def log_channel_topic_update(self, before: TextChannel, after: TextChannel):
-        """Логирование изменения темы канала"""
-        fields = [
-            {"name": f"{EMOJIS['DOT']} Канал", "value": after.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} ID", "value": str(after.id), "inline": True},
-            {"name": f"{EMOJIS['DOT']} Старая тема", "value": before.topic or "Нет темы", "inline": False},
-            {"name": f"{EMOJIS['DOT']} Новая тема", "value": after.topic or "Нет темы", "inline": False}
-        ]
-        
-        await self.log_event(
-            title=f"{EMOJIS['INFO']} Изменена тема канала",
-            description=f"Обновлена тема канала {after.mention}",
-            color='BLUE',
-            fields=fields
+            ],
+            event_type="channel_pins_update"
         )
         
     async def log_channel_nsfw_update(self, before: discord.TextChannel, after: discord.TextChannel):
@@ -152,37 +124,48 @@ class ChannelLogger(BaseLogger):
             fields=fields
         )
         
-    async def log_channel_category_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel):
-        """Логирование изменения категории канала"""
-        fields = [
-            {"name": f"{EMOJIS['DOT']} Канал", "value": after.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} ID", "value": str(after.id), "inline": True},
-            {"name": f"{EMOJIS['DOT']} Старая категория", "value": before.category.name if before.category else "Нет", "inline": True},
-            {"name": f"{EMOJIS['DOT']} Новая категория", "value": after.category.name if after.category else "Нет", "inline": True}
-        ]
+    async def log_channel_parent_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel):
+        """Логирование изменения родительской категории"""
+        await self.log_channel_update(before, after)
         
-        await self.log_event(
-            title=f"{EMOJIS['INFO']} Изменена категория канала",
-            description=f"Обновлена категория канала {after.mention}",
-            color='BLUE',
-            fields=fields
-        )
+    async def log_channel_permissions_update(self, channel: discord.abc.GuildChannel, target: Union[discord.Role, discord.Member], before: discord.Permissions, after: discord.Permissions):
+        """Логирование изменения прав доступа"""
+        changes = []
+        for perm, value in after:
+            if getattr(before, perm) != value:
+                changes.append(f"{perm}: {'✅' if value else '❌'}")
+                
+        if changes:
+            fields = [
+                {"name": f"{EMOJIS['DOT']} Канал", "value": channel.mention, "inline": True},
+                {"name": f"{EMOJIS['DOT']} Цель", "value": target.mention, "inline": True},
+                {"name": f"{EMOJIS['DOT']} Изменения", "value": "\n".join(changes), "inline": False}
+            ]
+            
+            await self.log_event(
+                title=f"{EMOJIS['INFO']} Изменены права доступа",
+                description=f"В канале {channel.mention} изменены права для {target.mention}",
+                color='BLUE',
+                fields=fields
+            )
+            
+    async def log_channel_type_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel):
+        """Логирование изменения типа канала"""
+        await self.log_channel_update(before, after)
         
-    async def log_channel_position_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel):
-        """Логирование изменения позиции канала"""
-        fields = [
-            {"name": f"{EMOJIS['DOT']} Канал", "value": after.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} ID", "value": str(after.id), "inline": True},
-            {"name": f"{EMOJIS['DOT']} Старая позиция", "value": str(before.position), "inline": True},
-            {"name": f"{EMOJIS['DOT']} Новая позиция", "value": str(after.position), "inline": True}
-        ]
+    async def log_voice_channel_update(self, before: VoiceChannel, after: VoiceChannel, change_type: str, old_value: any, new_value: any):
+        """Логирование изменений голосового канала"""
+        await self.log_channel_update(before, after)
         
-        await self.log_event(
-            title=f"{EMOJIS['INFO']} Изменена позиция канала",
-            description=f"Обновлена позиция канала {after.mention}",
-            color='BLUE',
-            fields=fields
-        )
+    async def log_channel_bitrate_update(self, before: VoiceChannel, after: VoiceChannel):
+        """Логирование изменения битрейта"""
+        await self.log_voice_channel_update(before, after, "Битрейт", f"{before.bitrate//1000}kbps", f"{after.bitrate//1000}kbps")
+        
+    async def log_channel_user_limit_update(self, before: VoiceChannel, after: VoiceChannel):
+        """Логирование изменения лимита пользователей"""
+        await self.log_voice_channel_update(before, after, "Лимит пользователей", 
+                                          before.user_limit or "Без лимита", 
+                                          after.user_limit or "Без лимита")
         
     async def log_channel_slowmode_update(self, before: TextChannel, after: TextChannel):
         """Логирование изменения медленного режима"""
@@ -201,6 +184,24 @@ class ChannelLogger(BaseLogger):
         await self.log_voice_channel_update(before, after, "Качество видео", 
                                           quality_map.get(before.video_quality_mode, "Неизвестно"),
                                           quality_map.get(after.video_quality_mode, "Неизвестно"))
+        
+    async def log_forum_channel_update(self, before: ForumChannel, after: ForumChannel, change_type: str, old_value: any, new_value: any):
+        """Логирование изменений форум-канала"""
+        await self.log_channel_update(before, after)
+        
+    async def log_channel_default_archive_update(self, before: TextChannel, after: TextChannel):
+        """Логирование изменения времени архивации по умолчанию"""
+        await self.log_channel_update(before, after)
+        
+    async def log_channel_default_thread_slowmode_update(self, before: TextChannel, after: TextChannel):
+        """Логирование изменения медленного режима тредов по умолчанию"""
+        await self.log_channel_update(before, after)
+        
+    async def log_forum_tags_update(self, before: ForumChannel, after: ForumChannel):
+        """Логирование изменения тегов форума"""
+        old_tags = ", ".join([tag.name for tag in before.available_tags]) or "Нет тегов"
+        new_tags = ", ".join([tag.name for tag in after.available_tags]) or "Нет тегов"
+        await self.log_forum_channel_update(before, after, "Теги", old_tags, new_tags)
         
     async def log_forum_layout_update(self, before: ForumChannel, after: ForumChannel):
         """Логирование изменения макета форума"""
@@ -238,5 +239,6 @@ class ChannelLogger(BaseLogger):
             title=title,
             description=description,
             color=color,
-            fields=fields
+            fields=fields,
+            event_type="voice_update"
         ) 

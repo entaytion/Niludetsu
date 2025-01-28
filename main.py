@@ -1,3 +1,4 @@
+# --- Импорт библиотек ---
 from pypresence import Presence
 import time
 import discord
@@ -5,13 +6,16 @@ from discord.ext import commands
 import os
 import yaml
 import asyncio
-import hashlib
+from Niludetsu.utils.cog_loader import cog_loader
+from Niludetsu.utils.config_loader import bot_state
+from Niludetsu.utils.command_sync import CommandSync
+from typing import Union
 
-# Discord Bot setup
+# --- Discord Bot setup ---
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Загружаем конфигурацию
+# --- Загрузка конфигурации ---
 with open('config/config.yaml', 'r', encoding='utf-8') as f:
     config = yaml.safe_load(f)
 
@@ -19,78 +23,10 @@ with open('config/config.yaml', 'r', encoding='utf-8') as f:
 client_id = config['bot']['client_id']
 rpc = None
 
-def load_command_hashes():
-    """Загружает хеши команд из файла"""
-    try:
-        with open('config/hash.yaml', 'r', encoding='utf-8') as f:
-            return yaml.safe_load(f) or {}
-    except FileNotFoundError:
-        return {}
+# Инициализируем CommandSync
+command_sync = CommandSync(bot)
 
-def save_command_hashes(hashes):
-    """Сохраняет хеши команд в файл"""
-    with open('config/hash.yaml', 'w', encoding='utf-8') as f:
-        yaml.dump(hashes, f, default_flow_style=False, allow_unicode=True)
-
-# Загружаем хеши команд
-command_hashes = load_command_hashes()
-
-def get_command_hash(command):
-    """Создает стабильный хеш команды на основе её свойств"""
-    command_data = [
-        command.name,
-        command.description,
-    ]
-    
-    # Обработка параметров
-    if hasattr(command, 'parameters'):
-        params = []
-        for param in command.parameters:
-            params.append((param.name, str(param.type), getattr(param, 'description', '')))
-        command_data.append(str(sorted(params)))
-    
-    # Обработка choices
-    if hasattr(command, 'choices'):
-        command_data.append(str(sorted([choice.name for choice in command.choices])))
-    
-    # Обработка permissions
-    if hasattr(command, 'default_permissions'):
-        command_data.append(str(command.default_permissions))
-    
-    return hashlib.md5(str(command_data).encode()).hexdigest()
-
-async def sync_commands():
-    """Синхронизирует только измененные команды"""
-    try:
-        # Получаем текущие команды и их хеши
-        current_commands = {cmd.name: get_command_hash(cmd) for cmd in bot.tree.get_commands()}
-
-        # Определяем, какие команды изменились или новые
-        commands_to_sync = []
-        for name, hash_value in current_commands.items():
-            if name not in command_hashes or command_hashes[name] != hash_value:
-                commands_to_sync.append(name)
-                command_hashes[name] = hash_value
-
-        # Удаляем хеши для удаленных команд
-        removed_commands = []
-        for name in list(command_hashes.keys()):
-            if name not in current_commands:
-                del command_hashes[name]
-                removed_commands.append(name)
-
-        # Синхронизируем измененные команды
-        if commands_to_sync or removed_commands:
-            print(f"🔄 Синхронизация измененных команд: {commands_to_sync}")
-            await bot.tree.sync()
-            save_command_hashes(command_hashes)
-            print(f"✅ Синхронизация завершена. Изменено: {len(commands_to_sync)} | Удалено: {len(removed_commands)}")
-        else:
-            print("✅ Все команды актуальны, синхронизация не требуется.")
-
-    except Exception as e:
-        print(f"❌ Ошибка при синхронизации команд: {e}")
-
+# --- RPC (Rich Presence) ---
 async def update_presence():
     global rpc
     try:
@@ -113,22 +49,119 @@ async def update_presence():
     except Exception as e:
         print(f"❌ Ошибка при активации Rich Presence: {e}")
 
+# --- Загрузка когов ---
 async def load_cogs():
     for folder in os.listdir("cogs"):
         if os.path.isdir(f"cogs/{folder}"):
             for filename in os.listdir(f"cogs/{folder}"):
                 if filename.endswith(".py"):
+                    cog_path = f"{folder}/{filename[:-3]}"
                     try:
                         await bot.load_extension(f"cogs.{folder}.{filename[:-3]}")
-                        print(f"✅ Загружено расширение cogs: {folder}/{filename[:-3]}")
+                        cog_loader.add_loaded_cog(cog_path, success=True)
                     except Exception as e:
-                        print(f"❌ Ошибка при загрузке расширения: {folder}/{filename[:-3]}: {str(e)}")
+                        error_msg = str(e).split(':')[0]  # Берем только тип ошибки
+                        cog_loader.add_loaded_cog(cog_path, success=False, error=error_msg)
 
-# Обработчик ошибок
+# --- Обработчик ошибок и логирование ---
+async def log_command_error(ctx_or_interaction: Union[commands.Context, discord.Interaction], error: commands.CommandError):
+    """Логирование ошибок команд бота"""
+    try:
+        log_channel = bot.get_channel(int(config['logging']['main_channel']))
+        if log_channel:
+            # Определяем тип контекста и получаем нужные данные
+            if isinstance(ctx_or_interaction, discord.Interaction):
+                user = ctx_or_interaction.user
+                channel = ctx_or_interaction.channel
+                command_name = f"/{ctx_or_interaction.command.name if ctx_or_interaction.command else 'Неизвестно'}"
+            else:
+                user = ctx_or_interaction.author
+                channel = ctx_or_interaction.channel
+                command_name = f"{ctx_or_interaction.prefix}{ctx_or_interaction.command.name if ctx_or_interaction.command else 'Неизвестно'}"
+
+            error_embed = discord.Embed(
+                title="🚫 Ошибка команды",
+                description=f"```py\n{str(error.__class__.__name__)}: {str(error)}\n```",
+                color=discord.Color.red(),
+                timestamp=discord.utils.utcnow()
+            )
+            error_embed.add_field(
+                name="Команда", 
+                value=f"`{command_name}`", 
+                inline=True
+            )
+            error_embed.add_field(
+                name="Пользователь", 
+                value=f"{user.mention} (`{user.id}`)", 
+                inline=True
+            )
+            error_embed.add_field(
+                name="Канал", 
+                value=f"{channel.mention} (`{channel.id}`)", 
+                inline=True
+            )
+            
+            # Добавляем traceback если это не пользовательская ошибка
+            if not isinstance(error, commands.UserInputError):
+                import traceback
+                trace = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
+                if len(trace) > 1000:
+                    trace = trace[:997] + "..."
+                error_embed.add_field(
+                    name="Traceback",
+                    value=f"```py\n{trace}\n```",
+                    inline=False
+                )
+            
+            # Отправляем пинг создателя и эмбед
+            owner_id = config['settings']['owner_id']
+            await log_channel.send(f"<@{owner_id}>", embed=error_embed)
+            print(f"✅ Ошибка команды успешно залогирована.")
+    except Exception as e:
+        print(f"❌ Ошибка при логировании: {e}")
+
+@bot.event
+async def on_command_error(ctx: commands.Context, error: commands.CommandError):
+    """Обработчик ошибок обычных команд"""
+    try:
+        # Отправляем сообщение пользователю
+        error_message = "Произошла ошибка при выполнении команды!"
+        
+        # Если это пользовательская ошибка, показываем её текст
+        if isinstance(error, commands.UserInputError):
+            error_message = str(error)
+        
+        await ctx.send(error_message, delete_after=10)
+        
+        # Логируем ошибку
+        await log_command_error(ctx, error)
+        
+    except Exception as e:
+        print(f"❌ Ошибка при обработке ошибки: {e}")
+
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: commands.CommandError):
-    await interaction.response.send_message("Произошла ошибка при выполнении команды!")
+    """Обработчик ошибок slash-команд"""
+    try:
+        # Отправляем сообщение пользователю
+        error_message = "Произошла ошибка при выполнении команды!"
+        
+        # Если это пользовательская ошибка, показываем её текст
+        if isinstance(error, commands.UserInputError):
+            error_message = str(error)
+        
+        if not interaction.response.is_done():
+            await interaction.response.send_message(error_message, ephemeral=True)
+        else:
+            await interaction.followup.send(error_message, ephemeral=True)
+        
+        # Логируем ошибку
+        await log_command_error(interaction, error)
+        
+    except Exception as e:
+        print(f"❌ Ошибка при обработке ошибки: {e}")
 
+# --- Создание файлов по умолчанию ---
 async def create_default_files():
     if not os.path.exists('config'):
         os.makedirs('config')
@@ -140,11 +173,19 @@ async def create_default_files():
         with open('config/hash.yaml', 'w', encoding='utf-8') as f:
             yaml.dump({}, f)
 
+    if not os.path.exists('config/config.yaml'):
+        from Niludetsu.utils.default_config import default_config
+        with open('config/config.yaml', 'w', encoding='utf-8') as f:
+            yaml.dump(default_config, f, allow_unicode=True)
+
+# --- Основные события ---
 @bot.event
 async def setup_hook():
+    bot_state.reset()  # Сбрасываем состояние при запуске
     await create_default_files()
     await load_cogs()
 
+# --- Запуск бота ---
 @bot.event
 async def on_ready():
     print(f"✅ Бот {bot.user} успешно запущен!")
@@ -154,7 +195,8 @@ async def on_ready():
             name="Создаём вайб на Discord!"
         )
     )
-    await sync_commands()
+    await command_sync.sync_commands()
     await update_presence()
+    cog_loader.print_loaded_cogs()
 
 bot.run(config['bot']['token'])
