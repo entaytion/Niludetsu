@@ -5,6 +5,37 @@ from typing import Optional
 class WebhookLogger(BaseLogger):
     """Логгер для вебхуков Discord."""
     
+    async def log_webhook_update(self, channel: discord.TextChannel):
+        """Логирование обновления вебхуков в канале"""
+        try:
+            # Получаем текущие вебхуки канала
+            current_webhooks = await channel.webhooks()
+            
+            # Создаем эмбед
+            fields = [
+                {"name": f"{EMOJIS['DOT']} Канал", "value": channel.mention, "inline": True},
+                {"name": f"{EMOJIS['DOT']} ID канала", "value": str(channel.id), "inline": True},
+                {"name": f"{EMOJIS['DOT']} Количество вебхуков", "value": str(len(current_webhooks)), "inline": True}
+            ]
+            
+            # Добавляем список вебхуков
+            if current_webhooks:
+                webhook_list = "\n".join([f"• {webhook.name} (ID: {webhook.id})" for webhook in current_webhooks])
+                if len(webhook_list) > 1024:  # Ограничение Discord для поля
+                    webhook_list = webhook_list[:1021] + "..."
+                fields.append({"name": f"{EMOJIS['DOT']} Активные вебхуки", "value": webhook_list, "inline": False})
+            
+            await self.log_event(
+                title=f"{EMOJIS['INFO']} Обновление вебхуков",
+                description=f"Обнаружено обновление вебхуков в канале {channel.mention}",
+                color='BLUE',
+                fields=fields,
+                event_type="webhook_update"
+            )
+            
+        except Exception as e:
+            print(f"Ошибка при логировании обновления вебхуков: {e}")
+    
     async def log_webhook_create(self, webhook: discord.Webhook, creator: Optional[discord.Member] = None):
         """Логирование создания вебхука"""
         fields = [

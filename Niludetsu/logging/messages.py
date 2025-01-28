@@ -146,4 +146,37 @@ class MessageLogger(BaseLogger):
             description=f"Пользователь использовал команду в канале {channel.mention}",
             color='BLUE',
             fields=fields
-        ) 
+        )
+
+    async def log_bulk_message_delete(self, messages: List[discord.Message]):
+        """Логирование массового удаления сообщений"""
+        try:
+            channel = messages[0].channel if messages else None
+            if not channel:
+                return
+
+            deleted_count = len(messages)
+            
+            # Создаем список удаленных сообщений
+            message_list = []
+            for msg in messages:
+                content = msg.content if msg.content else "[Нет содержимого]"
+                if len(content) > 50:  # Обрезаем длинные сообщения
+                    content = content[:47] + "..."
+                message_list.append(f"• {msg.author}: {content}")
+
+            # Ограничиваем количество отображаемых сообщений
+            if len(message_list) > 15:
+                message_list = message_list[:15]
+                message_list.append(f"... и еще {deleted_count - 15} сообщений")
+
+            await self.log_event(
+                title="🗑️ Массовое удаление сообщений",
+                description=f"**Канал:** {channel.mention}\n"
+                          f"**Количество удаленных сообщений:** {deleted_count}\n\n"
+                          f"**Удаленные сообщения:**\n" + "\n".join(message_list),
+                color='RED',
+                event_type="messages"
+            )
+        except Exception as e:
+            print(f"Ошибка при логировании массового удаления сообщений: {e}") 

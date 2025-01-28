@@ -4,11 +4,32 @@ from discord import app_commands
 from utils import create_embed
 from Niludetsu.game.akinator import Akinator
 import asyncio
+from discord.errors import NotFound
 
 class AkinatorButtons(discord.ui.View):
     def __init__(self, game_instance):
         super().__init__(timeout=180)
         self.game = game_instance
+        self.message = None
+
+    async def on_timeout(self):
+        """Обработка таймаута"""
+        try:
+            if self.message:
+                embed = create_embed(
+                    title="🧞‍♂️ Акинатор",
+                    description="Время игры истекло!"
+                )
+                await self.message.edit(embed=embed, view=None)
+        except Exception:
+            pass
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Проверка на владельца игры"""
+        if interaction.user.id not in self.game.games:
+            await interaction.response.send_message("У вас нет активной игры!", ephemeral=True)
+            return False
+        return True
 
     @discord.ui.button(label="Да", style=discord.ButtonStyle.green, emoji="👍")
     async def yes_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -32,10 +53,6 @@ class AkinatorButtons(discord.ui.View):
 
     @discord.ui.button(label="Назад", style=discord.ButtonStyle.gray, emoji="⬅️", row=1)
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id not in self.game.games:
-            await interaction.response.send_message("У вас нет активной игры!", ephemeral=True)
-            return
-
         try:
             aki = self.game.games[interaction.user.id]["aki"]
             await asyncio.get_event_loop().run_in_executor(None, aki.go_back)
@@ -45,24 +62,39 @@ class AkinatorButtons(discord.ui.View):
                 description=f"**Вопрос #{aki.step}**\n{aki.question}"
             )
             await interaction.response.edit_message(embed=embed, view=self)
+        except NotFound:
+            await self.handle_interaction_error(interaction)
         except Exception as e:
             await interaction.response.send_message(f"Невозможно вернуться назад: {str(e)}", ephemeral=True)
 
     @discord.ui.button(label="Закончить", style=discord.ButtonStyle.red, emoji="🏁", row=1)
     async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        embed = create_embed(
-            title="🧞‍♂️ Акинатор",
-            description="Игра завершена!"
-        )
-        await interaction.response.edit_message(embed=embed, view=None)
-        if interaction.user.id in self.game.games:
-            del self.game.games[interaction.user.id]
+        try:
+            embed = create_embed(
+                title="🧞‍♂️ Акинатор",
+                description="Игра завершена!"
+            )
+            await interaction.response.edit_message(embed=embed, view=None)
+            if interaction.user.id in self.game.games:
+                del self.game.games[interaction.user.id]
+        except NotFound:
+            await self.handle_interaction_error(interaction)
+
+    async def handle_interaction_error(self, interaction: discord.Interaction):
+        """Обработка ошибок взаимодействия"""
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "Произошла ошибка. Пожалуйста, начните новую игру с помощью /akinator",
+                    ephemeral=True
+                )
+        except Exception:
+            pass
+        finally:
+            if interaction.user.id in self.game.games:
+                del self.game.games[interaction.user.id]
 
     async def handle_answer(self, interaction: discord.Interaction, answer: str):
-        if interaction.user.id not in self.game.games:
-            await interaction.response.send_message("У вас нет активной игры!", ephemeral=True)
-            return
-
         try:
             aki = self.game.games[interaction.user.id]["aki"]
             
@@ -82,25 +114,42 @@ class AkinatorButtons(discord.ui.View):
 
                 # Создаем новые кнопки для финального ответа
                 final_view = discord.ui.View(timeout=60)
-                yes_button = discord.ui.Button(label="Да", style=discord.ButtonStyle.green, custom_id="yes")
-                no_button = discord.ui.Button(label="Нет", style=discord.ButtonStyle.red, custom_id="no")
+                yes_button = discord.ui.Button(label="Да", style=discord.ButtonStyle.green)
+                no_button = discord.ui.Button(label="Нет", style=discord.ButtonStyle.red)
                 
                 async def yes_callback(inter: discord.Interaction):
-                    await inter.response.edit_message(content="Я рад, что смог угадать! 🎉", embed=None, view=None)
-                    if interaction.user.id in self.game.games:
-                        del self.game.games[interaction.user.id]
+                    if inter.user.id != interaction.user.id:
+                        await inter.response.send_message("Это не ваша игра!", ephemeral=True)
+                        return
+                    try:
+                        await inter.response.edit_message(content="Я рад, что смог угадать! 🎉", embed=None, view=None)
+                    except NotFound:
+                        await self.handle_interaction_error(inter)
+                    finally:
+                        if inter.user.id in self.game.games:
+                            del self.game.games[inter.user.id]
 
                 async def no_callback(inter: discord.Interaction):
-                    await inter.response.edit_message(content="Жаль, что не угадал! Может, попробуем еще раз? 😊", embed=None, view=None)
-                    if interaction.user.id in self.game.games:
-                        del self.game.games[interaction.user.id]
+                    if inter.user.id != interaction.user.id:
+                        await inter.response.send_message("Это не ваша игра!", ephemeral=True)
+                        return
+                    try:
+                        await inter.response.edit_message(content="Жаль, что не угадал! Может, попробуем еще раз? 😊", embed=None, view=None)
+                    except NotFound:
+                        await self.handle_interaction_error(inter)
+                    finally:
+                        if inter.user.id in self.game.games:
+                            del self.game.games[inter.user.id]
 
                 yes_button.callback = yes_callback
                 no_button.callback = no_callback
                 final_view.add_item(yes_button)
                 final_view.add_item(no_button)
                 
-                await interaction.response.edit_message(embed=embed, view=final_view)
+                try:
+                    await interaction.response.edit_message(embed=embed, view=final_view)
+                except NotFound:
+                    await self.handle_interaction_error(interaction)
                 return
 
             # Обновляем эмбед с новым вопросом
@@ -108,16 +157,24 @@ class AkinatorButtons(discord.ui.View):
                 title="🧞‍♂️ Акинатор",
                 description=f"**Вопрос #{aki.step}**\n{aki.question}"
             )
-            await interaction.response.edit_message(embed=embed, view=self)
+            try:
+                await interaction.response.edit_message(embed=embed, view=self)
+            except NotFound:
+                await self.handle_interaction_error(interaction)
 
         except Exception as e:
             embed = create_embed(
                 title="❌ Ошибка",
                 description=f"Произошла ошибка: {str(e)}"
             )
-            await interaction.response.edit_message(embed=embed, view=None)
-            if interaction.user.id in self.game.games:
-                del self.game.games[interaction.user.id]
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.edit_message(embed=embed, view=None)
+            except Exception:
+                pass
+            finally:
+                if interaction.user.id in self.game.games:
+                    del self.game.games[interaction.user.id]
 
 class AkinatorCog(commands.Cog):
     def __init__(self, bot):
@@ -150,6 +207,7 @@ class AkinatorCog(commands.Cog):
             # Создаем кнопки и отправляем сообщение
             view = AkinatorButtons(self)
             message = await interaction.followup.send(embed=embed, view=view)
+            view.message = message  # Сохраняем сообщение для обработки таймаута
             self.games[interaction.user.id] = {
                 "aki": aki,
                 "message_id": message.id

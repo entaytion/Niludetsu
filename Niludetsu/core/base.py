@@ -136,10 +136,7 @@ class LoggingState:
     initialized: bool = False
     last_message_time: Optional[datetime] = None
     initialized_loggers: List[str] = []
-    event_buffer: Dict[str, List[discord.Embed]] = {}
-    buffer_timeout: float = 5.0
-    rate_limit_delay: float = 2.5
-    buffer_processor_running: bool = False
+    rate_limit_delay: float = 1.0  # Уменьшаем задержку между сообщениями
     
     @classmethod
     def initialize(cls, channel: discord.TextChannel):
@@ -159,9 +156,6 @@ class BaseLogger:
             cls._instance.owner_id = "636570363605680139"
             if not LoggingState.initialized:
                 bot.loop.create_task(cls._instance.initialize_logs())
-                if not LoggingState.buffer_processor_running:
-                    LoggingState.buffer_processor_running = True
-                    bot.loop.create_task(cls._instance._process_event_buffer())
         return cls._instance
 
     async def initialize_logs(self):
@@ -211,8 +205,8 @@ class BaseLogger:
                             await channel.send(embed=embed)
                         bot_state.mark_initialized('logging_system')
                 
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Ошибка при инициализации логов: {e}")
 
     async def get_webhook(self, channel: discord.TextChannel) -> Optional[discord.Webhook]:
         """Получение или создание вебхука"""
@@ -226,88 +220,10 @@ class BaseLogger:
             return webhook
         except Exception:
             return None
-            
-    async def _process_event_buffer(self):
-        """Обработка буфера событий"""
-        while True:
-            await asyncio.sleep(LoggingState.buffer_timeout)
-            try:
-                current_events = {}
-                # Копируем и очищаем буфер атомарно
-                for event_type, events in LoggingState.event_buffer.items():
-                    if events:
-                        current_events[event_type] = events.copy()
-                LoggingState.event_buffer.clear()
-                
-                # Обрабатываем скопированные события
-                for event_type, events in current_events.items():
-                    if len(events) == 1:
-                        await self._send_log_message(events[0])
-                    else:
-                        grouped_embed = await self._create_grouped_embed(event_type, events)
-                        if grouped_embed:
-                            await self._send_log_message(grouped_embed)
-                            
-            except Exception as e:
-                print(f"Ошибка при обработке буфера событий: {e}")
-                
-    async def _create_grouped_embed(self, event_type: str, events: List[discord.Embed]) -> Optional[discord.Embed]:
-        """Создание сгруппированного эмбеда для похожих событий"""
-        try:
-            if not events:
-                return None
-                
-            base_event = events[0]
-            
-            # Создаем новый эмбед для группы событий
-            grouped_embed = discord.Embed(
-                title=f"🔄 Групповое событие ({len(events)} изменений)",
-                description=f"Произошло несколько похожих событий типа `{event_type}`",
-                color=base_event.color
-            )
-            
-            # Группируем события по их типу
-            changes = []
-            for event in events:
-                if event.description:
-                    changes.append(event.description)
-            
-            # Добавляем все изменения в поле
-            if changes:
-                changes_text = "\n".join([f"• {change}" for change in changes])
-                if len(changes_text) > 1024:
-                    changes_text = changes_text[:1021] + "..."
-                grouped_embed.add_field(name="Изменения", value=changes_text, inline=False)
-            
-            # Добавляем временную метку
-            grouped_embed.timestamp = discord.utils.utcnow()
-            
-            return grouped_embed
-            
-        except Exception as e:
-            print(f"Ошибка при создании группового эмбеда: {e}")
-            return None
-
-    def _buffer_event(self, event_type: str, embed: discord.Embed):
-        """Буферизация события для последующей групповой отправки"""
-        try:
-            # Проверяем на дубликаты перед добавлением
-            if event_type not in LoggingState.event_buffer:
-                LoggingState.event_buffer[event_type] = []
-            
-            # Проверяем, нет ли уже такого же события в буфере
-            for existing_embed in LoggingState.event_buffer[event_type]:
-                if (existing_embed.description == embed.description and 
-                    existing_embed.title == embed.title):
-                    return  # Пропускаем дубликат
-                    
-            LoggingState.event_buffer[event_type].append(embed)
-        except Exception as e:
-            print(f"Ошибка при буферизации события: {e}")
 
     async def log_event(self, title: str, description: str = "", color: Union[str, int] = 'BLUE', 
                        fields: Optional[List[Dict[str, Any]]] = None, event_type: str = "general", **kwargs):
-        """Логирование события с буферизацией"""
+        """Логирование события"""
         try:
             if not LoggingState.initialized or not LoggingState.log_channel:
                 return
@@ -325,41 +241,28 @@ class BaseLogger:
                 **kwargs
             )
             
-            # Буферизуем событие
-            self._buffer_event(event_type, embed)
-            
-        except Exception as e:
-            print(f"Ошибка при логировании события: {e}")
-
-    async def _send_log_message(self, embed: discord.Embed):
-        """Отправка сообщения в лог с учетом ограничений"""
-        try:
-            if not LoggingState.initialized or not LoggingState.log_channel:
-                return
-                
-            # Проверяем время последнего сообщения
+            # Отправляем сообщение с учетом задержки
             current_time = datetime.utcnow()
             if LoggingState.last_message_time:
                 time_diff = (current_time - LoggingState.last_message_time).total_seconds()
                 if time_diff < LoggingState.rate_limit_delay:
                     await asyncio.sleep(LoggingState.rate_limit_delay - time_diff)
             
-            # Отправляем сообщение
             if LoggingState.webhook:
                 await LoggingState.webhook.send(embed=embed)
             else:
                 await LoggingState.log_channel.send(embed=embed)
                 
-            LoggingState.last_message_time = current_time
+            LoggingState.last_message_time = datetime.utcnow()
             
         except Exception as e:
-            print(f"Ошибка при отправке сообщения: {e}")
+            print(f"Ошибка при логировании события: {e}")
 
     @staticmethod
     def format_diff(before: Any, after: Any) -> str:
         """Форматирование разницы между значениями для логов."""
         return f"До: {before}\nПосле: {after}"
-        
+
     async def show_logs_info(self, interaction: discord.Interaction):
         """Показывает информацию о текущем канале логов"""
         try:
@@ -379,4 +282,95 @@ class BaseLogger:
         except Exception as e:
             await interaction.response.send_message(
                 f"❌ Произошла ошибка: {str(e)}"
-            ) 
+            )
+
+    async def log_permission_update(self, channel: discord.abc.GuildChannel, target: Union[discord.Role, discord.Member], 
+                                  before: discord.PermissionOverwrite, after: discord.PermissionOverwrite):
+        """Логирование изменений прав доступа"""
+        try:
+            changes = []
+            for perm, value in after.pair()[0]:
+                before_value = getattr(before.pair()[0], perm)
+                if before_value != value:
+                    changes.append(f"• `{perm}`: {before_value} → {value}")
+
+            if changes:
+                target_type = "роли" if isinstance(target, discord.Role) else "пользователя"
+                await self.log_event(
+                    title=f"🔒 Права {target_type} обновлены",
+                    description=f"**Канал:** {channel.mention}\n"
+                              f"**{target_type.title()}:** {target.mention}\n"
+                              f"**Изменения:**\n" + "\n".join(changes),
+                    color='BLUE',
+                    event_type="permissions"
+                )
+        except Exception as e:
+            print(f"Ошибка при логировании изменений прав: {e}")
+
+    async def log_role_update(self, role: discord.Role, before: discord.Role, after: discord.Role):
+        """Логирование изменений роли"""
+        try:
+            changes = []
+            if before.name != after.name:
+                changes.append(f"• Название: `{before.name}` → `{after.name}`")
+            if before.color != after.color:
+                changes.append(f"• Цвет: `{before.color}` → `{after.color}`")
+            if before.hoist != after.hoist:
+                changes.append(f"• Отображение отдельно: `{before.hoist}` → `{after.hoist}`")
+            if before.mentionable != after.mentionable:
+                changes.append(f"• Упоминание: `{before.mentionable}` → `{after.mentionable}`")
+            if before.permissions != after.permissions:
+                perm_changes = []
+                for perm, value in after.permissions:
+                    if getattr(before.permissions, perm) != value:
+                        perm_changes.append(f"`{perm}`: {getattr(before.permissions, perm)} → {value}")
+                if perm_changes:
+                    changes.append("• Права:\n" + "\n".join(perm_changes))
+
+            if changes:
+                await self.log_event(
+                    title="👥 Роль изменена",
+                    description=f"**Роль:** {after.mention}\n"
+                              f"**ID:** `{after.id}`\n"
+                              f"**Изменения:**\n" + "\n".join(changes),
+                    color='BLUE',
+                    event_type="roles"
+                )
+        except Exception as e:
+            print(f"Ошибка при логировании изменений роли: {e}")
+
+    async def log_channel_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel):
+        """Логирование изменений канала"""
+        try:
+            changes = []
+            if before.name != after.name:
+                changes.append(f"• Название: `{before.name}` → `{after.name}`")
+            if isinstance(before, discord.TextChannel) and isinstance(after, discord.TextChannel):
+                if before.topic != after.topic:
+                    changes.append(f"• Описание: `{before.topic}` → `{after.topic}`")
+                if before.slowmode_delay != after.slowmode_delay:
+                    changes.append(f"• Медленный режим: `{before.slowmode_delay}с` → `{after.slowmode_delay}с`")
+            if isinstance(before, discord.VoiceChannel) and isinstance(after, discord.VoiceChannel):
+                if before.bitrate != after.bitrate:
+                    changes.append(f"• Битрейт: `{before.bitrate//1000}kbps` → `{after.bitrate//1000}kbps`")
+                if before.user_limit != after.user_limit:
+                    changes.append(f"• Лимит пользователей: `{before.user_limit}` → `{after.user_limit}`")
+            if before.category != after.category:
+                before_category = before.category.name if before.category else "Нет"
+                after_category = after.category.name if after.category else "Нет"
+                changes.append(f"• Категория: `{before_category}` → `{after_category}`")
+            if before.position != after.position:
+                changes.append(f"• Позиция: `{before.position}` → `{after.position}`")
+
+            if changes:
+                channel_type = "Текстовый канал" if isinstance(after, discord.TextChannel) else "Голосовой канал"
+                await self.log_event(
+                    title=f"📝 {channel_type} изменен",
+                    description=f"**Канал:** {after.mention}\n"
+                              f"**ID:** `{after.id}`\n"
+                              f"**Изменения:**\n" + "\n".join(changes),
+                    color='BLUE',
+                    event_type="channels"
+                )
+        except Exception as e:
+            print(f"Ошибка при логировании изменений канала: {e}") 

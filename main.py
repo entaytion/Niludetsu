@@ -73,11 +73,21 @@ async def log_command_error(ctx_or_interaction: Union[commands.Context, discord.
             if isinstance(ctx_or_interaction, discord.Interaction):
                 user = ctx_or_interaction.user
                 channel = ctx_or_interaction.channel
-                command_name = f"/{ctx_or_interaction.command.name if ctx_or_interaction.command else 'Неизвестно'}"
+                # Получаем полное имя команды, включая группу
+                if ctx_or_interaction.command:
+                    if hasattr(ctx_or_interaction.command, 'parent') and ctx_or_interaction.command.parent:
+                        command_name = f"/{ctx_or_interaction.command.parent.name} {ctx_or_interaction.command.name}"
+                    else:
+                        command_name = f"/{ctx_or_interaction.command.name}"
+                else:
+                    command_name = "/Неизвестно"
             else:
                 user = ctx_or_interaction.author
                 channel = ctx_or_interaction.channel
-                command_name = f"{ctx_or_interaction.prefix}{ctx_or_interaction.command.name if ctx_or_interaction.command else 'Неизвестно'}"
+                if ctx_or_interaction.command:
+                    command_name = f"{ctx_or_interaction.prefix}{ctx_or_interaction.command.qualified_name}"
+                else:
+                    command_name = f"{ctx_or_interaction.prefix}Неизвестно"
 
             error_embed = discord.Embed(
                 title="🚫 Ошибка команды",
@@ -92,12 +102,12 @@ async def log_command_error(ctx_or_interaction: Union[commands.Context, discord.
             )
             error_embed.add_field(
                 name="Пользователь", 
-                value=f"{user.mention} (`{user.id}`)", 
+                value=f"{user.mention}\n(`{user.id}`)", 
                 inline=True
             )
             error_embed.add_field(
                 name="Канал", 
-                value=f"{channel.mention} (`{channel.id}`)", 
+                value=f"{channel.mention}\n(`{channel.id}`)", 
                 inline=True
             )
             
@@ -115,8 +125,6 @@ async def log_command_error(ctx_or_interaction: Union[commands.Context, discord.
             
             # Отправляем пинг создателя и эмбед
             owner_id = config['settings']['owner_id']
-            await log_channel.send(f"<@{owner_id}>", embed=error_embed)
-            print(f"✅ Ошибка команды успешно залогирована.")
     except Exception as e:
         print(f"❌ Ошибка при логировании: {e}")
 

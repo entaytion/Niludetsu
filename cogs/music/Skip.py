@@ -1,53 +1,54 @@
 import discord
 from discord.ext import commands
-import wavelink
-from utils import create_embed
-from .Core import Core
+from discord import app_commands
+from Niludetsu.music import Music
+from Niludetsu.utils import create_embed
 
 class Skip(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.core = None
-        
-    async def cog_load(self):
-        self.core = self.bot.get_cog('Core')
+        self.music = Music(bot)
 
-    @discord.app_commands.command(name="skip", description="Пропустить текущий трек")
+    @app_commands.command(name="skip", description="Пропустить текущий трек")
     async def skip(self, interaction: discord.Interaction):
+        """Пропустить текущий трек"""
         await interaction.response.defer()
-        
-        try:
-            player = await self.core.get_player(interaction)
-            if not player:
-                await interaction.followup.send(
-                    embed=create_embed(
-                        description="Я не подключен к голосовому каналу!"
-                    )
-                )
-                return
 
-            if not player.current:
-                await interaction.followup.send(
-                    embed=create_embed(
-                        description="Сейчас ничего не играет!"
-                    )
-                )
-                return
+        player = await self.music.ensure_voice(interaction)
+        if not player:
+            return
 
+        if not player.playing:
+            await interaction.followup.send(
+                embed=create_embed(
+                    description="❌ Сейчас ничего не играет!"
+                ),
+                ephemeral=True
+            )
+            return
+
+        # Проверяем, есть ли следующий трек
+        if player.queue.is_empty:
             await player.stop()
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Трек пропущен!"
+                    description="⏭️ Трек пропущен! Очередь пуста."
                 )
             )
-            
-        except Exception as e:
-            print(f"Error in skip command: {e}")
-            await interaction.followup.send(
-                embed=create_embed(
-                    description="Произошла ошибка при пропуске трека!"
-                )
+            return
+
+        # Получаем информацию о следующем треке
+        next_track = player.queue.peek()
+        
+        # Пропускаем текущий трек
+        await player.skip()
+        
+        await interaction.followup.send(
+            embed=create_embed(
+                title="⏭️ Трек пропущен",
+                description=f"Следующий трек:\n**{next_track.title}**\nАвтор: {next_track.author}"
             )
+        )
 
 async def setup(bot):
     await bot.add_cog(Skip(bot)) 

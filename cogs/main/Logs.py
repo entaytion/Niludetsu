@@ -112,24 +112,33 @@ class Logs(commands.Cog):
 
     logs_group = app_commands.Group(name="logs", description="Управление системой логирования")
 
-    @logs_group.command(name="show", description="Показать текущий канал логов")
+    @logs_group.command(name="status", description="Показать статус и информацию о системе логирования")
     @commands.has_permissions(administrator=True)
-    async def logs_show(self, interaction: discord.Interaction):
-        """Показывает информацию о текущем канале логов"""
+    async def logs_status(self, interaction: discord.Interaction):
+        """Показывает статус и информацию о системе логирования"""
         try:
+            status = "Включено" if self.logging_enabled else "Отключено"
+            color = discord.Color.green() if self.logging_enabled else discord.Color.red()
+            emoji = "✅" if self.logging_enabled else "❌"
+            
+            embed = discord.Embed(
+                title=f"{emoji} Статус системы логирования",
+                description="Информация о текущем состоянии системы логирования",
+                color=color
+            )
+            
+            embed.add_field(name="Статус", value=status, inline=True)
+            embed.add_field(name="Канал", value=self.log_channel.mention if self.log_channel else "Не установлен", inline=True)
+            
             if self.log_channel:
-                embed = discord.Embed(
-                    title="📝 Информация о логах",
-                    description=f"Текущий канал логов: {self.log_channel.mention}\n"
-                              f"ID канала: `{self.log_channel.id}`",
-                    color=discord.Color.blue()
+                embed.add_field(
+                    name="Информация о канале",
+                    value=f"ID канала: `{self.log_channel.id}`\n"
+                          f"Категория: {self.log_channel.category.name if self.log_channel.category else 'Нет'}\n"
+                          f"Создан: {discord.utils.format_dt(self.log_channel.created_at, 'R')}",
+                    inline=False
                 )
-            else:
-                embed = discord.Embed(
-                    title="❌ Канал логов не настроен",
-                    description="Проверьте настройки в файле config.yaml",
-                    color=discord.Color.red()
-                )
+            
             await interaction.response.send_message(embed=embed)
         except Exception as e:
             await interaction.response.send_message(
@@ -257,30 +266,6 @@ class Logs(commands.Cog):
                     color=discord.Color.green()
                 )
             )
-        except Exception as e:
-            await interaction.response.send_message(
-                f"❌ Произошла ошибка: {str(e)}"
-            )
-
-    @logs_group.command(name="status", description="Показать статус системы логирования")
-    @commands.has_permissions(administrator=True)
-    async def logs_status(self, interaction: discord.Interaction):
-        """Показ статуса системы логирования"""
-        try:
-            status = "Включено" if self.logging_enabled else "Отключено"
-            color = discord.Color.green() if self.logging_enabled else discord.Color.red()
-            emoji = "✅" if self.logging_enabled else "❌"
-            
-            embed = discord.Embed(
-                title=f"{emoji} Статус системы логирования",
-                description="Информация о текущем состоянии системы логирования",
-                color=color
-            )
-            
-            embed.add_field(name="Статус", value=status, inline=True)
-            embed.add_field(name="Канал", value=self.log_channel.mention if self.log_channel else "Не установлен", inline=True)
-            
-            await interaction.response.send_message(embed=embed)
         except Exception as e:
             await interaction.response.send_message(
                 f"❌ Произошла ошибка: {str(e)}"

@@ -1,53 +1,49 @@
 import discord
 from discord.ext import commands
-import wavelink
-from utils import create_embed
-from .Core import Core
+from discord import app_commands
+from Niludetsu.music import Music
+from Niludetsu.utils import create_embed
 
 class Pause(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.core = None
-        
-    async def cog_load(self):
-        self.core = self.bot.get_cog('Core')
+        self.music = Music(bot)
 
-    @discord.app_commands.command(name="pause", description="Поставить музыку на паузу")
+    @app_commands.command(name="pause", description="Поставить трек на паузу или снять с паузы")
     async def pause(self, interaction: discord.Interaction):
+        """Поставить трек на паузу или снять с паузы"""
         await interaction.response.defer()
-        
+
+        player = await self.music.ensure_voice(interaction)
+        if not player:
+            return
+
+        if not player.playing:
+            await interaction.followup.send(
+                embed=create_embed(
+                    description="❌ Сейчас ничего не играет!"
+                ),
+                ephemeral=True
+            )
+            return
+
         try:
-            player = await self.core.get_player(interaction)
-            if not player or not player.connected:
-                await interaction.followup.send(
-                    embed=create_embed(
-                        description="Я не подключен к голосовому каналу!"
-                    )
-                )
-                return
-
-            if not player.current:
-                await interaction.followup.send(
-                    embed=create_embed(
-                        description="Сейчас ничего не играет!"
-                    )
-                )
-                return
-
-            await player.pause(not player.paused)
-            status = "поставлена на паузу" if player.paused else "возобновлена"
+            # Переключаем состояние паузы
+            is_paused = not player.paused
+            await player.pause(is_paused)
             
             await interaction.followup.send(
                 embed=create_embed(
-                    description=f"Музыка {status}."
+                    description=f"{'⏸️ Трек поставлен на паузу' if is_paused else '▶️ Воспроизведение продолжено'}"
                 )
             )
         except Exception as e:
-            print(f"Error in pause command: {e}")
+            print(f"Error toggling pause: {e}")
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Произошла ошибка!"
-                )
+                    description="❌ Произошла ошибка при попытке поставить на паузу!"
+                ),
+                ephemeral=True
             )
 
 async def setup(bot):

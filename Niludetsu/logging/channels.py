@@ -37,6 +37,12 @@ class ChannelLogger(BaseLogger):
                     changes.append(f"Лимит пользователей: {before.user_limit or 'Без лимита'} ➜ {after.user_limit or 'Без лимита'}")
                 if before.rtc_region != after.rtc_region:
                     changes.append(f"Регион: {before.rtc_region or 'Авто'} ➜ {after.rtc_region or 'Авто'}")
+                if before.category != after.category:
+                    before_category = before.category.name if before.category else "Нет"
+                    after_category = after.category.name if after.category else "Нет"
+                    changes.append(f"Категория: {before_category} ➜ {after_category}")
+                if before.position != after.position:
+                    changes.append(f"Позиция: {before.position} ➜ {after.position}")
                     
             elif isinstance(before, discord.ForumChannel) and isinstance(after, discord.ForumChannel):
                 if before.name != after.name:
@@ -45,17 +51,43 @@ class ChannelLogger(BaseLogger):
                     old_tags = ", ".join([tag.name for tag in before.available_tags]) or "Нет тегов"
                     new_tags = ", ".join([tag.name for tag in after.available_tags]) or "Нет тегов"
                     changes.append(f"Теги: {old_tags} ➜ {new_tags}")
+                if before.category != after.category:
+                    before_category = before.category.name if before.category else "Нет"
+                    after_category = after.category.name if after.category else "Нет"
+                    changes.append(f"Категория: {before_category} ➜ {after_category}")
+                if before.position != after.position:
+                    changes.append(f"Позиция: {before.position} ➜ {after.position}")
+
+            elif isinstance(before, discord.CategoryChannel) and isinstance(after, discord.CategoryChannel):
+                if before.name != after.name:
+                    changes.append(f"Название: {before.name} ➜ {after.name}")
+                if before.position != after.position:
+                    changes.append(f"Позиция: {before.position} ➜ {after.position}")
+                
+                # Проверяем изменения прав доступа категории
+                before_overwrites = set((k.id, tuple(v)) for k, v in before.overwrites.items())
+                after_overwrites = set((k.id, tuple(v)) for k, v in after.overwrites.items())
+                
+                if before_overwrites != after_overwrites:
+                    changes.append("Изменены права доступа категории")
                     
             if changes:
+                channel_type = "Категория" if isinstance(after, discord.CategoryChannel) else "Канал"
+                mention = after.mention if hasattr(after, 'mention') else f"#{after.name}"
+                
                 await self.log_event(
-                    title=f"{EMOJIS['INFO']} Изменен канал",
-                    description=f"Канал {after.mention} был изменен\n" + "\n".join(changes),
+                    title=f"{EMOJIS['INFO']} Изменен {channel_type.lower()}",
+                    description=f"{channel_type} {mention} был изменен\n" + "\n".join(changes),
                     color='BLUE',
-                    event_type="channel_update"
+                    event_type="channel_update",
+                    fields=[
+                        {"name": f"{EMOJIS['DOT']} ID", "value": str(after.id), "inline": True},
+                        {"name": f"{EMOJIS['DOT']} Тип", "value": str(after.type).replace('_', ' ').title(), "inline": True}
+                    ]
                 )
                 
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Ошибка при логировании изменения канала: {e}")
         
     async def log_channel_create(self, channel: discord.abc.GuildChannel):
         """Логирование создания канала"""
