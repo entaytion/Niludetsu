@@ -1,175 +1,238 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
 import random
 import asyncio
-from typing import Optional
-from utils import create_embed, EMOJIS, get_user, save_user
+from Niludetsu.utils.database import get_user, save_user
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 class Duel(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.active_duels = {}
 
-    @app_commands.command(name="duel", description="Вызвать пользователя на дуэль")
-    @app_commands.describe(
-        opponent="Пользователь, которого вы вызываете на дуэль",
-        bet="Сумма ставки (минимум 100)"
+    @discord.app_commands.command(name="duel", description="Вызвать игрока на дуэль")
+    @discord.app_commands.describe(
+        opponent="Игрок, которого вы хотите вызвать на дуэль",
+        bet="Сумма ставки"
     )
     async def duel(self, interaction: discord.Interaction, opponent: discord.Member, bet: int):
-        # Проверки
-        if bet < 100:
-            await interaction.response.send_message(f"{EMOJIS['ERROR']} Минимальная ставка: 100 монет!")
-            return
-
-        if opponent.bot:
-            await interaction.response.send_message(f"{EMOJIS['ERROR']} Вы не можете вызвать бота на дуэль!")
-            return
-
         if opponent.id == interaction.user.id:
-            await interaction.response.send_message(f"{EMOJIS['ERROR']} Вы не можете вызвать себя на дуэль!")
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description="Вы не можете вызвать на дуэль самого себя!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
             return
 
-        if interaction.user.id in self.active_duels or opponent.id in self.active_duels:
-            await interaction.response.send_message(f"{EMOJIS['ERROR']} Один из участников уже участвует в дуэли!")
+        if bet <= 0:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description="Ставка должна быть больше 0!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
             return
 
-        # Проверка балансов
-        challenger_data = get_user(interaction.user.id)
-        opponent_data = get_user(opponent.id)
+        challenger_id = str(interaction.user.id)
+        opponent_id = str(opponent.id)
 
-        challenger_balance = challenger_data["balance"]
-        opponent_balance = opponent_data["balance"]
-
-        if challenger_balance < bet:
-            await interaction.response.send_message(f"{EMOJIS['ERROR']} У вас недостаточно монет! Ваш баланс: {challenger_balance}")
+        # Проверяем, не находится ли кто-то из игроков уже в дуэли
+        if challenger_id in self.active_duels or opponent_id in self.active_duels:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description="Один из игроков уже участвует в дуэли!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
             return
 
-        if opponent_balance < bet:
-            await interaction.response.send_message(f"{EMOJIS['ERROR']} У оппонента недостаточно монет! Баланс оппонента: {opponent_balance}")
+        challenger_data = get_user(challenger_id)
+        opponent_data = get_user(opponent_id)
+
+        # Создаем данные для новых пользователей
+        if not challenger_data:
+            challenger_data = {
+                'balance': 0,
+                'deposit': 0,
+                'xp': 0,
+                'level': 1,
+                'roles': '[]'
+            }
+            save_user(challenger_id, challenger_data)
+
+        if not opponent_data:
+            opponent_data = {
+                'balance': 0,
+                'deposit': 0,
+                'xp': 0,
+                'level': 1,
+                'roles': '[]'
+            }
+            save_user(opponent_id, opponent_data)
+
+        # Проверяем балансы
+        if challenger_data['balance'] < bet:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description=f"У вас недостаточно средств для такой ставки!\n"
+                              f"Ваш баланс: {challenger_data['balance']:,} {EMOJIS['MONEY']}",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
             return
 
-        # Создаем эмбед для вызова
-        embed = create_embed(
-            title="⚔️ Вызов на дуэль!",
-            description=f"{interaction.user.mention} вызывает {opponent.mention} на дуэль!\n"
-                       f"Ставка: **{bet}** монет\n\n"
-                       f"У вас есть 30 секунд, чтобы принять или отклонить вызов."
-        )
+        if opponent_data['balance'] < bet:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description=f"У {opponent.mention} недостаточно средств для такой ставки!\n"
+                              f"Баланс оппонента: {opponent_data['balance']:,} {EMOJIS['MONEY']}",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+            return
 
         # Создаем кнопки
-        class DuelButtons(discord.ui.View):
-            def __init__(self):
-                super().__init__(timeout=30)
-                self.value = None
+        view = discord.ui.View(timeout=30)
+        accept_button = discord.ui.Button(label="Принять", style=discord.ButtonStyle.green, custom_id="accept")
+        decline_button = discord.ui.Button(label="Отклонить", style=discord.ButtonStyle.red, custom_id="decline")
 
-            @discord.ui.button(label="Принять", style=discord.ButtonStyle.green, emoji="⚔️")
-            async def accept(self, button_interaction: discord.Interaction, button: discord.ui.Button):
-                if button_interaction.user.id != opponent.id:
-                    await button_interaction.response.send_message(f"{EMOJIS['ERROR']} Только {opponent.mention} может принять этот вызов!")
-                    return
-                self.value = True
-                for item in self.children:
-                    item.disabled = True
-                await button_interaction.response.edit_message(view=self)
-                self.stop()
+        async def accept_callback(button_interaction: discord.Interaction):
+            if button_interaction.user.id != opponent.id:
+                await button_interaction.response.send_message(
+                    embed=create_embed(
+                        description="Это не ваша дуэль!",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                return
 
-            @discord.ui.button(label="Отклонить", style=discord.ButtonStyle.red, emoji="❌")
-            async def decline(self, button_interaction: discord.Interaction, button: discord.ui.Button):
-                if button_interaction.user.id != opponent.id:
-                    await button_interaction.response.send_message(f"{EMOJIS['ERROR']} Только {opponent.mention} может отклонить этот вызов!")
-                    return
-                self.value = False
-                for item in self.children:
-                    item.disabled = True
-                await button_interaction.response.edit_message(view=self)
-                self.stop()
+            # Снимаем ставки с обоих игроков
+            challenger_data['balance'] -= bet
+            opponent_data['balance'] -= bet
+            save_user(challenger_id, challenger_data)
+            save_user(opponent_id, opponent_data)
 
-        view = DuelButtons()
-        await interaction.response.send_message(embed=embed, view=view)
+            # Начинаем дуэль
+            self.active_duels[challenger_id] = True
+            self.active_duels[opponent_id] = True
 
-        # Ждем ответ
-        await view.wait()
+            await button_interaction.message.edit(view=None)
+            await self.start_duel(button_interaction, interaction.user, opponent, bet)
 
-        if view.value is None:
-            await interaction.edit_original_response(
-                embed=create_embed(title="⚔️ Дуэль отменена", description="Время на принятие вызова истекло."),
+        async def decline_callback(button_interaction: discord.Interaction):
+            if button_interaction.user.id != opponent.id:
+                await button_interaction.response.send_message(
+                    embed=create_embed(
+                        description="Это не ваша дуэль!",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                return
+
+            await button_interaction.message.edit(
+                embed=create_embed(
+                    description=f"{opponent.mention} отклонил вызов на дуэль!",
+                    color="RED"
+                ),
                 view=None
             )
-            return
 
-        if not view.value:
-            await interaction.edit_original_response(
-                embed=create_embed(title="⚔️ Дуэль отменена", description=f"{opponent.mention} отклонил(а) вызов."),
-                view=None
+        accept_button.callback = accept_callback
+        decline_button.callback = decline_callback
+        view.add_item(accept_button)
+        view.add_item(decline_button)
+
+        # Отправляем приглашение
+        await interaction.response.send_message(
+            embed=create_embed(
+                title="Вызов на дуэль!",
+                description=f"{interaction.user.mention} вызывает {opponent.mention} на дуэль!\n"
+                          f"Ставка: {bet:,} {EMOJIS['MONEY']}",
+                color="BLUE"
+            ),
+            view=view
+        )
+
+    async def start_duel(self, interaction: discord.Interaction, challenger: discord.Member, opponent: discord.Member, bet: int):
+        # Анимация дуэли
+        duel_message = await interaction.response.send_message(
+            embed=create_embed(
+                title="Дуэль началась!",
+                description="Дуэлянты готовятся...",
+                color="BLUE"
             )
-            return
+        )
 
-        # Начинаем дуэль
-        self.active_duels[interaction.user.id] = True
-        self.active_duels[opponent.id] = True
-
-        duel_embed = create_embed(title="⚔️ Дуэль начинается!", description="Подготовка к битве...")
-        await interaction.edit_original_response(embed=duel_embed, view=None)
         await asyncio.sleep(2)
-
-        # Симуляция дуэли
-        hp_challenger = 100
-        hp_opponent = 100
-        round_num = 1
-
-        while hp_challenger > 0 and hp_opponent > 0:
-            damage_challenger = random.randint(15, 25)
-            damage_opponent = random.randint(15, 25)
-
-            hp_opponent -= damage_challenger
-            hp_challenger -= damage_opponent
-
-            duel_embed = create_embed(
-                title=f"⚔️ Дуэль - Раунд {round_num}",
-                description=f"{interaction.user.mention} ⚔️ {opponent.mention}\n\n"
-                           f"**{interaction.user.name}**\n"
-                           f"❤️ HP: {max(0, hp_challenger)}/100\n"
-                           f"⚔️ Удар: -{damage_opponent}\n\n"
-                           f"**{opponent.name}**\n"
-                           f"❤️ HP: {max(0, hp_opponent)}/100\n"
-                           f"⚔️ Удар: -{damage_challenger}"
+        await duel_message.edit(
+            embed=create_embed(
+                title="Дуэль началась!",
+                description="3...",
+                color="BLUE"
             )
-            await interaction.edit_original_response(embed=duel_embed)
-            await asyncio.sleep(2)
-            round_num += 1
+        )
+
+        await asyncio.sleep(1)
+        await duel_message.edit(
+            embed=create_embed(
+                title="Дуэль началась!",
+                description="2...",
+                color="BLUE"
+            )
+        )
+
+        await asyncio.sleep(1)
+        await duel_message.edit(
+            embed=create_embed(
+                title="Дуэль началась!",
+                description="1...",
+                color="BLUE"
+            )
+        )
+
+        await asyncio.sleep(1)
+        await duel_message.edit(
+            embed=create_embed(
+                title="Дуэль началась!",
+                description="ОГОНЬ!",
+                color="BLUE"
+            )
+        )
+
+        await asyncio.sleep(1)
 
         # Определяем победителя
-        if hp_challenger > hp_opponent:
-            winner = interaction.user
-            loser = opponent
-        else:
-            winner = opponent
-            loser = interaction.user
+        winner = random.choice([challenger, opponent])
+        loser = opponent if winner == challenger else challenger
 
         # Обновляем балансы
-        winner_data = get_user(winner.id)
-        loser_data = get_user(loser.id)
+        winner_data = get_user(str(winner.id))
+        winner_data['balance'] += bet * 2
+        save_user(str(winner.id), winner_data)
 
-        winner_data["balance"] += bet
-        loser_data["balance"] -= bet
+        # Удаляем дуэль из активных
+        del self.active_duels[str(challenger.id)]
+        del self.active_duels[str(opponent.id)]
 
-        save_user(winner.id, winner_data)
-        save_user(loser.id, loser_data)
-
-        # Финальное сообщение
-        final_embed = create_embed(
-            title="🏆 Дуэль завершена!",
-            description=f"**Победитель:** {winner.mention}\n"
-                       f"**Проиграл:** {loser.mention}\n\n"
-                       f"**Награда:** {bet} монет\n"
-                       f"**Новый баланс победителя:** {winner_data['balance']} монет"
+        # Отправляем результат
+        await duel_message.edit(
+            embed=create_embed(
+                title="Дуэль окончена!",
+                description=f"**Победитель:** {winner.mention}\n"
+                          f"**Проигравший:** {loser.mention}\n\n"
+                          f"{EMOJIS['DOT']} **Выигрыш:** {bet * 2:,} {EMOJIS['MONEY']}",
+                color="GREEN"
+            )
         )
-        await interaction.edit_original_response(embed=final_embed)
-
-        # Очищаем активные дуэли
-        del self.active_duels[interaction.user.id]
-        del self.active_duels[opponent.id]
 
 async def setup(bot):
     await bot.add_cog(Duel(bot))

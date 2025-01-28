@@ -2,64 +2,79 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
-from Niludetsu.utils import create_embed
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 class Nightcore(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.music = Music(bot)
+        self._nightcore_enabled = {}  # Словарь для хранения состояния эффекта для каждого сервера
+
+    def is_nightcore_enabled(self, guild_id: int) -> bool:
+        """Проверяет, включен ли эффект nightcore для сервера"""
+        return self._nightcore_enabled.get(guild_id, False)
+
+    def set_nightcore(self, guild_id: int, enabled: bool):
+        """Устанавливает состояние эффекта nightcore для сервера"""
+        self._nightcore_enabled[guild_id] = enabled
 
     @app_commands.command(name="nightcore", description="Включить/выключить эффект Nightcore")
     async def nightcore(self, interaction: discord.Interaction):
-        """Включить или выключить эффект Nightcore"""
-        await interaction.response.defer()
-
+        """Включить/выключить эффект Nightcore"""
         player = await self.music.ensure_voice(interaction)
         if not player:
             return
 
         if not player.playing:
-            await interaction.followup.send(
+            await interaction.response.send_message(
                 embed=create_embed(
-                    description="❌ Сейчас ничего не играет!"
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Сейчас ничего не играет!",
+                    color="RED"
                 ),
                 ephemeral=True
             )
             return
 
-        try:
-            # Переключаем эффект Nightcore
-            if not hasattr(player, 'nightcore'):
-                player.nightcore = False
-            
-            player.nightcore = not player.nightcore
-            
-            # Применяем эффект
-            filters = player.filters
-            if player.nightcore:
-                filters.timescale.set(speed=1.2, pitch=1.2, rate=1.0)
-                await player.set_filters(filters)
-                status = "включен"
-                emoji = "🎵"
-            else:
-                filters.reset()
-                await player.set_filters(filters)
-                status = "выключен"
-                emoji = "🎶"
+        # Переключаем состояние эффекта
+        guild_id = interaction.guild_id
+        enabled = not self.is_nightcore_enabled(guild_id)
+        self.set_nightcore(guild_id, enabled)
 
-            await interaction.followup.send(
-                embed=create_embed(
-                    description=f"{emoji} Эффект Nightcore {status}"
-                )
+        # Применяем эффект
+        if enabled:
+            await player.set_timescale(speed=1.2, pitch=1.2, rate=1)
+        else:
+            await player.set_timescale(speed=1.0, pitch=1.0, rate=1)
+
+        song = self.music.get_current_song(guild_id)
+
+        embed = create_embed(
+            title=f"{EMOJIS['EFFECT']} Эффект Nightcore",
+            description=f"Эффект Nightcore **{'включен' if enabled else 'выключен'}**",
+            color="GREEN" if enabled else "RED"
+        )
+
+        if song:
+            embed.add_field(
+                name=f"{EMOJIS['MUSIC']} Текущий трек",
+                value=f"**[{song.title}]({song.uri})**\n"
+                      f"{EMOJIS['TIME']} Длительность: `{song.format_duration()}`",
+                inline=False
             )
-        except Exception as e:
-            print(f"Error applying nightcore effect: {e}")
-            await interaction.followup.send(
-                embed=create_embed(
-                    description="❌ Произошла ошибка при применении эффекта!"
-                ),
-                ephemeral=True
-            )
+
+        embed.add_field(
+            name=f"{EMOJIS['SETTINGS']} Настройки эффекта",
+            value=(
+                f"**Скорость:** `{'120%' if enabled else '100%'}`\n"
+                f"**Тональность:** `{'120%' if enabled else '100%'}`"
+            ),
+            inline=False
+        )
+
+        embed.set_footer(text=f"{'Эффект применен' if enabled else 'Эффект отключен'} • {interaction.user}")
+        await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Nightcore(bot)) 

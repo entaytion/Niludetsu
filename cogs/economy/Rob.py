@@ -1,70 +1,146 @@
 import discord
-import random
-from datetime import datetime, timedelta
-from discord import Interaction
 from discord.ext import commands
-from utils import create_embed, get_user, save_user, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.database import get_user, save_user
+from Niludetsu.core.base import EMOJIS
+from datetime import datetime, timedelta
+import random
 
 class Rob(commands.Cog):
-    def __init__(self, client):
-        self.client = client
+    def __init__(self, bot):
+        self.bot = bot
+        self.rob_cooldown = 7200  # 2 часа в секундах
+        self.min_balance_to_rob = 1000  # Минимальный баланс для ограбления
+        self.success_chance = 0.4  # 40% шанс успеха
+        self.max_rob_percent = 0.3  # Максимальный процент кражи (30%)
 
-    @discord.app_commands.command(name="rob", description="Попытка украсть деньги")
-    @discord.app_commands.describe(user="Пользователь, у которого украдёте деньги")
-    async def rob(self, interaction: Interaction, user: discord.Member):
-        # Передаем self.client в get_user
-        author_data = get_user(self.client, str(interaction.user.id))
-        victim_data = get_user(self.client, str(user.id))
-
-        if str(user.id) == '1264591814208262154':
-            embed = create_embed(
-                description="Вы не можете украсть деньги у казны сервера."
+    @discord.app_commands.command(name="rob", description="Попытаться ограбить пользователя")
+    @discord.app_commands.describe(
+        user="Пользователь, которого хотите ограбить"
+    )
+    async def rob(self, interaction: discord.Interaction, user: discord.Member):
+        """
+        Команда для ограбления другого пользователя
+        
+        Parameters
+        ----------
+        interaction : discord.Interaction
+            Объект взаимодействия
+        user : discord.Member
+            Пользователь, которого нужно ограбить
+        """
+        # Проверка на ограбление самого себя
+        if user.id == interaction.user.id:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description="Вы не можете ограбить самого себя.",
+                    color="RED"
+                ),
+                ephemeral=True
             )
-            await interaction.response.send_message(embed=embed)
             return
 
-        if interaction.user.id == user.id:
-            embed = create_embed(
-                description="Вы не можете украсть деньги у самого себя."
+        # Проверка на бота
+        if user.bot and user.id != 1264591814208262154:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description="Вы не можете ограбить бота.",
+                    color="RED"
+                ),
+                ephemeral=True
             )
-            await interaction.response.send_message(embed=embed)
             return
 
-        if victim_data.get('balance', 0) <= 0:
-            embed = create_embed(
-                description=f"У {user.mention} нету денег на балансе."
+        # Получаем данные грабителя
+        robber_id = str(interaction.user.id)
+        robber_data = get_user(robber_id)
+
+        if not robber_data:
+            robber_data = {
+                'balance': 0,
+                'deposit': 0,
+                'xp': 0,
+                'level': 1,
+                'roles': '[]',
+                'last_rob': None
+            }
+
+        # Проверяем кулдаун
+        last_rob = robber_data.get('last_rob')
+        if last_rob:
+            last_rob = datetime.fromisoformat(last_rob)
+            next_rob = last_rob + timedelta(seconds=self.rob_cooldown)
+            
+            if datetime.utcnow() < next_rob:
+                time_left = next_rob - datetime.utcnow()
+                hours = int(time_left.total_seconds() // 3600)
+                minutes = int((time_left.total_seconds() % 3600) // 60)
+                
+                await interaction.response.send_message(
+                    embed=create_embed(
+                        description=f"Вы слишком устали для ограбления.\n"
+                                  f"Отдохните еще: **{hours}ч {minutes}м**",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                return
+
+        # Получаем данные жертвы
+        victim_id = str(user.id)
+        victim_data = get_user(victim_id)
+
+        if not victim_data or victim_data.get('balance', 0) < self.min_balance_to_rob:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description=f"У этого пользователя слишком мало денег для ограбления.\n"
+                              f"Минимальная сумма: {self.min_balance_to_rob:,} {EMOJIS['MONEY']}",
+                    color="RED"
+                ),
+                ephemeral=True
             )
-            await interaction.response.send_message(embed=embed)
             return
 
-        last_rob_time = author_data.get('last_rob')
-        if last_rob_time and datetime.utcnow() < datetime.fromisoformat(last_rob_time) + timedelta(minutes=5):
-            minutes_left = (datetime.fromisoformat(last_rob_time) + timedelta(minutes=5) - datetime.utcnow()).seconds // 60
-            embed = create_embed(
-                description=f"Вы не можете украсть деньги у {user.mention} еще {minutes_left} минут."
-            )
-            await interaction.response.send_message(embed=embed)
-            return
+        # Проверяем успех ограбления
+        if random.random() <= self.success_chance:
+            # Успешное ограбление
+            max_steal = int(victim_data['balance'] * self.max_rob_percent)
+            stolen = random.randint(1, max_steal)
 
-        success_chance = random.randint(1, 10)
-        if success_chance == 1:
-            stolen_amount = random.uniform(0.01, victim_data['balance'])
-            embed = create_embed(
-                title="Успех!",
-                description=f"Вы успешно украли у {user.mention} {stolen_amount:.2f} {EMOJIS['MONEY']}"
+            # Обновляем балансы
+            robber_data['balance'] = robber_data.get('balance', 0) + stolen
+            victim_data['balance'] = victim_data.get('balance', 0) - stolen
+
+            # Обновляем время последнего ограбления
+            robber_data['last_rob'] = datetime.utcnow().isoformat()
+
+            # Сохраняем изменения
+            save_user(robber_id, robber_data)
+            save_user(victim_id, victim_data)
+
+            await interaction.response.send_message(
+                embed=create_embed(
+                    title="Успешное ограбление!",
+                    description=f"Вы украли {stolen:,} {EMOJIS['MONEY']} у {user.mention}\n"
+                              f"Ваш текущий баланс: {robber_data['balance']:,} {EMOJIS['MONEY']}",
+                    color="GREEN"
+                )
             )
-            author_data['balance'] += stolen_amount
-            victim_data['balance'] -= stolen_amount
-            save_user(self.client, str(interaction.user.id), author_data)
-            save_user(self.client, str(user.id), victim_data)
         else:
-            embed = create_embed(
-                description=f"Не получилось украсть деньги у {user.mention}. Попробуйте еще раз."
+            # Неудачное ограбление
+            fine = random.randint(100, 1000)
+            robber_data['balance'] = max(0, robber_data.get('balance', 0) - fine)
+            robber_data['last_rob'] = datetime.utcnow().isoformat()
+            save_user(robber_id, robber_data)
+
+            await interaction.response.send_message(
+                embed=create_embed(
+                    title="Неудачное ограбление!",
+                    description=f"Вас поймала полиция и оштрафовала на {fine:,} {EMOJIS['MONEY']}\n"
+                              f"Ваш текущий баланс: {robber_data['balance']:,} {EMOJIS['MONEY']}",
+                    color="RED"
+                )
             )
 
-        author_data['last_rob'] = datetime.utcnow().isoformat()
-        save_user(self.client, str(interaction.user.id), author_data)
-        await interaction.response.send_message(embed=embed)
-
-async def setup(client):
-    await client.add_cog(Rob(client))
+async def setup(bot):
+    await bot.add_cog(Rob(bot))

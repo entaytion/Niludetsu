@@ -1,7 +1,8 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 import yaml
 
 class Setup(commands.GroupCog, name="setup"):
@@ -38,7 +39,11 @@ class Setup(commands.GroupCog, name="setup"):
         
         try:
             progress_msg = await interaction.followup.send(
-                embed=create_embed(description="🔄 Настройка ролей модерации...")
+                embed=create_embed(
+                    title=f"{EMOJIS['LOADING']} Настройка сервера",
+                    description="Настройка ролей модерации...",
+                    color="BLUE"
+                )
             )
             
             roles_created = []
@@ -141,28 +146,31 @@ class Setup(commands.GroupCog, name="setup"):
                         continue
 
             # Формируем отчет
-            description = "✅ Настройка завершена!\n\n"
+            description = f"{EMOJIS['SUCCESS']} Настройка завершена!\n\n"
             
             if roles_created:
-                description += "**Созданные роли:**\n"
+                description += f"{EMOJIS['ROLES']} **Созданные роли:**\n"
                 for role in roles_created:
-                    description += f"{EMOJIS['DOT']} {role.mention}\n"
+                    description += f"{EMOJIS['ROLE']} {role.mention}\n"
             
             if roles_updated:
-                description += "\n**Обновленные роли:**\n"
+                description += f"\n{EMOJIS['ROLES']} **Обновленные роли:**\n"
                 for role in roles_updated:
-                    description += f"{EMOJIS['DOT']} {role.mention}\n"
+                    description += f"{EMOJIS['ROLE']} {role.mention}\n"
             
             await progress_msg.edit(embed=create_embed(
-                title="⚙️ Настройка сервера",
-                description=description
+                title=f"{EMOJIS['SETTINGS']} Настройка сервера",
+                description=description,
+                color="GREEN"
             ))
 
         except Exception as e:
             print(f"Error in setup_moderation: {e}")
             await interaction.followup.send(
                 embed=create_embed(
-                    description="❌ Произошла ошибка при настройке сервера!"
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Произошла ошибка при настройке сервера!",
+                    color="RED"
                 )
             )
 
@@ -217,8 +225,9 @@ class Setup(commands.GroupCog, name="setup"):
 
             # Отправляем сообщение верификации
             embed = create_embed(
-                title="✅ Верификация",
-                description="Добро пожаловать на сервер!\nНажмите на кнопку ниже, чтобы получить доступ."
+                title=f"{EMOJIS['VERIFY']} Верификация",
+                description=f"{EMOJIS['WELCOME']} Добро пожаловать на сервер!\n{EMOJIS['INFO']} Нажмите на кнопку ниже, чтобы получить доступ.",
+                color="BLUE"
             )
             
             verify_button = discord.ui.Button(
@@ -234,10 +243,11 @@ class Setup(commands.GroupCog, name="setup"):
             
             await interaction.followup.send(
                 embed=create_embed(
-                    title="⚙️ Настройка верификации",
-                    description=f"✅ Настройка завершена!\n\n"
-                              f"{EMOJIS['DOT']} Канал верификации: {channel.mention}\n"
-                              f"{EMOJIS['DOT']} Роль верификации: {verified_role.mention}"
+                    title=f"{EMOJIS['SETTINGS']} Настройка верификации",
+                    description=f"{EMOJIS['SUCCESS']} Настройка завершена!\n\n"
+                              f"{EMOJIS['CHANNEL']} Канал верификации: {channel.mention}\n"
+                              f"{EMOJIS['ROLE']} Роль верификации: {verified_role.mention}",
+                    color="GREEN"
                 )
             )
 
@@ -245,91 +255,74 @@ class Setup(commands.GroupCog, name="setup"):
             print(f"Error in setup_verification: {e}")
             await interaction.followup.send(
                 embed=create_embed(
-                    description="❌ Произошла ошибка при настройке верификации!"
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Произошла ошибка при настройке верификации!",
+                    color="RED"
                 )
             )
 
     @app_commands.command(name="channels", description="Настроить основные каналы")
     @is_owner()
     async def setup_channels(self, interaction: discord.Interaction):
-        """Настраивает основные каналы сервера"""
+        """Настраивает основные каналы на сервере"""
         await interaction.response.defer()
         
         try:
-            channels_created = []
-            
-            # Создаем категории
-            info_category = await interaction.guild.create_category("📌 ИНФОРМАЦИЯ")
-            community_category = await interaction.guild.create_category("🌟 ОБЩЕНИЕ")
-            voice_category = await interaction.guild.create_category("🎤 ГОЛОСОВЫЕ КАНАЛЫ")
-            
-            # Информационные каналы
-            channels_created.append(await interaction.guild.create_text_channel(
-                'rules',
-                category=info_category,
-                topic="Правила сервера"
-            ))
-            
-            channels_created.append(await interaction.guild.create_text_channel(
-                'announcements',
-                category=info_category,
-                topic="Важные объявления"
-            ))
-            
-            channels_created.append(await interaction.guild.create_text_channel(
-                'roles',
-                category=info_category,
-                topic="Получение ролей"
-            ))
-            
-            # Каналы общения
-            channels_created.append(await interaction.guild.create_text_channel(
-                'general',
-                category=community_category,
-                topic="Основной чат"
-            ))
-            
-            channels_created.append(await interaction.guild.create_text_channel(
-                'media',
-                category=community_category,
-                topic="Обмен медиафайлами"
-            ))
-            
-            channels_created.append(await interaction.guild.create_text_channel(
-                'bot-commands',
-                category=community_category,
-                topic="Команды бота"
-            ))
-            
-            # Голосовые каналы
-            channels_created.append(await interaction.guild.create_voice_channel(
-                'Основной',
-                category=voice_category,
-                user_limit=0
-            ))
-            
-            channels_created.append(await interaction.guild.create_voice_channel(
-                'Музыка',
-                category=voice_category,
-                user_limit=0
-            ))
-            
-            description = "✅ Каналы успешно созданы!\n\n**Созданные каналы:**\n"
-            for channel in channels_created:
-                description += f"{EMOJIS['DOT']} {channel.mention}\n"
-            
-            await interaction.followup.send(
+            progress_msg = await interaction.followup.send(
                 embed=create_embed(
-                    title="⚙️ Настройка каналов",
-                    description=description
+                    title=f"{EMOJIS['LOADING']} Настройка каналов",
+                    description="Создание и настройка каналов...",
+                    color="BLUE"
                 )
             )
+            
+            channels_created = []
+            channels_updated = []
+            
+            # Создаем/обновляем каналы
+            for channel_type, channel_data in self.config['channels'].items():
+                existing_channel = discord.utils.get(interaction.guild.channels, name=channel_data['name'])
+                
+                if existing_channel:
+                    await existing_channel.edit(
+                        topic=channel_data.get('topic', ''),
+                        reason='Обновление канала'
+                    )
+                    channels_updated.append(existing_channel)
+                else:
+                    channel = await interaction.guild.create_text_channel(
+                        name=channel_data['name'],
+                        topic=channel_data.get('topic', ''),
+                        reason='Автоматическая настройка каналов'
+                    )
+                    channels_created.append(channel)
+            
+            # Формируем отчет
+            description = f"{EMOJIS['SUCCESS']} Настройка завершена!\n\n"
+            
+            if channels_created:
+                description += f"{EMOJIS['CHANNELS']} **Созданные каналы:**\n"
+                for channel in channels_created:
+                    description += f"{EMOJIS['CHANNEL']} {channel.mention}\n"
+            
+            if channels_updated:
+                description += f"\n{EMOJIS['CHANNELS']} **Обновленные каналы:**\n"
+                for channel in channels_updated:
+                    description += f"{EMOJIS['CHANNEL']} {channel.mention}\n"
+            
+            await progress_msg.edit(embed=create_embed(
+                title=f"{EMOJIS['SETTINGS']} Настройка каналов",
+                description=description,
+                color="GREEN"
+            ))
 
         except Exception as e:
             print(f"Error in setup_channels: {e}")
             await interaction.followup.send(
                 embed=create_embed(
-                    description="❌ Произошла ошибка при настройке каналов!"
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Произошла ошибка при настройке каналов!",
+                    color="RED"
                 )
             )
 

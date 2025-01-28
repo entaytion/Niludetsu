@@ -1,7 +1,8 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 from datetime import datetime
 import humanize
 import pytz
@@ -119,7 +120,8 @@ class UserInfo(commands.Cog):
             # Создаем эмбед
             embed = create_embed(
                 title=f"Информация о пользователе {target_user.name}",
-                thumbnail_url=target_user.display_avatar.url
+                thumbnail={'url': target_user.display_avatar.url},
+                color="DEFAULT"
             )
 
             # Основная информация
@@ -212,8 +214,14 @@ class UserInfo(commands.Cog):
                     )
 
             # Добавляем футер с временем запроса
-            embed.set_footer(text=f"Запрошено {interaction.user.name}")
-            embed.timestamp = datetime.now()
+            embed = create_embed(
+                title=embed.title,
+                description=embed.description,
+                fields=embed.fields,
+                footer={'text': f"Запрошено {interaction.user.name}"},
+                timestamp=datetime.now(),
+                color="DEFAULT"
+            )
 
             # Отправляем сообщение
             await interaction.followup.send(embed=embed)

@@ -1,168 +1,124 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from discord.ui import View, Button, Modal, TextInput
+from Niludetsu.utils.embed import create_embed
 import random
-import json
-import asyncio
-from utils import create_embed
 
-# База данных столиц и стран
 CAPITALS = {
-    "Москва": "Россия",
-    "Париж": "Франция",
-    "Берлин": "Германия",
-    "Рим": "Италия",
-    "Мадрид": "Испания",
-    "Лондон": "Великобритания",
-    "Варшава": "Польша",
-    "Прага": "Чехия",
-    "Вена": "Австрия",
-    "Будапешт": "Венгрия",
-    "Афины": "Греция",
-    "Лиссабон": "Португалия",
-    "Амстердам": "Нидерланды",
-    "Брюссель": "Бельгия",
-    "Стокгольм": "Швеция",
-    "Осло": "Норвегия",
-    "Хельсинки": "Финляндия",
-    "Копенгаген": "Дания",
-    "Дублин": "Ирландия",
-    "Берн": "Швейцария"
+    "Украина": "Киев",
+    "Польша": "Варшава",
+    "Швеция": "Стокгольм",
+    "Норвегия": "Осло",
+    "Финляндия": "Хельсинки",
+    "Португалия": "Лиссабон",
+    "Греция": "Афины",
+    "Турция": "Анкара",
+    "Египет": "Каир",
+    "Казахстан": "Нур-Султан",
+    "Россия": "Москва",
+    "США": "Вашингтон",
+    "Китай": "Пекин",
+    "Япония": "Токио",
+    "Германия": "Берлин",
+    "Франция": "Париж",
+    "Великобритания": "Лондон",
+    "Италия": "Рим",
+    "Канада": "Оттава",
+    "Австралия": "Канберра",
+    "Бразилия": "Бразилиа",
+    "Индия": "Нью-Дели",
+    "Испания": "Мадрид",
+    "Мексика": "Мехико",
+    "Южная Корея": "Сеул"
 }
 
-class GuessModal(Modal):
+class CapitalsGame:
     def __init__(self):
-        super().__init__(title="Угадай столицу")
-        self.guess = TextInput(
-            label="Введите название столицы",
+        self.countries = list(CAPITALS.keys())
+        self.current_country = None
+        self.score = 0
+        self.total_questions = 5
+        self.current_question = 0
+        self.next_question()
+        
+    def next_question(self):
+        if self.current_question < self.total_questions:
+            self.current_country = random.choice(self.countries)
+            self.countries.remove(self.current_country)
+            self.current_question += 1
+            return True
+        return False
+        
+    def check_answer(self, answer: str) -> bool:
+        return answer.lower().strip() == CAPITALS[self.current_country].lower()
+
+class CapitalsView(discord.ui.View):
+    def __init__(self, game: CapitalsGame):
+        super().__init__()
+        self.game = game
+        self.add_item(CapitalsInput())
+        
+class CapitalsInput(discord.ui.TextInput):
+    def __init__(self):
+        super().__init__(
+            label="Введите столицу",
             placeholder="Например: Париж",
             style=discord.TextStyle.short,
             required=True,
             max_length=50
         )
-        self.add_item(self.guess)
-
-    async def on_submit(self, interaction: discord.Interaction):
-        game_view = self.view
-        await game_view.process_guess(interaction, self.guess.value)
-
-class CapitalsGame:
-    def __init__(self):
-        self.target_capital = random.choice(list(CAPITALS.keys()))
-        self.target_country = CAPITALS[self.target_capital]
-        self.attempts = []
-        self.max_attempts = 7
-        self.game_over = False
         
-    def make_guess(self, guess):
-        guess = guess.strip().capitalize()
-        self.attempts.append(guess)
+    async def callback(self, interaction: discord.Interaction):
+        view: CapitalsView = self.view
+        game = view.game
         
-        if guess == self.target_capital:
-            self.game_over = True
-            return True
-            
-        return False
-        
-    def get_hint(self, guess):
-        if guess == self.target_capital:
-            return "🟩" * len(guess)
-            
-        hint = ""
-        target_chars = set(self.target_capital.lower())
-        guess_chars = set(guess.lower())
-        
-        common_chars = target_chars & guess_chars
-        if not common_chars:
-            return "❌ Нет общих букв"
-            
-        return f"📝 Общие буквы: {', '.join(sorted(common_chars))}"
-        
-    def get_status(self):
-        status = []
-        for attempt in self.attempts:
-            hint = self.get_hint(attempt)
-            status.append(f"**Попытка {len(status) + 1}:** {attempt}\n{hint}")
-        return "\n".join(status)
-
-class CapitalsView(View):
-    def __init__(self, game):
-        super().__init__(timeout=300)  # 5 минут на игру
-        self.game = game
-        
-    @discord.ui.button(label="Сделать предположение", style=discord.ButtonStyle.primary)
-    async def guess(self, interaction: discord.Interaction, button: Button):
-        if len(self.game.attempts) >= self.game.max_attempts:
-            await interaction.response.send_message("❌ Игра окончена! У вас закончились попытки.")
-            return
-            
-        modal = GuessModal()
-        modal.view = self
-        await interaction.response.send_modal(modal)
-        
-    async def process_guess(self, interaction: discord.Interaction, guess):
-        is_correct = self.game.make_guess(guess)
-        
+        is_correct = game.check_answer(self.value)
         if is_correct:
-            embed = create_embed(
-                title="🎮 Поздравляем!",
-                description=f"✅ Вы угадали столицу: **{self.game.target_capital}**!\n"
-                           f"Это столица страны **{self.game.target_country}**\n"
-                           f"Количество попыток: **{len(self.game.attempts)}**\n\n"
-                           f"**История попыток:**\n{self.game.get_status()}"
-            )
-            self.stop()
-            await interaction.response.edit_message(embed=embed, view=None)
-            return
+            game.score += 1
+            color = "GREEN"
+            result = "✅ Правильно!"
+        else:
+            color = "RED"
+            result = f"❌ Неправильно! Правильный ответ: **{CAPITALS[game.current_country]}**"
             
-        if len(self.game.attempts) >= self.game.max_attempts:
+        if game.next_question():
             embed = create_embed(
-                title="❌ Игра окончена!",
-                description=f"У вас закончились попытки!\n"
-                           f"Правильный ответ: **{self.game.target_capital}** ({self.game.target_country})\n\n"
-                           f"**История попыток:**\n{self.game.get_status()}"
+                title="🏛️ Угадай столицу",
+                description=f"{result}\n\n"
+                          f"**Счёт:** {game.score}/{game.current_question}\n"
+                          f"**Следующий вопрос ({game.current_question}/{game.total_questions}):**\n"
+                          f"Какая столица у страны **{game.current_country}**?",
+                color=color
             )
-            self.stop()
+            view = CapitalsView(game)
+            await interaction.response.edit_message(embed=embed, view=view)
+        else:
+            embed = create_embed(
+                title="🏛️ Игра окончена!",
+                description=f"{result}\n\n"
+                          f"**Итоговый счёт:** {game.score}/{game.total_questions}",
+                color="BLUE"
+            )
             await interaction.response.edit_message(embed=embed, view=None)
-            return
-            
-        embed = create_embed(
-            title="🎮 Угадай столицу",
-            description=f"Угадайте столицу страны **{self.game.target_country}**\n"
-                       f"Осталось попыток: **{self.game.max_attempts - len(self.game.attempts)}**\n\n"
-                       f"**История попыток:**\n{self.game.get_status()}\n\n"
-                       "Нажмите кнопку ниже, чтобы сделать следующее предположение!"
-        )
-        await interaction.response.edit_message(embed=embed, view=self)
 
 class Capitals(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        
-    @app_commands.command(name="capitals", description="Начать игру 'Угадай столицу'")
+
+    @app_commands.command(name="capitals", description="Игра 'Угадай столицу'")
     async def capitals(self, interaction: discord.Interaction):
         game = CapitalsGame()
-        
-        embed = create_embed(
-            title="🎮 Угадай столицу",
-            description=f"Угадайте столицу страны **{game.target_country}**\n"
-                       f"У вас есть **{game.max_attempts}** попыток.\n"
-                       "После каждой попытки вы получите подсказку в виде общих букв.\n\n"
-                       "Нажмите кнопку ниже, чтобы сделать предположение!"
-        )
-        
         view = CapitalsView(game)
-        await interaction.response.send_message(embed=embed, view=view)
         
-        await view.wait()
-        if not view.is_finished():
-            embed = create_embed(
-                title="⏰ Время вышло!",
-                description=f"Правильный ответ: **{game.target_capital}** ({game.target_country})\n\n"
-                           f"**История попыток:**\n{game.get_status()}"
-            )
-            await interaction.edit_original_message(embed=embed, view=None)
+        await interaction.response.send_message(
+            embed=create_embed(
+                title="🏛️ Угадай столицу",
+                description=f"**Вопрос {game.current_question}/{game.total_questions}:**\n"
+                          f"Какая столица у страны **{game.current_country}**?",
+                color="BLUE"
+            ),
+            view=view
+        )
 
 async def setup(bot):
     await bot.add_cog(Capitals(bot)) 

@@ -1,12 +1,10 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 import g4f
 import asyncio
-import random
-import platform
-import sys
 
 class AI(commands.Cog):
     def __init__(self, bot):
@@ -55,15 +53,19 @@ class AI(commands.Cog):
             response = await self.get_ai_response(вопрос)
             
             embed = create_embed(
-                title="🤖 Ответ ИИ",
-                description=response
+                title=f"{EMOJIS['AI']} Ответ ИИ",
+                description=response,
+                color="BLUE"
             )
+            
+            embed.set_footer(text=f"Запрос: {вопрос[:100]}{'...' if len(вопрос) > 100 else ''}")
             await interaction.followup.send(embed=embed)
             
         except Exception as e:
             error_embed = create_embed(
-                title="❌ Ошибка",
-                description=f"Произошла ошибка при обработке запроса: {str(e)}"
+                title=f"{EMOJIS['ERROR']} Ошибка",
+                description=f"Произошла ошибка при обработке запроса: {str(e)}",
+                color="RED"
             )
             await interaction.followup.send(embed=error_embed)
 

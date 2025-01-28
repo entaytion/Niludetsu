@@ -1,7 +1,9 @@
 import discord
 from discord.ext import commands
 from easy_pil import Canvas, Editor, Font
-from utils import get_user, calculate_next_level_xp
+from Niludetsu.utils.database import get_user, calculate_next_level_xp
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 import aiohttp
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
@@ -52,14 +54,26 @@ class Level(commands.Cog):
             user = user or interaction.user
             
             if user.bot:
-                await interaction.response.send_message("Вы не можете использовать эту команду на ботов.")
+                await interaction.response.send_message(
+                    embed=create_embed(
+                        title=f"{EMOJIS['ERROR']} Ошибка",
+                        description="Вы не можете использовать эту команду на ботов.",
+                        color="RED"
+                    )
+                )
                 return
 
             user_id = str(user.id)
             user_data = get_user(self.client, user_id)
 
             if not user_data:
-                await interaction.response.send_message("Пользователь не найден в базе данных.")
+                await interaction.response.send_message(
+                    embed=create_embed(
+                        title=f"{EMOJIS['ERROR']} Ошибка",
+                        description="Пользователь не найден в базе данных.",
+                        color="RED"
+                    )
+                )
                 return
                 
             xp = user_data.get('xp', 0)
@@ -113,7 +127,13 @@ class Level(commands.Cog):
                     file=discord.File(fp=image_binary, filename='level.png')
                 )
         except Exception as e:
-            await interaction.response.send_message(f"Произошла ошибка: {str(e)}")
+            await interaction.response.send_message(
+                embed=create_embed(
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description=f"Произошла ошибка: {str(e)}",
+                    color="RED"
+                )
+            )
 
 async def setup(client):
     await client.add_cog(Level(client))

@@ -3,7 +3,9 @@ from discord import app_commands
 from discord.ext import commands
 import sqlite3
 from datetime import datetime, timedelta, time
-from utils import create_embed, DB_PATH, initialize_table, TABLES_SCHEMAS, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.database import DB_PATH, initialize_table, TABLES_SCHEMAS
 from discord.ext import tasks
 
 class Streak(commands.Cog):
@@ -189,8 +191,9 @@ class Streak(commands.Cog):
                     try:
                         await message.author.send(
                             embed=create_embed(
-                                title=f"{EMOJIS['SUCCESS']} Новый рекорд!",
-                                description=f"Вы установили новый рекорд активности: **{streak_data['streak_count']} дней**!"
+                                title=f"{EMOJIS['TROPHY']} Новый рекорд!",
+                                description=f"{EMOJIS['FIRE']} Вы установили новый рекорд активности: **{streak_data['streak_count']} дней**!",
+                                color="GOLD"
                             )
                         )
                     except discord.Forbidden:
@@ -233,8 +236,9 @@ class Streak(commands.Cog):
             if not last_message:
                 await interaction.response.send_message(
                     embed=create_embed(
-                        title="❌ Нет огонька",
-                        description=f"У {target_user.mention} пока нет огонька. Начните общаться, чтобы получить огонек!"
+                        title=f"{EMOJIS['ERROR']} Нет огонька",
+                        description=f"У {target_user.mention} пока нет огонька. Начните общаться, чтобы получить огонек!",
+                        color="RED"
                     )
                 )
                 return
@@ -244,43 +248,46 @@ class Streak(commands.Cog):
             
             if not is_active:
                 status = f"{EMOJIS['ERROR']} Огонёк потух! Напишите сообщение, чтобы начать новый."
+                color = "RED"
             else:
                 time_left = int((next_reset - datetime.now()).total_seconds())
                 hours_left, minutes_left = divmod(time_left // 60, 60)
                 status = f"{EMOJIS['SUCCESS']} Огонёк активен ещё {hours_left}ч {minutes_left}м."
+                color = "GREEN"
 
-            # Создаем embed с обновленной информацией
+            # Создаем эмбед с информацией об огоньке
             embed = create_embed(
-                title=f"{self.get_flame_emoji(current_streak)} Статистика общения",
-                description=f"Статистика для {target_user.mention}",
-                fields=[
-                    {"name": f"{EMOJIS['FLAME']} Текущий огонёк:", "value": f"{current_streak} дней", "inline": True},
-                    {"name": f"{EMOJIS['CROWN']} Рекордный огонёк:", "value": f"{streak_data['highest_streak']} дней", "inline": True},
-                    {"name": f"{EMOJIS['MESSAGE']} Всего сообщений:", "value": str(streak_data['total_messages']), "inline": True},
-                    {"name": f"{EMOJIS['STATUS']} Статус:", "value": status, "inline": False}
-                ],
-                thumbnail_url=target_user.display_avatar.url
+                title=f"{self.get_flame_emoji(streak_data['streak_count'])} Огонёк {target_user.name}",
+                description=status,
+                color=color
             )
-            
-            if streak_data['reference_time']:
-                embed.add_field(
-                    name=f"{EMOJIS['CALENDAR']} Начало общения",
-                    value=f"**{streak_data['reference_time'].strftime('%d.%m.%Y %H:%M')}**",
-                    inline=True
-                )
-            
-            if last_message:
-                time_since = datetime.now() - last_message
-                hours_since = int(time_since.total_seconds() / 3600)
-                minutes_since = int((time_since.total_seconds() % 3600) / 60)
-                time_ago = f" (прошло {hours_since}ч {minutes_since}м)" if hours_since > 0 or minutes_since > 0 else ""
-                
-                embed.add_field(
-                    name=f"{EMOJIS['CLOCK']} Последнее сообщение",
-                    value=f"**{last_message.strftime('%d.%m.%Y %H:%M')}**{time_ago}",
-                    inline=True
-                )
-            
+
+            # Добавляем поля с информацией
+            embed.add_field(
+                name=f"{EMOJIS['STREAK']} Текущий огонёк",
+                value=f"**{streak_data['streak_count']}** дней",
+                inline=True
+            )
+            embed.add_field(
+                name=f"{EMOJIS['TROPHY']} Рекорд",
+                value=f"**{streak_data['highest_streak']}** дней",
+                inline=True
+            )
+            embed.add_field(
+                name=f"{EMOJIS['MESSAGES']} Всего сообщений",
+                value=f"**{streak_data['total_messages']}**",
+                inline=True
+            )
+
+            # Добавляем информацию о последнем сообщении
+            last_message_str = last_message.strftime("%d.%m.%Y %H:%M")
+            embed.add_field(
+                name=f"{EMOJIS['TIME']} Последнее сообщение",
+                value=f"**{last_message_str}**",
+                inline=False
+            )
+
+            embed.set_thumbnail(url=target_user.display_avatar.url)
             await interaction.response.send_message(embed=embed)
 
         except Exception as e:

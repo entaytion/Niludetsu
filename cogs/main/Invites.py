@@ -194,9 +194,9 @@ class InviteTracker:
     async def format_join_message(self, member: discord.Member, invite: Optional[discord.Invite]) -> discord.Embed:
         """Форматирует сообщение о входе участника"""
         embed = create_embed(
-            title="Участник присоединился",
+            title=f"👋 Новый участник #{len(member.guild.members)}",
             color=0x2ecc71,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
         
         embed.set_thumbnail(url=member.display_avatar.url)
@@ -207,72 +207,127 @@ class InviteTracker:
         # Определяем источник приглашения
         invite_source, source_info = self.get_invite_source(invite)
         
-        fields = [
-            ("👤 Участник", f"{member.mention} ({member})", True),
-            ("🏷️ ID", member.id, True),
-            ("📅 Аккаунт создан", f"<t:{int(member.created_at.timestamp())}:R>", True),
-            ("🔍 Тип аккаунта", account_info, True),
-            ("📨 Источник", source_info, True)
-        ]
+        # Основная информация об участнике
+        embed.add_field(
+            name="👤 Участник",
+            value=f"{member.mention}\n`{member.name}`\nID: `{member.id}`",
+            inline=False
+        )
         
+        # Информация об аккаунте
+        created_timestamp = int(member.created_at.timestamp())
+        embed.add_field(
+            name="📅 Информация об аккаунте",
+            value=f"Создан: <t:{created_timestamp}:D> (<t:{created_timestamp}:R>)\n{account_info}",
+            inline=False
+        )
+        
+        # Информация о приглашении
         if invite:
             inviter = invite.inviter
-            fields.extend([
-                ("🔗 Приглашение", f"discord.gg/{invite.code}", True),
-                ("👥 Пригласил", f"{inviter.mention} ({inviter})" if inviter else "Неизвестно", True),
-                ("📊 Использований", invite.uses, True),
-                ("⏱️ Создано", f"<t:{int(invite.created_at.timestamp())}:R>", True),
-                ("♾️ Бесконечное", "Да" if invite.max_uses == 0 else "Нет", True),
-                ("⌛ Истекает", f"<t:{int(invite.expires_at.timestamp())}:R>" if invite.expires_at else "Никогда", True)
-            ])
+            invite_info = [
+                f"🔗 Код: `{invite.code}`",
+                f"👥 Пригласил: {inviter.mention if inviter else 'Неизвестно'}",
+                f"📊 Использований: `{invite.uses}`",
+                f"📨 Источник: {source_info}"
+            ]
             
-            # Добавляем информацию о канале приглашения
             if invite.channel:
-                fields.append(("📝 Канал", f"{invite.channel.mention} ({invite.channel.name})", True))
-        
-        for name, value, inline in fields:
-            embed.add_field(name=name, value=value, inline=inline)
+                invite_info.append(f"📝 Канал: {invite.channel.mention}")
+                
+            if invite.expires_at:
+                expires_timestamp = int(invite.expires_at.timestamp())
+                invite_info.append(f"⌛ Истекает: <t:{expires_timestamp}:R>")
+            else:
+                invite_info.append("⌛ Истекает: Никогда")
+                
+            embed.add_field(
+                name="📨 Информация о приглашении",
+                value="\n".join(invite_info),
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="📨 Информация о приглашении",
+                value="❓ Не удалось определить источник приглашения",
+                inline=False
+            )
             
         # Добавляем предупреждение для подозрительных аккаунтов
         if account_type == AccountType.SUSPICIOUS:
-            embed.description = f"⚠️ **Внимание!** Аккаунт создан совсем недавно!"
+            embed.description = "⚠️ **Внимание!** Этот аккаунт был создан совсем недавно и может быть подозрительным!"
+            embed.color = 0xe74c3c
+        elif account_type == AccountType.NEW:
+            embed.description = "ℹ️ Это новый аккаунт Discord"
+            embed.color = 0xf1c40f
             
         return embed
 
     async def format_leave_message(self, member: discord.Member) -> discord.Embed:
         """Форматирует сообщение о выходе участника"""
         embed = create_embed(
-            title="Участник покинул сервер",
+            title=f"👋 Участник покинул сервер",
             color=0xe74c3c,
             timestamp=datetime.now(timezone.utc)
         )
         
         embed.set_thumbnail(url=member.display_avatar.url)
         
-        time_on_server = datetime.now(timezone.utc) - member.joined_at
-        days = time_on_server.days
-        hours, remainder = divmod(time_on_server.seconds, 3600)
-        minutes, _ = divmod(remainder, 60)
+        # Основная информация об участнике
+        embed.add_field(
+            name="👤 Участник",
+            value=f"`{member.name}`\nID: `{member.id}`",
+            inline=False
+        )
         
-        time_format = []
-        if days > 0:
-            time_format.append(f"{days} дн.")
-        if hours > 0:
-            time_format.append(f"{hours} ч.")
-        if minutes > 0:
-            time_format.append(f"{minutes} мин.")
-        
-        time_str = " ".join(time_format) if time_format else "менее минуты"
-        
-        fields = [
-            ("👤 Участник", f"{member} ({member.id})", True),
-            ("📅 Присоединился", f"<t:{int(member.joined_at.timestamp())}:R>", True),
-            ("⏱️ Пробыл на сервере", time_str, True)
-        ]
-        
-        for name, value, inline in fields:
-            embed.add_field(name=name, value=value, inline=inline)
+        # Информация о ролях
+        if member.roles[1:]:  # Исключаем @everyone
+            roles = [role.mention for role in reversed(member.roles[1:])]
+            roles_str = " ".join(roles[:10])
+            if len(member.roles) > 11:
+                roles_str += f"\n*...и еще {len(member.roles) - 11} ролей*"
+            embed.add_field(
+                name=f"👑 Роли ({len(member.roles) - 1})",
+                value=roles_str,
+                inline=False
+            )
             
+        # Информация о времени на сервере
+        joined_at = member.joined_at
+        if joined_at:
+            joined_timestamp = int(joined_at.timestamp())
+            time_on_server = datetime.now(timezone.utc) - joined_at
+            days = time_on_server.days
+            hours = time_on_server.seconds // 3600
+            minutes = (time_on_server.seconds % 3600) // 60
+            
+            time_parts = []
+            if days > 0:
+                time_parts.append(f"{days} {'дней' if days % 10 != 1 or days == 11 else 'день'}")
+            if hours > 0:
+                time_parts.append(f"{hours} {'часов' if hours % 10 != 1 or hours == 11 else 'час'}")
+            if minutes > 0:
+                time_parts.append(f"{minutes} {'минут' if minutes % 10 != 1 or minutes == 11 else 'минуту'}")
+                
+            time_str = ", ".join(time_parts) if time_parts else "менее минуты"
+            
+            embed.add_field(
+                name="⏱️ Информация о пребывании",
+                value=f"Присоединился: <t:{joined_timestamp}:D> (<t:{joined_timestamp}:R>)\nПробыл на сервере: {time_str}",
+                inline=False
+            )
+            
+        # Информация об аккаунте
+        created_timestamp = int(member.created_at.timestamp())
+        account_age = datetime.now(timezone.utc) - member.created_at
+        account_age_days = account_age.days
+        
+        embed.add_field(
+            name="📅 Информация об аккаунте",
+            value=f"Создан: <t:{created_timestamp}:D> (<t:{created_timestamp}:R>)\nВозраст аккаунта: {account_age_days} {'дней' if account_age_days % 10 != 1 or account_age_days == 11 else 'день'}",
+            inline=False
+        )
+        
         return embed
 
     async def on_member_join(self, member: discord.Member):
@@ -411,51 +466,103 @@ class InvitesCog(commands.Cog):
     @app_commands.describe(code="Код приглашения (без discord.gg/)")
     @commands.has_permissions(administrator=True)
     async def invite_info(self, interaction: discord.Interaction, code: str):
+        """Показывает информацию о приглашении"""
+        await interaction.response.defer()
+        
         try:
-            invite = await self.bot.fetch_invite(code)
+            invite = await interaction.guild.fetch_invite(code)
             
             embed = create_embed(
-                title=f"ℹ️ Информация о приглашении",
-                description=f"Информация о приглашении с кодом `{code}`"
+                title=f"📨 Информация о приглашении",
+                color=0x3498db,
+                timestamp=datetime.now(timezone.utc)
             )
             
-            if invite.guild:
-                embed.add_field(name="🏠 Сервер", value=invite.guild.name, inline=True)
+            # Основная информация
+            embed.add_field(
+                name="🔗 Основная информация",
+                value=(
+                    f"Код: `{invite.code}`\n"
+                    f"Ссылка: https://discord.gg/{invite.code}\n"
+                    f"Канал: {invite.channel.mention} (`{invite.channel.name}`)"
+                ),
+                inline=False
+            )
             
-            if invite.channel:
-                embed.add_field(name="📝 Канал", value=invite.channel.mention, inline=True)
-            
+            # Информация о создателе
             if invite.inviter:
-                embed.add_field(name="👤 Создатель", value=invite.inviter.mention, inline=True)
+                created_timestamp = int(invite.created_at.timestamp())
+                embed.add_field(
+                    name="👤 Создатель",
+                    value=(
+                        f"Пользователь: {invite.inviter.mention} (`{invite.inviter}`)\n"
+                        f"ID: `{invite.inviter.id}`\n"
+                        f"Создано: <t:{created_timestamp}:D> (<t:{created_timestamp}:R>)"
+                    ),
+                    inline=False
+                )
             
-            if invite.created_at:
-                embed.add_field(name="⏱️ Создано", value=f"<t:{int(invite.created_at.timestamp())}:R>", inline=True)
+            # Статистика использования
+            stats = [
+                f"📊 Использований: `{invite.uses}`",
+                f"📈 Максимум использований: `{'∞' if invite.max_uses == 0 else invite.max_uses}`"
+            ]
             
-            if hasattr(invite, 'uses') and invite.uses is not None:
-                embed.add_field(name="📊 Использований", value=str(invite.uses), inline=True)
+            if invite.expires_at:
+                expires_timestamp = int(invite.expires_at.timestamp())
+                stats.append(f"⌛ Истекает: <t:{expires_timestamp}:R>")
+            else:
+                stats.append("⌛ Истекает: Никогда")
+                
+            if invite.max_age:
+                stats.append(f"⏳ Срок действия: `{invite.max_age // 86400}` дней")
+            else:
+                stats.append("⏳ Срок действия: Бессрочно")
+                
+            embed.add_field(
+                name="📈 Статистика",
+                value="\n".join(stats),
+                inline=False
+            )
             
-            if hasattr(invite, 'max_uses') and invite.max_uses:
-                embed.add_field(name="🔢 Макс. использований", value=str(invite.max_uses), inline=True)
+            # Дополнительная информация
+            _, source_info = self.invite_tracker.get_invite_source(invite)
+            extra_info = [
+                f"📨 Источник: {source_info}",
+                f"🎭 Временное членство: {'Да' if invite.temporary else 'Нет'}"
+            ]
             
-            if hasattr(invite, 'expires_at') and invite.expires_at:
-                embed.add_field(name="⌛ Истекает", value=f"<t:{int(invite.expires_at.timestamp())}:R>", inline=True)
+            if hasattr(invite, 'target_type'):
+                target_types = {
+                    1: "STREAM",
+                    2: "EMBEDDED_APPLICATION",
+                    3: "ROLE_SUBSCRIPTIONS"
+                }
+                extra_info.append(f"🎯 Тип цели: {target_types.get(invite.target_type, 'Неизвестно')}")
             
-            await interaction.response.send_message(embed=embed)
+            embed.add_field(
+                name="ℹ️ Дополнительно",
+                value="\n".join(extra_info),
+                inline=False
+            )
+            
+            await interaction.followup.send(embed=embed)
             
         except discord.NotFound:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Приглашение не найдено!"
-                ),
-                ephemeral=True
+            embed = create_embed(
+                title="❌ Ошибка",
+                description="Приглашение не найдено или истекло",
+                color=0xe74c3c
             )
-        except Exception as e:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Произошла ошибка при получении информации о приглашении: {str(e)}"
-                ),
-                ephemeral=True
+            await interaction.followup.send(embed=embed)
+            
+        except discord.Forbidden:
+            embed = create_embed(
+                title="❌ Ошибка",
+                description="У меня нет прав для просмотра информации о приглашениях",
+                color=0xe74c3c
             )
+            await interaction.followup.send(embed=embed)
 
     @invites.command(name="list", description="Список активных приглашений")
     @commands.has_permissions(administrator=True)

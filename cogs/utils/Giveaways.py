@@ -5,7 +5,9 @@ import sqlite3
 from datetime import datetime, timedelta
 import random
 from typing import List, Optional
-from utils import create_embed, DB_PATH, initialize_table, TABLES_SCHEMAS, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.database import initialize_table, TABLES_SCHEMAS, DB_PATH
 
 class Giveaways(commands.Cog):
     def __init__(self, bot):

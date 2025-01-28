@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
-from utils import create_embed, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 class CategorySelect(discord.ui.Select):
     def __init__(self, categories):
@@ -38,16 +39,16 @@ class CategorySelect(discord.ui.Select):
             embed = create_embed(
                 title=f"{cat_info['emoji']} {cat_info['title']}",
                 description=description,
-                footer={
-                    'text': f"{cat_info['footer']} • [] - обязательный параметр, <> - необязательный параметр",
-                    'icon_url': "https://cdn.discordapp.com/emojis/1265334981266374783.webp?size=160&quality=lossless"
-                }
+                footer={'text': f"{cat_info['footer']} • [] - обязательный параметр, <> - необязательный параметр",
+                        'icon_url': "https://cdn.discordapp.com/emojis/1265334981266374783.webp?size=160&quality=lossless"},
+                color="DEFAULT"
             )
             await interaction.response.edit_message(embed=embed, view=self.view)
         except discord.errors.NotFound:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Это меню устарело. Используйте `/help` еще раз!"
+                    description="Это меню устарело. Используйте `/help` еще раз!",
+                    color="RED"
                 )
             )
 
@@ -81,16 +82,16 @@ class AllCommandsButton(discord.ui.Button):
             embed = create_embed(
                 title="📚 Список всех команд",
                 description="\n".join(all_commands) if all_commands else "Нет доступных команд",
-                footer={
-                    'text': "Выберите категорию ниже для подробного описания команд • [] - обязательный параметр, <> - необязательный параметр",
-                    'icon_url': "https://cdn.discordapp.com/emojis/1265334981266374783.webp?size=160&quality=lossless"
-                }
+                footer={'text': "Выберите категорию ниже для подробного описания команд • [] - обязательный параметр, <> - необязательный параметр",
+                        'icon_url': "https://cdn.discordapp.com/emojis/1265334981266374783.webp?size=160&quality=lossless"},
+                color="DEFAULT"
             )
             await interaction.response.edit_message(embed=embed)
         except discord.errors.NotFound:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Это меню устарело. Используйте `/help` еще раз!"
+                    description="Это меню устарело. Используйте `/help` еще раз!",
+                    color="RED"
                 )
             )
 

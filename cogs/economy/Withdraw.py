@@ -1,49 +1,80 @@
 import discord
-from discord import Interaction
 from discord.ext import commands
-from utils import create_embed, get_user, save_user, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.database import get_user, save_user
+from Niludetsu.core.base import EMOJIS
 
 class Withdraw(commands.Cog):
-    def __init__(self, client):
-        self.client = client
+    def __init__(self, bot):
+        self.bot = bot
 
-    @discord.app_commands.command(name="withdraw", description="Снятие баланса")
-    @discord.app_commands.describe(amount="Сумма для снятия с банка")
-    async def withdraw(self,
-                      interaction: Interaction,
-                      amount: int):
-        user_id = str(interaction.user.id)
-
-        user_data = get_user(self.client, user_id)
-
+    @discord.app_commands.command(name="withdraw", description="Снять деньги с банка")
+    @discord.app_commands.describe(
+        amount="Сумма для снятия с банка"
+    )
+    async def withdraw(self, interaction: discord.Interaction, amount: int):
+        """
+        Команда для снятия денег с банка
+        
+        Parameters
+        ----------
+        interaction : discord.Interaction
+            Объект взаимодействия
+        amount : int
+            Сумма для снятия с банка
+        """
+        # Проверка суммы
         if amount <= 0:
-            embed = create_embed(
-                title="Ошибка.",
-                description="Сумма снятия не может быть 0 или отрицательной."
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description="Сумма должна быть больше 0.",
+                    color="RED"
+                ),
+                ephemeral=True
             )
-            await interaction.response.send_message(embed=embed)
             return
 
-        if user_data['deposit'] < amount:
-            embed = create_embed(
-                title="Ошибка.",
-                description="У вас недостаточно средств для снятия."
+        # Получаем данные пользователя
+        user_id = str(interaction.user.id)
+        user_data = get_user(user_id)
+
+        if not user_data:
+            user_data = {
+                'balance': 0,
+                'deposit': 0,
+                'xp': 0,
+                'level': 1,
+                'roles': '[]'
+            }
+            save_user(user_id, user_data)
+
+        # Проверка баланса в банке
+        if user_data.get('deposit', 0) < amount:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description=f"У вас недостаточно средств в банке.\n"
+                              f"Баланс в банке: {user_data.get('deposit', 0):,} {EMOJIS['MONEY']}",
+                    color="RED"
+                ),
+                ephemeral=True
             )
-            await interaction.response.send_message(embed=embed)
             return
 
-        user_data['deposit'] -= amount
-        user_data['balance'] += amount
-
+        # Выполняем снятие из банка
+        user_data['deposit'] = user_data.get('deposit', 0) - amount
+        user_data['balance'] = user_data.get('balance', 0) + amount
         save_user(user_id, user_data)
 
-        deposit = user_data['deposit']
-        balance = user_data['balance']
-        embed = create_embed(
-            title="Снятие с депозита.",
-            description=f"Вы вывели {amount} {EMOJIS['MONEY']} с депозита.\nВаш баланс: {balance} {EMOJIS['MONEY']}.\nВаш депозит: {deposit} {EMOJIS['MONEY']}."
+        # Отправляем сообщение об успешном снятии
+        await interaction.response.send_message(
+            embed=create_embed(
+                title="Деньги сняты с банка",
+                description=f"Вы сняли {amount:,} {EMOJIS['MONEY']} с банка\n"
+                          f"Баланс в банке: {user_data['deposit']:,} {EMOJIS['MONEY']}\n"
+                          f"Наличные: {user_data['balance']:,} {EMOJIS['MONEY']}",
+                color="GREEN"
+            )
         )
-        await interaction.response.send_message(embed=embed)
 
-async def setup(client):
-    await client.add_cog(Withdraw(client))
+async def setup(bot):
+    await bot.add_cog(Withdraw(bot))

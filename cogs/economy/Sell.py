@@ -1,12 +1,14 @@
 import discord
 from discord import Interaction
 from discord.ext import commands
-from utils import load_roles, get_user, save_user, create_embed, remove_role_from_user, get_user_roles, get_role_by_id, EMOJIS
+from Niludetsu.utils.database import get_user, save_user, get_role_by_id, get_user_roles, remove_role_from_user
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 from typing import List
 
 class Sell(commands.Cog):
-    def __init__(self, client):
-        self.client = client
+    def __init__(self, bot):
+        self.bot = bot
 
     async def role_autocomplete(self, interaction: discord.Interaction, current: str) -> List[discord.app_commands.Choice[int]]:
         user_id = str(interaction.user.id)
@@ -34,9 +36,10 @@ class Sell(commands.Cog):
             user_roles = get_user_roles(user_id)
             if not user_roles:
                 embed = create_embed(
-                    description="У вас нет ролей, которые можно продать."
+                    description="У вас нет ролей, которые можно продать.",
+                    color="RED"
                 )
-                await interaction.response.send_message(embed=embed)
+                await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
 
             roles_data = []
@@ -48,40 +51,42 @@ class Sell(commands.Cog):
             embed = create_embed(
                 title="Продажа ролей",
                 description="Вот роли, которые вы можете продать:\n\n" + "\n".join([
-                    f"{EMOJIS['DOT']} **{role['name']}** | {int(role['balance'] * 0.90)} {EMOJIS['MONEY']}\n🔑 **ID роли:** `{role['role_id']}`\n"
+                    f"{EMOJIS['DOT']} **{role['name']}** | {int(role['balance'] * 0.70):,} {EMOJIS['MONEY']}\n🔑 **ID роли:** `{role['role_id']}`\n"
                     for role in roles_data
-                ])
+                ]),
+                color="BLUE"
             )
             await interaction.response.send_message(embed=embed)
             return
 
-        role = next((r for r in load_roles() if r["role_id"] == id_role), None)
-
+        role = get_role_by_id(id_role)
         if role is None:
             embed = create_embed(
-                description="Роль не найдена!"
+                description="Роль не найдена!",
+                color="RED"
             )
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
         user_roles = get_user_roles(user_id)
         if id_role not in user_roles:
             embed = create_embed(
-                description="У вас нет этой роли!"
+                description="У вас нет этой роли!",
+                color="RED"
             )
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
-        sale_price = int(role['balance'] * 0.90)  # 90% від балансу ролі
-        bot_profit = role['balance'] - sale_price  # 10% в казну сервера
+        sale_price = int(role['balance'] * 0.70)  # 70% от цены роли
+        bot_profit = role['balance'] - sale_price  # 30% в казну сервера
 
-        user_data = get_user(self.client, user_id)
-        user_data['balance'] += sale_price
+        user_data = get_user(user_id)
+        user_data['balance'] = user_data.get('balance', 0) + sale_price
         save_user(user_id, user_data)
 
         bot_id = '1264591814208262154'  # ID бота
-        bot_data = get_user(self.client, bot_id)
-        bot_data['balance'] += bot_profit
+        bot_data = get_user(bot_id)
+        bot_data['balance'] = bot_data.get('balance', 0) + bot_profit
         save_user(bot_id, bot_data)
 
         role_obj = guild.get_role(role['discord_role_id'])
@@ -91,14 +96,18 @@ class Sell(commands.Cog):
             
             embed = create_embed(
                 title="Роль продана!",
-                description=f"Вы продали роль за {sale_price} {EMOJIS['MONEY']}. Ваш новый баланс: {user_data['balance']} {EMOJIS['MONEY']}.\nС продажи роли, 10% отправляется в **казну сервера**."
+                description=f"Вы продали роль **{role['name']}** за {sale_price:,} {EMOJIS['MONEY']}\n"
+                          f"Ваш новый баланс: {user_data['balance']:,} {EMOJIS['MONEY']}\n"
+                          f"С продажи роли, 30% отправляется в **казну сервера**",
+                color="GREEN"
             )
             await interaction.response.send_message(embed=embed)
         else:
             embed = create_embed(
-                description="Роль не найдена на сервере."
+                description="Роль не найдена на сервере.",
+                color="RED"
             )
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
 
-async def setup(client):
-    await client.add_cog(Sell(client))
+async def setup(bot):
+    await bot.add_cog(Sell(bot))

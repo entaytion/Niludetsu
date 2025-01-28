@@ -1,7 +1,9 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed, has_mod_role, command_cooldown
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 import yaml
 
 # Загрузка конфигурации
@@ -11,20 +13,6 @@ with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
 
 MOD_ROLE_ID = int(config.get('moderation', {}).get('mod_role', 0)) # Преобразование строки в целое число
 
-# Проверка роли модератора
-def has_mod_role():
-    async def predicate(interaction: discord.Interaction):
-        try:
-            if MOD_ROLE_ID == 0:
-                return interaction.user.guild_permissions.administrator
-            return interaction.user.guild_permissions.administrator or any(
-                role.id == MOD_ROLE_ID for role in interaction.user.roles
-            )
-        except Exception as e:
-            print(f"Error in mod role check: {e}")
-            return False
-    return app_commands.check(predicate)
-
 # Класс кнопки для отмены кика
 class UndoKickButton(discord.ui.Button):
     def __init__(self, user_id):
@@ -33,69 +21,90 @@ class UndoKickButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         try:
-            # Проверка прав с более надежной логикой
-            if not (interaction.user.guild_permissions.administrator or 
-                    any(role.id == MOD_ROLE_ID for role in interaction.user.roles)):
-                await interaction.response.send_message(
+            if not await has_mod_role()(interaction):
+                return await interaction.response.send_message(
                     embed=create_embed(
-                        description="У вас недостаточно прав для выполнения этого действия!"
-                    )
+                        title=f"{EMOJIS['ERROR']} Ошибка прав",
+                        description="У вас недостаточно прав для отмены кика!",
+                        color="RED"
+                    ),
+                    ephemeral=True
                 )
-                return
 
             user = await interaction.client.fetch_user(self.user_id)
-            
-            # Создаем приглашение с обработкой ошибок
-            try:
-                invite = await interaction.channel.create_invite(max_age=1800, max_uses=1)
-            except discord.HTTPException:
-                # Если не удалось создать приглашение, используем альтернативный канал
-                invite = await interaction.guild.system_channel.create_invite(max_age=1800, max_uses=1) \
-                    if interaction.guild.system_channel else None
-
-            # Отправка личного сообщения с обработкой ошибок
-            dm_sent = False
-            try:
-                await user.send(
-                    embed=create_embed(
-                        title="🔄 Отмена кика",
-                        description=f"Модератор {interaction.user.name} отменил ваш кик.\n" 
-                                    f"Вернуться на сервер: {invite.url if invite else 'Приглашение недоступно'}"
-                    )
-                )
-                dm_sent = True
-            except discord.HTTPException:
-                pass
-
-            # Обновление сообщения с кнопкой
-            await interaction.response.edit_message(
-                embed=create_embed(
-                    title="🔄 Отмена кика",
-                    description=f"Пользователь: {user.name} (ID: {user.id})\n"
-                                f"Приглашение: {invite.url if invite else 'Недоступно'}\n"
-                                f"Личное сообщение: {'✅ Отправлено' if dm_sent else '❌ Не удалось отправить'}"
-                ),
-                view=None
+            invite = await interaction.channel.create_invite(
+                max_age=1800,
+                max_uses=1,
+                reason=f"Отмена кика от {interaction.user}"
             )
+            
+            try:
+                dm_embed = create_embed(
+                    title=f"{EMOJIS['INVITE']} Приглашение на сервер",
+                    description=f"Модератор {interaction.user.mention} отменил ваш кик.\nВы можете вернуться на сервер по этой ссылке: {invite.url}",
+                    color="GREEN"
+                )
+                await user.send(embed=dm_embed)
+                dm_sent = True
+            except discord.Forbidden:
+                dm_sent = False
 
+            undo_embed = create_embed(
+                title=f"{EMOJIS['SUCCESS']} Кик отменён",
+                color="GREEN"
+            )
+            
+            undo_embed.add_field(
+                name=f"{EMOJIS['USER']} Пользователь",
+                value=f"{user.mention} ({user})",
+                inline=True
+            )
+            undo_embed.add_field(
+                name=f"{EMOJIS['SHIELD']} Модератор",
+                value=interaction.user.mention,
+                inline=True
+            )
+            undo_embed.add_field(
+                name=f"{EMOJIS['MESSAGE']} Статус",
+                value=f"Приглашение {'отправлено' if dm_sent else 'не удалось отправить'} в ЛС",
+                inline=False
+            )
+            undo_embed.set_footer(text=f"ID пользователя: {user.id}")
+            
+            await interaction.response.send_message(embed=undo_embed)
+            
         except discord.NotFound:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Пользователь не найден!"
-                )
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Пользователь не найден!",
+                    color="RED"
+                ),
+                ephemeral=True
             )
-        except Exception as e:
-            print(f"Unexpected error in UndoKickButton: {e}")
+        except discord.Forbidden:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description=f"Произошла непредвиденная ошибка: {str(e)}"
-                )
+                    title=f"{EMOJIS['ERROR']} Ошибка прав",
+                    description="У меня недостаточно прав для создания приглашения!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+        except Exception as e:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description=f"Произошла непредвиденная ошибка: {str(e)}",
+                    color="RED"
+                ),
+                ephemeral=True
             )
 
 # Класс представления с кнопкой
 class KickView(discord.ui.View):
     def __init__(self, user_id):
-        super().__init__(timeout=1800)  # 30 минут
+        super().__init__(timeout=None)
         self.add_item(UndoKickButton(user_id))
 
 # Команда для кика
@@ -116,71 +125,101 @@ class Kick(commands.Cog):
         user: discord.Member,
         reason: str = "Причина не указана",
     ):
-        try:
-            # Расширенная проверка прав
-            if not interaction.guild.me.guild_permissions.kick_members:
-                return await interaction.response.send_message(
-                    embed=create_embed(
-                        description="У бота недостаточно прав для выполнения этого действия!"
-                    )
-                )
-
-            if user.top_role >= interaction.user.top_role:
-                return await interaction.response.send_message(
-                    embed=create_embed(
-                        description="Вы не можете кикнуть участника с равной или более высокой ролью!"
-                    )
-                )
-
-            if user.bot:
-                return await interaction.response.send_message(
-                    embed=create_embed(
-                        description="Вы не можете кикнуть бота!"
-                    )
-                )
-
-            # Отправка личного сообщения с обработкой ошибок
-            dm_sent = False
-            try:
-                await user.send(
-                    embed=create_embed(
-                        title="🦶 Кик",
-                        description=f"Вы были **кикнуты с сервера** {interaction.guild.name}\n"
-                                    f"**Причина:** `{reason}`\n"
-                                    f"**Модератор:** {interaction.user.name}"
-                    )
-                )
-                dm_sent = True
-            except discord.HTTPException:
-                pass
-
-            # Кик пользователя
-            await user.kick(reason=f"{reason} | Кикнул: {interaction.user}")
-
-            # Отправка подтверждающего сообщения
-            await interaction.response.send_message(
+        if user.id == interaction.user.id:
+            return await interaction.response.send_message(
                 embed=create_embed(
-                    title="🦶 Кик",
-                    description=f"Пользователь: {user.name} (ID: {user.id})\n"
-                                f"**Модератор:** {interaction.user.name} (ID: {interaction.user.id})\n"
-                                f"**Причина:** `{reason}`\n"
-                                f"**Личное сообщение:** {'✅ Отправлено' if dm_sent else '❌ Не удалось отправить'}",
-                    footer={'text': f"ID: {user.id}"}
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Вы не можете кикнуть самого себя!",
+                    color="RED"
                 ),
-                view=KickView(user.id)  # Добавляем кнопки
+                ephemeral=True
             )
+
+        if user.id == self.bot.user.id:
+            return await interaction.response.send_message(
+                embed=create_embed(
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Я не могу кикнуть самого себя!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+
+        if user.top_role >= interaction.user.top_role:
+            return await interaction.response.send_message(
+                embed=create_embed(
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Вы не можете кикнуть участника с ролью выше или равной вашей!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+
+        try:
+            kick_embed = create_embed(
+                title=f"{EMOJIS['KICK']} Кик пользователя",
+                color="YELLOW"
+            )
+            
+            kick_embed.set_thumbnail(url=user.display_avatar.url)
+            kick_embed.add_field(
+                name=f"{EMOJIS['USER']} Пользователь",
+                value=f"{user.mention} ({user})",
+                inline=True
+            )
+            kick_embed.add_field(
+                name=f"{EMOJIS['SHIELD']} Модератор",
+                value=interaction.user.mention,
+                inline=True
+            )
+            kick_embed.add_field(
+                name=f"{EMOJIS['REASON']} Причина",
+                value=f"```{reason}```",
+                inline=False
+            )
+            kick_embed.set_footer(text=f"ID пользователя: {user.id}")
+            
+            try:
+                dm_embed = create_embed(
+                    title=f"{EMOJIS['KICK']} Вы были кикнуты",
+                    color="YELLOW"
+                )
+                dm_embed.add_field(
+                    name=f"{EMOJIS['SERVER']} Сервер",
+                    value=interaction.guild.name,
+                    inline=True
+                )
+                dm_embed.add_field(
+                    name=f"{EMOJIS['SHIELD']} Модератор",
+                    value=str(interaction.user),
+                    inline=True
+                )
+                dm_embed.add_field(
+                    name=f"{EMOJIS['REASON']} Причина",
+                    value=f"```{reason}```",
+                    inline=False
+                )
+                await user.send(embed=dm_embed)
+            except discord.Forbidden:
+                pass
+            
+            await user.kick(reason=reason)
+            await interaction.response.send_message(embed=kick_embed, view=KickView(user.id))
             
         except discord.Forbidden:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Невозможно кикнуть этого пользователя!"
+                    title=f"{EMOJIS['ERROR']} Ошибка прав",
+                    description=f"У меня недостаточно прав для кика {user.mention}!",
+                    color="RED"
                 )
             )
         except Exception as e:
-            print(f"Unexpected error in kick command: {e}")
             await interaction.response.send_message(
                 embed=create_embed(
-                    description=f"Произошла непредвиденная ошибка: {str(e)}"
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description=f"Произошла непредвиденная ошибка: {str(e)}",
+                    color="RED"
                 )
             )
 

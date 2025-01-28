@@ -4,7 +4,8 @@ from discord import app_commands
 from discord.ui import Modal, TextInput, View, Button, Select
 import yaml
 import datetime
-from utils import create_embed, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 class PositionSelect(Select):
     def __init__(self):

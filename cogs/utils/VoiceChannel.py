@@ -4,7 +4,8 @@ from discord import ui
 import asyncio
 import yaml
 import os
-from utils import create_embed, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 def load_config():
     with open('config/config.yaml', 'r', encoding='utf-8') as f:

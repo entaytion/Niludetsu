@@ -1,120 +1,142 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed, has_helper_role, command_cooldown
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 import asyncio
 
 class Clear(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-    
+
     @app_commands.command(name="clear", description="Очистить сообщения в канале")
     @app_commands.describe(
-        amount="Количество сообщений для удаления (1-100)",
-        user="Удалить сообщения только от конкретного пользователя"
+        amount="Количество сообщений для удаления (1-1000)",
+        user="Удалить сообщения только от конкретного пользователя",
+        contains="Удалить сообщения, содержащие определенный текст",
+        channel="Канал для очистки (по умолчанию - текущий)"
     )
-    @has_helper_role()
+    @has_mod_role()
     @command_cooldown()
     async def clear(
         self,
         interaction: discord.Interaction,
-        amount: app_commands.Range[int, 1, 100],
-        user: discord.Member = None
+        amount: app_commands.Range[int, 1, 1000],
+        user: discord.Member = None,
+        contains: str = None,
+        channel: discord.TextChannel = None
     ):
-        if amount > 1000:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description="Нельзя удалить больше 1000 сообщений за раз!",
-                    color='RED'
-                ),
-                ephemeral=True
-            )
-            return
-        
-        if amount < 1:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description="Количество сообщений должно быть больше 0!",
-                    color='RED'
-                ),
-                ephemeral=True
-            )
-            return
-        
         try:
-            await interaction.response.defer(ephemeral=True)
-            deleted = 0
+            target_channel = channel or interaction.channel
             
-            if user:
-                # Если указан пользователь, удаляем только его сообщения
-                messages = []
-                async for message in interaction.channel.history(limit=100):
-                    if len(messages) == amount:
-                        break
-                    if message.author == user:
-                        messages.append(message)
-                
-                if messages:
-                    await interaction.channel.delete_messages(messages)
-                    deleted = len(messages)
-            else:
-                # Иначе удаляем все сообщения
-                while amount > 0:
-                    to_delete = min(amount, 100)  # Discord позволяет удалять максимум 100 сообщений за раз
-                    messages = [msg async for msg in interaction.channel.history(limit=to_delete)]
-                    if not messages:
-                        break
-                        
-                    await interaction.channel.delete_messages(messages)
-                    deleted += len(messages)
-                    amount -= len(messages)
-                    
-                    if len(messages) < to_delete:
-                        break
+            if not interaction.user.guild_permissions.manage_messages:
+                return await interaction.response.send_message(
+                    embed=create_embed(
+                        title=f"{EMOJIS['ERROR']} Ошибка прав",
+                        description="У вас нет прав на управление сообщениями!",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
 
-            # Отправляем сообщение о завершении очистки
-            embed = create_embed(
-                title="🗑️ Очистка сообщений", 
-                description=f"**Модератор:** {interaction.user.mention}\n"
-                          f"**Канал:** {interaction.channel.mention}\n"
-                          f"**Удалено сообщений:** `{deleted}`\n"
-                          f"{'**Пользователь:** ' + user.mention if user else ''}",
-                color='GREEN'
+            if not interaction.guild.me.guild_permissions.manage_messages:
+                return await interaction.response.send_message(
+                    embed=create_embed(
+                        title=f"{EMOJIS['ERROR']} Ошибка прав",
+                        description="У меня нет прав на управление сообщениями!",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+
+            # Отправляем начальное сообщение о процессе
+            progress_embed = create_embed(
+                title=f"{EMOJIS['LOADING']} Очистка сообщений",
+                description="Идет процесс удаления сообщений...",
+                color="YELLOW"
+            )
+            await interaction.response.send_message(embed=progress_embed, ephemeral=True)
+
+            def check_message(message):
+                if user and message.author.id != user.id:
+                    return False
+                if contains and contains.lower() not in message.content.lower():
+                    return False
+                return True
+
+            deleted = await target_channel.purge(
+                limit=amount,
+                check=check_message,
+                reason=f"Очистка от {interaction.user}"
+            )
+
+            # Создаем эмбед с результатами
+            result_embed = create_embed(
+                title=f"{EMOJIS['SUCCESS']} Очистка завершена",
+                color="GREEN"
             )
             
-            await interaction.followup.send(embed=embed, ephemeral=True)
-            
-            # Отправляем временное сообщение в канал
-            temp_msg = await interaction.channel.send(embed=embed)
+            result_embed.add_field(
+                name=f"{EMOJIS['CHANNEL']} Канал",
+                value=target_channel.mention,
+                inline=True
+            )
+            result_embed.add_field(
+                name=f"{EMOJIS['SHIELD']} Модератор",
+                value=interaction.user.mention,
+                inline=True
+            )
+            result_embed.add_field(
+                name=f"{EMOJIS['STATS']} Удалено сообщений",
+                value=f"`{len(deleted)}`",
+                inline=True
+            )
+
+            if user:
+                result_embed.add_field(
+                    name=f"{EMOJIS['USER']} Фильтр по пользователю",
+                    value=user.mention,
+                    inline=True
+                )
+            if contains:
+                result_embed.add_field(
+                    name=f"{EMOJIS['SEARCH']} Фильтр по содержимому",
+                    value=f"```{contains}```",
+                    inline=True
+                )
+
+            # Отправляем результат
+            await interaction.edit_original_response(embed=result_embed)
+
+            # Отправляем временное уведомление в канал
+            notification = await target_channel.send(
+                embed=create_embed(
+                    description=f"{EMOJIS['SUCCESS']} Удалено `{len(deleted)}` сообщений",
+                    color="GREEN"
+                )
+            )
             await asyncio.sleep(5)
             try:
-                await temp_msg.delete()
+                await notification.delete()
             except discord.NotFound:
                 pass
-        
+
         except discord.Forbidden:
-            await interaction.followup.send(
+            await interaction.edit_original_response(
                 embed=create_embed(
-                    description="У меня недостаточно прав для удаления сообщений!",
-                    color='RED'
-                ),
-                ephemeral=True
-            )
-        except discord.HTTPException as e:
-            await interaction.followup.send(
-                embed=create_embed(
-                    description=f"Произошла ошибка при удалении сообщений: {str(e)}",
-                    color='RED'
-                ),
-                ephemeral=True
+                    title=f"{EMOJIS['ERROR']} Ошибка прав",
+                    description=f"У меня недостаточно прав для очистки сообщений в {target_channel.mention}!",
+                    color="RED"
+                )
             )
         except Exception as e:
-            await interaction.followup.send(
+            await interaction.edit_original_response(
                 embed=create_embed(
-                    description=f"Произошла неизвестная ошибка: {str(e)}",
-                    color='RED'
-                ),
-                ephemeral=True
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description=f"Произошла непредвиденная ошибка: {str(e)}",
+                    color="RED"
+                )
             )
 
 async def setup(bot):

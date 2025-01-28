@@ -4,7 +4,8 @@ from discord.ext import commands
 import yaml
 import os
 from typing import Optional, Literal
-from utils import create_embed, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 import asyncio
 import time
 
@@ -200,8 +201,9 @@ class Settings(commands.Cog):
         if not await self.is_owner(interaction):
             await interaction.response.send_message(
                 embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Эта команда доступна только создателю бота!",
-                    color=0xe74c3c
+                    title=f"{EMOJIS['ERROR']} Доступ запрещен",
+                    description="Эта команда доступна только создателю бота!",
+                    color="RED"
                 ),
                 ephemeral=True
             )
@@ -212,7 +214,7 @@ class Settings(commands.Cog):
         if command.lower() == 'all':
             if action.value == 'enable':
                 self.settings["commands"]["disabled_commands"] = []
-                success_message = "Все команды включены!"
+                success_message = f"{EMOJIS['SUCCESS']} Все команды включены!"
             else:
                 all_commands = []
                 for cmd in self.bot.tree.walk_commands():
@@ -223,7 +225,7 @@ class Settings(commands.Cog):
                         if not cmd.parent:  # Только основные команды
                             all_commands.append(cmd.name)
                 self.settings["commands"]["disabled_commands"] = all_commands
-                success_message = "Все команды отключены!"
+                success_message = f"{EMOJIS['SUCCESS']} Все команды отключены!"
         else:
             command = command.lower()
             cmd_exists = False
@@ -241,8 +243,9 @@ class Settings(commands.Cog):
             if not cmd_exists:
                 await interaction.followup.send(
                     embed=create_embed(
-                        description=f"{EMOJIS['ERROR']} Команда `{command}` не найдена!",
-                        color=0xe74c3c
+                        title=f"{EMOJIS['ERROR']} Команда не найдена",
+                        description=f"Команда `{command}` не найдена!",
+                        color="RED"
                     ),
                     ephemeral=True
                 )
@@ -251,27 +254,30 @@ class Settings(commands.Cog):
             if action.value == 'enable':
                 if command in self.settings["commands"]["disabled_commands"]:
                     self.settings["commands"]["disabled_commands"].remove(command)
-                success_message = f"Команда `{command}` включена!"
+                success_message = f"{EMOJIS['SUCCESS']} Команда `{command}` включена!"
             else:
                 if command not in self.settings["commands"]["disabled_commands"]:
                     self.settings["commands"]["disabled_commands"].append(command)
-                success_message = f"Команда `{command}` отключена!"
+                success_message = f"{EMOJIS['SUCCESS']} Команда `{command}` отключена!"
 
         self.save_settings()
-        
-        # Перезагружаем команды
-        if await self.reload_commands():
+        success = await self.reload_commands()
+
+        if success:
             await interaction.followup.send(
                 embed=create_embed(
-                    description=f"{EMOJIS['SUCCESS']} {success_message}"
+                    title=f"{EMOJIS['SETTINGS']} Настройки команд",
+                    description=success_message,
+                    color="GREEN"
                 ),
                 ephemeral=True
             )
         else:
             await interaction.followup.send(
                 embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Произошла ошибка при обновлении команд!",
-                    color=0xe74c3c
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Произошла ошибка при обновлении команд. Попробуйте позже.",
+                    color="RED"
                 ),
                 ephemeral=True
             )
@@ -294,8 +300,9 @@ class Settings(commands.Cog):
         if not await self.is_owner(interaction):
             await interaction.response.send_message(
                 embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Эта команда доступна только создателю бота!",
-                    color=0xe74c3c
+                    title=f"{EMOJIS['ERROR']} Доступ запрещен",
+                    description="Эта команда доступна только создателю бота!",
+                    color="RED"
                 ),
                 ephemeral=True
             )
@@ -306,27 +313,34 @@ class Settings(commands.Cog):
         if group.lower() == 'all':
             if action.value == 'enable':
                 self.settings["commands"]["disabled_groups"] = []
-                success_message = "Все группы команд включены!"
+                success_message = f"{EMOJIS['SUCCESS']} Все группы команд включены!"
             else:
-                all_groups = []
+                all_groups = set()
                 for cmd in self.bot.tree.walk_commands():
-                    if isinstance(cmd, app_commands.Group) and cmd.name != 'settings':
-                        all_groups.append(cmd.name)
-                self.settings["commands"]["disabled_groups"] = all_groups
-                success_message = "Все группы команд отключены!"
+                    if isinstance(cmd, app_commands.Command) and cmd.parent:
+                        # Пропускаем группу settings
+                        if cmd.parent.name == 'settings':
+                            continue
+                        all_groups.add(cmd.parent.name)
+                self.settings["commands"]["disabled_groups"] = list(all_groups)
+                success_message = f"{EMOJIS['SUCCESS']} Все группы команд отключены!"
         else:
             group = group.lower()
             group_exists = False
+            
+            # Проверяем существование группы
             for cmd in self.bot.tree.walk_commands():
-                if isinstance(cmd, app_commands.Group) and cmd.name == group:
-                    group_exists = True
-                    break
+                if isinstance(cmd, app_commands.Command) and cmd.parent:
+                    if cmd.parent.name == group:
+                        group_exists = True
+                        break
 
             if not group_exists:
                 await interaction.followup.send(
                     embed=create_embed(
-                        description=f"{EMOJIS['ERROR']} Группа команд `{group}` не найдена!",
-                        color=0xe74c3c
+                        title=f"{EMOJIS['ERROR']} Группа не найдена",
+                        description=f"Группа команд `{group}` не найдена!",
+                        color="RED"
                     ),
                     ephemeral=True
                 )
@@ -335,79 +349,85 @@ class Settings(commands.Cog):
             if action.value == 'enable':
                 if group in self.settings["commands"]["disabled_groups"]:
                     self.settings["commands"]["disabled_groups"].remove(group)
-                success_message = f"Группа команд `{group}` включена!"
+                success_message = f"{EMOJIS['SUCCESS']} Группа команд `{group}` включена!"
             else:
                 if group not in self.settings["commands"]["disabled_groups"]:
                     self.settings["commands"]["disabled_groups"].append(group)
-                success_message = f"Группа команд `{group}` отключена!"
+                success_message = f"{EMOJIS['SUCCESS']} Группа команд `{group}` отключена!"
 
         self.save_settings()
-        
-        # Перезагружаем команды
-        if await self.reload_commands():
+        success = await self.reload_commands()
+
+        if success:
             await interaction.followup.send(
                 embed=create_embed(
-                    description=f"{EMOJIS['SUCCESS']} {success_message}"
+                    title=f"{EMOJIS['SETTINGS']} Настройки групп",
+                    description=success_message,
+                    color="GREEN"
                 ),
                 ephemeral=True
             )
         else:
             await interaction.followup.send(
                 embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Произошла ошибка при обновлении команд!",
-                    color=0xe74c3c
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Произошла ошибка при обновлении команд. Попробуйте позже.",
+                    color="RED"
                 ),
                 ephemeral=True
             )
 
     @app_commands.describe()
-    async def _settings_list(
-        self,
-        interaction: discord.Interaction
-    ):
+    async def _settings_list(self, interaction: discord.Interaction):
         """Показывает список отключенных команд и групп"""
         if not await self.is_owner(interaction):
             await interaction.response.send_message(
                 embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Эта команда доступна только создателю бота!",
-                    color=0xe74c3c
+                    title=f"{EMOJIS['ERROR']} Доступ запрещен",
+                    description="Эта команда доступна только создателю бота!",
+                    color="RED"
                 ),
                 ephemeral=True
             )
             return
 
-        await interaction.response.defer(ephemeral=True)
-        
         disabled_commands = self.settings["commands"]["disabled_commands"]
         disabled_groups = self.settings["commands"]["disabled_groups"]
-        
-        if not disabled_commands and not disabled_groups:
-            await interaction.followup.send(
-                embed=create_embed(
-                    description="✨ Все команды и группы включены!"
-                ),
-                ephemeral=True
-            )
-            return
-            
-        description = ""
-        if disabled_commands:
-            description += "**Отключенные команды:**\n"
-            description += "\n".join([f"• `/{cmd}`" for cmd in disabled_commands])
-        
-        if disabled_groups:
-            if disabled_commands:
-                description += "\n\n"
-            description += "**Отключенные группы:**\n"
-            description += "\n".join([f"• `{group}`" for group in disabled_groups])
-            
-        await interaction.followup.send(
-            embed=create_embed(
-                title="📋 Список отключенных команд и групп",
-                description=description
-            ),
-            ephemeral=True
+
+        embed = create_embed(
+            title=f"{EMOJIS['SETTINGS']} Отключенные команды и группы",
+            color="BLUE"
         )
+
+        if disabled_commands:
+            commands_list = "\n".join([f"{EMOJIS['COMMAND']} `{cmd}`" for cmd in disabled_commands])
+            embed.add_field(
+                name=f"{EMOJIS['COMMANDS']} Отключенные команды",
+                value=commands_list,
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name=f"{EMOJIS['COMMANDS']} Отключенные команды",
+                value=f"{EMOJIS['INFO']} Нет отключенных команд",
+                inline=False
+            )
+
+        if disabled_groups:
+            groups_list = "\n".join([f"{EMOJIS['GROUP']} `{group}`" for group in disabled_groups])
+            embed.add_field(
+                name=f"{EMOJIS['GROUPS']} Отключенные группы",
+                value=groups_list,
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name=f"{EMOJIS['GROUPS']} Отключенные группы",
+                value=f"{EMOJIS['INFO']} Нет отключенных групп",
+                inline=False
+            )
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
         
 async def setup(bot):
     await bot.add_cog(Settings(bot)) 

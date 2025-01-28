@@ -1,144 +1,217 @@
 import discord
-from discord.ext import commands
 from discord import app_commands
-from utils import create_embed, has_helper_role, command_cooldown
-import yaml
-import datetime
-
-def load_config():
-    with open('config/config.yaml', 'r', encoding='utf-8') as f:
-        return yaml.safe_load(f)
+from discord.ext import commands
+from typing import Optional
+from datetime import datetime, timedelta
+import asyncio
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 
 class Mute(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.config = load_config()
-    
+        self.muted_users = {}
+
     @app_commands.command(name="mute", description="Замутить участника")
     @app_commands.describe(
-        member="Участник, которого нужно замутить",
-        reason="Причина мута",
-        duration="Длительность мута (s - секунды, m - минуты, h - часы, d - дни). Если не указано - мут навсегда"
+        member="Участник для мута",
+        duration="Длительность мута (например: 1h, 30m, 1d)",
+        reason="Причина мута"
     )
-    @has_helper_role()
+    @has_mod_role()
     @command_cooldown()
-    async def mute(self, interaction: discord.Interaction, member: discord.Member, reason: str = "Причина не указана", duration: str = None):
-        # Проверяем, может ли бот мутить участников
-        if not interaction.guild.me.guild_permissions.moderate_members:
-            return await interaction.response.send_message(
-                embed=create_embed(description="У меня нет прав на мут участников!")
-            )
-        
-        # Проверяем, не пытается ли замутить администратора
-        if member.guild_permissions.administrator:
-            return await interaction.response.send_message(
-                embed=create_embed(description="Я не могу замутить администратора!")
-            )
-        
-        # Проверяем, не пытается ли замутить бота
-        if member.bot:
-            return await interaction.response.send_message(
-                embed=create_embed(description="Я не могу замутить бота!")
-            )
-        
-        # Проверяем, не пытается ли замутить себя
-        if member == interaction.user:
-            return await interaction.response.send_message(
-                embed=create_embed(description="Вы не можете замутить себя!")
-            )
-
-        # Получаем роль мута из конфига
-        mute_role_id = self.config.get('moderation', {}).get('mute_role')
-        if not mute_role_id:
-            return await interaction.response.send_message(
-                embed=create_embed(description="Роль мута не настроена в конфигурации!")
-            )
-
-        mute_role = interaction.guild.get_role(int(mute_role_id))
-        if not mute_role:
-            return await interaction.response.send_message(
-                embed=create_embed(description="Роль мута не найдена на сервере!")
-            )
-        
+    async def mute(
+        self,
+        interaction: discord.Interaction,
+        member: discord.Member,
+        duration: str,
+        reason: Optional[str] = None
+    ):
         try:
-            timeout_duration = None
-            # Если указана длительность, парсим время и устанавливаем таймаут
-            if duration:
-                time_units = {
-                    's': 1,
-                    'm': 60,
-                    'h': 3600,
-                    'd': 86400
-                }
-                
-                try:
-                    time = int(duration[:-1])
-                    unit = duration[-1].lower()
-                    
-                    if unit not in time_units:
-                        return await interaction.response.send_message(
-                            embed=create_embed(description="Неверный формат времени! Используйте s/m/h/d")
-                        )
-                    
-                    seconds = time * time_units[unit]
-                    timeout_duration = datetime.timedelta(seconds=seconds)
-                    await member.timeout(timeout_duration, reason=reason)
-                except ValueError:
-                    return await interaction.response.send_message(
-                        embed=create_embed(description="Неверный формат времени!")
-                    )
-            
-            # Выдаем роль мута в любом случае
-            await member.add_roles(mute_role, reason=reason)
-            
-            # Отправляем сообщение
-            await interaction.response.send_message(
-                embed=create_embed(
-                    title="🔇 Мут",
-                    description=f"**Модератор:** {interaction.user.mention}\n"
-                              f"**Нарушитель:** {member.mention}\n"
-                              f"**Причина:** {reason}\n"
-                              f"**Длительность:** {'Навсегда' if not duration else f'{timeout_duration}'}"
-                )
-            )
-            
-            # Отправляем уведомление пользователю в ЛС
-            try:
-                await member.send(
+            if not interaction.user.guild_permissions.moderate_members:
+                return await interaction.response.send_message(
                     embed=create_embed(
-                        title="🔇 Вы были замучены",
-                        description=f"**Сервер:** {interaction.guild.name}\n"
-                                  f"**Модератор:** {interaction.user}\n"
-                                  f"**Причина:** {reason}\n"
-                                  f"**Длительность:** {'Навсегда' if not duration else f'{timeout_duration}'}"
-                    )
+                        title=f"{EMOJIS['ERROR']} Ошибка прав",
+                        description="У вас нет прав на управление мутами участников!",
+                        color="RED"
+                    ),
+                    ephemeral=True
                 )
-            except discord.Forbidden:
-                pass  # Если у пользователя закрыты ЛС, игнорируем ошибку
+
+            if member.top_role >= interaction.user.top_role:
+                return await interaction.response.send_message(
+                    embed=create_embed(
+                        title=f"{EMOJIS['ERROR']} Ошибка прав",
+                        description="Вы не можете замутить участника с ролью выше или равной вашей!",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+
+            # Парсим длительность
+            try:
+                duration_seconds = 0
+                time_str = ""
+                if duration.endswith('s'):
+                    duration_seconds = int(duration[:-1])
+                    time_str = f"{duration_seconds} секунд"
+                elif duration.endswith('m'):
+                    duration_seconds = int(duration[:-1]) * 60
+                    time_str = f"{int(duration[:-1])} минут"
+                elif duration.endswith('h'):
+                    duration_seconds = int(duration[:-1]) * 3600
+                    time_str = f"{int(duration[:-1])} часов"
+                elif duration.endswith('d'):
+                    duration_seconds = int(duration[:-1]) * 86400
+                    time_str = f"{int(duration[:-1])} дней"
+                else:
+                    raise ValueError()
+
+                if duration_seconds <= 0:
+                    raise ValueError()
+
+            except ValueError:
+                return await interaction.response.send_message(
+                    embed=create_embed(
+                        title=f"{EMOJIS['ERROR']} Ошибка формата",
+                        description="Неверный формат длительности! Используйте: 30s, 5m, 2h, 1d",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+
+            # Проверяем, не замучен ли уже участник
+            if member.id in self.muted_users:
+                return await interaction.response.send_message(
+                    embed=create_embed(
+                        title=f"{EMOJIS['ERROR']} Ошибка",
+                        description=f"Участник {member.mention} уже замучен!",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+
+            end_time = datetime.utcnow() + timedelta(seconds=duration_seconds)
             
-            # Логируем действие если указан канал логов
-            log_channel_id = self.config.get('LOG_CHANNEL_ID')
-            if log_channel_id:
-                log_channel = self.bot.get_channel(int(log_channel_id))
-                if log_channel:
-                    await log_channel.send(
+            # Отправляем сообщение о начале мута
+            progress_embed = create_embed(
+                title=f"{EMOJIS['LOADING']} Применение мута",
+                description=f"Применяю мут для {member.mention}...",
+                color="YELLOW"
+            )
+            await interaction.response.send_message(embed=progress_embed)
+
+            try:
+                await member.timeout(
+                    until=end_time,
+                    reason=f"Мут от {interaction.user}: {reason if reason else 'Причина не указана'}"
+                )
+                self.muted_users[member.id] = end_time
+
+                # Создаем эмбед с информацией о муте
+                mute_embed = create_embed(
+                    title=f"{EMOJIS['MUTE']} Участник замучен",
+                    color="RED"
+                )
+
+                mute_embed.add_field(
+                    name=f"{EMOJIS['USER']} Участник",
+                    value=f"{member.mention} (`{member.id}`)",
+                    inline=True
+                )
+                mute_embed.add_field(
+                    name=f"{EMOJIS['SHIELD']} Модератор",
+                    value=interaction.user.mention,
+                    inline=True
+                )
+                mute_embed.add_field(
+                    name=f"{EMOJIS['TIME']} Длительность",
+                    value=time_str,
+                    inline=True
+                )
+                if reason:
+                    mute_embed.add_field(
+                        name=f"{EMOJIS['REASON']} Причина",
+                        value=f"```{reason}```",
+                        inline=False
+                    )
+
+                mute_embed.set_footer(text=f"Мут истекает: {end_time.strftime('%d.%m.%Y %H:%M:%S')} UTC")
+                await interaction.edit_original_response(embed=mute_embed)
+
+                # Отправляем уведомление участнику
+                try:
+                    await member.send(
                         embed=create_embed(
-                            title="🔇 Мут",
-                            description=f"**Модератор:** {interaction.user.mention}\n"
-                                      f"**Нарушитель:** {member.mention}\n"
-                                      f"**Причина:** {reason}\n"
-                                      f"**Длительность:** {'Навсегда' if not duration else f'{timeout_duration}'}"
+                            title=f"{EMOJIS['MUTE']} Вы получили мут",
+                            description=(
+                                f"**Сервер:** {interaction.guild.name}\n"
+                                f"**Модератор:** {interaction.user.mention}\n"
+                                f"**Длительность:** {time_str}\n"
+                                f"**Причина:** {reason if reason else 'Не указана'}\n"
+                                f"**Истекает:** {end_time.strftime('%d.%m.%Y %H:%M:%S')} UTC"
+                            ),
+                            color="RED"
                         )
                     )
-        
-        except discord.Forbidden:
-            await interaction.response.send_message(
-                embed=create_embed(description="У меня недостаточно прав для мута этого участника!")
-            )
+                except discord.Forbidden:
+                    pass
+
+                # Запускаем таймер для автоматического размута
+                self.bot.loop.create_task(self.unmute_task(interaction.guild, member, duration_seconds))
+
+            except discord.Forbidden:
+                await interaction.edit_original_response(
+                    embed=create_embed(
+                        title=f"{EMOJIS['ERROR']} Ошибка прав",
+                        description="У меня недостаточно прав для мута участников!",
+                        color="RED"
+                    )
+                )
+            except Exception as e:
+                await interaction.edit_original_response(
+                    embed=create_embed(
+                        title=f"{EMOJIS['ERROR']} Ошибка",
+                        description=f"Произошла ошибка при муте: {str(e)}",
+                        color="RED"
+                    )
+                )
+
         except Exception as e:
-            await interaction.response.send_message(
-                embed=create_embed(description=f"Произошла ошибка: {str(e)}")
+            error_embed = create_embed(
+                title=f"{EMOJIS['ERROR']} Ошибка",
+                description=f"Произошла непредвиденная ошибка: {str(e)}",
+                color="RED"
             )
+            if not interaction.response.is_done():
+                await interaction.response.send_message(embed=error_embed)
+            else:
+                await interaction.edit_original_response(embed=error_embed)
+
+    async def unmute_task(self, guild: discord.Guild, member: discord.Member, duration: int):
+        await asyncio.sleep(duration)
+        if member.id in self.muted_users:
+            try:
+                await member.timeout(None, reason="Истек срок мута")
+                del self.muted_users[member.id]
+                
+                # Отправляем уведомление участнику
+                try:
+                    await member.send(
+                        embed=create_embed(
+                            title=f"{EMOJIS['SUCCESS']} Мут снят",
+                            description=f"Ваш мут на сервере {guild.name} был автоматически снят.",
+                            color="GREEN"
+                        )
+                    )
+                except discord.Forbidden:
+                    pass
+                
+            except discord.NotFound:
+                pass  # Участник покинул сервер
+            except discord.Forbidden:
+                pass  # Недостаточно прав
 
 async def setup(bot):
     await bot.add_cog(Mute(bot))

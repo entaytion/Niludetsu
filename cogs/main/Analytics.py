@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 import io
 import time
-from utils import create_embed, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 # Добавляем кастомный шрифт
 plt.rcParams['font.family'] = 'sans-serif'
@@ -160,73 +161,64 @@ class Analytics(commands.Cog):
         # Создаем основной эмбед
         embed = create_embed(
             title=f"{EMOJIS['STATS']} Аналитика сервера {guild.name}",
-            description=f"{EMOJIS['INFO']} Подробная статистика сервера"
-        )
-        
-        # Основная информация
-        embed.add_field(
-            name=f"{EMOJIS['MEMBERS']} Участники",
-            value=f"{EMOJIS['DOT']} **Всего:** `{total_members}`\n"
-                  f"{EMOJIS['DOT']} **Людей:** `{total_humans}`\n"
-                  f"{EMOJIS['DOT']} **Ботов:** `{total_bots}`\n"
-                  f"{EMOJIS['DOT']} **Онлайн:** `{statuses[discord.Status.online]}`\n"
-                  f"{EMOJIS['DOT']} **Не активен:** `{statuses[discord.Status.idle]}`\n"
-                  f"{EMOJIS['DOT']} **Не беспокоить:** `{statuses[discord.Status.dnd]}`\n"
-                  f"{EMOJIS['DOT']} **Оффлайн:** `{statuses[discord.Status.offline]}`",
-            inline=True
-        )
-        
-        # Каналы
-        embed.add_field(
-            name=f"{EMOJIS['CHANNELS']} Каналы",
-            value=f"{EMOJIS['DOT']} **Всего:** `{total_channels}`\n"
-                  f"{EMOJIS['DOT']} **Текстовых:** `{text_channels}`\n"
-                  f"{EMOJIS['DOT']} **Голосовых:** `{voice_channels}`\n"
-                  f"{EMOJIS['DOT']} **Категорий:** `{categories}`\n"
-                  f"{EMOJIS['DOT']} **Форумов:** `{forum_channels}`\n"
-                  f"{EMOJIS['DOT']} **Трибун:** `{stage_channels}`",
-            inline=True
-        )
-        
-        # Роли и эмодзи
-        embed.add_field(
-            name=f"{EMOJIS['FEATURES']} Контент",
-            value=f"{EMOJIS['DOT']} **Ролей:** `{roles}`\n"
-                  f"{EMOJIS['DOT']} **Эмодзи:** `{emojis}`\n"
-                  f"{EMOJIS['DOT']} **Анимированных:** `{animated_emojis}`\n"
-                  f"{EMOJIS['DOT']} **Статичных:** `{static_emojis}`\n"
-                  f"{EMOJIS['DOT']} **Стикеров:** `{stickers}`",
-            inline=True
-        )
-        
-        # Буст информация
-        embed.add_field(
-            name=f"{EMOJIS['BOOST']} Буст статус",
-            value=f"{EMOJIS['DOT']} **Уровень:** `{boost_level}`\n"
-                  f"{EMOJIS['DOT']} **Бустов:** `{boost_count}`\n"
-                  f"{EMOJIS['DOT']} **Бустеров:** `{boosters}`\n"
-                  f"{EMOJIS['DOT']} **До следующего уровня:** `{2 if boost_level == 0 else (7 if boost_level == 1 else (14 if boost_level == 2 else 0)) - boost_count if boost_level < 3 else 0} бустов`",
-            inline=True
-        )
-        
-        # Безопасность
-        embed.add_field(
-            name=f"{EMOJIS['SHIELD']} Безопасность",
-            value=f"{EMOJIS['DOT']} **Уровень проверки:** `{guild.verification_level}`\n"
-                  f"{EMOJIS['DOT']} **Фильтр контента:** `{guild.explicit_content_filter}`\n"
-                  f"{EMOJIS['DOT']} **2FA для модерации:** `{'Включено' if guild.mfa_level else 'Выключено'}`\n"
-                  f"{EMOJIS['DOT']} **Уровень NSFW:** `{guild.nsfw_level}`",
-            inline=True
-        )
-        
-        # Дополнительная информация
-        embed.add_field(
-            name=f"{EMOJIS['SETTINGS']} Дополнительно",
-            value=f"{EMOJIS['DOT']} **Владелец:** {guild.owner.mention}\n"
-                  f"{EMOJIS['DOT']} **Регион:** `{str(guild.preferred_locale)}`\n"
-                  f"{EMOJIS['DOT']} **Максимум участников:** `{guild.max_members}`\n"
-                  f"{EMOJIS['DOT']} **Лимит файлов:** `{guild.filesize_limit // 1048576}MB`",
-            inline=True
+            description=f"{EMOJIS['INFO']} Подробная статистика сервера",
+            fields=[
+                {
+                    "name": f"{EMOJIS['MEMBERS']} Участники",
+                    "value": f"{EMOJIS['DOT']} **Всего:** `{total_members}`\n"
+                            f"{EMOJIS['DOT']} **Людей:** `{total_humans}`\n"
+                            f"{EMOJIS['DOT']} **Ботов:** `{total_bots}`\n"
+                            f"{EMOJIS['DOT']} **Онлайн:** `{statuses[discord.Status.online]}`\n"
+                            f"{EMOJIS['DOT']} **Не активен:** `{statuses[discord.Status.idle]}`\n"
+                            f"{EMOJIS['DOT']} **Не беспокоить:** `{statuses[discord.Status.dnd]}`\n"
+                            f"{EMOJIS['DOT']} **Оффлайн:** `{statuses[discord.Status.offline]}`",
+                    "inline": True
+                },
+                {
+                    "name": f"{EMOJIS['CHANNELS']} Каналы",
+                    "value": f"{EMOJIS['DOT']} **Всего:** `{total_channels}`\n"
+                            f"{EMOJIS['DOT']} **Текстовых:** `{text_channels}`\n"
+                            f"{EMOJIS['DOT']} **Голосовых:** `{voice_channels}`\n"
+                            f"{EMOJIS['DOT']} **Категорий:** `{categories}`\n"
+                            f"{EMOJIS['DOT']} **Форумов:** `{forum_channels}`\n"
+                            f"{EMOJIS['DOT']} **Трибун:** `{stage_channels}`",
+                    "inline": True
+                },
+                {
+                    "name": f"{EMOJIS['FEATURES']} Контент",
+                    "value": f"{EMOJIS['DOT']} **Ролей:** `{roles}`\n"
+                            f"{EMOJIS['DOT']} **Эмодзи:** `{emojis}`\n"
+                            f"{EMOJIS['DOT']} **Анимированных:** `{animated_emojis}`\n"
+                            f"{EMOJIS['DOT']} **Статичных:** `{static_emojis}`\n"
+                            f"{EMOJIS['DOT']} **Стикеров:** `{stickers}`",
+                    "inline": True
+                },
+                {
+                    "name": f"{EMOJIS['BOOST']} Буст статус",
+                    "value": f"{EMOJIS['DOT']} **Уровень:** `{boost_level}`\n"
+                            f"{EMOJIS['DOT']} **Бустов:** `{boost_count}`\n"
+                            f"{EMOJIS['DOT']} **Бустеров:** `{boosters}`\n"
+                            f"{EMOJIS['DOT']} **До следующего уровня:** `{2 if boost_level == 0 else (7 if boost_level == 1 else (14 if boost_level == 2 else 0)) - boost_count if boost_level < 3 else 0} бустов`",
+                    "inline": True
+                },
+                {
+                    "name": f"{EMOJIS['SHIELD']} Безопасность",
+                    "value": f"{EMOJIS['DOT']} **Уровень проверки:** `{guild.verification_level}`\n"
+                            f"{EMOJIS['DOT']} **Фильтр контента:** `{guild.explicit_content_filter}`\n"
+                            f"{EMOJIS['DOT']} **2FA для модерации:** `{'Включено' if guild.mfa_level else 'Выключено'}`\n"
+                            f"{EMOJIS['DOT']} **Уровень NSFW:** `{guild.nsfw_level}`",
+                    "inline": True
+                },
+                {
+                    "name": f"{EMOJIS['SETTINGS']} Дополнительно",
+                    "value": f"{EMOJIS['DOT']} **Владелец:** {guild.owner.mention}\n"
+                            f"{EMOJIS['DOT']} **Регион:** `{str(guild.preferred_locale)}`\n"
+                            f"{EMOJIS['DOT']} **Максимум участников:** `{guild.max_members}`\n"
+                            f"{EMOJIS['DOT']} **Лимит файлов:** `{guild.filesize_limit // 1048576}MB`",
+                    "inline": True
+                }
+            ],
+            color="DEFAULT"
         )
         
         # Создаем график активности по дням недели

@@ -1,90 +1,104 @@
 import discord
-import random
-from datetime import datetime, timedelta
-from discord import Interaction
 from discord.ext import commands
-from utils import get_user, save_user, create_embed, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.database import get_user, save_user
+from Niludetsu.core.base import EMOJIS
+from datetime import datetime, timedelta
+import random
 
 class Work(commands.Cog):
-    def __init__(self, client):
-        self.client = client
-
-    @discord.app_commands.command(name="work", description="Поработать и получить вознаграждение.")
-    async def work(self, interaction: Interaction):
-        user_id = str(interaction.user.id)
-
-        # Передаем self.client в get_user
-        user_data = get_user(self.client, user_id)
-        if user_data is None:
-            embed = create_embed(
-                description="Пользователь не найден. Пожалуйста, зарегистрируйтесь сначала."
-            )
-            await interaction.response.send_message(embed=embed)
-            return
-
-        last_work = user_data.get('last_work')
-        now = datetime.utcnow() + timedelta(hours=2)  # UTC + 2
-
-        if last_work and now < datetime.fromisoformat(last_work) + timedelta(hours=1):
-            time_remaining = (datetime.fromisoformat(last_work) + timedelta(hours=1) - now).total_seconds()
-            hours, remainder = divmod(time_remaining, 3600)
-            minutes, seconds = divmod(remainder, 60)
-            embed = create_embed(
-                description=f"Следующий раз поработать можно будет через **`{int(minutes)}` минут и `{int(seconds)}` секунд.**"
-            )
-            await interaction.response.send_message(embed=embed)
-            return
-
-        jobs = [
-            ("доставщиком пиццы", 500, 1000),
-            ("офисным сотрудником", 500, 1000),
-            ("продавцом-консультантом", 500, 1000),
-            ("курьером", 500, 1000),
-            ("баристой", 500, 1000),
-            ("строителем", 500, 1000),
-            ("библиотекарем", 500, 1000),
-            ("аптекарем", 500, 1000),
-            ("слесарем", 500, 1000),
-            ("уборщиком", 500, 1000),
-            ("учителем", 500, 1000),
-            ("администратором", 500, 1000),
-            ("официантом", 500, 1000),
-            ("парикмахером", 500, 1000),
-            ("фермером", 500, 1000),
-            ("банкиром", 500, 1000),
-            ("экскурсоводом", 500, 1000),
-            ("архитектором", 500, 1000),
+    def __init__(self, bot):
+        self.bot = bot
+        self.jobs = [
+            {"name": "Программист", "min_reward": 500, "max_reward": 1500},
+            {"name": "Дизайнер", "min_reward": 400, "max_reward": 1200},
+            {"name": "Писатель", "min_reward": 300, "max_reward": 1000},
+            {"name": "Художник", "min_reward": 350, "max_reward": 1100},
+            {"name": "Музыкант", "min_reward": 450, "max_reward": 1300},
+            {"name": "Фотограф", "min_reward": 380, "max_reward": 1150},
+            {"name": "Переводчик", "min_reward": 420, "max_reward": 1250},
+            {"name": "Блогер", "min_reward": 460, "max_reward": 1400},
         ]
+        self.work_cooldown = 3600  # 1 час в секундах
 
-        job, min_amount, max_amount = random.choice(jobs)
-        amount = random.randint(min_amount, max_amount)
+    @discord.app_commands.command(name="work", description="Заработать деньги")
+    async def work(self, interaction: discord.Interaction):
+        """
+        Команда для заработка денег
+        
+        Parameters
+        ----------
+        interaction : discord.Interaction
+            Объект взаимодействия
+        """
+        user_id = str(interaction.user.id)
+        user_data = get_user(user_id)
 
-        chance = random.randint(1, 1000)
-        if chance == 1:  # редкая удача
-            wallet_amount = random.randint(5000, 15000)
-            embed = create_embed(
-                title="Удача!",
-                description=f"Вы нашли кошелек на улице и получили {wallet_amount} {EMOJIS['MONEY']}!",
-            )
-            user_data['balance'] += wallet_amount
-        elif chance <= 50:  # штраф
-            fine_amount = random.randint(100, 500)
-            embed = create_embed(
-                title="Штраф.",
-                description=f"Вас оштрафовали на {fine_amount} {EMOJIS['MONEY']}!",
-            )
-            user_data['balance'] -= fine_amount
-        else:  # обычная работа
-            embed = create_embed(
-                title="Работа",
-                description=f"Вы поработали **{job}** и получили {amount} {EMOJIS['MONEY']}!",
-            )
-            user_data['balance'] += amount
+        if not user_data:
+            user_data = {
+                'balance': 0,
+                'deposit': 0,
+                'xp': 0,
+                'level': 1,
+                'roles': '[]',
+                'last_work': None
+            }
 
-        user_data['last_work'] = now.isoformat()
+        # Проверяем, когда пользователь последний раз работал
+        last_work = user_data.get('last_work')
+        if last_work:
+            last_work = datetime.fromisoformat(last_work)
+            next_work = last_work + timedelta(seconds=self.work_cooldown)
+            
+            if datetime.utcnow() < next_work:
+                time_left = next_work - datetime.utcnow()
+                minutes = int(time_left.total_seconds() // 60)
+                seconds = int(time_left.total_seconds() % 60)
+                
+                await interaction.response.send_message(
+                    embed=create_embed(
+                        description=f"Вы слишком устали для работы.\n"
+                                  f"Отдохните еще: **{minutes}м {seconds}с**",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                return
+
+        # Выбираем случайную работу
+        job = random.choice(self.jobs)
+        reward = random.randint(job['min_reward'], job['max_reward'])
+
+        # Добавляем бонус за уровень (5% за каждый уровень)
+        level_bonus = int(reward * (user_data.get('level', 1) - 1) * 0.05)
+        total_reward = reward + level_bonus
+
+        # Обновляем данные пользователя
+        user_data['balance'] = user_data.get('balance', 0) + total_reward
+        user_data['last_work'] = datetime.utcnow().isoformat()
+        
+        # Добавляем опыт за работу
+        user_data['xp'] = user_data.get('xp', 0) + random.randint(10, 20)
+        
         save_user(user_id, user_data)
 
-        await interaction.response.send_message(embed=embed)
+        # Формируем сообщение
+        description = [
+            f"Вы поработали **{job['name']}** и заработали {reward:,} {EMOJIS['MONEY']}",
+        ]
+        
+        if level_bonus > 0:
+            description.append(f"Бонус за уровень: +{level_bonus:,} {EMOJIS['MONEY']}")
+            
+        description.append(f"\nВаш текущий баланс: {user_data['balance']:,} {EMOJIS['MONEY']}")
 
-async def setup(client):
-    await client.add_cog(Work(client))
+        await interaction.response.send_message(
+            embed=create_embed(
+                title="Работа выполнена!",
+                description="\n".join(description),
+                color="GREEN"
+            )
+        )
+
+async def setup(bot):
+    await bot.add_cog(Work(bot))

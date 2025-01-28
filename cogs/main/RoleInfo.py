@@ -3,7 +3,8 @@ from discord.ext import commands
 from discord import app_commands
 from datetime import datetime
 from typing import Optional
-from utils import create_embed, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 class RoleInfo(commands.Cog):
     def __init__(self, bot):
@@ -14,7 +15,8 @@ class RoleInfo(commands.Cog):
     async def roleinfo(self, interaction: discord.Interaction, role: discord.Role):
         # Создаем эмбед
         embed = create_embed(
-            title=f"Информация о роли {role.name}"
+            title=f"Информация о роли {role.name}",
+            color="DEFAULT"
         )
 
         # Базовая информация
@@ -71,10 +73,22 @@ class RoleInfo(commands.Cog):
 
         # Иконка роли (если есть)
         if role.icon:
-            embed.set_thumbnail(url=role.icon.url)
-
-        # Добавляем футер с ID того, кто вызвал команду
-        embed.set_footer(text=f"Запросил {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
+            embed = create_embed(
+                title=embed.title,
+                description=embed.description,
+                fields=embed.fields,
+                thumbnail={'url': role.icon.url},
+                footer={'text': f"Запросил {interaction.user.name}", 'icon_url': interaction.user.avatar.url if interaction.user.avatar else None},
+                color="DEFAULT"
+            )
+        else:
+            embed = create_embed(
+                title=embed.title,
+                description=embed.description,
+                fields=embed.fields,
+                footer={'text': f"Запросил {interaction.user.name}", 'icon_url': interaction.user.avatar.url if interaction.user.avatar else None},
+                color="DEFAULT"
+            )
 
         await interaction.response.send_message(embed=embed)
 

@@ -1,43 +1,34 @@
 import discord
 from discord.ext import commands
-from utils import create_embed
 import random
+from Niludetsu.utils.embed import create_embed
 
 class Cry(commands.Cog):
-    def __init__(self, client):
-        self.client = client
+    def __init__(self, bot):
+        self.bot = bot
         self.cry_gifs = [
-            "https://media.giphy.com/media/ROF8OQvDmxytW/giphy.gif",
-            "https://media.giphy.com/media/L95W4wv8nnb9K/giphy.gif",
-            "https://media.giphy.com/media/ShPv5tt0EM396/giphy.gif",
-            "https://media.giphy.com/media/3fmRTfVIKMRiM/giphy.gif",
-            "https://media.giphy.com/media/OPU6wzx8JrHna/giphy.gif"
-        ]
-        self.cry_messages = [
-            "плачет от грусти... 😢",
-            "рыдает в уголочке... 😭",
-            "не может сдержать слёзы... 💔",
-            "заливается слёзами... 😢",
-            "схлипует... 😥"
+            "https://i.imgur.com/Ak5NQgp.gif",
+            "https://i.imgur.com/zd4sYGO.gif",
+            "https://i.imgur.com/e4LGfeZ.gif",
+            "https://i.imgur.com/g8cZnZ4.gif",
+            "https://i.imgur.com/HWL1UQ5.gif",
+            "https://i.imgur.com/JYXTCy4.gif",
+            "https://i.imgur.com/o8y8kbN.gif",
+            "https://i.imgur.com/YgqSR9i.gif",
+            "https://i.imgur.com/TpbSx9F.gif",
+            "https://i.imgur.com/NuEQxbm.gif"
         ]
 
-    @discord.app_commands.command(name="cry", description="Поплакать")
+    @discord.app_commands.command(name="cry", description="Заплакать")
     async def cry(self, interaction: discord.Interaction):
-        try:
-            embed = create_embed(
-                description=f"{interaction.user.mention} {random.choice(self.cry_messages)}"
+        gif_url = random.choice(self.cry_gifs)
+        await interaction.response.send_message(
+            embed=create_embed(
+                description=f"{interaction.user.mention} плачет",
+                image=gif_url,
+                color="BLUE"
             )
-            embed.set_image(url=random.choice(self.cry_gifs))
-            
-            await interaction.response.send_message(embed=embed)
-            
-        except Exception as e:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description="Произошла ошибка при выполнении команды!"
-                )
-            )
-            print(f"Ошибка у команды cry: {e}")
+        )
 
-async def setup(client):
-    await client.add_cog(Cry(client)) 
+async def setup(bot):
+    await bot.add_cog(Cry(bot)) 

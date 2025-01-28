@@ -1,47 +1,77 @@
 import discord
-import random
-from datetime import datetime, timedelta
 from discord.ext import commands
-from utils import create_embed, get_user, save_user, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.database import get_user, save_user
+from Niludetsu.core.base import EMOJIS
+from datetime import datetime, timedelta
 
 class Daily(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.daily_amount = 1000  # Базовая сумма ежедневной награды
 
-    @discord.app_commands.command(name="daily", description="Получить ежедневный бонус")
+    @discord.app_commands.command(name="daily", description="Получить ежедневную награду")
     async def daily(self, interaction: discord.Interaction):
-        user = interaction.user  
-        user_id = str(user.id) 
-        user_data = get_user(self.bot, user_id)  
+        """
+        Команда для получения ежедневной награды
+        
+        Parameters
+        ----------
+        interaction : discord.Interaction
+            Объект взаимодействия
+        """
+        user_id = str(interaction.user.id)
+        user_data = get_user(user_id)
+
+        if not user_data:
+            user_data = {
+                'balance': 0,
+                'deposit': 0,
+                'xp': 0,
+                'level': 1,
+                'roles': '[]',
+                'last_daily': None
+            }
+
+        # Проверяем, когда пользователь последний раз получал награду
         last_daily = user_data.get('last_daily')
-        now = datetime.utcnow() + timedelta(hours=2) 
+        if last_daily:
+            last_daily = datetime.fromisoformat(last_daily)
+            next_daily = last_daily + timedelta(days=1)
+            
+            if datetime.utcnow() < next_daily:
+                time_left = next_daily - datetime.utcnow()
+                hours = int(time_left.total_seconds() // 3600)
+                minutes = int((time_left.total_seconds() % 3600) // 60)
+                
+                await interaction.response.send_message(
+                    embed=create_embed(
+                        description=f"Вы уже получили ежедневную награду.\n"
+                                  f"Следующую награду можно получить через: "
+                                  f"**{hours}ч {minutes}м**",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                return
 
-        # Проверяем, прошел ли 1 день с последнего получения бонуса
-        if last_daily and now < datetime.fromisoformat(last_daily) + timedelta(days=1):
-            time_remaining = (datetime.fromisoformat(last_daily) + timedelta(days=1) - now).total_seconds()
-            hours, remainder = divmod(time_remaining, 3600)
-            minutes, seconds = divmod(remainder, 60)
-            embed = create_embed(
-                title="Ошибка.",
-                description=f"Бонус можно будет получить через **{int(hours)} часов, {int(minutes)} минут, {int(seconds)} секунд.**"
-            )
-            await interaction.response.send_message(embed=embed)
-            return
+        # Рассчитываем награду (можно добавить бонусы за стрик и т.д.)
+        reward = self.daily_amount
 
-        # Если пользователь может получить бонус, начисляем случайную сумму
-        reward_amount = random.randint(0, 100)
-        user_data['balance'] += reward_amount 
-        user_data['last_daily'] = now.isoformat() 
-
-        # Сохраняем данные пользователя
+        # Обновляем данные пользователя
+        user_data['balance'] = user_data.get('balance', 0) + reward
+        user_data['last_daily'] = datetime.utcnow().isoformat()
         save_user(user_id, user_data)
 
-        # Создаем и отправляем успешное сообщение
-        embed = create_embed(
-            title="Ежедневный бонус!",
-            description=f"Вы получили {reward_amount} {EMOJIS['MONEY']}! Ваш баланс: {user_data['balance']} {EMOJIS['MONEY']}."
+        # Отправляем сообщение об успешном получении награды
+        await interaction.response.send_message(
+            embed=create_embed(
+                title="Ежедневная награда получена!",
+                description=f"Вы получили {reward:,} {EMOJIS['MONEY']}\n"
+                          f"Ваш текущий баланс: {user_data['balance']:,} {EMOJIS['MONEY']}",
+                color="GREEN"
+            )
         )
-        await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Daily(bot))

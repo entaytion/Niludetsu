@@ -4,7 +4,8 @@ from discord import app_commands
 from discord.ui import View, Button
 import random
 import json
-from utils import create_embed, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 class Game2048:
     def __init__(self):
@@ -173,7 +174,8 @@ class GameView(View):
     async def update_game(self, interaction: discord.Interaction):
         embed = create_embed(
             title="🎮 2048",
-            description=f"**Счёт:** {self.game.score}\n\n{self.game.get_board_str()}"
+            description=f"**Счёт:** {self.game.score}\n\n{self.game.get_board_str()}",
+            color="BLUE"
         )
         
         if self.game.is_game_over():
@@ -194,7 +196,8 @@ class Game2048Cog(commands.Cog):
         
         embed = create_embed(
             title="🎮 2048",
-            description=f"**Счёт:** {game.score}\n\n{game.get_board_str()}"
+            description=f"**Счёт:** {game.score}\n\n{game.get_board_str()}",
+            color="BLUE"
         )
         
         await interaction.response.send_message(embed=embed, view=view)

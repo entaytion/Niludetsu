@@ -1,75 +1,81 @@
 import discord
 from discord.ext import commands
-from utils import create_embed, get_user
 import random
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.database import get_user
 
 class Sex(commands.Cog):
-    def __init__(self, client):
-        self.client = client
+    def __init__(self, bot):
+        self.bot = bot
         self.sex_gifs = [
-            "https://media.giphy.com/media/11V54nIH3eDQK4/giphy.gif",
-            "https://media.giphy.com/media/11V54nIH3eDQK4/giphy.gif",
-            "https://media.giphy.com/media/11V54nIH3eDQK4/giphy.gif",
-            "https://media.giphy.com/media/11V54nIH3eDQK4/giphy.gif",
-            "https://media.giphy.com/media/11V54nIH3eDQK4/giphy.gif"
-        ]
-        self.sex_messages = [
-            "занимается любовью с",
-            "проводит страстную ночь с",
-            "наслаждается моментом с",
-            "разделяет интимный момент с",
-            "предается страсти с"
+            "https://i.imgur.com/YA7g7h7.gif",
+            "https://i.imgur.com/4MQkDKm.gif",
+            "https://i.imgur.com/o2SJYUS.gif",
+            "https://i.imgur.com/oOCq3Bt.gif",
+            "https://i.imgur.com/Agwwaj6.gif",
+            "https://i.imgur.com/IGcyKPH.gif",
+            "https://i.imgur.com/mIg8erJ.gif",
+            "https://i.imgur.com/oRsaSyU.gif",
+            "https://i.imgur.com/CwbYjBX.gif",
+            "https://i.imgur.com/fm49srQ.gif"
         ]
 
-    @discord.app_commands.command(name="sex", description="Заняться сексом с пользователем")
-    @discord.app_commands.describe(user="Пользователь, с которым вы хотите заняться сексом")
-    async def sex(self, interaction: discord.Interaction, user: discord.Member):
-        if user.id == interaction.user.id:
+    @discord.app_commands.command(name="sex", description="Заняться любовью с пользователем")
+    @discord.app_commands.describe(member="Пользователь для любви")
+    async def sex(self, interaction: discord.Interaction, member: discord.Member):
+        if member.id == interaction.user.id:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы не можете заниматься этим сами с собой!"
-                )
+                    description="Вы не можете заняться любовью с самим собой!",
+                    color="RED"
+                ),
+                ephemeral=True
             )
             return
 
-        # Проверяем, женат ли пользователь
-        author_data = get_user(self.client, str(interaction.user.id))
-        if not author_data:
+        if member.bot:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы не зарегистрированы в системе!"
-                )
+                    description="Вы не можете заняться любовью с ботом!",
+                    color="RED"
+                ),
+                ephemeral=True
             )
             return
 
-        # Если пользователь женат и партнер не является целевым пользователем
-        if author_data.get('spouse') and author_data.get('spouse') != str(user.id):
-            spouse_member = interaction.guild.get_member(int(author_data['spouse']))
-            spouse_mention = spouse_member.mention if spouse_member else "вашим партнером"
-            
+        # Проверяем брак
+        user_data = get_user(str(interaction.user.id))
+        target_data = get_user(str(member.id))
+
+        if not user_data or not user_data.get('spouse'):
             await interaction.response.send_message(
                 embed=create_embed(
-                    description=f"Вы женаты с {spouse_mention}! Зрада это плохо!"
-                )
+                    description="Вы должны состоять в браке чтобы заниматься любовью!",
+                    color="RED"
+                ),
+                ephemeral=True
             )
             return
 
-        # Проверяем, женат ли целевой пользователь
-        target_data = get_user(self.client, str(user.id))
-        if target_data and target_data.get('spouse') and target_data['spouse'] != str(interaction.user.id):
+        if str(member.id) != user_data['spouse']:
+            spouse = interaction.guild.get_member(int(user_data['spouse']))
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Этот пользователь уже в браке!"
-                )
+                    description=f"Вы можете заниматься любовью только со своим супругом ({spouse.mention if spouse else 'партнером'})!",
+                    color="RED"
+                ),
+                ephemeral=True
             )
             return
-            
-        embed = create_embed(
-            description=f"💕 {interaction.user.mention} {random.choice(self.sex_messages)} {user.mention}!"
+
+        gif_url = random.choice(self.sex_gifs)
+        await interaction.response.send_message(
+            embed=create_embed(
+                description=f"{interaction.user.mention} занимается любовью с {member.mention}",
+                image=gif_url,
+                color="GREEN"
+            )
         )
-        embed.set_image(url=random.choice(self.sex_gifs))
-        
-        await interaction.response.send_message(embed=embed)
 
-async def setup(client):
-    await client.add_cog(Sex(client)) 
+async def setup(bot):
+    await bot.add_cog(Sex(bot)) 

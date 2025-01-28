@@ -1,43 +1,45 @@
 import discord
 from discord.ext import commands
-from utils import create_embed
 import random
+from Niludetsu.utils.embed import create_embed
 
 class Pat(commands.Cog):
-    def __init__(self, client):
-        self.client = client
+    def __init__(self, bot):
+        self.bot = bot
         self.pat_gifs = [
-            "https://media.giphy.com/media/5tmRHwTlHAA9WkVxTU/giphy.gif",
-            "https://media.giphy.com/media/ARSp9T7wwxNcs/giphy.gif", 
-            "https://media.giphy.com/media/109ltuoSQT212w/giphy.gif",
-            "https://media.giphy.com/media/ye7OTQgwmVuVy/giphy.gif",
-            "https://media.giphy.com/media/d7PyZJN7zqiR2/giphy.gif"
-        ]
-        self.pat_messages = [
-            "нежно гладит",
-            "ласково гладит",
-            "гладит по голове",
-            "заботливо гладит",
-            "успокаивающе гладит"
+            "https://i.imgur.com/2lacG7l.gif",
+            "https://i.imgur.com/UWbKpx8.gif",
+            "https://i.imgur.com/4ssddEQ.gif",
+            "https://i.imgur.com/2k0MFIr.gif",
+            "https://i.imgur.com/LUypjw3.gif",
+            "https://i.imgur.com/F3cjr3n.gif",
+            "https://i.imgur.com/NNOz81F.gif",
+            "https://i.imgur.com/Wqn7XhV.gif",
+            "https://i.imgur.com/TpbSx9F.gif",
+            "https://i.imgur.com/YxZvwPI.gif"
         ]
 
     @discord.app_commands.command(name="pat", description="Погладить пользователя")
-    @discord.app_commands.describe(user="Пользователь, которого вы хотите погладить")
-    async def pat(self, interaction: discord.Interaction, user: discord.Member):
-        if user.id == interaction.user.id:
+    @discord.app_commands.describe(member="Пользователь, которого вы хотите погладить")
+    async def pat(self, interaction: discord.Interaction, member: discord.Member):
+        if member.id == interaction.user.id:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы не можете погладить самого себя!"
-                )
+                    description="Вы не можете погладить самого себя!",
+                    color="RED"
+                ),
+                ephemeral=True
             )
             return
-            
-        embed = create_embed(
-            description=f"🤚 {interaction.user.mention} {random.choice(self.pat_messages)} {user.mention}!"
-        )
-        embed.set_image(url=random.choice(self.pat_gifs))
-        
-        await interaction.response.send_message(embed=embed)
 
-async def setup(client):
-    await client.add_cog(Pat(client))
+        gif_url = random.choice(self.pat_gifs)
+        await interaction.response.send_message(
+            embed=create_embed(
+                description=f"{interaction.user.mention} погладил(а) {member.mention}",
+                image=gif_url,
+                color="GREEN"
+            )
+        )
+
+async def setup(bot):
+    await bot.add_cog(Pat(bot))

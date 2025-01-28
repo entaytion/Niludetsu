@@ -6,6 +6,7 @@ import traceback
 from typing import Optional
 from datetime import datetime
 from Niludetsu.utils.config_loader import bot_state
+from Niludetsu.utils.embed import create_embed
 import asyncio
 
 from Niludetsu.logging.users import UserLogger
@@ -77,12 +78,13 @@ class Logs(commands.Cog):
                             return
                     
                     if not bot_state.is_initialized('logging_system'):
-                        test_embed = discord.Embed(
-                            title="✅ Система логирования активирована",
-                            description="Канал логов успешно подключен и готов к работе.",
-                            color=discord.Color.green()
+                        await self.log_channel.send(
+                            embed=create_embed(
+                                title="✅ Система логирования активирована",
+                                description="Канал логов успешно подключен и готов к работе.",
+                                color="GREEN"
+                            )
                         )
-                        await self.log_channel.send(embed=test_embed)
                         bot_state.mark_initialized('logging_system')
                     
                     self._initialized = True
@@ -121,25 +123,20 @@ class Logs(commands.Cog):
             color = discord.Color.green() if self.logging_enabled else discord.Color.red()
             emoji = "✅" if self.logging_enabled else "❌"
             
-            embed = discord.Embed(
-                title=f"{emoji} Статус системы логирования",
-                description="Информация о текущем состоянии системы логирования",
-                color=color
-            )
-            
-            embed.add_field(name="Статус", value=status, inline=True)
-            embed.add_field(name="Канал", value=self.log_channel.mention if self.log_channel else "Не установлен", inline=True)
-            
-            if self.log_channel:
-                embed.add_field(
-                    name="Информация о канале",
-                    value=f"ID канала: `{self.log_channel.id}`\n"
-                          f"Категория: {self.log_channel.category.name if self.log_channel.category else 'Нет'}\n"
-                          f"Создан: {discord.utils.format_dt(self.log_channel.created_at, 'R')}",
-                    inline=False
+            await interaction.response.send_message(
+                embed=create_embed(
+                    title=f"{emoji} Статус системы логирования",
+                    description="Информация о текущем состоянии системы логирования",
+                    fields=[
+                        {"name": "Статус", "value": status, "inline": True},
+                        {"name": "Канал", "value": self.log_channel.mention if self.log_channel else "Не установлен", "inline": True},
+                        {"name": "Информация о канале", "value": f"ID канала: `{self.log_channel.id}`\n"
+                                                               f"Категория: {self.log_channel.category.name if self.log_channel.category else 'Нет'}\n"
+                                                               f"Создан: {discord.utils.format_dt(self.log_channel.created_at, 'R')}", "inline": False} if self.log_channel else None
+                    ],
+                    color="GREEN" if self.logging_enabled else "RED"
                 )
-            
-            await interaction.response.send_message(embed=embed)
+            )
         except Exception as e:
             await interaction.response.send_message(
                 f"❌ Произошла ошибка: {str(e)}"
@@ -153,21 +150,23 @@ class Logs(commands.Cog):
             self.log_channel = channel
             self.save_config(channel.id)
             
-            embed = discord.Embed(
-                title="✅ Канал логов установлен",
-                description=f"Новый канал логов: {channel.mention}\n"
-                          f"ID канала: `{channel.id}`",
-                color=discord.Color.green()
+            await interaction.response.send_message(
+                embed=create_embed(
+                    title="✅ Канал логов установлен",
+                    description=f"Новый канал логов: {channel.mention}\n"
+                              f"ID канала: `{channel.id}`",
+                    color="GREEN"
+                )
             )
-            await interaction.response.send_message(embed=embed)
             
             # Отправляем тестовое сообщение в новый канал только при смене канала
-            test_embed = discord.Embed(
-                title="✅ Система логирования активирована",
-                description="Канал логов успешно подключен и готов к работе.",
-                color=discord.Color.green()
+            await channel.send(
+                embed=create_embed(
+                    title="✅ Система логирования активирована",
+                    description="Канал логов успешно подключен и готов к работе.",
+                    color="GREEN"
+                )
             )
-            await channel.send(embed=test_embed)
             
         except Exception as e:
             await interaction.response.send_message(
@@ -182,21 +181,23 @@ class Logs(commands.Cog):
             if not self.log_channel:
                 raise Exception("Канал логов не настроен")
 
-            test_embed = discord.Embed(
-                title="📝 Тестовое сообщение",
-                description="Это тестовое сообщение для проверки работы системы логирования",
-                color=discord.Color.blue()
+            await self.log_channel.send(
+                embed=create_embed(
+                    title="📝 Тестовое сообщение",
+                    description="Это тестовое сообщение для проверки работы системы логирования",
+                    fields=[
+                        {"name": "Инициатор", "value": interaction.user.mention, "inline": True},
+                        {"name": "Канал", "value": self.log_channel.mention, "inline": True}
+                    ],
+                    color="BLUE"
+                )
             )
-            test_embed.add_field(name="Инициатор", value=interaction.user.mention, inline=True)
-            test_embed.add_field(name="Канал", value=self.log_channel.mention, inline=True)
-            
-            await self.log_channel.send(embed=test_embed)
             
             await interaction.response.send_message(
-                embed=discord.Embed(
+                embed=create_embed(
                     title="✅ Тестовое сообщение отправлено",
                     description="Проверьте канал логов",
-                    color=discord.Color.green()
+                    color="GREEN"
                 )
             )
         except Exception as e:
@@ -213,18 +214,18 @@ class Logs(commands.Cog):
             
             if self.log_channel:
                 await self.log_channel.send(
-                    embed=discord.Embed(
+                    embed=create_embed(
                         title="⚠️ Система логирования отключена",
                         description=f"Администратор {interaction.user.mention} отключил систему логирования",
-                        color=discord.Color.yellow()
+                        color="YELLOW"
                     )
                 )
             
             await interaction.response.send_message(
-                embed=discord.Embed(
+                embed=create_embed(
                     title="✅ Система логирования отключена",
                     description="Логирование событий приостановлено",
-                    color=discord.Color.yellow()
+                    color="YELLOW"
                 )
             )
         except Exception as e:
@@ -240,10 +241,10 @@ class Logs(commands.Cog):
             # Если система уже включена, не делаем ничего
             if self.logging_enabled:
                 await interaction.response.send_message(
-                    embed=discord.Embed(
+                    embed=create_embed(
                         title="⚠️ Система уже активна",
                         description="Система логирования уже включена",
-                        color=discord.Color.yellow()
+                        color="YELLOW"
                     )
                 )
                 return
@@ -252,18 +253,18 @@ class Logs(commands.Cog):
             
             if self.log_channel:
                 await self.log_channel.send(
-                    embed=discord.Embed(
+                    embed=create_embed(
                         title="✅ Система логирования включена",
                         description=f"Администратор {interaction.user.mention} включил систему логирования",
-                        color=discord.Color.green()
+                        color="GREEN"
                     )
                 )
             
             await interaction.response.send_message(
-                embed=discord.Embed(
+                embed=create_embed(
                     title="✅ Система логирования включена",
                     description="Логирование событий возобновлено",
-                    color=discord.Color.green()
+                    color="GREEN"
                 )
             )
         except Exception as e:

@@ -3,7 +3,9 @@ from discord.ext import commands
 from discord import app_commands
 import sqlite3
 from datetime import datetime
-from utils import create_embed, has_mod_role
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.decorators import has_mod_role
 
 class Warns(commands.GroupCog, group_name="warns"):
     def __init__(self, bot):
@@ -34,19 +36,19 @@ class Warns(commands.GroupCog, group_name="warns"):
         warnings = cursor.fetchall()
 
         if not warnings:
-            return await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"У {'вас' if user == interaction.user else user.mention} нет активных предупреждений!"
-                )
+            embed = create_embed(
+                title=f"{EMOJIS['INFO']} Информация о предупреждениях",
+                description=f"{EMOJIS['SUCCESS']} У {'вас' if user == interaction.user else user.mention} нет активных предупреждений!",
+                color="GREEN"
             )
+            embed.set_thumbnail(url=user.display_avatar.url)
+            return await interaction.response.send_message(embed=embed)
 
-        # Формуємо список попереджень
         warnings_list = []
-        for warning_id, mod_id, reason, timestamp in warnings:
+        for idx, (warning_id, mod_id, reason, timestamp) in enumerate(warnings, 1):
             mod = interaction.guild.get_member(mod_id)
             mod_name = mod.name if mod else "Неизвестный модератор"
             
-            # Конвертуємо timestamp в datetime
             try:
                 warn_time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
                 time_str = warn_time.strftime('%d.%m.%Y %H:%M')
@@ -54,28 +56,27 @@ class Warns(commands.GroupCog, group_name="warns"):
                 time_str = "Неизвестное время"
             
             warnings_list.append(
-                f"**ID:** {warning_id}\n"
-                f"**Модератор:** {mod_name}\n"
-                f"**Причина:** `{reason}`\n"
-                f"**Дата:** `{time_str}`\n"
+                f"**Предупреждение #{idx}** (ID: {warning_id})\n"
+                f"{EMOJIS['SHIELD']} **Модератор:** {mod_name}\n"
+                f"{EMOJIS['REASON']} **Причина:** `{reason}`\n"
+                f"{EMOJIS['TIME']} **Дата:** `{time_str}`\n"
             )
 
-        # Створюємо embed з попередженнями
         embed = create_embed(
-            title=f"⚠️ Предупреждения {'(ваши)' if user == interaction.user else user.name}",
-            description="\n".join(warnings_list)
+            title=f"{EMOJIS['WARN']} Предупреждения пользователя {user.name}",
+            description="\n".join(warnings_list),
+            color="YELLOW"
         )
         
-        # Додаємо кількість попереджень як поле
+        embed.set_thumbnail(url=user.display_avatar.url)
         embed.add_field(
-            name="Всего предупреждений",
-            value=str(len(warnings)),
+            name=f"{EMOJIS['STATS']} Статистика",
+            value=f"**Всего предупреждений:** {len(warnings)}",
             inline=False
         )
+        embed.set_footer(text=f"ID пользователя: {user.id}")
         
-        await interaction.response.send_message(
-            embed=embed
-        )
+        await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="info", description="Посмотреть информацию о конкретном предупреждении")
     @app_commands.describe(
@@ -114,7 +115,9 @@ class Warns(commands.GroupCog, group_name="warns"):
         if not warning:
             return await interaction.response.send_message(
                 embed=create_embed(
-                    description="Предупреждение с указанным ID не найдено!"
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Предупреждение с указанным ID не найдено!",
+                    color="RED"
                 )
             )
             
@@ -129,13 +132,32 @@ class Warns(commands.GroupCog, group_name="warns"):
             time_str = "Неизвестное время"
             
         embed = create_embed(
-            title=f"ℹ️ Информация о предупреждении #{warning_id}",
-            description=(
-                f"**Пользователь:** {warned_user.mention if warned_user else 'Пользователь покинул сервер'}\n"
-                f"**Модератор:** {mod.mention if mod else 'Неизвестный модератор'}\n"
-                f"**Причина:** `{reason}`\n"
-                f"**Дата:** `{time_str}`"
-            )
+            title=f"{EMOJIS['INFO']} Информация о предупреждении #{warning_id}",
+            color="BLUE"
+        )
+        
+        if warned_user:
+            embed.set_thumbnail(url=warned_user.display_avatar.url)
+        
+        embed.add_field(
+            name=f"{EMOJIS['USER']} Пользователь",
+            value=warned_user.mention if warned_user else "Пользователь покинул сервер",
+            inline=False
+        )
+        embed.add_field(
+            name=f"{EMOJIS['SHIELD']} Модератор",
+            value=mod.mention if mod else "Неизвестный модератор",
+            inline=False
+        )
+        embed.add_field(
+            name=f"{EMOJIS['REASON']} Причина",
+            value=f"```{reason}```",
+            inline=False
+        )
+        embed.add_field(
+            name=f"{EMOJIS['TIME']} Дата выдачи",
+            value=f"`{time_str}`",
+            inline=False
         )
         
         await interaction.response.send_message(embed=embed)

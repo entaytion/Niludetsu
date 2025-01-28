@@ -1,7 +1,8 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 class Avatar(commands.Cog):
     def __init__(self, bot):
@@ -29,8 +30,9 @@ class Avatar(commands.Cog):
         
         # Создаем эмбед
         embed = create_embed(
-            title=f"Аватар {'вашего профиля' if target == interaction.user else f'профиля {target.name}'}",
+            title=f"{EMOJIS['AVATAR']} Аватар {'вашего профиля' if target == interaction.user else f'профиля {target.name}'}",
             description="",
+            color="BLUE",
             image_url=avatar_formats['png']  # По умолчанию показываем PNG
         )
         
@@ -41,7 +43,7 @@ class Avatar(commands.Cog):
                 links.append(f"[{format.upper()}]({url})")
         
         if links:
-            embed.description = "📥 Скачать: " + " • ".join(links)
+            embed.description = f"{EMOJIS['DOWNLOAD']} Скачать: " + " • ".join(links)
         
         # Создаем кнопки для просмотра в разных форматах
         class AvatarView(discord.ui.View):

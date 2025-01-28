@@ -1,34 +1,37 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from discord.ui import View, Button, Modal, TextInput
+from discord.ui import Modal, TextInput
+from Niludetsu.utils.embed import create_embed
 import random
-import json
-import asyncio
-from utils import create_embed
 
 # База данных стран и их флагов
 COUNTRIES = {
-    "Украина": "https://flagcdn.com/w640/ua.png",
-    "Франция": "https://flagcdn.com/w640/fr.png",
-    "Германия": "https://flagcdn.com/w640/de.png",
-    "Италия": "https://flagcdn.com/w640/it.png",
-    "Испания": "https://flagcdn.com/w640/es.png",
-    "Великобритания": "https://flagcdn.com/w640/gb.png",
-    "Польша": "https://flagcdn.com/w640/pl.png",
-    "Чехия": "https://flagcdn.com/w640/cz.png",
-    "Австрия": "https://flagcdn.com/w640/at.png",
-    "Венгрия": "https://flagcdn.com/w640/hu.png",
-    "Греция": "https://flagcdn.com/w640/gr.png",
-    "Португалия": "https://flagcdn.com/w640/pt.png",
-    "Нидерланды": "https://flagcdn.com/w640/nl.png",
-    "Бельгия": "https://flagcdn.com/w640/be.png",
-    "Швеция": "https://flagcdn.com/w640/se.png",
-    "Норвегия": "https://flagcdn.com/w640/no.png",
-    "Финляндия": "https://flagcdn.com/w640/fi.png",
-    "Дания": "https://flagcdn.com/w640/dk.png",
-    "Ирландия": "https://flagcdn.com/w640/ie.png",
-    "Швейцария": "https://flagcdn.com/w640/ch.png"
+    "Украина": "https://flagcdn.com/w2560/ua.png",
+    "Польша": "https://flagcdn.com/w2560/pl.png",
+    "Швеция": "https://flagcdn.com/w2560/se.png",
+    "Норвегия": "https://flagcdn.com/w2560/no.png",
+    "Финляндия": "https://flagcdn.com/w2560/fi.png",
+    "Португалия": "https://flagcdn.com/w2560/pt.png",
+    "Греция": "https://flagcdn.com/w2560/gr.png",
+    "Турция": "https://flagcdn.com/w2560/tr.png",
+    "Египет": "https://flagcdn.com/w2560/eg.png",
+    "Казахстан": "https://flagcdn.com/w2560/kz.png",
+    "Россия": "https://flagcdn.com/w2560/ru.png",
+    "США": "https://flagcdn.com/w2560/us.png",
+    "Китай": "https://flagcdn.com/w2560/cn.png",
+    "Япония": "https://flagcdn.com/w2560/jp.png",
+    "Германия": "https://flagcdn.com/w2560/de.png",
+    "Франция": "https://flagcdn.com/w2560/fr.png",
+    "Великобритания": "https://flagcdn.com/w2560/gb.png",
+    "Италия": "https://flagcdn.com/w2560/it.png",
+    "Канада": "https://flagcdn.com/w2560/ca.png",
+    "Австралия": "https://flagcdn.com/w2560/au.png",
+    "Бразилия": "https://flagcdn.com/w2560/br.png",
+    "Индия": "https://flagcdn.com/w2560/in.png",
+    "Испания": "https://flagcdn.com/w2560/es.png",
+    "Мексика": "https://flagcdn.com/w2560/mx.png",
+    "Южная Корея": "https://flagcdn.com/w2560/kr.png"
 }
 
 class GuessModal(Modal):
@@ -86,85 +89,88 @@ class CountryGame:
             status.append(f"**Попытка {len(status) + 1}:** {attempt}\n{hint}")
         return "\n".join(status)
 
-class CountryView(View):
-    def __init__(self, game):
-        super().__init__(timeout=300)  # 5 минут на игру
+class CountryView(discord.ui.View):
+    def __init__(self, game: CountryGame):
+        super().__init__()
         self.game = game
         
-    @discord.ui.button(label="Сделать предположение", style=discord.ButtonStyle.primary)
-    async def guess(self, interaction: discord.Interaction, button: Button):
+    @discord.ui.button(label="Угадать", style=discord.ButtonStyle.primary)
+    async def guess(self, interaction: discord.Interaction, button: discord.ui.Button):
         if len(self.game.attempts) >= self.game.max_attempts:
-            await interaction.response.send_message("❌ Игра окончена! У вас закончились попытки.")
-            return
-            
-        modal = GuessModal()
-        modal.view = self
-        await interaction.response.send_modal(modal)
-        
-    async def process_guess(self, interaction: discord.Interaction, guess):
-        is_correct = self.game.make_guess(guess)
-        
-        if is_correct:
-            embed = create_embed(
-                title="🎮 Поздравляем!",
-                description=f"✅ Вы угадали страну: **{self.game.target_country}**!\n"
-                           f"Количество попыток: **{len(self.game.attempts)}**\n\n"
-                           f"**История попыток:**\n{self.game.get_status()}"
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description="Игра окончена! У вас закончились попытки.",
+                    color="RED"
+                ),
+                ephemeral=True
             )
-            embed.set_image(url=self.game.flag_url)
-            self.stop()
-            await interaction.response.edit_message(embed=embed, view=None)
             return
             
-        if len(self.game.attempts) >= self.game.max_attempts:
-            embed = create_embed(
-                title="❌ Игра окончена!",
-                description=f"У вас закончились попытки!\n"
-                           f"Правильный ответ: **{self.game.target_country}**\n\n"
-                           f"**История попыток:**\n{self.game.get_status()}"
+        await interaction.response.send_modal(GuessModal())
+        
+    async def process_guess(self, interaction: discord.Interaction, guess: str):
+        if not guess:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description="Пожалуйста, введите название страны!",
+                    color="RED"
+                ),
+                ephemeral=True
             )
-            embed.set_image(url=self.game.flag_url)
-            self.stop()
-            await interaction.response.edit_message(embed=embed, view=None)
             return
             
-        embed = create_embed(
-            title="🎮 Угадай страну",
-            description=f"Осталось попыток: **{self.game.max_attempts - len(self.game.attempts)}**\n\n"
-                       f"**История попыток:**\n{self.game.get_status()}\n\n"
-                       "Нажмите кнопку ниже, чтобы сделать следующее предположение!"
-        )
-        embed.set_image(url=self.game.flag_url)
-        await interaction.response.edit_message(embed=embed, view=self)
+        correct = self.game.make_guess(guess)
+        attempts_left = self.game.max_attempts - len(self.game.attempts)
+        
+        if correct:
+            embed = create_embed(
+                title="🌍 Угадай страну",
+                description=f"🎉 **Поздравляем! Вы угадали страну!**\n\n{self.game.get_status()}",
+                image=self.game.flag_url,
+                color="GREEN"
+            )
+            self.disable_all_items()
+            await interaction.response.edit_message(embed=embed, view=self)
+        elif attempts_left == 0:
+            embed = create_embed(
+                title="🌍 Угадай страну",
+                description=f"❌ **Игра окончена!**\nПравильный ответ: **{self.game.target_country}**\n\n{self.game.get_status()}",
+                image=self.game.flag_url,
+                color="RED"
+            )
+            self.disable_all_items()
+            await interaction.response.edit_message(embed=embed, view=self)
+        else:
+            embed = create_embed(
+                title="🌍 Угадай страну",
+                description=f"Осталось попыток: **{attempts_left}**\n\n{self.game.get_status()}",
+                image=self.game.flag_url,
+                color="BLUE"
+            )
+            await interaction.response.edit_message(embed=embed)
+            
+    def disable_all_items(self):
+        for item in self.children:
+            item.disabled = True
 
 class Country(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        
-    @app_commands.command(name="country", description="Начать игру 'Угадай страну по флагу'")
+
+    @app_commands.command(name="country", description="Игра 'Угадай страну по флагу'")
     async def country(self, interaction: discord.Interaction):
         game = CountryGame()
-        
-        embed = create_embed(
-            title="🎮 Угадай страну",
-            description=f"У вас есть **{game.max_attempts}** попыток, чтобы угадать страну по флагу.\n"
-                       "После каждой попытки вы получите подсказку в виде общих букв.\n\n"
-                       "Нажмите кнопку ниже, чтобы сделать предположение!"
-        )
-        embed.set_image(url=game.flag_url)
-        
         view = CountryView(game)
-        await interaction.response.send_message(embed=embed, view=view)
         
-        await view.wait()
-        if not view.is_finished():
-            embed = create_embed(
-                title="⏰ Время вышло!",
-                description=f"Правильный ответ: **{game.target_country}**\n\n"
-                           f"**История попыток:**\n{game.get_status()}"
-            )
-            embed.set_image(url=game.flag_url)
-            await interaction.edit_original_message(embed=embed, view=None)
+        await interaction.response.send_message(
+            embed=create_embed(
+                title="🌍 Угадай страну",
+                description=f"У вас есть **{game.max_attempts}** попыток, чтобы угадать страну по флагу.\nНажмите кнопку 'Угадать' для ввода ответа.",
+                image=game.flag_url,
+                color="BLUE"
+            ),
+            view=view
+        )
 
 async def setup(bot):
     await bot.add_cog(Country(bot)) 

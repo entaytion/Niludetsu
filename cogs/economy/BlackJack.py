@@ -1,7 +1,9 @@
 import discord
 from discord.ext import commands
 import random
-from utils import create_embed, get_user, save_user, EMOJIS
+from Niludetsu.utils.database import get_user, save_user
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 class BlackJack(commands.Cog):
     def __init__(self, bot):
@@ -47,22 +49,39 @@ class BlackJack(commands.Cog):
         if bet <= 0:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Ставка должна быть больше 0!"
-                )
+                    description="Ставка должна быть больше 0!",
+                    color="RED"
+                ),
+                ephemeral=True
             )
             return
 
-        user_data = get_user(self.bot, str(interaction.user.id))
-        if not user_data or user_data['balance'] < bet:
+        user_id = str(interaction.user.id)
+        user_data = get_user(user_id)
+        
+        if not user_data:
+            user_data = {
+                'balance': 0,
+                'deposit': 0,
+                'xp': 0,
+                'level': 1,
+                'roles': '[]'
+            }
+            save_user(user_id, user_data)
+
+        if user_data['balance'] < bet:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="У вас недостаточно средств для такой ставки! Снимите деньги с банка командой /withdraw"
-                )
+                    description=f"У вас недостаточно средств для такой ставки!\n"
+                              f"Ваш баланс: {user_data['balance']:,} {EMOJIS['MONEY']}",
+                    color="RED"
+                ),
+                ephemeral=True
             )
             return
 
         user_data['balance'] -= bet
-        save_user(str(interaction.user.id), user_data)
+        save_user(user_id, user_data)
 
         deck = self.create_deck()
         player_hand = [deck.pop(), deck.pop()]
@@ -79,7 +98,8 @@ class BlackJack(commands.Cog):
             title="Блекджек",
             description=f"**Ваши карты:** {' '.join(player_hand)} (Сумма: {self.calculate_hand(player_hand)})\n"
                        f"**Карты дилера:** {dealer_hand[0]} ?\n\n"
-                       "Выберите действие:"
+                       "Выберите действие:",
+            color="BLUE"
         )
 
         view = discord.ui.View()
@@ -101,7 +121,8 @@ class BlackJack(commands.Cog):
                     title="Блекджек",
                     description=f"**Ваши карты:** {' '.join(game['player_hand'])} (Сумма: {player_value})\n"
                                f"**Карты дилера:** {game['dealer_hand'][0]} ?\n\n"
-                               "Выберите действие:"
+                               "Выберите действие:",
+                    color="BLUE"
                 )
                 await interaction.response.edit_message(embed=embed, view=view)
 
@@ -147,22 +168,24 @@ class BlackJack(commands.Cog):
             winnings = game['bet']
 
         if winnings > 0:
-            user_data = get_user(self.bot, str(interaction.user.id))
+            user_id = str(interaction.user.id)
+            user_data = get_user(user_id)
             user_data['balance'] += winnings
-            save_user(str(interaction.user.id), user_data)
+            save_user(user_id, user_data)
 
         description = (
             f"**Ваши карты:** {' '.join(game['player_hand'])} (Сумма: {player_value})\n"
             f"**Карты дилера:** {' '.join(game['dealer_hand'])} (Сумма: {dealer_value})\n\n"
             f"{result}\n"
         )
-        
+
         if winnings > 0:
-            description += f"{EMOJIS['DOT']} **Выигрыш:** {winnings} {EMOJIS['MONEY']}"
+            description += f"{EMOJIS['DOT']} **Выигрыш:** {winnings:,} {EMOJIS['MONEY']}"
 
         embed = create_embed(
             title="Конец игры",
-            description=description
+            description=description,
+            color="GREEN" if winnings > 0 else "RED"
         )
         
         del self.active_games[interaction.user.id]

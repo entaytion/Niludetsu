@@ -1,60 +1,120 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
-from utils import create_embed, get_user, save_user, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.database import get_user, save_user
+from Niludetsu.core.base import EMOJIS
 
 class Pay(commands.Cog):
-    def __init__(self, client):
-        self.client = client
+    def __init__(self, bot):
+        self.bot = bot
 
-    @app_commands.command(name="pay", description="Перевести деньги другому пользователю")
-    @app_commands.describe(user="Пользователь, которому переводятся деньги", amount="Сумма перевода")
+    @discord.app_commands.command(name="pay", description="Перевести деньги другому пользователю")
+    @discord.app_commands.describe(
+        user="Пользователь, которому нужно перевести деньги",
+        amount="Сумма для перевода"
+    )
     async def pay(self, interaction: discord.Interaction, user: discord.Member, amount: int):
-        sender_id = str(interaction.user.id)
-        receiver_id = str(user.id)
-
-        if user.bot:
-            embed = create_embed(
-                description="Нельзя переводить деньги ботам."
+        """
+        Команда для перевода денег другому пользователю
+        
+        Parameters
+        ----------
+        interaction : discord.Interaction
+            Объект взаимодействия
+        user : discord.Member
+            Пользователь, которому нужно перевести деньги
+        amount : int
+            Сумма для перевода
+        """
+        # Проверка на перевод самому себе
+        if user.id == interaction.user.id:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description="Вы не можете перевести деньги самому себе.",
+                    color="RED"
+                ),
+                ephemeral=True
             )
-            await interaction.response.send_message(embed=embed)
             return
 
-        if interaction.user.id == user.id:
-            embed = create_embed(
-                description="Нельзя переводить деньги самому себе."
+        # Проверка на бота
+        if user.bot and user.id != 1264591814208262154:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description="Вы не можете перевести деньги боту.",
+                    color="RED"
+                ),
+                ephemeral=True
             )
-            await interaction.response.send_message(embed=embed)
             return
 
-        sender = get_user(self.client, sender_id)
-        receiver = get_user(self.client, receiver_id)
-
+        # Проверка суммы
         if amount <= 0:
-            embed = create_embed(
-                description="Сумма должна быть положительной."
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description="Сумма перевода должна быть больше 0.",
+                    color="RED"
+                ),
+                ephemeral=True
             )
-            await interaction.response.send_message(embed=embed)
             return
 
-        if sender['balance'] < amount:
-            embed = create_embed(
-                description="У вас недостаточно средств."
+        # Получаем данные отправителя
+        sender_id = str(interaction.user.id)
+        sender_data = get_user(sender_id)
+
+        if not sender_data:
+            sender_data = {
+                'balance': 0,
+                'deposit': 0,
+                'xp': 0,
+                'level': 1,
+                'roles': '[]'
+            }
+            save_user(sender_id, sender_data)
+
+        # Проверка баланса отправителя
+        if sender_data.get('balance', 0) < amount:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description=f"У вас недостаточно средств.\n"
+                              f"Ваш баланс: {sender_data.get('balance', 0):,} {EMOJIS['MONEY']}",
+                    color="RED"
+                ),
+                ephemeral=True
             )
-            await interaction.response.send_message(embed=embed)
             return
 
-        sender['balance'] -= amount
-        receiver['balance'] += amount
+        # Получаем данные получателя
+        receiver_id = str(user.id)
+        receiver_data = get_user(receiver_id)
 
-        save_user(sender_id, sender)
-        save_user(receiver_id, receiver)
+        if not receiver_data:
+            receiver_data = {
+                'balance': 0,
+                'deposit': 0,
+                'xp': 0,
+                'level': 1,
+                'roles': '[]'
+            }
 
-        embed = create_embed(
-            title="Баланс обновлён.",
-            description=f"{interaction.user.mention} перевёл {user.mention} {amount} {EMOJIS['MONEY']}"
+        # Выполняем перевод
+        sender_data['balance'] = sender_data.get('balance', 0) - amount
+        receiver_data['balance'] = receiver_data.get('balance', 0) + amount
+
+        # Сохраняем изменения
+        save_user(sender_id, sender_data)
+        save_user(receiver_id, receiver_data)
+
+        # Отправляем сообщение об успешном переводе
+        await interaction.response.send_message(
+            embed=create_embed(
+                title="Перевод выполнен",
+                description=f"Вы перевели {amount:,} {EMOJIS['MONEY']} пользователю {user.mention}\n"
+                          f"Ваш текущий баланс: {sender_data['balance']:,} {EMOJIS['MONEY']}",
+                color="GREEN"
+            )
         )
-        await interaction.response.send_message(embed=embed)
 
-async def setup(client):
-    await client.add_cog(Pay(client))
+async def setup(bot):
+    await bot.add_cog(Pay(bot))

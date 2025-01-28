@@ -1,82 +1,108 @@
 import discord
 from discord.ext import commands
-from utils import get_user, save_user, create_embed
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.database import get_user, save_user
 
 class Divorce(commands.Cog):
-    def __init__(self, client):
-        self.client = client
+    def __init__(self, bot):
+        self.bot = bot
 
     @discord.app_commands.command(name="divorce", description="Развестись с текущим партнером")
     async def divorce(self, interaction: discord.Interaction):
-        user_data = get_user(self.client, str(interaction.user.id))
-        
+        user_id = str(interaction.user.id)
+        user_data = get_user(user_id)
+
         if not user_data:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description="Вы не зарегистрированы в системе!"
-                )
-            )
-            return
+            user_data = {
+                'balance': 0,
+                'deposit': 0,
+                'xp': 0,
+                'level': 1,
+                'roles': '[]',
+                'spouse': None
+            }
+            save_user(user_id, user_data)
 
         if not user_data.get('spouse'):
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы не женаты!"
-                )
+                    description="Вы не состоите в браке!",
+                    color="RED"
+                ),
+                ephemeral=True
             )
             return
 
         # Получаем данные партнера
         spouse_id = user_data['spouse']
-        spouse_data = get_user(self.client, spouse_id)
-        
-        if not spouse_data:
-            # Если партнера не найдено, просто удаляем запись о браке
-            user_data.update({
-                'spouse': None,
-                'marriage_date': None
-            })
-            save_user(str(interaction.user.id), user_data)
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description="Развод оформлен."
-                )
-            )
-            return
+        spouse_data = get_user(spouse_id)
+        spouse = interaction.guild.get_member(int(spouse_id))
 
-        # Разделяем общий банк
-        total_balance = user_data.get('balance', 0)
-        half_balance = total_balance // 2
-        
-        # Обновляем данные первого пользователя
-        user_data.update({
-            'spouse': None,
-            'marriage_date': None,
-            'balance': half_balance
-        })
-        
-        # Обновляем данные второго пользователя
-        spouse_data.update({
-            'spouse': None,
-            'marriage_date': None,
-            'balance': half_balance
-        })
-        
-        # Сохраняем изменения
-        save_user(str(interaction.user.id), user_data)
-        save_user(spouse_id, spouse_data)
-        
-        # Получаем объект пользователя партнера
-        spouse_member = interaction.guild.get_member(int(spouse_id))
-        spouse_mention = spouse_member.mention if spouse_member else "бывший партнер"
-        
+        # Создаем кнопки подтверждения
+        view = discord.ui.View(timeout=60)
+        confirm_button = discord.ui.Button(label="Подтвердить", style=discord.ButtonStyle.red, custom_id="confirm")
+        cancel_button = discord.ui.Button(label="Отменить", style=discord.ButtonStyle.grey, custom_id="cancel")
+
+        async def confirm_callback(button_interaction: discord.Interaction):
+            if button_interaction.user.id != interaction.user.id:
+                await button_interaction.response.send_message(
+                    embed=create_embed(
+                        description="Это не ваш развод!",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                return
+
+            # Разводим пользователей
+            user_data['spouse'] = None
+            spouse_data['spouse'] = None
+            
+            save_user(user_id, user_data)
+            save_user(spouse_id, spouse_data)
+
+            await button_interaction.message.edit(
+                embed=create_embed(
+                    title="💔 Развод оформлен",
+                    description=f"{interaction.user.mention} и {spouse.mention if spouse else 'партнер'} больше не в браке.",
+                    color="RED"
+                ),
+                view=None
+            )
+
+        async def cancel_callback(button_interaction: discord.Interaction):
+            if button_interaction.user.id != interaction.user.id:
+                await button_interaction.response.send_message(
+                    embed=create_embed(
+                        description="Это не ваш развод!",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                return
+
+            await button_interaction.message.edit(
+                embed=create_embed(
+                    description=f"{interaction.user.mention} отменил(а) развод.",
+                    color="GREEN"
+                ),
+                view=None
+            )
+
+        confirm_button.callback = confirm_callback
+        cancel_button.callback = cancel_callback
+        view.add_item(confirm_button)
+        view.add_item(cancel_button)
+
+        # Отправляем сообщение с подтверждением
         await interaction.response.send_message(
             embed=create_embed(
-                title="💔 Развод оформлен",
-                description=f"{interaction.user.mention} разводится с {spouse_mention}.\n"
-                           f"Банк разделен поровну: по {half_balance} <:aeMoney:1266066622561517781>"
-            )
+                title="💔 Подтверждение развода",
+                description=f"{interaction.user.mention}, вы уверены, что хотите развестись с {spouse.mention if spouse else 'партнером'}?",
+                color="BLUE"
+            ),
+            view=view
         )
 
-async def setup(client):
-    await client.add_cog(Divorce(client)) 
+async def setup(bot):
+    await bot.add_cog(Divorce(bot)) 

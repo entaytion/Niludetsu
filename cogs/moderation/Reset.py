@@ -1,8 +1,11 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed, has_admin_role, command_cooldown
 import yaml
+from typing import Optional
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.decorators import command_cooldown, has_admin_role
 
 class Reset(commands.Cog):
     def __init__(self, bot):
@@ -10,84 +13,155 @@ class Reset(commands.Cog):
         with open("config/config.yaml", "r", encoding="utf-8") as f:
             self.config = yaml.safe_load(f)
 
-    @app_commands.command(name="reset", description="Сбросить различные настройки сервера")
+    @app_commands.command(name="reset", description="Сбросить никнейм и/или аватар участника")
     @app_commands.describe(
-        type="Что нужно сбросить",
+        member="Участник для сброса",
+        nickname="Сбросить никнейм",
+        avatar="Сбросить аватар",
+        reason="Причина сброса"
     )
-    @app_commands.choices(type=[
-        app_commands.Choice(name="mutes", value="mutes"),
-        app_commands.Choice(name="warns", value="warns")
-    ])
     @has_admin_role()
     @command_cooldown()
-    async def reset(self, interaction: discord.Interaction, type: str):
-        await interaction.response.defer()
-
-        if type == "mutes":
-            # Получаем роль мута из конфига
-            mute_role_id = self.config.get('moderation', {}).get('mute_role')
-            if not mute_role_id:
-                return await interaction.followup.send(
-                    embed=create_embed(description="❌ Роль мута не настроена в конфигурации!")
+    async def reset(
+        self,
+        interaction: discord.Interaction,
+        member: discord.Member,
+        nickname: Optional[bool] = False,
+        avatar: Optional[bool] = False,
+        reason: Optional[str] = None
+    ):
+        try:
+            if not interaction.user.guild_permissions.manage_nicknames and nickname:
+                return await interaction.response.send_message(
+                    embed=create_embed(
+                        title=f"{EMOJIS['ERROR']} Ошибка прав",
+                        description="У вас нет прав на управление никнеймами!",
+                        color="RED"
+                    ),
+                    ephemeral=True
                 )
 
-            mute_role = interaction.guild.get_role(int(mute_role_id))
-            if not mute_role:
-                return await interaction.followup.send(
-                    embed=create_embed(description="❌ Роль мута не найдена на сервере!")
+            if not (nickname or avatar):
+                return await interaction.response.send_message(
+                    embed=create_embed(
+                        title=f"{EMOJIS['ERROR']} Ошибка параметров",
+                        description="Выберите хотя бы одно действие: сброс никнейма или аватара!",
+                        color="RED"
+                    ),
+                    ephemeral=True
                 )
 
-            # Подсчитываем количество замученных участников
-            muted_members = len(mute_role.members)
+            if member.top_role >= interaction.user.top_role:
+                return await interaction.response.send_message(
+                    embed=create_embed(
+                        title=f"{EMOJIS['ERROR']} Ошибка прав",
+                        description="Вы не можете сбросить данные участника с ролью выше или равной вашей!",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
 
-            # Снимаем роль мута у всех участников
-            for member in mute_role.members:
+            # Отправляем начальное сообщение
+            progress_embed = create_embed(
+                title=f"{EMOJIS['LOADING']} Сброс данных",
+                description=f"Сбрасываю данные участника {member.mention}...",
+                color="YELLOW"
+            )
+            await interaction.response.send_message(embed=progress_embed)
+
+            success_actions = []
+            failed_actions = []
+
+            # Сброс никнейма
+            if nickname and member.nick:
                 try:
-                    await member.remove_roles(mute_role, reason="Массовый сброс мутов")
-                    # Если у участника есть таймаут, тоже снимаем его
-                    if member.is_timed_out():
-                        await member.timeout(None, reason="Массовый сброс мутов")
+                    await member.edit(
+                        nick=None,
+                        reason=f"Сброс никнейма от {interaction.user}: {reason if reason else 'Причина не указана'}"
+                    )
+                    success_actions.append("никнейм")
                 except discord.Forbidden:
-                    continue
+                    failed_actions.append("никнейм")
 
-            await interaction.followup.send(
-                embed=create_embed(
-                    title="🔄 Сброс мутов",
-                    description=f"✅ Успешно снят мут с **{muted_members}** участников"
-                )
+            # Сброс аватара (если есть серверный)
+            if avatar and member.guild_avatar:
+                try:
+                    await member.edit(
+                        avatar=None,
+                        reason=f"Сброс аватара от {interaction.user}: {reason if reason else 'Причина не указана'}"
+                    )
+                    success_actions.append("аватар")
+                except discord.Forbidden:
+                    failed_actions.append("аватар")
+
+            # Создаем эмбед с результатами
+            result_embed = create_embed(
+                title=f"{EMOJIS['SUCCESS' if success_actions else 'ERROR']} Сброс данных",
+                color="GREEN" if success_actions else "RED"
             )
 
-        elif type == "warns":
-            import sqlite3
-            from utils import DB_PATH
+            result_embed.add_field(
+                name=f"{EMOJIS['USER']} Участник",
+                value=f"{member.mention} (`{member.id}`)",
+                inline=True
+            )
+            result_embed.add_field(
+                name=f"{EMOJIS['SHIELD']} Модератор",
+                value=interaction.user.mention,
+                inline=True
+            )
 
+            if success_actions:
+                result_embed.add_field(
+                    name=f"{EMOJIS['SUCCESS']} Успешно сброшено",
+                    value=", ".join(success_actions),
+                    inline=False
+                )
+
+            if failed_actions:
+                result_embed.add_field(
+                    name=f"{EMOJIS['ERROR']} Не удалось сбросить",
+                    value=", ".join(failed_actions),
+                    inline=False
+                )
+
+            if reason:
+                result_embed.add_field(
+                    name=f"{EMOJIS['REASON']} Причина",
+                    value=f"```{reason}```",
+                    inline=False
+                )
+
+            result_embed.set_footer(text=f"ID участника: {member.id}")
+            await interaction.edit_original_response(embed=result_embed)
+
+            # Отправляем уведомление участнику
             try:
-                with sqlite3.connect(DB_PATH) as conn:
-                    cursor = conn.cursor()
-                    # Получаем количество активных предупреждений перед удалением
-                    cursor.execute(
-                        "SELECT COUNT(*) FROM warnings WHERE guild_id = ? AND active = TRUE",
-                        (str(interaction.guild.id),)
-                    )
-                    warns_count = cursor.fetchone()[0]
-                    
-                    # Деактивируем все предупреждения для этого сервера
-                    cursor.execute(
-                        "UPDATE warnings SET active = FALSE WHERE guild_id = ? AND active = TRUE",
-                        (str(interaction.guild.id),)
-                    )
-                    conn.commit()
-
-                await interaction.followup.send(
+                await member.send(
                     embed=create_embed(
-                        title="🔄 Сброс предупреждений",
-                        description=f"✅ Успешно деактивировано **{warns_count}** предупреждений"
+                        title=f"{EMOJIS['INFO']} Сброс данных",
+                        description=(
+                            f"**Сервер:** {interaction.guild.name}\n"
+                            f"**Модератор:** {interaction.user.mention}\n"
+                            f"**Сброшено:** {', '.join(success_actions)}\n"
+                            f"**Причина:** {reason if reason else 'Не указана'}"
+                        ),
+                        color="BLUE"
                     )
                 )
-            except Exception as e:
-                await interaction.followup.send(
-                    embed=create_embed(description=f"❌ Произошла ошибка при сбросе предупреждений: {str(e)}")
-                )
+            except discord.Forbidden:
+                pass
+
+        except Exception as e:
+            error_embed = create_embed(
+                title=f"{EMOJIS['ERROR']} Ошибка",
+                description=f"Произошла непредвиденная ошибка: {str(e)}",
+                color="RED"
+            )
+            if not interaction.response.is_done():
+                await interaction.response.send_message(embed=error_embed)
+            else:
+                await interaction.edit_original_response(embed=error_embed)
 
 async def setup(bot):
     await bot.add_cog(Reset(bot)) 

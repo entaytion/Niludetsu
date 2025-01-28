@@ -1,7 +1,9 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed, DB_PATH, initialize_table, TABLES_SCHEMAS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.database import DB_PATH, initialize_table, TABLES_SCHEMAS
 import sqlite3
 from datetime import datetime
 
@@ -31,7 +33,9 @@ class Bio(commands.GroupCog, group_name="bio"):
         if age is not None and (age < 13 or age > 100):
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Возраст должен быть от 13 до 100 лет!"
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Возраст должен быть от 13 до 100 лет!",
+                    color="RED"
                 )
             )
             return
@@ -39,7 +43,9 @@ class Bio(commands.GroupCog, group_name="bio"):
         if bio and len(bio) > 1024:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Биография не может быть длиннее 1024 символов!"
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Биография не может быть длиннее 1024 символов!",
+                    color="RED"
                 )
             )
             return
@@ -83,8 +89,9 @@ class Bio(commands.GroupCog, group_name="bio"):
             
         await interaction.response.send_message(
             embed=create_embed(
-                title="✅ Профиль обновлен",
-                description="Информация в вашем профиле была успешно обновлена!"
+                title=f"{EMOJIS['SUCCESS']} Профиль обновлен",
+                description="Информация в вашем профиле была успешно обновлена!",
+                color="GREEN"
             )
         )
 
@@ -101,7 +108,9 @@ class Bio(commands.GroupCog, group_name="bio"):
             if not profile:
                 await interaction.response.send_message(
                     embed=create_embed(
-                        description=f"{'Ваш профиль' if target_user == interaction.user else f'Профиль {target_user.display_name}'} еще не настроен!"
+                        title=f"{EMOJIS['ERROR']} Профиль не найден",
+                        description=f"{'Ваш профиль' if target_user == interaction.user else f'Профиль {target_user.display_name}'} еще не настроен!",
+                        color="RED"
                     )
                 )
                 return
@@ -112,17 +121,18 @@ class Bio(commands.GroupCog, group_name="bio"):
             # Формируем описание
             description = []
             if name:
-                description.append(f"**Имя:** {name}")
+                description.append(f"{EMOJIS['NAME']} **Имя:** {name}")
             if age:
-                description.append(f"**Возраст:** {age}")
+                description.append(f"{EMOJIS['AGE']} **Возраст:** {age}")
             if country:
-                description.append(f"**Страна:** {country}")
+                description.append(f"{EMOJIS['COUNTRY']} **Страна:** {country}")
             if bio:
-                description.append(f"**О себе:** `{bio}`")
+                description.append(f"{EMOJIS['BIO']} **О себе:** `{bio}`")
                 
             embed = create_embed(
-                title=f"Профиль {target_user.display_name}",
-                description="\n".join(description) if description else "Профиль пуст"
+                title=f"{EMOJIS['PROFILE']} Профиль {target_user.display_name}",
+                description="\n".join(description) if description else "Профиль пуст",
+                color="BLUE"
             )
             
             embed.set_thumbnail(url=target_user.display_avatar.url)
@@ -147,8 +157,9 @@ class Bio(commands.GroupCog, group_name="bio"):
             
         await interaction.response.send_message(
             embed=create_embed(
-                title="✅ Профиль очищен",
-                description="Вся информация из вашего профиля была удалена!"
+                title=f"{EMOJIS['SUCCESS']} Профиль очищен",
+                description="Вся информация из вашего профиля была удалена!",
+                color="GREEN"
             )
         )
 

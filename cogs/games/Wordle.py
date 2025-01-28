@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed
+from Niludetsu.utils.embed import create_embed
 import random
 import yaml
 
@@ -118,8 +118,10 @@ class Wordle(commands.Cog):
         if word_length not in self.available_lengths:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description=f"❌ Доступные длины слов: {', '.join(map(str, self.available_lengths))}"
-                )
+                    description=f"❌ Доступные длины слов: {', '.join(map(str, self.available_lengths))}",
+                    color="RED"
+                ),
+                ephemeral=True
             )
             return
 
@@ -130,8 +132,10 @@ class Wordle(commands.Cog):
         if channel_id in self.active_games and user_id in self.active_games[channel_id]:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="У вас уже есть активная игра!"
-                )
+                    description="У вас уже есть активная игра!",
+                    color="RED"
+                ),
+                ephemeral=True
             )
             return
 
@@ -149,7 +153,8 @@ class Wordle(commands.Cog):
                         "Просто напишите слово в чат для попытки.\n\n"
                         "Доступные буквы:\n" +
                         " ".join(f"⬜[{letter}]" for letter in LETTERS)
-                    )
+                    ),
+                    color="BLUE"
                 )
             )
             message = await interaction.original_response()
@@ -164,8 +169,10 @@ class Wordle(commands.Cog):
         except ValueError as e:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description=f"❌ {str(e)}"
-                )
+                    description=f"❌ {str(e)}",
+                    color="RED"
+                ),
+                ephemeral=True
             )
 
     @commands.Cog.listener()
@@ -227,7 +234,8 @@ class Wordle(commands.Cog):
             await game_message.edit(
                 embed=create_embed(
                     title="🎯 Wordle",
-                    description=description
+                    description=description,
+                    color="GREEN" if game.is_won else "RED" if game.is_over else "BLUE"
                 )
             )
         except:

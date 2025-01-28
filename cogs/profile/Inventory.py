@@ -1,6 +1,8 @@
 import discord
 from discord.ext import commands
-from utils import create_embed, get_user, get_user_roles, get_role_by_id, EMOJIS
+from Niludetsu.utils.database import get_user, get_user_roles, get_role_by_id
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 class Inventory(commands.Cog):
     def __init__(self, bot):
@@ -16,7 +18,9 @@ class Inventory(commands.Cog):
             if not user_data.get('roles'):
                 await interaction.followup.send(
                     embed=create_embed(
-                        description="У вас нет купленных ролей!"
+                        title=f"{EMOJIS['ERROR']} Инвентарь пуст",
+                        description="У вас нет купленных ролей!",
+                        color="RED"
                     )
                 )
                 return
@@ -25,22 +29,25 @@ class Inventory(commands.Cog):
             if not user_roles:
                 await interaction.followup.send(
                     embed=create_embed(
-                        description="У вас нет купленных ролей!"
+                        title=f"{EMOJIS['ERROR']} Инвентарь пуст",
+                        description="У вас нет купленных ролей!",
+                        color="RED"
                     )
                 )
                 return
 
             embed = create_embed(
-                title=f"🎒 Инвентарь {interaction.user.name}",
-                description="Ваши купленные роли:"
+                title=f"{EMOJIS['INVENTORY']} Инвентарь {interaction.user.name}",
+                description=f"{EMOJIS['ROLES']} Ваши купленные роли:",
+                color="BLUE"
             )
 
             for role_id in user_roles:
                 role_data = get_role_by_id(role_id)
                 if role_data:
                     embed.add_field(
-                        name=f"{role_data['name']}",
-                        value=f"💰 Стоимость: {role_data['balance']} {EMOJIS['MONEY']}\n📝 Описание: {role_data['description']}\n🔑 ID роли: `{role_data['role_id']}`",
+                        name=f"{EMOJIS['ROLE']} {role_data['name']}",
+                        value=f"{EMOJIS['MONEY']} Стоимость: {role_data['balance']}\n{EMOJIS['DESCRIPTION']} Описание: {role_data['description']}\n{EMOJIS['ID']} ID роли: `{role_data['role_id']}`",
                         inline=False
                     )
 
@@ -50,7 +57,9 @@ class Inventory(commands.Cog):
             print(f"Error in inventory command: {e}")
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Произошла ошибка при получении инвентаря!"
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Произошла ошибка при получении инвентаря!",
+                    color="RED"
                 )
             )
 

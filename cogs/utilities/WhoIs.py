@@ -5,7 +5,8 @@ import socket
 import whois
 import requests
 from datetime import datetime
-from utils import create_embed, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 class WhoIs(commands.Cog):
     def __init__(self, bot):

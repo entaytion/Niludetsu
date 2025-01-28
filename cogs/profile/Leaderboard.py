@@ -2,7 +2,9 @@ import discord
 from discord.ext import commands
 from discord import Interaction, ButtonStyle
 from discord.ui import Button, View
-from utils import create_embed, get_user, save_user, EMOJIS, DB_PATH
+from Niludetsu.utils.database import get_user
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS, DB_PATH
 from typing import Literal
 import sqlite3
 
@@ -30,7 +32,9 @@ class ReputationView(View):
     async def show_reputation_embed(self, interaction: Interaction, sorted_users, rep_type):
         try:
             embed = create_embed(
-                title=f"Рейтинг по {rep_type} репутации",
+                title=f"{EMOJIS['LEADERBOARD']} Рейтинг по {rep_type} репутации",
+                description=f"{EMOJIS['INFO']} Показаны топ-10 пользователей",
+                color="BLUE",
                 footer={
                     "text": f"Вы на {next((i + 1 for i, (member_id, _) in enumerate(sorted_users) if member_id == interaction.user.id), 'не найдено')}-м месте.",
                     "icon_url": interaction.user.avatar.url
@@ -40,10 +44,10 @@ class ReputationView(View):
             for i, (member_id, user_data) in enumerate(sorted_users[:10], start=1):
                 member_mention = await self.cog.get_member_mention(member_id, interaction.guild.id)
                 rep = user_data.get('reputation', 0)
-                emoji = "⬆️" if rep >= 0 else "⬇️"
+                emoji = f"{EMOJIS['UP']}" if rep >= 0 else f"{EMOJIS['DOWN']}"
                 embed.add_field(
-                    name=f"{i}. {member_mention}",
-                    value=f"Репутация: **`{rep}`** {emoji}",
+                    name=f"{EMOJIS['RANK']} #{i}. {member_mention}",
+                    value=f"{EMOJIS['REPUTATION']} Репутация: **`{rep}`** {emoji}",
                     inline=False
                 )
                 
@@ -87,7 +91,13 @@ class Leaderboard(commands.Cog):
             bot_balance = get_user(self.bot, bot_id)
 
             if bot_balance is None:
-                await interaction.followup.send("Не удалось получить баланс бота. Попробуйте позже.")
+                await interaction.followup.send(
+                    embed=create_embed(
+                        title=f"{EMOJIS['ERROR']} Ошибка",
+                        description="Не удалось получить баланс бота. Попробуйте позже.",
+                        color="RED"
+                    )
+                )
                 return
 
             users = {}
@@ -100,23 +110,31 @@ class Leaderboard(commands.Cog):
 
             if category == "level":
                 sorted_users = sorted(users.items(), key=lambda x: (x[1].get('level', 0), x[1].get('xp', 0)), reverse=True)
-                value_title = "уровню"
+                value_title = f"{EMOJIS['LEVEL']} уровню"
             elif category == "money":
                 sorted_users = sorted(users.items(), key=lambda x: (x[1].get('balance', 0) + x[1].get('deposit', 0)), reverse=True)
-                value_title = "деньгам"
+                value_title = f"{EMOJIS['MONEY']} деньгам"
             elif category == "reputation":
                 view = ReputationView(self, users, interaction)
                 with sqlite3.connect(DB_PATH) as conn:
                     cursor = conn.cursor()
                     cursor.execute("SELECT user_id, reputation FROM users ORDER BY reputation DESC")
                     sorted_users = [(int(row[0]), {'reputation': row[1]}) for row in cursor.fetchall()]
-                value_title = "репутации"
+                value_title = f"{EMOJIS['REPUTATION']} репутации"
             else:
-                await interaction.followup.send("Категория не найдена.")
+                await interaction.followup.send(
+                    embed=create_embed(
+                        title=f"{EMOJIS['ERROR']} Ошибка",
+                        description="Категория не найдена.",
+                        color="RED"
+                    )
+                )
                 return
 
             embed = create_embed(
-                title=f"Рейтинг по {value_title} пользователей",
+                title=f"{EMOJIS['LEADERBOARD']} Рейтинг по {value_title}",
+                description=f"{EMOJIS['INFO']} Показаны топ-10 пользователей",
+                color="BLUE",
                 footer={
                     "text": f"Вы на {next((i + 1 for i, (member_id, _) in enumerate(sorted_users) if member_id == interaction.user.id), 'не найдено')}-м месте.",
                     "icon_url": interaction.user.avatar.url
@@ -124,30 +142,30 @@ class Leaderboard(commands.Cog):
             )
 
             if category == "money":
-                treasury_info = f"{EMOJIS['DOT']} Баланс: **`{bot_balance['balance']}`** {EMOJIS['MONEY']}"
-                embed.add_field(name="Казна сервера", value=treasury_info, inline=False)
+                treasury_info = f"{EMOJIS['BANK']} Баланс: **`{bot_balance['balance']}`** {EMOJIS['MONEY']}"
+                embed.add_field(name=f"{EMOJIS['TREASURY']} Казна сервера", value=treasury_info, inline=False)
 
             for i, (member_id, user_data) in enumerate(sorted_users[:10], start=1):
                 member_mention = await self.get_member_mention(member_id, interaction.guild.id)
                 if category == "money":
                     total_amount = user_data['balance'] + user_data['deposit']
                     embed.add_field(
-                        name=f"{i}. {member_mention}",
-                        value=f"Наличные: **`{user_data['balance']}`** {EMOJIS['MONEY']} | Банк: **`{user_data['deposit']}`** {EMOJIS['MONEY']} | Всего: **`{total_amount}`** {EMOJIS['MONEY']}",
+                        name=f"{EMOJIS['RANK']} #{i}. {member_mention}",
+                        value=f"{EMOJIS['CASH']} Наличные: **`{user_data['balance']}`** {EMOJIS['MONEY']}\n{EMOJIS['BANK']} Банк: **`{user_data['deposit']}`** {EMOJIS['MONEY']}\n{EMOJIS['TOTAL']} Всего: **`{total_amount}`** {EMOJIS['MONEY']}",
                         inline=False
                     )
                 elif category == "level":
                     embed.add_field(
-                        name=f"{i}. {member_mention}",
-                        value=f"Уровень: **`{user_data['level']}`** | XP: **`{user_data['xp']}`**",
+                        name=f"{EMOJIS['RANK']} #{i}. {member_mention}",
+                        value=f"{EMOJIS['LEVEL']} Уровень: **`{user_data['level']}`**\n{EMOJIS['XP']} XP: **`{user_data['xp']}`**",
                         inline=False
                     )
                 elif category == "reputation":
                     rep = user_data.get('reputation', 0)
-                    emoji = "⬆️" if rep >= 0 else "⬇️"
+                    emoji = f"{EMOJIS['UP']}" if rep >= 0 else f"{EMOJIS['DOWN']}"
                     embed.add_field(
-                        name=f"{i}. {member_mention}",
-                        value=f"Репутация: **`{rep}`** {emoji}",
+                        name=f"{EMOJIS['RANK']} #{i}. {member_mention}",
+                        value=f"{EMOJIS['REPUTATION']} Репутация: **`{rep}`** {emoji}",
                         inline=False
                     )
 

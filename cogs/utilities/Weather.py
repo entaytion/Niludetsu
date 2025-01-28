@@ -1,11 +1,12 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils import create_embed
+from Niludetsu.utils.embed import create_embed
 import aiohttp
 import yaml
 from datetime import datetime
 from transliterate import translit
+from Niludetsu.core.base import EMOJIS
 
 # Загрузка конфигурации из файла
 with open('config/config.yaml', 'r', encoding='utf-8') as f:

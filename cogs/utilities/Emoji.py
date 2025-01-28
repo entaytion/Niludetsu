@@ -5,7 +5,8 @@ import aiohttp
 import io
 import zipfile
 from typing import Optional
-from utils import create_embed, EMOJIS
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 class Emoji(commands.Cog):
     def __init__(self, bot):

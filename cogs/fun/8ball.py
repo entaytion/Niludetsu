@@ -1,69 +1,46 @@
 import discord
-from discord import app_commands
 from discord.ext import commands
 import random
-from utils import create_embed, EMOJIS
+from Niludetsu.utils.embed import create_embed
 
-class Magic8Ball(commands.Cog):
+class Ball(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.answers = {
-            'positive': [
-                "Да, определенно ✨",
-                "Можешь быть уверен в этом 👍",
-                "Безусловно да ⭐",
-                "Весьма вероятно 🌟",
-                "Знаки говорят — да ✅",
-                "Мне кажется — да 💫"
-            ],
-            'neutral': [
-                "Пока не ясно 🤔",
-                "Спроси позже ⏳",
-                "Лучше не рассказывать 🤐",
-                "Сейчас нельзя предсказать 🎲",
-                "Сконцентрируйся и спроси опять 🔮"
-            ],
-            'negative': [
-                "Даже не думай ❌",
-                "Мой ответ — нет 🚫",
-                "Весьма сомнительно ⛔",
-                "Определенно нет ❎",
-                "Перспективы не очень хорошие 🌧️"
-            ]
-        }
+        self.responses = [
+            "Бесспорно",
+            "Предрешено",
+            "Никаких сомнений",
+            "Определённо да",
+            "Можешь быть уверен в этом",
+            "Мне кажется — да",
+            "Вероятнее всего",
+            "Хорошие перспективы",
+            "Знаки говорят — да",
+            "Да",
+            "Пока не ясно, попробуй снова",
+            "Спроси позже",
+            "Лучше не рассказывать",
+            "Сейчас нельзя предсказать",
+            "Сконцентрируйся и спроси опять",
+            "Даже не думай",
+            "Мой ответ — нет",
+            "По моим данным — нет",
+            "Перспективы не очень хорошие",
+            "Весьма сомнительно"
+        ]
 
-    @app_commands.command(name="8ball", description="Магический шар ответит на твой вопрос")
-    @app_commands.describe(question="Задай свой вопрос магическому шару")
-    async def magic_8ball(self, interaction: discord.Interaction, question: str):
-        if not question.endswith('?'):
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Это не похоже на вопрос! Добавь знак вопроса в конце."
-                )
-            )
-            return
-
-        # Выбираем категорию ответа
-        category = random.choice(['positive', 'neutral', 'negative'])
-        answer = random.choice(self.answers[category])
-
-        # Создаем цвет в зависимости от категории
-        colors = {
-            'positive': 0x2ECC71,  # Зеленый
-            'neutral': 0xF1C40F,   # Желтый
-            'negative': 0xE74C3C   # Красный
-        }
-
-        embed = create_embed(
-            title="🎱 Магический шар",
-            fields=[
-                {"name": "Вопрос:", "value": question, "inline": False},
-                {"name": "Ответ:", "value": answer, "inline": False}
-            ],
-            color=colors[category]
-        )
+    @discord.app_commands.command(name="8ball", description="Магический шар ответит на ваш вопрос")
+    @discord.app_commands.describe(question="Ваш вопрос")
+    async def ball(self, interaction: discord.Interaction, question: str):
+        response = random.choice(self.responses)
         
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(
+            embed=create_embed(
+                title="🎱 Магический шар",
+                description=f"**Вопрос:** {question}\n**Ответ:** {response}",
+                color="BLUE"
+            )
+        )
 
 async def setup(bot):
-    await bot.add_cog(Magic8Ball(bot)) 
+    await bot.add_cog(Ball(bot)) 

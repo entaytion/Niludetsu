@@ -3,7 +3,9 @@ from discord import Interaction, ButtonStyle
 from discord.ext import commands
 import random
 import asyncio
-from utils import create_embed, get_user, save_user, EMOJIS
+from Niludetsu.utils.database import get_user, save_user
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 class SpinAgainButton(discord.ui.Button):
     def __init__(self, slots_instance, bet):
@@ -33,21 +35,17 @@ class SlotsView(discord.ui.View):
         self.add_item(SpinAgainNewBetButton())
 
 class Slots(commands.Cog):
-    def __init__(self, client):
-        self.client = client
-        self.symbols = ['🍒', '🍊', '🍋', '🍇', '💎', '7️⃣']
-        self.payouts = {
-            '🍒': 2,  # x2 за три вишни
-            '🍊': 3,  # x3 за три апельсина
-            '🍋': 4,  # x4 за три лимона
-            '🍇': 5,  # x5 за три винограда
-            '💎': 10, # x10 за три алмаза
-            '7️⃣': 15  # x15 за три семерки
+    def __init__(self, bot):
+        self.bot = bot
+        self.slots_emojis = ['🍎', '🍊', '🍋', '🍒', '🍇', '🍓', '💎']
+        self.multipliers = {
+            3: {'💎': 10, '🍓': 7, '🍇': 6, '🍒': 5, '🍋': 4, '🍊': 3, '🍎': 2},
+            2: {'💎': 3, '🍓': 2, '🍇': 2, '🍒': 2, '🍋': 1.5, '🍊': 1.5, '🍎': 1.5}
         }
 
     async def spin_animation(self, message, bet):
         for _ in range(3):
-            slots = [random.choice(self.symbols) for _ in range(3)]
+            slots = [random.choice(self.slots_emojis) for _ in range(3)]
             slots_display = " | ".join(slots)
             description = f"**{EMOJIS['DOT']} Слоты крутятся...** \n[ {slots_display} ]\n\n"
             description += f"**{EMOJIS['DOT']} Ставка:** {bet} {EMOJIS['MONEY']}"
@@ -63,20 +61,36 @@ class Slots(commands.Cog):
     async def play_slots(self, interaction: Interaction, bet: int, message=None):
         try:
             user_id = str(interaction.user.id)
-            user_data = get_user(self.client, user_id)
+            user_data = get_user(user_id)
+
+            if not user_data:
+                user_data = {
+                    'balance': 0,
+                    'deposit': 0,
+                    'xp': 0,
+                    'level': 1,
+                    'roles': '[]'
+                }
+                save_user(user_id, user_data)
 
             if user_data['balance'] < bet:
                 if message:
                     await message.edit(
                         embed=create_embed(
-                            description=f"Недостаточно средств! У вас есть: {user_data['balance']} {EMOJIS['MONEY']}"
-                        )
+                            description=f"У вас недостаточно средств для такой ставки!\n"
+                                      f"Ваш баланс: {user_data['balance']:,} {EMOJIS['MONEY']}",
+                            color="RED"
+                        ),
+                        ephemeral=True
                     )
                 else:
                     await interaction.followup.send(
                         embed=create_embed(
-                            description=f"Недостаточно средств! У вас есть: {user_data['balance']} {EMOJIS['MONEY']}"
-                        )
+                            description=f"У вас недостаточно средств для такой ставки!\n"
+                                      f"Ваш баланс: {user_data['balance']:,} {EMOJIS['MONEY']}",
+                            color="RED"
+                        ),
+                        ephemeral=True
                     )
                 return
 
@@ -96,34 +110,40 @@ class Slots(commands.Cog):
             
             await self.spin_animation(message, bet)
 
-            slots = [random.choice(self.symbols) for _ in range(3)]
-            won = False
-            multiplier = 0
+            slots = [random.choice(self.slots_emojis) for _ in range(3)]
+            symbol_counts = {}
+            for symbol in slots:
+                symbol_counts[symbol] = symbol_counts.get(symbol, 0) + 1
             
-            if slots[0] == slots[1] == slots[2]:
-                won = True
-                multiplier = self.payouts[slots[0]]
+            winnings = 0
+            max_count = max(symbol_counts.values())
+            if max_count >= 2:
+                winning_symbol = max(symbol_counts.items(), key=lambda x: (x[1], self.multipliers[x[1]][x[0]]))[0]
+                winnings = int(bet * self.multipliers[max_count][winning_symbol])
 
             slots_display = " | ".join(slots)
             description = f"**{EMOJIS['DOT']} Слоты:** [ {slots_display} ]\n\n"
 
-            if won:
-                winnings = bet * multiplier
+            if winnings > 0:
+                user_data = get_user(user_id)
                 user_data['balance'] += winnings
                 save_user(user_id, user_data)
                 
                 description += f"**{EMOJIS['DOT']} Поздравляем! Вы выиграли!**\n"
-                description += f"**{EMOJIS['DOT']} Множитель:** x{multiplier}\n"
-                description += f"**{EMOJIS['DOT']} Выигрыш:** {winnings} {EMOJIS['MONEY']}\n"
-                description += f"**{EMOJIS['DOT']} Баланс:** {user_data['balance']} {EMOJIS['MONEY']}"
+                description += f"**{EMOJIS['DOT']} Множитель:** x{self.multipliers[max_count][winning_symbol]}\n"
+                description += f"**{EMOJIS['DOT']} Выигрыш:** {winnings:,} {EMOJIS['MONEY']}\n"
+                description += f"**{EMOJIS['DOT']} Баланс:** {user_data['balance']:,} {EMOJIS['MONEY']}"
+                color = "GREEN"
             else:
                 description += f"**{EMOJIS['DOT']} К сожалению, вы проиграли!**\n"
-                description += f"**{EMOJIS['DOT']} Ставка:** {bet} {EMOJIS['MONEY']}\n"
-                description += f"**{EMOJIS['DOT']} Баланс:** {user_data['balance']} {EMOJIS['MONEY']}"
+                description += f"**{EMOJIS['DOT']} Ставка:** {bet:,} {EMOJIS['MONEY']}\n"
+                description += f"**{EMOJIS['DOT']} Баланс:** {user_data['balance']:,} {EMOJIS['MONEY']}"
+                color = "RED"
 
             embed = create_embed(
                 title="🎰 Слот-машина",
-                description=description
+                description=description,
+                color=color
             )
 
             view = SlotsView(self, bet)
@@ -139,22 +159,24 @@ class Slots(commands.Cog):
             else:
                 await interaction.followup.send(embed=error_embed)
 
-    @discord.app_commands.command(name="slots", description="Испытайте удачу в слот-машине")
+    @discord.app_commands.command(name="slots", description="Сыграть в слоты")
     @discord.app_commands.describe(bet="Сумма ставки")
-    async def slots(self, interaction: Interaction, bet: int):
+    async def slots(self, interaction: discord.Interaction, bet: int):
         if bet <= 0:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Ставка должна быть больше 0!"
-                )
+                    description="Ставка должна быть больше 0!",
+                    color="RED"
+                ),
+                ephemeral=True
             )
             return
-            
+
         await interaction.response.defer()
         await self.play_slots(interaction, bet)
 
     @slots.error
-    async def slots_error(self, interaction: Interaction, error):
+    async def slots_error(self, interaction: discord.Interaction, error):
         if isinstance(error, commands.MissingRequiredArgument):
             await interaction.response.send_message(
                 embed=create_embed(
@@ -162,5 +184,5 @@ class Slots(commands.Cog):
                 )
             )
 
-async def setup(client):
-    await client.add_cog(Slots(client))
+async def setup(bot):
+    await bot.add_cog(Slots(bot))

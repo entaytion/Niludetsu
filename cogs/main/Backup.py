@@ -5,6 +5,8 @@ import json
 import os
 from datetime import datetime
 import typing
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 def format_permission(perm_name: str) -> str:
     """Форматирует название права для красивого отображения"""
@@ -34,31 +36,29 @@ class Backup(commands.Cog):
         await interaction.response.defer()
         
         # Создаем эмбед с основной информацией
-        embed = discord.Embed(
+        embed = create_embed(
             title=f"📊 Информация о сервере {interaction.guild.name}",
-            color=discord.Color.blue()
-        )
-        
-        # Основная информация
-        embed.add_field(
-            name="🔧 Основное",
-            value=f"ID: {interaction.guild.id}\n"
-                  f"Владелец: {interaction.guild.owner.mention}\n"
-                  f"Создан: {discord.utils.format_dt(interaction.guild.created_at, 'D')}\n"
-                  f"Уровень проверки: {interaction.guild.verification_level}\n"
-                  f"Буст уровень: {interaction.guild.premium_tier}",
-            inline=False
-        )
-        
-        # Статистика
-        embed.add_field(
-            name="📈 Статистика",
-            value=f"Участников: {interaction.guild.member_count}\n"
-                  f"Ролей: {len(interaction.guild.roles)}\n"
-                  f"Каналов: {len(interaction.guild.channels)}\n"
-                  f"Эмодзи: {len(interaction.guild.emojis)}\n"
-                  f"Стикеров: {len(interaction.guild.stickers)}",
-            inline=False
+            fields=[
+                {
+                    "name": "🔧 Основное",
+                    "value": f"ID: {interaction.guild.id}\n"
+                            f"Владелец: {interaction.guild.owner.mention}\n"
+                            f"Создан: {discord.utils.format_dt(interaction.guild.created_at, 'D')}\n"
+                            f"Уровень проверки: {interaction.guild.verification_level}\n"
+                            f"Буст уровень: {interaction.guild.premium_tier}",
+                    "inline": False
+                },
+                {
+                    "name": "📈 Статистика",
+                    "value": f"Участников: {interaction.guild.member_count}\n"
+                            f"Ролей: {len(interaction.guild.roles)}\n"
+                            f"Каналов: {len(interaction.guild.channels)}\n"
+                            f"Эмодзи: {len(interaction.guild.emojis)}\n"
+                            f"Стикеров: {len(interaction.guild.stickers)}",
+                    "inline": False
+                }
+            ],
+            color="BLUE"
         )
         
         await interaction.followup.send(embed=embed)
@@ -69,21 +69,18 @@ class Backup(commands.Cog):
             perms = get_permission_details(role.permissions)
             enabled_perms = [k for k, v in perms.items() if v]
             
-            role_embed = discord.Embed(
-                title=f"👑 Роль: {role.name}",
-                color=role.color
-            )
-            
-            role_embed.add_field(
-                name="🔧 Основное",
-                value=f"ID: {role.id}\n"
-                      f"Цвет: {str(role.color)}\n"
-                      f"Позиция: {role.position}\n"
-                      f"Отображается отдельно: {role.hoist}\n"
-                      f"Упоминаемая: {role.mentionable}\n"
-                      f"Управляемая: {role.managed}",
-                inline=False
-            )
+            fields = [
+                {
+                    "name": "🔧 Основное",
+                    "value": f"ID: {role.id}\n"
+                            f"Цвет: {str(role.color)}\n"
+                            f"Позиция: {role.position}\n"
+                            f"Отображается отдельно: {role.hoist}\n"
+                            f"Упоминаемая: {role.mentionable}\n"
+                            f"Управляемая: {role.managed}",
+                    "inline": False
+                }
+            ]
             
             # Разделяем права на группы для лучшей читаемости
             general_perms = []
@@ -102,13 +99,19 @@ class Backup(commands.Cog):
                     general_perms.append(perm)
             
             if admin_perms:
-                role_embed.add_field(name="⚡ Админ права", value="\n".join(admin_perms), inline=False)
+                fields.append({"name": "⚡ Админ права", "value": "\n".join(admin_perms), "inline": False})
             if text_perms:
-                role_embed.add_field(name="💬 Текстовые права", value="\n".join(text_perms), inline=False)
+                fields.append({"name": "💬 Текстовые права", "value": "\n".join(text_perms), "inline": False})
             if voice_perms:
-                role_embed.add_field(name="🔊 Голосовые права", value="\n".join(voice_perms), inline=False)
+                fields.append({"name": "🔊 Голосовые права", "value": "\n".join(voice_perms), "inline": False})
             if general_perms:
-                role_embed.add_field(name="🔧 Общие права", value="\n".join(general_perms), inline=False)
+                fields.append({"name": "🔧 Общие права", "value": "\n".join(general_perms), "inline": False})
+            
+            role_embed = create_embed(
+                title=f"👑 Роль: {role.name}",
+                fields=fields,
+                color=str(role.color)
+            )
                 
             roles_info.append(role_embed)
             
@@ -253,20 +256,21 @@ class Backup(commands.Cog):
             json.dump(backup_data, f, indent=4, ensure_ascii=False)
         
         # Создаем эмбед с информацией о бэкапе
-        embed = discord.Embed(
+        embed = create_embed(
             title="✅ Резервная копия создана",
             description=f"Файл: `{backup_filename}`",
-            color=discord.Color.green()
-        )
-        
-        embed.add_field(
-            name="📊 Статистика бэкапа",
-            value=f"Роли: {len(backup_data['roles'])}\n"
-                  f"Категории: {len(backup_data['categories'])}\n"
-                  f"Каналы без категории: {len(backup_data['channels_without_category'])}\n"
-                  f"Эмодзи: {len(backup_data['emojis'])}\n"
-                  f"Стикеры: {len(backup_data['stickers'])}",
-            inline=False
+            fields=[
+                {
+                    "name": "📊 Статистика бэкапа",
+                    "value": f"Роли: {len(backup_data['roles'])}\n"
+                            f"Категории: {len(backup_data['categories'])}\n"
+                            f"Каналы без категории: {len(backup_data['channels_without_category'])}\n"
+                            f"Эмодзи: {len(backup_data['emojis'])}\n"
+                            f"Стикеры: {len(backup_data['stickers'])}",
+                    "inline": False
+                }
+            ],
+            color="GREEN"
         )
         
         await interaction.followup.send(embed=embed)

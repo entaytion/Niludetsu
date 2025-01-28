@@ -2,69 +2,92 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
-from Niludetsu.utils import create_embed
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 class Karaoke(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.music = Music(bot)
+        self._karaoke_enabled = {}  # Словарь для хранения состояния эффекта для каждого сервера
 
-    @app_commands.command(name="karaoke", description="Включить/выключить режим караоке")
+    def is_karaoke_enabled(self, guild_id: int) -> bool:
+        """Проверяет, включен ли эффект karaoke для сервера"""
+        return self._karaoke_enabled.get(guild_id, False)
+
+    def set_karaoke(self, guild_id: int, enabled: bool):
+        """Устанавливает состояние эффекта karaoke для сервера"""
+        self._karaoke_enabled[guild_id] = enabled
+
+    @app_commands.command(name="karaoke", description="Включить/выключить эффект Караоке")
     async def karaoke(self, interaction: discord.Interaction):
-        """Включить или выключить режим караоке (подавление вокала)"""
-        await interaction.response.defer()
-
+        """Включить/выключить эффект Караоке"""
         player = await self.music.ensure_voice(interaction)
         if not player:
             return
 
         if not player.playing:
-            await interaction.followup.send(
+            await interaction.response.send_message(
                 embed=create_embed(
-                    description="❌ Сейчас ничего не играет!"
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Сейчас ничего не играет!",
+                    color="RED"
                 ),
                 ephemeral=True
             )
             return
 
-        try:
-            # Переключаем режим караоке
-            if not hasattr(player, 'karaoke_enabled'):
-                player.karaoke_enabled = False
-            
-            player.karaoke_enabled = not player.karaoke_enabled
-            
-            # Применяем эффект
-            filters = player.filters
-            if player.karaoke_enabled:
-                filters.karaoke.set(
-                    level=1.0,
-                    mono_level=1.0,
-                    filter_band=220.0,
-                    filter_width=100.0
-                )
-                await player.set_filters(filters)
-                status = "включен"
-                emoji = "🎤"
-            else:
-                filters.reset()
-                await player.set_filters(filters)
-                status = "выключен"
-                emoji = "🎵"
+        # Переключаем состояние эффекта
+        guild_id = interaction.guild_id
+        enabled = not self.is_karaoke_enabled(guild_id)
+        self.set_karaoke(guild_id, enabled)
 
-            await interaction.followup.send(
-                embed=create_embed(
-                    description=f"{emoji} Режим караоке {status}"
-                )
+        # Применяем эффект
+        if enabled:
+            await player.set_karaoke(
+                level=1.0,
+                mono_level=1.0,
+                filter_band=220.0,
+                filter_width=100.0
             )
-        except Exception as e:
-            print(f"Error applying karaoke effect: {e}")
-            await interaction.followup.send(
-                embed=create_embed(
-                    description="❌ Произошла ошибка при применении эффекта!"
+        else:
+            await player.set_karaoke(
+                level=0.0,
+                mono_level=0.0,
+                filter_band=0.0,
+                filter_width=0.0
+            )
+
+        song = self.music.get_current_song(guild_id)
+
+        embed = create_embed(
+            title=f"{EMOJIS['KARAOKE']} Эффект Караоке",
+            description=f"Эффект Караоке **{'включен' if enabled else 'выключен'}**",
+            color="GREEN" if enabled else "RED"
+        )
+
+        if song:
+            embed.add_field(
+                name=f"{EMOJIS['MUSIC']} Текущий трек",
+                value=f"**[{song.title}]({song.uri})**\n"
+                      f"{EMOJIS['TIME']} Длительность: `{song.format_duration()}`",
+                inline=False
+            )
+
+        if enabled:
+            embed.add_field(
+                name=f"{EMOJIS['SETTINGS']} Настройки эффекта",
+                value=(
+                    f"**Уровень:** `100%`\n"
+                    f"**Моно уровень:** `100%`\n"
+                    f"**Частота фильтра:** `220 Hz`\n"
+                    f"**Ширина фильтра:** `100 Hz`"
                 ),
-                ephemeral=True
+                inline=False
             )
+
+        embed.set_footer(text=f"{'Эффект применен' if enabled else 'Эффект отключен'} • {interaction.user}")
+        await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Karaoke(bot)) 

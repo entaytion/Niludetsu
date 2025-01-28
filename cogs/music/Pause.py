@@ -2,49 +2,53 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
-from Niludetsu.utils import create_embed
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.core.base import EMOJIS
 
 class Pause(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.music = Music(bot)
 
-    @app_commands.command(name="pause", description="Поставить трек на паузу или снять с паузы")
+    @app_commands.command(name="pause", description="Поставить музыку на паузу")
     async def pause(self, interaction: discord.Interaction):
-        """Поставить трек на паузу или снять с паузы"""
-        await interaction.response.defer()
-
+        """Поставить музыку на паузу"""
         player = await self.music.ensure_voice(interaction)
         if not player:
             return
 
         if not player.playing:
-            await interaction.followup.send(
+            await interaction.response.send_message(
                 embed=create_embed(
-                    description="❌ Сейчас ничего не играет!"
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Сейчас ничего не играет!",
+                    color="RED"
                 ),
                 ephemeral=True
             )
             return
 
-        try:
-            # Переключаем состояние паузы
-            is_paused = not player.paused
-            await player.pause(is_paused)
-            
-            await interaction.followup.send(
+        if player.paused:
+            await interaction.response.send_message(
                 embed=create_embed(
-                    description=f"{'⏸️ Трек поставлен на паузу' if is_paused else '▶️ Воспроизведение продолжено'}"
-                )
-            )
-        except Exception as e:
-            print(f"Error toggling pause: {e}")
-            await interaction.followup.send(
-                embed=create_embed(
-                    description="❌ Произошла ошибка при попытке поставить на паузу!"
+                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    description="Музыка уже на паузе!",
+                    color="RED"
                 ),
                 ephemeral=True
             )
+            return
+
+        await player.pause()
+        song = self.music.get_current_song(interaction.guild_id)
+
+        embed = create_embed(
+            title=f"{EMOJIS['PAUSE']} Пауза",
+            description=f"**[{song.title}]({song.uri})** поставлен на паузу",
+            color="YELLOW"
+        )
+        embed.set_footer(text=f"Запросил: {interaction.user}")
+        await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Pause(bot)) 
