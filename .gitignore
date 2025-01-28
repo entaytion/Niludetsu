@@ -3,6 +3,7 @@ config.json
 config/*
 data/*
 backups/*
+har_and_cookies/*
 
 # Python
 __pycache__/

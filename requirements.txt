@@ -1,4 +1,5 @@
 aiohttp==3.11.11
+akinator==0.1.1
 deep_translator==1.11.4
 discord.py==2.4.0
 easy_pil==0.4.0

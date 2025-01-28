@@ -186,11 +186,12 @@ class Help(commands.Cog):
             "games": {
                 "title": "Команды для игр",
                 "emoji": "🎮",
-                "original_commands": ["/2048", "/capitals", "/country", "/minesweeper", "/rps", "/tictactoe", "/wordle"],
-                "commands": [cmd for cmd in ["/2048", "/capitals", "/country", "/minesweeper", "/rps", "/tictactoe", "/wordle"]
+                "original_commands": ["/2048", "/akinator", "/capitals", "/country", "/minesweeper", "/rps", "/tictactoe", "/wordle"],
+                "commands": [cmd for cmd in ["/2048", "/akinator", "/capitals", "/country", "/minesweeper", "/rps", "/tictactoe", "/wordle"]
                            if self.is_command_available(cmd.strip('/'), "games")],
                 "description": "\n".join([
                     f"{EMOJIS['DOT']} `/2048` — играть в 2048.",
+                    f"{EMOJIS['DOT']} `/akinator` — играть в Акинатор.",
                     f"{EMOJIS['DOT']} `/capitals` — играть в угадай столицу.",
                     f"{EMOJIS['DOT']} `/country` — играть в угадай страну.",
                     f"{EMOJIS['DOT']} `/minesweeper` — играть в сапёр.",

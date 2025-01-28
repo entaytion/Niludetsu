@@ -106,7 +106,7 @@ async def update_presence():
             large_text="Bot in action!",
             buttons=[
                 {"label": "Server", "url": "https://discord.gg/HxwZ6ceKKj"},
-                {"label": "GitHub", "url": "https://github.com/entaytion/Niludetsu"},
+                {"label": "Site", "url": "https://niludetsu.vercel.app"},
             ],
         )
         print("✅ Rich Presence активирован!")
