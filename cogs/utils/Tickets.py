@@ -5,7 +5,7 @@ import yaml
 import asyncio
 from datetime import datetime
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 
 class TicketView(discord.ui.View):
     def __init__(self):

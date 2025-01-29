@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 import yaml
 
@@ -122,14 +122,6 @@ class Unmute(commands.Cog):
                 embed=create_embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description=f"У меня недостаточно прав для размута {member.mention}!",
-                    color="RED"
-                )
-            )
-        except Exception as e:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
-                    description=f"Произошла непредвиденная ошибка: {str(e)}",
                     color="RED"
                 )
             )

@@ -1,23 +1,12 @@
 import discord
 from discord.ext import commands
-import random
 from Niludetsu.utils.embed import create_embed
+from Niludetsu.api.Gifs import GifsAPI
 
 class Hug(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.hug_gifs = [
-            "https://i.imgur.com/r9aU2xv.gif",
-            "https://i.imgur.com/wOmoeF8.gif",
-            "https://i.imgur.com/nrdYNtL.gif",
-            "https://i.imgur.com/BPLqSJC.gif",
-            "https://i.imgur.com/ntqYLGl.gif",
-            "https://i.imgur.com/v47M1S4.gif",
-            "https://i.imgur.com/82xVqUg.gif",
-            "https://i.imgur.com/4oLIrwj.gif",
-            "https://i.imgur.com/6qYOUQF.gif",
-            "https://i.imgur.com/UMm95sV.gif"
-        ]
+        self.gifs_api = GifsAPI()
 
     @discord.app_commands.command(name="hug", description="Обнять пользователя")
     @discord.app_commands.describe(member="Пользователь, которого вы хотите обнять")
@@ -42,7 +31,7 @@ class Hug(commands.Cog):
             )
             return
 
-        gif_url = random.choice(self.hug_gifs)
+        gif_url = self.gifs_api.get_random_gif('hug')
         embed = create_embed(
             description=f"🤗 {interaction.user.mention} обнял(а) {member.mention}",
             color="BLUE"

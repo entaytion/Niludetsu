@@ -4,7 +4,7 @@ from discord import app_commands
 import sqlite3
 from datetime import datetime
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.decorators import has_mod_role
 
 class Warns(commands.GroupCog, group_name="warns"):

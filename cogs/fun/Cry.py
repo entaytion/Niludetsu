@@ -1,27 +1,16 @@
 import discord
 from discord.ext import commands
-import random
 from Niludetsu.utils.embed import create_embed
+from Niludetsu.api.Gifs import GifsAPI
 
 class Cry(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.cry_gifs = [
-            "https://i.imgur.com/Ak5NQgp.gif",
-            "https://i.imgur.com/zd4sYGO.gif",
-            "https://i.imgur.com/e4LGfeZ.gif",
-            "https://i.imgur.com/g8cZnZ4.gif",
-            "https://i.imgur.com/HWL1UQ5.gif",
-            "https://i.imgur.com/JYXTCy4.gif",
-            "https://i.imgur.com/o8y8kbN.gif",
-            "https://i.imgur.com/YgqSR9i.gif",
-            "https://i.imgur.com/TpbSx9F.gif",
-            "https://i.imgur.com/NuEQxbm.gif"
-        ]
+        self.gifs_api = GifsAPI()
 
     @discord.app_commands.command(name="cry", description="Заплакать")
     async def cry(self, interaction: discord.Interaction):
-        gif_url = random.choice(self.cry_gifs)
+        gif_url = self.gifs_api.get_random_gif('cry')
         embed = create_embed(
             description=f"😢 {interaction.user.mention} плачет",
             color="BLUE"

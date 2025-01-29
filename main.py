@@ -6,6 +6,7 @@ from discord.ext import commands
 import os
 import yaml
 import asyncio
+import traceback
 from Niludetsu.utils.cog_loader import cog_loader
 from Niludetsu.utils.config_loader import bot_state
 from Niludetsu.utils.command_sync import CommandSync
@@ -49,6 +50,7 @@ async def update_presence():
         print("✅ Rich Presence активирован!")
     except Exception as e:
         print(f"❌ Ошибка при активации Rich Presence: {e}")
+        traceback.print_exc()
 
 # --- Загрузка когов ---
 async def load_cogs():
@@ -61,7 +63,9 @@ async def load_cogs():
                         await bot.load_extension(f"cogs.{folder}.{filename[:-3]}")
                         cog_loader.add_loaded_cog(cog_path, success=True)
                     except Exception as e:
-                        error_msg = str(e).split(':')[0]  # Берем только тип ошибки
+                        error_msg = str(e)
+                        print(f"❌ Ошибка при загрузке кога {cog_path}:")
+                        traceback.print_exc()
                         cog_loader.add_loaded_cog(cog_path, success=False, error=error_msg)
 
 # --- Обработчик ошибок и логирование ---
@@ -112,24 +116,27 @@ async def log_command_error(ctx_or_interaction: Union[commands.Context, discord.
                 inline=True
             )
             
-            # Добавляем traceback если это не пользовательская ошибка
-            if not isinstance(error, commands.UserInputError):
-                import traceback
-                trace = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
-                if len(trace) > 1000:
-                    trace = trace[:997] + "..."
-                error_embed.add_field(
-                    name="Traceback",
-                    value=f"```py\n{trace}\n```",
-                    inline=False
-                )
+            # Всегда добавляем traceback для более подробной информации
+            trace = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
+            if len(trace) > 1000:
+                trace = trace[:997] + "..."
+            error_embed.add_field(
+                name="Traceback",
+                value=f"```py\n{trace}\n```",
+                inline=False
+            )
             
             # Отправляем пинг создателя и эмбед
             owner_id = config['settings']['owner_id']
             await log_channel.send(f"<@{owner_id}>", embed=error_embed)
             
+            # Выводим ошибку в консоль для отладки
+            print(f"\n❌ Ошибка в команде {command_name}:")
+            traceback.print_exc()
+            
     except Exception as e:
         print(f"❌ Ошибка при логировании: {e}")
+        traceback.print_exc()
 
 @bot.event
 async def on_command_error(ctx: commands.Context, error: commands.CommandError):
@@ -153,6 +160,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
         
     except Exception as e:
         print(f"❌ Ошибка при обработке ошибки: {e}")
+        traceback.print_exc()
 
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: commands.CommandError):
@@ -180,43 +188,56 @@ async def on_app_command_error(interaction: discord.Interaction, error: commands
         
     except Exception as e:
         print(f"❌ Ошибка при обработке ошибки: {e}")
+        traceback.print_exc()
 
 # --- Создание файлов по умолчанию ---
 async def create_default_files():
-    if not os.path.exists('config'):
-        os.makedirs('config')
-        
-    if not os.path.exists('config/database.db'):
-        open('config/database.db', 'w').close()
-        
-    if not os.path.exists('config/hash.yaml'):
-        with open('config/hash.yaml', 'w', encoding='utf-8') as f:
-            yaml.dump({}, f)
+    try:
+        if not os.path.exists('config'):
+            os.makedirs('config')
+            
+        if not os.path.exists('config/database.db'):
+            open('config/database.db', 'w').close()
+            
+        if not os.path.exists('config/hash.yaml'):
+            with open('config/hash.yaml', 'w', encoding='utf-8') as f:
+                yaml.dump({}, f)
 
-    if not os.path.exists('config/config.yaml'):
-        from Niludetsu.utils.default_config import default_config
-        with open('config/config.yaml', 'w', encoding='utf-8') as f:
-            yaml.dump(default_config, f, allow_unicode=True)
+        if not os.path.exists('config/config.yaml'):
+            from Niludetsu.utils.default_config import default_config
+            with open('config/config.yaml', 'w', encoding='utf-8') as f:
+                yaml.dump(default_config, f, allow_unicode=True)
+    except Exception as e:
+        print(f"❌ Ошибка при создании файлов: {e}")
+        traceback.print_exc()
 
 # --- Основные события ---
 @bot.event
 async def setup_hook():
-    bot_state.reset()
-    await create_default_files()
-    await load_cogs()
+    try:
+        bot_state.reset()
+        await create_default_files()
+        await load_cogs()
+    except Exception as e:
+        print(f"❌ Ошибка в setup_hook: {e}")
+        traceback.print_exc()
 
 # --- Запуск бота ---
 @bot.event
 async def on_ready():
-    print(f"✅ Бот {bot.user} успешно запущен!")
-    await bot.change_presence(
-        activity=discord.Activity(
-            type=discord.ActivityType.listening,
-            name="Создаём вайб на Discord!"
+    try:
+        print(f"✅ Бот {bot.user} успешно запущен!")
+        await bot.change_presence(
+            activity=discord.Activity(
+                type=discord.ActivityType.listening,
+                name="Создаём вайб на Discord!"
+            )
         )
-    )
-    await command_sync.sync_commands()
-    await update_presence()
-    cog_loader.print_loaded_cogs()
+        await command_sync.sync_commands()
+        await update_presence()
+        cog_loader.print_loaded_cogs()
+    except Exception as e:
+        print(f"❌ Ошибка в on_ready: {e}")
+        traceback.print_exc()
 
 bot.run(config['bot']['token'])

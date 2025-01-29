@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import random
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 
 class Rand(commands.Cog):
     def __init__(self, bot):
@@ -20,37 +20,29 @@ class Rand(commands.Cog):
         max: int,
         min: int = None
     ):
-        try:
-            if min is not None:
-                # Если указаны оба параметра
-                if min >= max:
-                    raise ValueError("Минимальное число должно быть меньше максимального")
-                result = random.randint(min, max)
-                range_text = f"от {min} до {max}"
-            else:
-                # Если указан только один параметр
-                if max <= 0:
-                    raise ValueError("Число должно быть больше 0")
-                result = random.randint(0, max)
-                range_text = f"от 0 до {max}"
+        if min is not None:
+            # Если указаны оба параметра
+            if min >= max:
+                raise ValueError("Минимальное число должно быть меньше максимального")
+            result = random.randint(min, max)
+            range_text = f"от {min} до {max}"
+        else:
+            # Если указан только один параметр
+            if max <= 0:
+                raise ValueError("Число должно быть больше 0")
+            result = random.randint(0, max)
+            range_text = f"от 0 до {max}"
 
-            embed = create_embed(
-                title="🎲 Случайное число",
-                description=f"В диапазоне {range_text}"
-            )
-            embed.add_field(
-                name="Результат:",
-                value=f"```{result}```",
-                inline=False
-            )
-            await interaction.response.send_message(embed=embed)
-            
-        except Exception as e:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Ошибка: {str(e)}"
-                )
-            )
+        embed = create_embed(
+            title="🎲 Случайное число",
+            description=f"В диапазоне {range_text}"
+        )
+        embed.add_field(
+            name="Результат:",
+            value=f"```{result}```",
+            inline=False
+        )
+        await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
-    await bot.add_cog(Rand(bot)) 
+    await bot.add_cog(Rand(bot))

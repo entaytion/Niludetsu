@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 
 EMOJI_NUMBERS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟']
 
@@ -31,43 +31,35 @@ class Poll(commands.Cog):
     ):
         await interaction.response.defer()
 
-        try:
-            # Собираем все не-None опции
-            options = [opt for opt in [option1, option2, option3, option4, option5] if opt is not None]
-            
-            if len(options) < 2:
-                await interaction.followup.send(
-                    embed=create_embed(
-                        description="Нужно указать минимум 2 варианта ответа!"
-                    )
-                )
-                return
-
-            # Создаем описание опроса с эмодзи
-            description = f"**{question}**\n\n"
-            for i, option in enumerate(options):
-                description += f"{EMOJI_NUMBERS[i]} {option}\n"
-
-            # Создаем эмбед
-            embed = create_embed(
-                title="📊 Опрос",
-                description=description,
-                footer={"text": f"Создал: {interaction.user.name}"}
-            )
-
-            # Отправляем сообщение и получаем его объект
-            message = await interaction.followup.send(embed=embed)
-
-            # Добавляем реакции
-            for i in range(len(options)):
-                await message.add_reaction(EMOJI_NUMBERS[i])
-
-        except Exception as e:
+        # Собираем все не-None опции
+        options = [opt for opt in [option1, option2, option3, option4, option5] if opt is not None]
+        
+        if len(options) < 2:
             await interaction.followup.send(
                 embed=create_embed(
-                    description=f"Произошла ошибка при создании опроса: {str(e)}"
+                    description="Нужно указать минимум 2 варианта ответа!"
                 )
             )
+            return
+
+        # Создаем описание опроса с эмодзи
+        description = f"**{question}**\n\n"
+        for i, option in enumerate(options):
+            description += f"{EMOJI_NUMBERS[i]} {option}\n"
+
+        # Создаем эмбед
+        embed = create_embed(
+            title="📊 Опрос",
+            description=description,
+            footer={"text": f"Создал: {interaction.user.name}"}
+        )
+
+        # Отправляем сообщение и получаем его объект
+        message = await interaction.followup.send(embed=embed)
+
+        # Добавляем реакции
+        for i in range(len(options)):
+            await message.add_reaction(EMOJI_NUMBERS[i])
 
 async def setup(bot):
     await bot.add_cog(Poll(bot))

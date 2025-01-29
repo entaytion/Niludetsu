@@ -4,7 +4,7 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 import aiohttp
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 import textwrap
 import os
 
@@ -83,60 +83,51 @@ class Quote(commands.Cog):
     async def quote(self, interaction: discord.Interaction, message: str = None):
         await interaction.response.defer()
 
-        try:
-            if message:
-                # Якщо передано ID повідомлення
-                try:
-                    message_id = int(message)
-                    quoted_message = await interaction.channel.fetch_message(message_id)
-                except:
-                    await interaction.followup.send(
-                        embed=create_embed(
-                            description="Не удалось найти сообщение с указанным ID!"
-                        )
-                    )
-                    return
-            else:
-                # Перевіряємо, чи є це відповіддю на повідомлення
-                reference_message = None
-                async for msg in interaction.channel.history(limit=1, before=interaction.created_at):
-                    reference_message = msg
-                
-                if not reference_message:
-                    await interaction.followup.send(
-                        embed=create_embed(
-                            description="Используйте команду сразу после сообщения, которое хотите процитировать, или укажите ID сообщения!"
-                        )
-                    )
-                    return
-                quoted_message = reference_message
-
-            # Завантажуємо аватарку автора
-            avatar = await self.download_avatar(quoted_message.author.display_avatar.url)
-            
-            # Створюємо зображення з цитатою
-            quote_image = self.create_quote_image(
-                quoted_message.content,
-                quoted_message.author.display_name,
-                avatar
-            )
-            
-            # Конвертуємо зображення в байти
-            with io.BytesIO() as image_binary:
-                quote_image.save(image_binary, 'PNG')
-                image_binary.seek(0)
-                
-                # Відправляємо зображення
+        if message:
+            # Якщо передано ID повідомлення
+            try:
+                message_id = int(message)
+                quoted_message = await interaction.channel.fetch_message(message_id)
+            except:
                 await interaction.followup.send(
-                    file=discord.File(fp=image_binary, filename='quote.png')
+                    embed=create_embed(
+                        description="Не удалось найти сообщение с указанным ID!"
+                    )
                 )
+                return
+        else:
+            # Перевіряємо, чи є це відповіддю на повідомлення
+            reference_message = None
+            async for msg in interaction.channel.history(limit=1, before=interaction.created_at):
+                reference_message = msg
+            
+            if not reference_message:
+                await interaction.followup.send(
+                    embed=create_embed(
+                        description="Используйте команду сразу после сообщения, которое хотите процитировать, или укажите ID сообщения!"
+                    )
+                )
+                return
+            quoted_message = reference_message
 
-        except Exception as e:
-            print(f"Error in quote command: {e}")
+        # Завантажуємо аватарку автора
+        avatar = await self.download_avatar(quoted_message.author.display_avatar.url)
+        
+        # Створюємо зображення з цитатою
+        quote_image = self.create_quote_image(
+            quoted_message.content,
+            quoted_message.author.display_name,
+            avatar
+        )
+        
+        # Конвертуємо зображення в байти
+        with io.BytesIO() as image_binary:
+            quote_image.save(image_binary, 'PNG')
+            image_binary.seek(0)
+            
+            # Відправляємо зображення
             await interaction.followup.send(
-                embed=create_embed(
-                    description="Произошла ошибка при создании цитаты!"
-                )
+                file=discord.File(fp=image_binary, filename='quote.png')
             )
 
 async def setup(bot):

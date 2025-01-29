@@ -1,5 +1,5 @@
 from ..utils.logging import BaseLogger
-from ..core.base import EMOJIS
+from ..utils.emojis import EMOJIS
 import discord
 from typing import Optional, List
 from discord.utils import format_dt

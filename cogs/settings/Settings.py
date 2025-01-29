@@ -5,7 +5,7 @@ import yaml
 import os
 from typing import Optional, Literal
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 import asyncio
 import time
 
@@ -72,82 +72,75 @@ class Settings(commands.Cog):
 
     async def reload_commands(self):
         """Перезагружает команды бота с учетом отключенных"""
-        try:
-            current_time = time.time()
-            
-            if current_time - self._last_sync < self._sync_cooldown:
-                print(f"Пропускаем синхронизацию, следующая возможна через {self._sync_cooldown - (current_time - self._last_sync):.2f} секунд")
-                return True
+        current_time = time.time()
+        
+        if current_time - self._last_sync < self._sync_cooldown:
+            print(f"Пропускаем синхронизацию, следующая возможна через {self._sync_cooldown - (current_time - self._last_sync):.2f} секунд")
+            return True
 
-            commands_to_add = []
-            command_names = set()
-            
-            # Добавляем группу settings первой
-            self.bot.tree.add_command(self.settings_group)
-            
-            for cog in self.bot.cogs.values():
-                for command in cog.get_app_commands():
-                    if isinstance(command, (app_commands.Command, app_commands.Group)):
-                        # Пропускаем команды settings
-                        if command.name == 'settings' or (hasattr(command, 'parent') and command.parent and command.parent.name == 'settings'):
-                            continue
+        commands_to_add = []
+        command_names = set()
+        
+        # Добавляем группу settings первой
+        self.bot.tree.add_command(self.settings_group)
+        
+        for cog in self.bot.cogs.values():
+            for command in cog.get_app_commands():
+                if isinstance(command, (app_commands.Command, app_commands.Group)):
+                    # Пропускаем команды settings
+                    if command.name == 'settings' or (hasattr(command, 'parent') and command.parent and command.parent.name == 'settings'):
+                        continue
 
-                        # Определяем группу команды
-                        group_name = command.parent.name if command.parent else None
+                    # Определяем группу команды
+                    group_name = command.parent.name if command.parent else None
+                    
+                    # Пропускаем команды из отключенных групп
+                    if group_name and group_name in self.settings["commands"]["disabled_groups"]:
+                        continue
                         
-                        # Пропускаем команды из отключенных групп
-                        if group_name and group_name in self.settings["commands"]["disabled_groups"]:
-                            continue
-                            
-                        # Пропускаем отключенные команды
-                        if command.name in self.settings["commands"]["disabled_commands"]:
-                            continue
+                    # Пропускаем отключенные команды
+                    if command.name in self.settings["commands"]["disabled_commands"]:
+                        continue
 
-                        # Пропускаем дубликаты
-                        if command.name in command_names:
-                            continue
+                    # Пропускаем дубликаты
+                    if command.name in command_names:
+                        continue
 
-                        commands_to_add.append(command)
-                        command_names.add(command.name)
+                    commands_to_add.append(command)
+                    command_names.add(command.name)
 
-            # Проверяем, изменился ли набор команд
-            current_commands = frozenset(command_names)
-            if self._command_cache.get('commands') == current_commands:
-                print("Набор команд не изменился, пропускаем синхронизацию")
-                return True
+        # Проверяем, изменился ли набор команд
+        current_commands = frozenset(command_names)
+        if self._command_cache.get('commands') == current_commands:
+            print("Набор команд не изменился, пропускаем синхронизацию")
+            return True
 
-            # Очищаем команды и добавляем все за один раз
-            self.bot.tree.clear_commands(guild=None)
-            
-            # Затем добавляем остальные команды
-            for command in commands_to_add:
-                try:
-                    self.bot.tree.add_command(command)
-                except Exception as e:
-                    print(f"Ошибка при добавлении команды {command.name}: {e}")
+        # Очищаем команды и добавляем все за один раз
+        self.bot.tree.clear_commands(guild=None)
+        
+        # Затем добавляем остальные команды
+        for command in commands_to_add:
+            self.bot.tree.add_command(command)
 
-            # Синхронизируем с Discord только один раз в конце
-            try:
+
+        # Синхронизируем с Discord только один раз в конце
+        try:
+            await self.bot.tree.sync()
+            self._last_sync = current_time
+            self._command_cache['commands'] = current_commands
+            return True
+        except discord.HTTPException as e:
+            if e.code == 429:  # Rate limit error
+                retry_after = e.retry_after
+                print(f"Достигнут лимит запросов к API. Подождите {retry_after} секунд.")
+                # Увеличиваем cooldown если получили rate limit
+                self._sync_cooldown = max(self._sync_cooldown, retry_after + 30)
+                await asyncio.sleep(retry_after)
                 await self.bot.tree.sync()
-                self._last_sync = current_time
+                self._last_sync = time.time()
                 self._command_cache['commands'] = current_commands
                 return True
-            except discord.HTTPException as e:
-                if e.code == 429:  # Rate limit error
-                    retry_after = e.retry_after
-                    print(f"Достигнут лимит запросов к API. Подождите {retry_after} секунд.")
-                    # Увеличиваем cooldown если получили rate limit
-                    self._sync_cooldown = max(self._sync_cooldown, retry_after + 30)
-                    await asyncio.sleep(retry_after)
-                    await self.bot.tree.sync()
-                    self._last_sync = time.time()
-                    self._command_cache['commands'] = current_commands
-                    return True
-                raise
-            
-        except Exception as e:
-            print(f"Ошибка при синхронизации команд: {e}")
-            return False
+            raise
 
     async def on_app_command_before_invoke(self, interaction: discord.Interaction):
         """Проверяет, не отключена ли команда перед выполнением"""

@@ -5,7 +5,7 @@ import yaml
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, List, Tuple
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 
 class AccountType:
     NORMAL = "Обычный"
@@ -544,14 +544,6 @@ class InvitesCog(commands.Cog):
             await interaction.response.send_message(
                 embed=create_embed(
                     description="❌ У меня нет прав для просмотра информации об этом приглашении",
-                    color="RED"
-                ),
-                ephemeral=True
-            )
-        except Exception as e:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"❌ Произошла ошибка при получении информации о приглашении: {str(e)}",
                     color="RED"
                 ),
                 ephemeral=True

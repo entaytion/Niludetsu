@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.database import DB_PATH, initialize_table, TABLES_SCHEMAS
 import sqlite3
 from datetime import datetime

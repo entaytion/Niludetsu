@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 import yaml
 import asyncio
 import re
@@ -97,136 +97,125 @@ class Partnership(commands.Cog):
     )
     async def partnership(self, interaction: discord.Interaction, user: str, message_id: str = None):
         """Присваивает партнерство пользователю"""
-        try:
-            if interaction.channel_id != self.partnership_channel_id:
-                await interaction.response.send_message(
-                    embed=create_embed(
-                        title=f"{EMOJIS['ERROR']} Неверный канал",
-                        description="Эта команда может быть использована только в канале партнерств!",
-                        color="RED"
-                    ),
-                    ephemeral=True
-                )
-                return
-
-            # Получаем пользователя
-            try:
-                user_id = int(''.join(filter(str.isdigit, user)))
-                member = interaction.guild.get_member(user_id)
-                if not member:
-                    member = await interaction.guild.fetch_member(user_id)
-            except (ValueError, discord.NotFound):
-                await interaction.response.send_message(
-                    embed=create_embed(
-                        title=f"{EMOJIS['ERROR']} Пользователь не найден",
-                        description="Указанный пользователь не найден на сервере!",
-                        color="RED"
-                    ),
-                    ephemeral=True
-                )
-                return
-
-            # Получаем сообщение
-            try:
-                if message_id:  # Если указан ID сообщения
-                    referenced_message = await interaction.channel.fetch_message(int(message_id))
-                else:  # Если не указан, пробуем получить из ответа
-                    if not interaction.message or not interaction.message.reference:
-                        await interaction.response.send_message(
-                            embed=create_embed(
-                                title=f"{EMOJIS['ERROR']} Отсутствует сообщение",
-                                description="Укажите ID сообщения или используйте команду в ответ на сообщение!",
-                                color="RED"
-                            ),
-                            ephemeral=True
-                        )
-                        return
-                    referenced_message = await interaction.channel.fetch_message(interaction.message.reference.message_id)
-            except (ValueError, discord.NotFound):
-                await interaction.response.send_message(
-                    embed=create_embed(
-                        title=f"{EMOJIS['ERROR']} Сообщение не найдено",
-                        description="Указанное сообщение не найдено!",
-                        color="RED"
-                    ),
-                    ephemeral=True
-                )
-                return
-            
-            # Ищем ссылку в сообщении
-            match = re.search(r'(?:https?://)?(?:www\.)?(?:discord\.(?:gg|io|me|li)|discordapp\.com/invite)/[^\s]+', referenced_message.content)
-            
-            if not match:
-                await interaction.response.send_message(
-                    embed=create_embed(
-                        title=f"{EMOJIS['ERROR']} Отсутствует ссылка",
-                        description="В сообщении нет ссылки на Discord сервер!",
-                        color="RED"
-                    ),
-                    ephemeral=True
-                )
-                return
-
-            # Очищаем текст от ссылки и упоминаний
-            discord_link = match.group(0)
-            cleaned_text = referenced_message.content
-            cleaned_text = cleaned_text.replace(discord_link, '').strip()
-            cleaned_text = cleaned_text.replace("@everyone", "").replace("@here", "")
-            for mention in referenced_message.mentions:
-                cleaned_text = cleaned_text.replace(f"<@{mention.id}>", "")
-                cleaned_text = cleaned_text.replace(f"<@!{mention.id}>", "")
-
-            # Отправляем в канал партнерств
-            partnerships_channel = self.bot.get_channel(self.partnerships_output_channel_id)
-            if not partnerships_channel:
-                await interaction.response.send_message(
-                    embed=create_embed(
-                        title=f"{EMOJIS['ERROR']} Канал не найден",
-                        description="Не удалось найти канал для отправки партнерств!",
-                        color="RED"
-                    ),
-                    ephemeral=True
-                )
-                return
-
-            # Отправляем форматированное сообщение
-            prefix = (f"{EMOJIS['PARTNER']} Партнёр - {member.mention}\n"
-                     f"{EMOJIS['LINK']} Ссылка на сервер - {discord_link}\n")
-            partnership_msg = await partnerships_channel.send(prefix, allowed_mentions=discord.AllowedMentions.none())
-            
-            if cleaned_text.strip():
-                embed = create_embed(
-                    title=f"{EMOJIS['INFO']} Описание сервера",
-                    description=cleaned_text.strip(),
-                    color="BLUE"
-                )
-                await partnerships_channel.send(embed=embed)
-
-            # Сохраняем информацию
-            self.partners[str(partnership_msg.id)] = {
-                'user_id': str(member.id),
-                'invite': discord_link
-            }
-            self.save_partners()
-
+        if interaction.channel_id != self.partnership_channel_id:
             await interaction.response.send_message(
                 embed=create_embed(
-                    title=f"{EMOJIS['SUCCESS']} Партнерство добавлено",
-                    description=f"Партнерство успешно добавлено в канал {partnerships_channel.mention}",
-                    color="GREEN"
-                ),
-                ephemeral=True
-            )
-
-        except Exception as e:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
-                    description=f"Произошла ошибка при обработке команды: {str(e)}",
+                    title=f"{EMOJIS['ERROR']} Неверный канал",
+                    description="Эта команда может быть использована только в канале партнерств!",
                     color="RED"
                 ),
                 ephemeral=True
             )
+            return
+
+        # Получаем пользователя
+        try:
+            user_id = int(''.join(filter(str.isdigit, user)))
+            member = interaction.guild.get_member(user_id)
+            if not member:
+                member = await interaction.guild.fetch_member(user_id)
+        except (ValueError, discord.NotFound):
+            await interaction.response.send_message(
+                embed=create_embed(
+                    title=f"{EMOJIS['ERROR']} Пользователь не найден",
+                    description="Указанный пользователь не найден на сервере!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+            return
+
+        # Получаем сообщение
+        try:
+            if message_id:  # Если указан ID сообщения
+                referenced_message = await interaction.channel.fetch_message(int(message_id))
+            else:  # Если не указан, пробуем получить из ответа
+                if not interaction.message or not interaction.message.reference:
+                    await interaction.response.send_message(
+                        embed=create_embed(
+                            title=f"{EMOJIS['ERROR']} Отсутствует сообщение",
+                            description="Укажите ID сообщения или используйте команду в ответ на сообщение!",
+                            color="RED"
+                        ),
+                        ephemeral=True
+                    )
+                    return
+                referenced_message = await interaction.channel.fetch_message(interaction.message.reference.message_id)
+        except (ValueError, discord.NotFound):
+            await interaction.response.send_message(
+                embed=create_embed(
+                    title=f"{EMOJIS['ERROR']} Сообщение не найдено",
+                    description="Указанное сообщение не найдено!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+            return
+        
+        # Ищем ссылку в сообщении
+        match = re.search(r'(?:https?://)?(?:www\.)?(?:discord\.(?:gg|io|me|li)|discordapp\.com/invite)/[^\s]+', referenced_message.content)
+        
+        if not match:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    title=f"{EMOJIS['ERROR']} Отсутствует ссылка",
+                    description="В сообщении нет ссылки на Discord сервер!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+            return
+
+        # Очищаем текст от ссылки и упоминаний
+        discord_link = match.group(0)
+        cleaned_text = referenced_message.content
+        cleaned_text = cleaned_text.replace(discord_link, '').strip()
+        cleaned_text = cleaned_text.replace("@everyone", "").replace("@here", "")
+        for mention in referenced_message.mentions:
+            cleaned_text = cleaned_text.replace(f"<@{mention.id}>", "")
+            cleaned_text = cleaned_text.replace(f"<@!{mention.id}>", "")
+
+        # Отправляем в канал партнерств
+        partnerships_channel = self.bot.get_channel(self.partnerships_output_channel_id)
+        if not partnerships_channel:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    title=f"{EMOJIS['ERROR']} Канал не найден",
+                    description="Не удалось найти канал для отправки партнерств!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+            return
+
+        # Отправляем форматированное сообщение
+        prefix = (f"{EMOJIS['PARTNER']} Партнёр - {member.mention}\n"
+                 f"{EMOJIS['LINK']} Ссылка на сервер - {discord_link}\n")
+        partnership_msg = await partnerships_channel.send(prefix, allowed_mentions=discord.AllowedMentions.none())
+        
+        if cleaned_text.strip():
+            embed = create_embed(
+                title=f"{EMOJIS['INFO']} Описание сервера",
+                description=cleaned_text.strip(),
+                color="BLUE"
+            )
+            await partnerships_channel.send(embed=embed)
+
+        # Сохраняем информацию
+        self.partners[str(partnership_msg.id)] = {
+            'user_id': str(member.id),
+            'invite': discord_link
+        }
+        self.save_partners()
+
+        await interaction.response.send_message(
+            embed=create_embed(
+                title=f"{EMOJIS['SUCCESS']} Партнерство добавлено",
+                description=f"Партнерство успешно добавлено в канал {partnerships_channel.mention}",
+                color="GREEN"
+            ),
+            ephemeral=True
+        )
 
     async def cog_load(self):
         """Запускает проверку партнеров при загрузке кога"""

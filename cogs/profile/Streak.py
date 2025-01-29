@@ -4,7 +4,7 @@ from discord.ext import commands
 import sqlite3
 from datetime import datetime, timedelta, time
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.database import DB_PATH, initialize_table, TABLES_SCHEMAS
 from discord.ext import tasks
 
@@ -98,25 +98,20 @@ class Streak(commands.Cog):
         if member.guild.owner_id == member.id:
             return  # Пропускаем владельца сервера
             
-        try:
-            base_name = member.display_name
-            # Убираем старые эмодзи Огоньков
-            for emoji in ["🔥", "💫", "⚡", "🌟", "👑"]:
-                base_name = base_name.replace(emoji, "").strip()
-            
-            # Добавляем новый эмодзи только если есть активный огонек
-            if streak_count > 0:
-                new_name = f"{self.get_flame_emoji(streak_count)} {base_name}"
-            else:
-                new_name = base_name
+        base_name = member.display_name
+        # Убираем старые эмодзи Огоньков
+        for emoji in ["🔥", "💫", "⚡", "🌟", "👑"]:
+            base_name = base_name.replace(emoji, "").strip()
+        
+        # Добавляем новый эмодзи только если есть активный огонек
+        if streak_count > 0:
+            new_name = f"{self.get_flame_emoji(streak_count)} {base_name}"
+        else:
+            new_name = base_name
 
-            # Обновляем никнейм только если он изменился
-            if new_name != member.display_name:
-                await member.edit(nick=new_name[:32])  # Discord ограничивает длину никнейма 32 символами
-        except discord.Forbidden:
-            print(f"Не удалось обновить никнейм для {member.name}. Недостаточно прав.")
-        except Exception as e:
-            print(f"Ошибка при обновлении никнейма: {e}")
+        # Обновляем никнейм только если он изменился
+        if new_name != member.display_name:
+            await member.edit(nick=new_name[:32])  # Discord ограничивает длину никнейма 32 символами
 
     def is_streak_expired(self, last_message: datetime, reference_time: datetime) -> tuple[bool, bool, datetime]:
         """Проверяет статус огонька и возвращает (истек ли, нужно ли уведомить, время истечения)"""
@@ -150,60 +145,53 @@ class Streak(commands.Cog):
 
         now = datetime.now()
         
-        try:
-            user_id = message.author.id
-            streak_data = self.get_user_streak(user_id)
-            last_message = streak_data['last_message_date']
-            reference_time = streak_data['reference_time']
+        user_id = message.author.id
+        streak_data = self.get_user_streak(user_id)
+        last_message = streak_data['last_message_date']
+        reference_time = streak_data['reference_time']
+        
+        # Обновляем общее количество сообщений
+        streak_data['total_messages'] += 1
+        
+        if not last_message or not reference_time:
+            # Первое сообщение пользователя
+            streak_data['streak_count'] = 1
+            streak_data['highest_streak'] = 1
+            streak_data['last_message_date'] = now
+            streak_data['reference_time'] = now
+            streak_data['is_active'] = 1
+        else:
+            # Проверяем, прошли ли сутки с последнего сообщения
+            time_since_last = now - last_message
             
-            # Обновляем общее количество сообщений
-            streak_data['total_messages'] += 1
-            
-            if not last_message or not reference_time:
-                # Первое сообщение пользователя
+            if time_since_last > timedelta(hours=24):
+                # Если прошло больше 24 часов - обнуляем
                 streak_data['streak_count'] = 1
-                streak_data['highest_streak'] = 1
-                streak_data['last_message_date'] = now
                 streak_data['reference_time'] = now
                 streak_data['is_active'] = 1
-            else:
-                # Проверяем, прошли ли сутки с последнего сообщения
-                time_since_last = now - last_message
-                
-                if time_since_last > timedelta(hours=24):
-                    # Если прошло больше 24 часов - обнуляем
-                    streak_data['streak_count'] = 1
-                    streak_data['reference_time'] = now
-                    streak_data['is_active'] = 1
-                elif time_since_last > timedelta(hours=20):  # Даем 4 часа форы до обнуления
-                    # Просто обновляем время последнего сообщения
-                    streak_data['last_message_date'] = now
-                    streak_data['is_active'] = 1
-                elif last_message.date() < now.date():
-                    # Если сообщение в новый день и не прошло 24 часа - увеличиваем огонек
-                    streak_data['streak_count'] += 1
-                    streak_data['last_message_date'] = now
-                    streak_data['is_active'] = 1
+            elif time_since_last > timedelta(hours=20):  # Даем 4 часа форы до обнуления
+                # Просто обновляем время последнего сообщения
+                streak_data['last_message_date'] = now
+                streak_data['is_active'] = 1
+            elif last_message.date() < now.date():
+                # Если сообщение в новый день и не прошло 24 часа - увеличиваем огонек
+                streak_data['streak_count'] += 1
+                streak_data['last_message_date'] = now
+                streak_data['is_active'] = 1
 
-                # Проверяем рекорд
-                if streak_data['streak_count'] > streak_data['highest_streak']:
-                    streak_data['highest_streak'] = streak_data['streak_count']
-                    try:
-                        await message.author.send(
-                            embed=create_embed(
-                                title=f"{EMOJIS['TROPHY']} Новый рекорд!",
-                                description=f"{EMOJIS['FIRE']} Вы установили новый рекорд активности: **{streak_data['streak_count']} дней**!",
-                                color="GOLD"
-                            )
-                        )
-                    except discord.Forbidden:
-                        print(f"Не удалось отправить уведомление о рекорде пользователю {message.author.name} - ЛС закрыты")
+            # Проверяем рекорд
+            if streak_data['streak_count'] > streak_data['highest_streak']:
+                streak_data['highest_streak'] = streak_data['streak_count']
+                await message.author.send(
+                    embed=create_embed(
+                        title=f"{EMOJIS['TROPHY']} Новый рекорд!",
+                        description=f"{EMOJIS['FIRE']} Вы установили новый рекорд активности: **{streak_data['streak_count']} дней**!",
+                        color="GOLD"
+                    )
+                )
 
-            self.update_streak(user_id, streak_data)
-            await self.update_nickname(message.author, streak_data['streak_count'])
-
-        except Exception as e:
-            print(f"Ошибка при обновлении огонька: {e}")
+        self.update_streak(user_id, streak_data)
+        await self.update_nickname(message.author, streak_data['streak_count'])
 
     def check_streak_status(self, streak_data: dict) -> tuple[bool, int, datetime]:
         """Проверяет актуальность огонька и возвращает (is_active, current_streak, next_reset)"""
@@ -229,112 +217,98 @@ class Streak(commands.Cog):
     async def streak(self, interaction: discord.Interaction, user: discord.User = None):
         target_user = user or interaction.user
         
-        try:
-            streak_data = self.get_user_streak(target_user.id)
-            last_message = streak_data['last_message_date']
-            
-            if not last_message:
-                await interaction.response.send_message(
-                    embed=create_embed(
-                        title=f"{EMOJIS['ERROR']} Нет огонька",
-                        description=f"У {target_user.mention} пока нет огонька. Начните общаться, чтобы получить огонек!",
-                        color="RED"
-                    )
-                )
-                return
-            
-            # Проверяем актуальный статус огонька
-            is_active, current_streak, next_reset = self.check_streak_status(streak_data)
-            
-            if not is_active:
-                status = f"{EMOJIS['ERROR']} Огонёк потух! Напишите сообщение, чтобы начать новый."
-                color = "RED"
-            else:
-                time_left = int((next_reset - datetime.now()).total_seconds())
-                hours_left, minutes_left = divmod(time_left // 60, 60)
-                status = f"{EMOJIS['SUCCESS']} Огонёк активен ещё {hours_left}ч {minutes_left}м."
-                color = "GREEN"
-
-            # Создаем эмбед с информацией об огоньке
-            embed = create_embed(
-                title=f"{self.get_flame_emoji(streak_data['streak_count'])} Огонёк {target_user.name}",
-                description=status,
-                color=color
-            )
-
-            # Добавляем поля с информацией
-            embed.add_field(
-                name=f"{EMOJIS['STREAK']} Текущий огонёк",
-                value=f"**{streak_data['streak_count']}** дней",
-                inline=True
-            )
-            embed.add_field(
-                name=f"{EMOJIS['TROPHY']} Рекорд",
-                value=f"**{streak_data['highest_streak']}** дней",
-                inline=True
-            )
-            embed.add_field(
-                name=f"{EMOJIS['MESSAGES']} Всего сообщений",
-                value=f"**{streak_data['total_messages']}**",
-                inline=True
-            )
-
-            # Добавляем информацию о последнем сообщении
-            last_message_str = last_message.strftime("%d.%m.%Y %H:%M")
-            embed.add_field(
-                name=f"{EMOJIS['TIME']} Последнее сообщение",
-                value=f"**{last_message_str}**",
-                inline=False
-            )
-
-            embed.set_thumbnail(url=target_user.display_avatar.url)
-            await interaction.response.send_message(embed=embed)
-
-        except Exception as e:
+        streak_data = self.get_user_streak(target_user.id)
+        last_message = streak_data['last_message_date']
+        
+        if not last_message:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Произошла ошибка при получении информации о огоньке: {str(e)}"
+                    title=f"{EMOJIS['ERROR']} Нет огонька",
+                    description=f"У {target_user.mention} пока нет огонька. Начните общаться, чтобы получить огонек!",
+                    color="RED"
                 )
             )
+            return
+        
+        # Проверяем актуальный статус огонька
+        is_active, current_streak, next_reset = self.check_streak_status(streak_data)
+        
+        if not is_active:
+            status = f"{EMOJIS['ERROR']} Огонёк потух! Напишите сообщение, чтобы начать новый."
+            color = "RED"
+        else:
+            time_left = int((next_reset - datetime.now()).total_seconds())
+            hours_left, minutes_left = divmod(time_left // 60, 60)
+            status = f"{EMOJIS['SUCCESS']} Огонёк активен ещё {hours_left}ч {minutes_left}м."
+            color = "GREEN"
+
+        # Создаем эмбед с информацией об огоньке
+        embed = create_embed(
+            title=f"{self.get_flame_emoji(streak_data['streak_count'])} Огонёк {target_user.name}",
+            description=status,
+            color=color
+        )
+
+        # Добавляем поля с информацией
+        embed.add_field(
+            name=f"{EMOJIS['STREAK']} Текущий огонёк",
+            value=f"**{streak_data['streak_count']}** дней",
+            inline=True
+        )
+        embed.add_field(
+            name=f"{EMOJIS['TROPHY']} Рекорд",
+            value=f"**{streak_data['highest_streak']}** дней",
+            inline=True
+        )
+        embed.add_field(
+            name=f"{EMOJIS['MESSAGES']} Всего сообщений",
+            value=f"**{streak_data['total_messages']}**",
+            inline=True
+        )
+
+        # Добавляем информацию о последнем сообщении
+        last_message_str = last_message.strftime("%d.%m.%Y %H:%M")
+        embed.add_field(
+            name=f"{EMOJIS['TIME']} Последнее сообщение",
+            value=f"**{last_message_str}**",
+            inline=False
+        )
+
+        embed.set_thumbnail(url=target_user.display_avatar.url)
+        await interaction.response.send_message(embed=embed)
 
     def cog_unload(self):
         self.check_streaks.cancel()  # Останавливаем задачу при выгрузке кога
 
     @tasks.loop(minutes=5)  # Проверяем каждые 5 минут
     async def check_streaks(self):
-        try:
-            with sqlite3.connect(DB_PATH) as conn:
-                cursor = conn.cursor()
-                # Получаем всех пользователей с активными огоньками
-                cursor.execute("SELECT user_id, last_message_date FROM user_streaks WHERE is_active = 1")
-                active_users = cursor.fetchall()
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            # Получаем всех пользователей с активными огоньками
+            cursor.execute("SELECT user_id, last_message_date FROM user_streaks WHERE is_active = 1")
+            active_users = cursor.fetchall()
 
-                now = datetime.now()
-                for user_id, last_message_str in active_users:
-                    if last_message_str:
-                        last_message = datetime.fromisoformat(last_message_str)
-                        # Если прошло больше 24 часов
-                        if (now - last_message) > timedelta(hours=24):
-                            # Сбрасываем огонек
-                            cursor.execute("""
-                                UPDATE user_streaks 
-                                SET streak_count = 0,
-                                    is_active = 0
-                                WHERE user_id = ?
-                            """, (user_id,))
-                            
-                            # Пытаемся обновить никнейм пользователя
-                            try:
-                                for guild in self.bot.guilds:
-                                    member = guild.get_member(user_id)
-                                    if member:
-                                        await self.update_nickname(member, 0)
-                                        break
-                            except:
-                                pass
-                conn.commit()
-        except Exception as e:
-            print(f"Ошибка при проверке огоньков: {e}")
+            now = datetime.now()
+            for user_id, last_message_str in active_users:
+                if last_message_str:
+                    last_message = datetime.fromisoformat(last_message_str)
+                    # Если прошло больше 24 часов
+                    if (now - last_message) > timedelta(hours=24):
+                        # Сбрасываем огонек
+                        cursor.execute("""
+                            UPDATE user_streaks 
+                            SET streak_count = 0,
+                                is_active = 0
+                            WHERE user_id = ?
+                        """, (user_id,))
+                        
+                        # Пытаемся обновить никнейм пользователя
+                        for guild in self.bot.guilds:
+                            member = guild.get_member(user_id)
+                            if member:
+                                await self.update_nickname(member, 0)
+                                break
+            conn.commit()
 
     @check_streaks.before_loop
     async def before_check_streaks(self):

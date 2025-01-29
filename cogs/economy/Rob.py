@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from Niludetsu.utils.embed import create_embed
 from Niludetsu.utils.database import get_user, save_user
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 from datetime import datetime, timedelta
 import random
 

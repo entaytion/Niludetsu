@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 
 class CategorySelect(discord.ui.Select):
     def __init__(self, categories):
@@ -140,11 +140,10 @@ class Help(commands.Cog):
             "economy": {
                 "title": "Команды экономики",
                 "emoji": "💰",
-                "original_commands": ["/balance", "/blackjack", "/casino", "/daily", "/deposit", "/duel", "/pay", "/rob", "/sell", "/shop", "/slots", "/withdraw", "/work"],
-                "commands": [cmd for cmd in ["/balance", "/blackjack", "/casino", "/daily", "/deposit", "/duel", "/pay", "/rob", "/sell", "/shop", "/slots", "/withdraw", "/work"]
+                "original_commands": ["/blackjack", "/casino", "/daily", "/deposit", "/duel", "/pay", "/rob", "/sell", "/shop", "/slots", "/withdraw", "/work"],
+                "commands": [cmd for cmd in ["/blackjack", "/casino", "/daily", "/deposit", "/duel", "/pay", "/rob", "/sell", "/shop", "/slots", "/withdraw", "/work"]
                            if self.is_command_available(cmd.strip('/'), "economy")],
                 "description": "\n".join([
-                    f"{EMOJIS['DOT']} `/balance <user>` — проверить баланс.",
                     f"{EMOJIS['DOT']} `/blackjack [bet]` — играть в блекджек.",
                     f"{EMOJIS['DOT']} `/casino [bet] [amount]` — играть в казино.",
                     f"{EMOJIS['DOT']} `/daily` — получить дневную награду (кулдаун: `24 часа`).",
@@ -271,15 +270,14 @@ class Help(commands.Cog):
             "profile": {
                 "title": "Команды профиля",
                 "emoji": "👤", 
-                "original_commands": ["/avatar", "/bio", "/inventory", "/leaderboard", "/level", "/streak"],
-                "commands": [cmd for cmd in ["/avatar", "/bio", "/inventory", "/leaderboard", "/level", "/streak"]
+                "original_commands": ["/avatar", "/bio", "/leaderboard", "/profile", "/streak"],
+                "commands": [cmd for cmd in ["/avatar", "/bio", "/leaderboard", "/profile", "/streak"]
                            if self.is_command_available(cmd.strip('/'), "profile")],
                 "description": "\n".join([
                     f"{EMOJIS['DOT']} `/avatar <user>` — просмотреть аватар пользователя.",
                     f"{EMOJIS['DOT']} `/bio [set/view/clear]` — просмотреть профиль.",
-                    f"{EMOJIS['DOT']} `/inventory` — просмотреть инвентарь.",
                     f"{EMOJIS['DOT']} `/leaderboard [money/level/reputation]` — просмотреть лидеров.",
-                    f"{EMOJIS['DOT']} `/level <user>` — проверить уровень.",
+                    f"{EMOJIS['DOT']} `/profile <user>` — проверить уровень.",
                     f"{EMOJIS['DOT']} `/streak <user>` — просмотреть вашого питомца Огонька."
                 ]),
                 "footer": "Справочник по командам из раздела \"Профиль\""

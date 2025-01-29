@@ -5,7 +5,7 @@ from discord.ui import Modal, TextInput, View, Button, Select
 import yaml
 import datetime
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 
 class PositionSelect(Select):
     def __init__(self):

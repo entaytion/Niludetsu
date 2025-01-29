@@ -3,7 +3,7 @@ from discord import Interaction
 from discord.ext import commands
 from Niludetsu.utils.database import get_user, save_user, get_role_by_id, get_user_roles, remove_role_from_user
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 from typing import List
 
 class Sell(commands.Cog):

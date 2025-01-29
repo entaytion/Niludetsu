@@ -3,7 +3,7 @@ from discord import Interaction
 from discord.ext import commands
 from Niludetsu.utils.database import get_user, save_user, get_roles, get_role_by_id, add_role_to_user
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 
 class Shop(commands.Cog):
     def __init__(self, bot):

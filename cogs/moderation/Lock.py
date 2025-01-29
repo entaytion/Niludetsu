@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 from typing import Optional
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 
 class Lock(commands.Cog):
@@ -153,16 +153,6 @@ class Lock(commands.Cog):
             error_embed = create_embed(
                 title=f"{EMOJIS['ERROR']} Ошибка прав",
                 description=f"У меня недостаточно прав для блокировки {'каналов' if all_channels else target_channel.mention}!",
-                color="RED"
-            )
-            if not interaction.response.is_done():
-                await interaction.response.send_message(embed=error_embed)
-            else:
-                await interaction.edit_original_response(embed=error_embed)
-        except Exception as e:
-            error_embed = create_embed(
-                title=f"{EMOJIS['ERROR']} Ошибка",
-                description=f"Произошла непредвиденная ошибка: {str(e)}",
                 color="RED"
             )
             if not interaction.response.is_done():

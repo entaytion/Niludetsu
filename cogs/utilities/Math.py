@@ -4,7 +4,7 @@ from discord.ext import commands
 import math
 import re
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 
 class Math(commands.Cog):
     def __init__(self, bot):
@@ -111,35 +111,28 @@ class Math(commands.Cog):
     @app_commands.command(name="math", description="Калькулятор с поддержкой сложных выражений")
     @app_commands.describe(expression="Математическое выражение для вычисления")
     async def math(self, interaction: discord.Interaction, expression: str):
-        try:
-            result = self.evaluate_expression(expression)
-            
-            # Форматируем результат
-            if result.is_integer():
-                formatted_result = str(int(result))
-            else:
-                formatted_result = f"{result:.2f}"
+        result = self.evaluate_expression(expression)
+        
+        # Форматируем результат
+        if result.is_integer():
+            formatted_result = str(int(result))
+        else:
+            formatted_result = f"{result:.2f}"
 
-            embed = create_embed(
-                title="🔢 Калькулятор"
-            )
-            embed.add_field(
-                name="Выражение:",
-                value=f"```{expression}```",
-                inline=False
-            )
-            embed.add_field(
-                name="Результат:",
-                value=f"```{formatted_result}```",
-                inline=False
-            )
-            await interaction.response.send_message(embed=embed)
-        except Exception as e:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Ошибка в выражении: {str(e)}"
-                )
-            )
+        embed = create_embed(
+            title="🔢 Калькулятор"
+        )
+        embed.add_field(
+            name="Выражение:",
+            value=f"```{expression}```",
+            inline=False
+        )
+        embed.add_field(
+            name="Результат:",
+            value=f"```{formatted_result}```",
+            inline=False
+        )
+        await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Math(bot)) 

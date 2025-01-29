@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 import g4f
 import asyncio
 from typing import Optional, List, Dict
@@ -228,13 +228,26 @@ class AI(commands.Cog):
                 continue
                 
             tried_providers.append(provider)
-            try:
-                provider_info = self.provider_info[provider]
-                model = provider_info["default_model"]
-                
-                # Проверяем, поддерживает ли провайдер асинхронную работу
-                if hasattr(provider, 'create_async'):
-                    response = await provider.create_async(
+            provider_info = self.provider_info[provider]
+            model = provider_info["default_model"]
+            
+            # Проверяем, поддерживает ли провайдер асинхронную работу
+            if hasattr(provider, 'create_async'):
+                response = await provider.create_async(
+                    model=model,
+                    messages=[{
+                        "role": "system",
+                        "content": "Ты - полезный ассистент, который отвечает на русском языке."
+                    }, {
+                        "role": "user",
+                        "content": prompt
+                    }]
+                )
+            else:
+                # Для синхронных провайдеров используем run_in_executor
+                response = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: g4f.ChatCompletion.create(
                         model=model,
                         messages=[{
                             "role": "system",
@@ -242,51 +255,14 @@ class AI(commands.Cog):
                         }, {
                             "role": "user",
                             "content": prompt
-                        }]
+                        }],
+                        provider=provider
                     )
-                else:
-                    # Для синхронных провайдеров используем run_in_executor
-                    response = await asyncio.get_event_loop().run_in_executor(
-                        None,
-                        lambda: g4f.ChatCompletion.create(
-                            model=model,
-                            messages=[{
-                                "role": "system",
-                                "content": "Ты - полезный ассистент, который отвечает на русском языке."
-                            }, {
-                                "role": "user",
-                                "content": prompt
-                            }],
-                            provider=provider
-                        )
-                    )
+                )
 
-                if response and isinstance(response, str):
-                    self.last_used_provider = provider
-                    return response, provider_info["name"]
-                    
-            except Exception as e:
-                error_msg = str(e)
-                print(f"Ошибка провайдера {provider_info['name']}: {error_msg}")
-                
-                # Если ошибка связана с превышением лимита или недоступностью,
-                # пробуем следующего провайдера
-                if any(err in error_msg.lower() for err in [
-                    "429", "too many requests", "quota", "exceeded",
-                    "timeout", "connection", "unavailable", "error 500",
-                    "error 503", "error 502", "maintenance"
-                ]):
-                    continue
-                    
-                # Если это критическая ошибка (например, неверная аутентификация),
-                # исключаем провайдера из списка
-                if any(err in error_msg.lower() for err in [
-                    "unauthorized", "authentication", "invalid token",
-                    "forbidden", "error 401", "error 403"
-                ]):
-                    if provider in self.providers:
-                        self.providers.remove(provider)
-                    continue
+            if response and isinstance(response, str):
+                self.last_used_provider = provider
+                return response, provider_info["name"]
         
         # Если все провайдеры перепробованы и ни один не сработал
         return None, None
@@ -299,38 +275,29 @@ class AI(commands.Cog):
         """Команда для взаимодействия с ИИ"""
         await interaction.response.defer()
         
-        try:
-            response, provider_name = await self.get_ai_response(вопрос)
+        response, provider_name = await self.get_ai_response(вопрос)
+        
+        if response:
+            embed = create_embed(
+                title=f"{self.AI_EMOJI} Ответ ИИ",
+                description=response,
+                color=0x2b2d31
+            )
             
-            if response:
-                embed = create_embed(
-                    title=f"{self.AI_EMOJI} Ответ ИИ",
-                    description=response,
-                    color=0x2b2d31
-                )
-                
-                embed.add_field(
-                    name="📝 Запрос",
-                    value=f"{вопрос[:1000]}{'...' if len(вопрос) > 1000 else ''}",
-                    inline=False
-                )
-                
-                if provider_name:
-                    embed.set_footer(text=f"Провайдер: {provider_name}")
-                
-                await interaction.followup.send(embed=embed)
-            else:
-                error_embed = create_embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
-                    description="Не удалось получить ответ от ИИ. Все доступные провайдеры временно недоступны. Попробуйте позже.",
-                    color=0xe74c3c
-                )
-                await interaction.followup.send(embed=error_embed)
+            embed.add_field(
+                name="📝 Запрос",
+                value=f"{вопрос[:1000]}{'...' if len(вопрос) > 1000 else ''}",
+                inline=False
+            )
             
-        except Exception as e:
+            if provider_name:
+                embed.set_footer(text=f"Провайдер: {provider_name}")
+            
+            await interaction.followup.send(embed=embed)
+        else:
             error_embed = create_embed(
                 title=f"{EMOJIS['ERROR']} Ошибка",
-                description=f"Произошла ошибка при обработке запроса: {str(e)}",
+                description="Не удалось получить ответ от ИИ. Все доступные провайдеры временно недоступны. Попробуйте позже.",
                 color=0xe74c3c
             )
             await interaction.followup.send(embed=error_embed)

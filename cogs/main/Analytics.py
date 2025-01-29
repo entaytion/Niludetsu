@@ -11,7 +11,7 @@ import matplotlib.font_manager as fm
 import io
 import time
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 
 # Добавляем кастомный шрифт
 plt.rcParams['font.family'] = 'sans-serif'

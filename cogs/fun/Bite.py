@@ -1,23 +1,12 @@
 import discord
 from discord.ext import commands
-import random
 from Niludetsu.utils.embed import create_embed
+from Niludetsu.api.Gifs import GifsAPI
 
 class Bite(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.bite_gifs = [
-            "https://i.imgur.com/OE4aYl5.gif",
-            "https://i.imgur.com/UbQWABX.gif",
-            "https://i.imgur.com/P9L7FiW.gif",
-            "https://i.imgur.com/HD5tMBh.gif",
-            "https://i.imgur.com/qYUn6PI.gif",
-            "https://i.imgur.com/K0e9bj5.gif",
-            "https://i.imgur.com/YvTQtV0.gif",
-            "https://i.imgur.com/FP0eXXD.gif",
-            "https://i.imgur.com/8kdYbXz.gif",
-            "https://i.imgur.com/YA7g7h7.gif"
-        ]
+        self.gifs_api = GifsAPI()
 
     @discord.app_commands.command(name="bite", description="Укусить пользователя")
     @discord.app_commands.describe(member="Пользователь, которого вы хотите укусить")
@@ -42,7 +31,7 @@ class Bite(commands.Cog):
             )
             return
 
-        gif_url = random.choice(self.bite_gifs)
+        gif_url = self.gifs_api.get_random_gif('bite')
         embed = create_embed(
             description=f"🦷 {interaction.user.mention} укусил(а) {member.mention}",
             color="BLUE"

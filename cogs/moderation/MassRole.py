@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 
 class Massrole(commands.Cog):
@@ -134,16 +134,6 @@ class Massrole(commands.Cog):
             error_embed = create_embed(
                 title=f"{EMOJIS['ERROR']} Ошибка прав",
                 description="У меня недостаточно прав для управления ролями!",
-                color="RED"
-            )
-            if not interaction.response.is_done():
-                await interaction.response.send_message(embed=error_embed)
-            else:
-                await interaction.edit_original_response(embed=error_embed)
-        except Exception as e:
-            error_embed = create_embed(
-                title=f"{EMOJIS['ERROR']} Ошибка",
-                description=f"Произошла непредвиденная ошибка: {str(e)}",
                 color="RED"
             )
             if not interaction.response.is_done():

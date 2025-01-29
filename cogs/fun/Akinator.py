@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.game.akinator import Akinator as AkinatorGame
+from Niludetsu.api.Akinator import Akinator as AkinatorGame
 
 class AkinatorView(discord.ui.View):
     def __init__(self, aki_instance):
@@ -30,26 +30,27 @@ class AkinatorView(discord.ui.View):
 
     @discord.ui.button(label="Назад", style=discord.ButtonStyle.gray, emoji="↩️", row=1)
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        try:
-            await interaction.response.defer()
-            self.aki.go_back()
-            embed = create_embed(
-                title="🧞‍♂️ Акинатор",
-                description=f"**Вопрос #{self.aki.step + 1}**\n{self.aki.question}",
-                color="BLUE"
-            )
-            await interaction.edit_original_response(embed=embed, view=self)
-        except Exception as e:
-            print(f"Error going back: {e}")
+        await interaction.response.defer()
+        self.aki.go_back()
+        embed = create_embed(
+            title="🧞‍♂️ Акинатор",
+            description=f"**Вопрос #{self.aki.step + 1}**\n{self.aki.question}",
+            color="BLUE"
+        )
+        await interaction.edit_original_response(embed=embed, view=self)
 
     @discord.ui.button(label="Закончить", style=discord.ButtonStyle.red, emoji="🏁", row=1)
     async def end_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
         if self.aki.progression >= 80:
+            description = f"**{self.aki.name or 'Неизвестно'}**\n"
+            if self.aki.description:
+                description += f"{self.aki.description}\n\n"
+            description += f"Я уверен на {round(self.aki.progression)}%"
+            
             embed = create_embed(
                 title="🧞‍♂️ Я думаю, это...",
-                description=f"**{self.aki.name}**\n{self.aki.description}\n\n"
-                          f"Я уверен на {round(self.aki.progression)}%",
+                description=description,
                 color="GREEN"
             )
             if self.aki.photo:
@@ -63,33 +64,29 @@ class AkinatorView(discord.ui.View):
 
     async def process_answer(self, interaction: discord.Interaction, answer: str):
         await interaction.response.defer()
-        try:
-            self.aki.post_answer(answer)
+        self.aki.post_answer(answer)
+        
+        if self.aki.progression >= 80 and self.aki.step >= 10:
+            description = f"**{self.aki.name or 'Неизвестно'}**\n"
+            if self.aki.description:
+                description += f"{self.aki.description}\n\n"
+            description += f"Я уверен на {round(self.aki.progression)}%"
             
-            if self.aki.progression >= 80 and self.aki.step >= 10:
-                embed = create_embed(
-                    title="🧞‍♂️ Я думаю, это...",
-                    description=f"**{self.aki.name}**\n{self.aki.description}\n\n"
-                              f"Я уверен на {round(self.aki.progression)}%",
-                    color="GREEN"
-                )
-                if self.aki.photo:
-                    embed.set_image(url=self.aki.photo)
-                await interaction.edit_original_response(embed=embed, view=None)
-            else:
-                embed = create_embed(
-                    title="🧞‍♂️ Акинатор",
-                    description=f"**Вопрос #{self.aki.step + 1}**\n{self.aki.question}",
-                    color="BLUE"
-                )
-                await interaction.edit_original_response(embed=embed, view=self)
-                
-        except Exception as e:
             embed = create_embed(
-                description=f"❌ Произошла ошибка в игре: {str(e)}",
-                color="RED"
+                title="🧞‍♂️ Я думаю, это...",
+                description=description,
+                color="GREEN"
             )
+            if self.aki.photo:
+                embed.set_image(url=self.aki.photo)
             await interaction.edit_original_response(embed=embed, view=None)
+        else:
+            embed = create_embed(
+                title="🧞‍♂️ Акинатор",
+                description=f"**Вопрос #{self.aki.step + 1}**\n{self.aki.question}",
+                color="BLUE"
+            )
+            await interaction.edit_original_response(embed=embed, view=self)
 
 class Akinator(commands.Cog):
     def __init__(self, bot):
@@ -108,28 +105,18 @@ class Akinator(commands.Cog):
             )
             return
 
-        try:
-            aki = AkinatorGame()
-            q = aki.start_game()
+        aki = AkinatorGame()
+        q = aki.start_game()
 
-            embed = create_embed(
-                title="🧞‍♂️ Акинатор",
-                description=f"**Вопрос #{aki.step + 1}**\n{q}",
-                color="BLUE"
-            )
+        embed = create_embed(
+            title="🧞‍♂️ Акинатор",
+            description=f"**Вопрос #{aki.step + 1}**\n{q}",
+            color="BLUE"
+        )
 
-            self.games[interaction.user.id] = aki
-            view = AkinatorView(aki)
-            await interaction.response.send_message(embed=embed, view=view)
-
-        except Exception as e:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"❌ Произошла ошибка при запуске игры: {str(e)}",
-                    color="RED"
-                ),
-                ephemeral=True
-            )
+        self.games[interaction.user.id] = aki
+        view = AkinatorView(aki)
+        await interaction.response.send_message(embed=embed, view=view)
 
 async def setup(bot):
     await bot.add_cog(Akinator(bot))

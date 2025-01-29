@@ -4,7 +4,7 @@ import re
 from discord.ext import commands, tasks
 from Niludetsu.utils.database import get_user, save_user, calculate_next_level_xp
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 
 class LevelSystem(commands.Cog):
     def __init__(self, bot):

@@ -115,381 +115,274 @@ class Logs(commands.Cog):
     logs_group = app_commands.Group(name="logs", description="Управление системой логирования")
 
     @logs_group.command(name="status", description="Показать статус и информацию о системе логирования")
-    @commands.has_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     async def logs_status(self, interaction: discord.Interaction):
-        """Показывает статус и информацию о системе логирования"""
-        try:
-            status = "Включено" if self.logging_enabled else "Отключено"
-            color = discord.Color.green() if self.logging_enabled else discord.Color.red()
-            emoji = "✅" if self.logging_enabled else "❌"
-            
+        if not self._initialized:
             await interaction.response.send_message(
                 embed=create_embed(
-                    title=f"{emoji} Статус системы логирования",
-                    description="Информация о текущем состоянии системы логирования",
-                    fields=[
-                        {"name": "Статус", "value": status, "inline": True},
-                        {"name": "Канал", "value": self.log_channel.mention if self.log_channel else "Не установлен", "inline": True},
-                        {"name": "Информация о канале", "value": f"ID канала: `{self.log_channel.id}`\n"
-                                                               f"Категория: {self.log_channel.category.name if self.log_channel.category else 'Нет'}\n"
-                                                               f"Создан: {discord.utils.format_dt(self.log_channel.created_at, 'R')}", "inline": False} if self.log_channel else None
-                    ],
-                    color="GREEN" if self.logging_enabled else "RED"
-                )
+                    description="❌ Система логирования не инициализирована!",
+                    color="RED"
+                ),
+                ephemeral=True
             )
-        except Exception as e:
-            await interaction.response.send_message(
-                f"❌ Произошла ошибка: {str(e)}"
+            return
+
+        embed = create_embed(
+            title="📊 Статус системы логирования",
+            description=(
+                f"**Статус:** {'🟢 Включена' if self.logging_enabled else '🔴 Отключена'}\n"
+                f"**Канал логов:** {self.log_channel.mention if self.log_channel else 'Не установлен'}\n"
+                f"**Задержка:** {self._rate_limit_delay} сек"
             )
+        )
+        await interaction.response.send_message(embed=embed)
 
     @logs_group.command(name="set", description="Установить канал для логов")
-    @commands.has_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     async def logs_set(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        """Установка нового канала для логов"""
-        try:
-            self.log_channel = channel
-            self.save_config(channel.id)
-            
-            await interaction.response.send_message(
-                embed=create_embed(
-                    title="✅ Канал логов установлен",
-                    description=f"Новый канал логов: {channel.mention}\n"
-                              f"ID канала: `{channel.id}`",
-                    color="GREEN"
-                )
+        self.log_channel = channel
+        self.save_config(channel.id)
+        
+        await interaction.response.send_message(
+            embed=create_embed(
+                description=f"✅ Канал логов установлен: {channel.mention}",
+                color="GREEN"
             )
-            
-            # Отправляем тестовое сообщение в новый канал только при смене канала
-            await channel.send(
-                embed=create_embed(
-                    title="✅ Система логирования активирована",
-                    description="Канал логов успешно подключен и готов к работе.",
-                    color="GREEN"
-                )
+        )
+        
+        await channel.send(
+            embed=create_embed(
+                title="✅ Канал логов активирован",
+                description="Этот канал теперь будет использоваться для системных логов.",
+                color="GREEN"
             )
-            
-        except Exception as e:
-            await interaction.response.send_message(
-                f"❌ Произошла ошибка: {str(e)}"
-            )
+        )
 
     @logs_group.command(name="test", description="Отправить тестовое сообщение в лог")
-    @commands.has_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     async def logs_test(self, interaction: discord.Interaction):
-        """Отправка тестового сообщения в лог"""
-        try:
-            if not self.log_channel:
-                raise Exception("Канал логов не настроен")
+        if not self.log_channel:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description="❌ Канал логов не установлен!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+            return
 
-            await self.log_channel.send(
-                embed=create_embed(
-                    title="📝 Тестовое сообщение",
-                    description="Это тестовое сообщение для проверки работы системы логирования",
-                    fields=[
-                        {"name": "Инициатор", "value": interaction.user.mention, "inline": True},
-                        {"name": "Канал", "value": self.log_channel.mention, "inline": True}
-                    ],
-                    color="BLUE"
-                )
+        await self.log_channel.send(
+            embed=create_embed(
+                title="🧪 Тестовое сообщение",
+                description="Это тестовое сообщение системы логирования.",
+                footer={"text": f"Отправлено: {interaction.user}"}
             )
-            
-            await interaction.response.send_message(
-                embed=create_embed(
-                    title="✅ Тестовое сообщение отправлено",
-                    description="Проверьте канал логов",
-                    color="GREEN"
-                )
-            )
-        except Exception as e:
-            await interaction.response.send_message(
-                f"❌ Произошла ошибка: {str(e)}"
-            )
+        )
+        
+        await interaction.response.send_message(
+            embed=create_embed(
+                description="✅ Тестовое сообщение отправлено!",
+                color="GREEN"
+            ),
+            ephemeral=True
+        )
 
     @logs_group.command(name="disable", description="Отключить систему логирования")
-    @commands.has_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     async def logs_disable(self, interaction: discord.Interaction):
-        """Отключение системы логирования"""
-        try:
-            self.logging_enabled = False
-            
-            if self.log_channel:
-                await self.log_channel.send(
-                    embed=create_embed(
-                        title="⚠️ Система логирования отключена",
-                        description=f"Администратор {interaction.user.mention} отключил систему логирования",
-                        color="YELLOW"
-                    )
-                )
-            
+        if not self.logging_enabled:
             await interaction.response.send_message(
                 embed=create_embed(
-                    title="✅ Система логирования отключена",
-                    description="Логирование событий приостановлено",
-                    color="YELLOW"
-                )
+                    description="❌ Система логирования уже отключена!",
+                    color="RED"
+                ),
+                ephemeral=True
             )
-        except Exception as e:
-            await interaction.response.send_message(
-                f"❌ Произошла ошибка: {str(e)}"
+            return
+
+        self.logging_enabled = False
+        await interaction.response.send_message(
+            embed=create_embed(
+                description="✅ Система логирования отключена",
+                color="GREEN"
             )
+        )
 
     @logs_group.command(name="enable", description="Включить систему логирования")
-    @commands.has_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     async def logs_enable(self, interaction: discord.Interaction):
-        """Включение системы логирования"""
-        try:
-            # Если система уже включена, не делаем ничего
-            if self.logging_enabled:
-                await interaction.response.send_message(
-                    embed=create_embed(
-                        title="⚠️ Система уже активна",
-                        description="Система логирования уже включена",
-                        color="YELLOW"
-                    )
-                )
-                return
-
-            self.logging_enabled = True
-            
-            if self.log_channel:
-                await self.log_channel.send(
-                    embed=create_embed(
-                        title="✅ Система логирования включена",
-                        description=f"Администратор {interaction.user.mention} включил систему логирования",
-                        color="GREEN"
-                    )
-                )
-            
+        if self.logging_enabled:
             await interaction.response.send_message(
                 embed=create_embed(
-                    title="✅ Система логирования включена",
-                    description="Логирование событий возобновлено",
-                    color="GREEN"
-                )
+                    description="❌ Система логирования уже включена!",
+                    color="RED"
+                ),
+                ephemeral=True
             )
-        except Exception as e:
+            return
+
+        if not self.log_channel:
             await interaction.response.send_message(
-                f"❌ Произошла ошибка: {str(e)}"
+                embed=create_embed(
+                    description="❌ Сначала установите канал для логов!",
+                    color="RED"
+                ),
+                ephemeral=True
             )
+            return
 
-    @commands.Cog.listener()
-    async def on_command(self, ctx):
-        """Логирование использования команд"""
-        if self.logging_enabled and self._initialized:
-            await self.loggers['message'].log_command(ctx, ctx.command.name)
+        self.logging_enabled = True
+        await interaction.response.send_message(
+            embed=create_embed(
+                description="✅ Система логирования включена",
+                color="GREEN"
+            )
+        )
 
+    # Event Listeners
     @commands.Cog.listener()
     async def on_guild_update(self, before, after):
-        """Логирование изменений сервера"""
-        if self.logging_enabled and self._initialized:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['server'].log_guild_update(before, after)
 
     @commands.Cog.listener()
     async def on_guild_role_create(self, role):
-        """Логирование создания роли"""
-        if self.logging_enabled and self._initialized:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['role'].log_role_create(role)
 
     @commands.Cog.listener()
     async def on_guild_role_delete(self, role):
-        """Логирование удаления роли"""
-        if self.logging_enabled and self._initialized:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['role'].log_role_delete(role)
 
     @commands.Cog.listener()
     async def on_guild_role_update(self, before, after):
-        """Логирование обновления роли"""
-        if self.logging_enabled and self._initialized:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['role'].log_role_update(before, after)
 
     @commands.Cog.listener()
     async def on_guild_emojis_update(self, guild, before, after):
-        """Логирование изменений эмодзи"""
-        if self.logging_enabled and self._initialized:
-            # Определяем добавленные и удаленные эмодзи
-            added = [emoji for emoji in after if emoji not in before]
-            removed = [emoji for emoji in before if emoji not in after]
-            updated = [emoji for emoji in after if emoji in before and emoji != before[before.index(emoji)]]
-            
-            for emoji in added:
-                await self.loggers['emoji'].log_emoji_create(emoji)
-            for emoji in removed:
-                await self.loggers['emoji'].log_emoji_delete(emoji)
-            for emoji in updated:
-                old_emoji = before[before.index(emoji)]
-                await self.loggers['emoji'].log_emoji_update(old_emoji, emoji)
+        if self.logging_enabled and self.log_channel:
+            await self.loggers['emoji'].log_emoji_update(guild, before, after)
 
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel):
-        """Логирование создания канала"""
-        if self.logging_enabled and self._initialized:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['channel'].log_channel_create(channel)
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel):
-        """Логирование удаления канала"""
-        if self.logging_enabled and self._initialized:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['channel'].log_channel_delete(channel)
 
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before, after):
-        """Логирование обновления канала"""
-        if self.logging_enabled and self._initialized:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['channel'].log_channel_update(before, after)
 
     @commands.Cog.listener()
-    async def on_guild_channel_pins_update(self, channel, last_pin):
-        """Логирование обновления закрепленных сообщений"""
-        if self.logging_enabled and self._initialized:
-            await self.loggers['channel'].log_channel_pins_update(channel, last_pin)
-
-    @commands.Cog.listener()
     async def on_member_join(self, member):
-        """Логирование входа участника"""
-        if self.logging_enabled and self._initialized:
-            await self.loggers['server'].log_user_join(member)
+        if self.logging_enabled and self.log_channel:
+            await self.loggers['user'].log_member_join(member)
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):
-        """Логирование выхода участника"""
-        if self.logging_enabled and self._initialized:
-            await self.loggers['server'].log_user_leave(member)
+        if self.logging_enabled and self.log_channel:
+            await self.loggers['user'].log_member_remove(member)
 
     @commands.Cog.listener()
     async def on_member_update(self, before, after):
-        """Логирование обновления участника"""
-        if self.logging_enabled and self._initialized:
-            if before.display_name != after.display_name:
-                await self.loggers['user'].log_user_name_update(before, after)
-            if before.roles != after.roles:
-                await self.loggers['user'].log_user_roles_update(before, after)
+        if self.logging_enabled and self.log_channel:
+            await self.loggers['user'].log_member_update(before, after)
 
     @commands.Cog.listener()
     async def on_user_update(self, before, after):
-        """Логирование обновления пользователя"""
-        if self.logging_enabled and self._initialized:
-            if before.avatar != after.avatar:
-                await self.loggers['user'].log_user_avatar_update(before, after)
+        if self.logging_enabled and self.log_channel:
+            await self.loggers['user'].log_user_update(before, after)
 
     @commands.Cog.listener()
     async def on_member_ban(self, guild, user):
-        """Логирование бана участника"""
-        if self.logging_enabled and self._initialized:
-            await self.loggers['server'].log_ban_add(guild, user)
+        if self.logging_enabled and self.log_channel:
+            await self.loggers['user'].log_member_ban(guild, user)
 
     @commands.Cog.listener()
     async def on_member_unban(self, guild, user):
-        """Логирование разбана участника"""
-        if self.logging_enabled and self._initialized:
-            await self.loggers['server'].log_ban_remove(guild, user)
+        if self.logging_enabled and self.log_channel:
+            await self.loggers['user'].log_member_unban(guild, user)
 
     @commands.Cog.listener()
     async def on_message_delete(self, message):
-        """Логирование удаления сообщения"""
-        if self.logging_enabled and not message.author.bot:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['message'].log_message_delete(message)
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
-        """Логирование редактирования сообщения"""
-        if self.logging_enabled and not before.author.bot:
-            if before.content != after.content:
-                await self.loggers['message'].log_message_edit(before, after)
+        if self.logging_enabled and self.log_channel:
+            await self.loggers['message'].log_message_edit(before, after)
 
     @commands.Cog.listener()
     async def on_bulk_message_delete(self, messages):
-        """Логирование массового удаления сообщений"""
-        if self.logging_enabled:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['message'].log_bulk_message_delete(messages)
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        """Логирование изменений голосового состояния"""
-        if self.logging_enabled and self._initialized:
-            await self.loggers['voice'].log_voice_status_update(member, before.channel if before else None, after.channel if after else None)
+        if self.logging_enabled and self.log_channel:
+            await self.loggers['voice'].log_voice_state_update(member, before, after)
 
     @commands.Cog.listener()
     async def on_thread_create(self, thread):
-        """Логирование создания ветки"""
-        if self.logging_enabled and self._initialized:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['thread'].log_thread_create(thread)
 
     @commands.Cog.listener()
     async def on_thread_delete(self, thread):
-        """Логирование удаления ветки"""
-        if self.logging_enabled and self._initialized:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['thread'].log_thread_delete(thread)
 
     @commands.Cog.listener()
     async def on_thread_update(self, before, after):
-        """Логирование обновления ветки"""
-        if self.logging_enabled and self._initialized:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['thread'].log_thread_update(before, after)
 
     @commands.Cog.listener()
     async def on_guild_sticker_create(self, sticker):
-        """Логирование создания стикера"""
-        if self.logging_enabled and self._initialized:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['sticker'].log_sticker_create(sticker)
 
     @commands.Cog.listener()
     async def on_guild_sticker_delete(self, sticker):
-        """Логирование удаления стикера"""
-        if self.logging_enabled and self._initialized:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['sticker'].log_sticker_delete(sticker)
 
     @commands.Cog.listener()
     async def on_guild_sticker_update(self, before, after):
-        """Логирование обновления стикера"""
-        if self.logging_enabled and self._initialized:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['sticker'].log_sticker_update(before, after)
 
     @commands.Cog.listener()
     async def on_invite_create(self, invite):
-        """Логирование создания приглашения"""
-        if self.logging_enabled and self._initialized:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['invite'].log_invite_create(invite)
 
     @commands.Cog.listener()
     async def on_invite_delete(self, invite):
-        """Логирование удаления приглашения"""
-        if self.logging_enabled and self._initialized:
+        if self.logging_enabled and self.log_channel:
             await self.loggers['invite'].log_invite_delete(invite)
 
     @commands.Cog.listener()
-    async def on_guild_emojis_update(self, guild, before, after):
-        """Логирование изменений эмодзи"""
-        if self.logging_enabled:
-            await self.loggers['emoji'].log_emoji_update(guild, before, after)
-
-    @commands.Cog.listener()
-    async def on_guild_stickers_update(self, guild, before, after):
-        """Логирование изменений стикеров"""
-        if self.logging_enabled:
-            await self.loggers['sticker'].log_sticker_update(guild, before, after)
-
-    @commands.Cog.listener()
-    async def on_guild_update(self, before, after):
-        """Логирование изменений сервера"""
-        if self.logging_enabled:
-            await self.loggers['server'].log_guild_update(before, after)
-
-    @commands.Cog.listener()
     async def on_webhooks_update(self, channel):
-        """Логирование изменений вебхуков"""
-        if self.logging_enabled:
-            await self.loggers['webhook'].log_webhook_update(channel)
+        if self.logging_enabled and self.log_channel:
+            await self.loggers['webhook'].log_webhooks_update(channel)
 
     async def cog_load(self):
-        """Инициализация кэша вебхуков при загрузке кога"""
-        self._webhook_cache = {}
-        for guild in self.bot.guilds:
-            for channel in guild.text_channels:
-                try:
-                    webhooks = await channel.webhooks()
-                    self._webhook_cache[channel.id] = {webhook.id: webhook for webhook in webhooks}
-                except discord.Forbidden:
-                    continue
+        """Инициализация при загрузке кога"""
+        try:
+            for logger in self.loggers.values():
+                if hasattr(logger, 'setup'):
+                    await logger.setup()
+        except Exception as e:
+            print(f"Error initializing loggers: {e}")
 
 async def setup(bot):
     await bot.add_cog(Logs(bot)) 

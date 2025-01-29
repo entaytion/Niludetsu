@@ -6,7 +6,7 @@ import os
 from datetime import datetime
 import typing
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 
 def format_permission(perm_name: str) -> str:
     """Форматирует название права для красивого отображения"""
@@ -380,111 +380,82 @@ class Backup(commands.Cog):
             await interaction.followup.send("❌ Пожалуйста, загрузите файл резервной копии в формате JSON!")
             return
             
-        try:
-            backup_content = await file.read()
-            backup_data = json.loads(backup_content)
-            
-            # Проверяем версию бэкапа
-            if "backup_version" not in backup_data:
-                await interaction.followup.send("❌ Неверный формат файла бэкапа!")
-                return
-            
-            # Обновляем основные настройки сервера
-            try:
-                await interaction.guild.edit(
-                    name=backup_data["server_name"],
-                    description=backup_data.get("server_description"),
-                    verification_level=discord.VerificationLevel[backup_data["server_verification_level"]],
-                    explicit_content_filter=discord.ContentFilter[backup_data["server_explicit_content_filter"]],
-                    preferred_locale=backup_data["server_preferred_locale"],
-                    afk_timeout=backup_data["afk_timeout"]
+        backup_content = await file.read()
+        backup_data = json.loads(backup_content)
+        
+        # Проверяем версию бэкапа
+        if "backup_version" not in backup_data:
+            await interaction.followup.send("❌ Неверный формат файла бэкапа!")
+            return
+        
+        # Обновляем основные настройки сервера
+        await interaction.guild.edit(
+            name=backup_data["server_name"],
+            description=backup_data.get("server_description"),
+            verification_level=discord.VerificationLevel[backup_data["server_verification_level"]],
+            explicit_content_filter=discord.ContentFilter[backup_data["server_explicit_content_filter"]],
+            preferred_locale=backup_data["server_preferred_locale"],
+            afk_timeout=backup_data["afk_timeout"]
+        )
+        
+        # Восстанавливаем @everyone роль
+        await interaction.guild.default_role.edit(
+            permissions=discord.Permissions(backup_data["everyone_role"]["permissions"]),
+            mentionable=backup_data["everyone_role"]["mentionable"]
+        )
+        
+        # Восстанавливаем роли
+        existing_roles = {role.name: role for role in interaction.guild.roles}
+        for role_data in backup_data["roles"]:
+            if role_data["name"] not in existing_roles:
+                await interaction.guild.create_role(
+                    name=role_data["name"],
+                    permissions=discord.Permissions(role_data["permissions"]),
+                    color=discord.Color(role_data["color"]),
+                    hoist=role_data["hoist"],
+                    mentionable=role_data["mentionable"]
                 )
-            except Exception as e:
-                print(f"Ошибка при обновлении настроек сервера: {e}")
-            
-            # Восстанавливаем @everyone роль
-            try:
-                await interaction.guild.default_role.edit(
-                    permissions=discord.Permissions(backup_data["everyone_role"]["permissions"]),
-                    mentionable=backup_data["everyone_role"]["mentionable"]
+            else:
+                role = existing_roles[role_data["name"]]
+                await role.edit(
+                    permissions=discord.Permissions(role_data["permissions"]),
+                    color=discord.Color(role_data["color"]),
+                    hoist=role_data["hoist"],
+                    mentionable=role_data["mentionable"]
                 )
-            except Exception as e:
-                print(f"Ошибка при обновлении @everyone роли: {e}")
-            
-            # Восстанавливаем роли
-            existing_roles = {role.name: role for role in interaction.guild.roles}
-            for role_data in backup_data["roles"]:
-                try:
-                    if role_data["name"] not in existing_roles:
-                        await interaction.guild.create_role(
-                            name=role_data["name"],
-                            permissions=discord.Permissions(role_data["permissions"]),
-                            color=discord.Color(role_data["color"]),
-                            hoist=role_data["hoist"],
-                            mentionable=role_data["mentionable"]
+        
+        # Восстанавливаем эмодзи
+        for emoji_data in backup_data.get("emojis", []):
+            if not discord.utils.get(interaction.guild.emojis, name=emoji_data["name"]):
+                async with self.bot.session.get(emoji_data["url"]) as resp:
+                    if resp.status == 200:
+                        emoji_image = await resp.read()
+                        await interaction.guild.create_custom_emoji(
+                            name=emoji_data["name"],
+                            image=emoji_image
                         )
-                    else:
-                        role = existing_roles[role_data["name"]]
-                        await role.edit(
-                            permissions=discord.Permissions(role_data["permissions"]),
-                            color=discord.Color(role_data["color"]),
-                            hoist=role_data["hoist"],
-                            mentionable=role_data["mentionable"]
-                        )
-                except Exception as e:
-                    print(f"Ошибка при восстановлении роли {role_data['name']}: {e}")
+        
+        # Восстанавливаем каналы без категории
+        for channel_data in backup_data.get("channels_without_category", []):
+            await self._restore_channel(interaction.guild, channel_data)
+        
+        # Восстанавливаем категории и их каналы
+        for category_data in backup_data["categories"]:
+            # Создаем или получаем категорию
+            category = discord.utils.get(interaction.guild.categories, name=category_data["name"])
+            if not category:
+                overwrites = await self._create_overwrites(interaction.guild, category_data["overwrites"])
+                category = await interaction.guild.create_category(
+                    name=category_data["name"],
+                    position=category_data["position"],
+                    overwrites=overwrites
+                )
             
-            # Восстанавливаем эмодзи
-            try:
-                for emoji_data in backup_data.get("emojis", []):
-                    if not discord.utils.get(interaction.guild.emojis, name=emoji_data["name"]):
-                        try:
-                            async with self.bot.session.get(emoji_data["url"]) as resp:
-                                if resp.status == 200:
-                                    emoji_image = await resp.read()
-                                    await interaction.guild.create_custom_emoji(
-                                        name=emoji_data["name"],
-                                        image=emoji_image
-                                    )
-                        except Exception as e:
-                            print(f"Ошибка при восстановлении эмодзи {emoji_data['name']}: {e}")
-            except Exception as e:
-                print(f"Ошибка при восстановлении эмодзи: {e}")
+            # Восстанавливаем каналы в категории
+            for channel_data in category_data["channels"]:
+                await self._restore_channel(interaction.guild, channel_data, category)
             
-            # Восстанавливаем каналы без категории
-            for channel_data in backup_data.get("channels_without_category", []):
-                try:
-                    await self._restore_channel(interaction.guild, channel_data)
-                except Exception as e:
-                    print(f"Ошибка при восстановлении канала {channel_data['name']}: {e}")
-            
-            # Восстанавливаем категории и их каналы
-            for category_data in backup_data["categories"]:
-                try:
-                    # Создаем или получаем категорию
-                    category = discord.utils.get(interaction.guild.categories, name=category_data["name"])
-                    if not category:
-                        overwrites = await self._create_overwrites(interaction.guild, category_data["overwrites"])
-                        category = await interaction.guild.create_category(
-                            name=category_data["name"],
-                            position=category_data["position"],
-                            overwrites=overwrites
-                        )
-                    
-                    # Восстанавливаем каналы в категории
-                    for channel_data in category_data["channels"]:
-                        try:
-                            await self._restore_channel(interaction.guild, channel_data, category)
-                        except Exception as e:
-                            print(f"Ошибка при восстановлении канала {channel_data['name']}: {e}")
-                            
-                except Exception as e:
-                    print(f"Ошибка при восстановлении категории {category_data['name']}: {e}")
-            
-            await interaction.followup.send("✅ Сервер успешно восстановлен из резервной копии!")
-            
-        except Exception as e:
-            await interaction.followup.send(f"❌ Произошла ошибка при восстановлении: {str(e)}")
+        await interaction.followup.send("✅ Сервер успешно восстановлен из резервной копии!")
 
     async def _restore_channel(self, guild, channel_data, category=None):
         """Восстанавливает канал определенного типа"""
@@ -508,13 +479,10 @@ class Backup(commands.Cog):
             
             # Восстанавливаем вебхуки
             for webhook_data in channel_data.get("webhooks", []):
-                try:
-                    await channel.create_webhook(
-                        name=webhook_data["name"],
-                        avatar=webhook_data.get("avatar")
-                    )
-                except Exception as e:
-                    print(f"Ошибка при восстановлении вебхука {webhook_data['name']}: {e}")
+                await channel.create_webhook(
+                    name=webhook_data["name"],
+                    avatar=webhook_data.get("avatar")
+                )
                     
         elif channel_type == "voice":
             await guild.create_voice_channel(
@@ -548,18 +516,15 @@ class Backup(commands.Cog):
             
             # Восстанавливаем теги форума
             if hasattr(channel, 'edit'):
-                try:
-                    tags = []
-                    for tag_data in channel_data.get("available_tags", []):
-                        tags.append(discord.ForumTag(
-                            name=tag_data["name"],
-                            moderated=tag_data.get("moderated", False),
-                            emoji_id=int(tag_data["emoji_id"]) if tag_data.get("emoji_id") else None,
-                            emoji_name=tag_data.get("emoji_name")
-                        ))
-                    await channel.edit(available_tags=tags)
-                except Exception as e:
-                    print(f"Ошибка при восстановлении тегов форума: {e}")
+                tags = []
+                for tag_data in channel_data.get("available_tags", []):
+                    tags.append(discord.ForumTag(
+                        name=tag_data["name"],
+                        moderated=tag_data.get("moderated", False),
+                        emoji_id=int(tag_data["emoji_id"]) if tag_data.get("emoji_id") else None,
+                        emoji_name=tag_data.get("emoji_name")
+                    ))
+                await channel.edit(available_tags=tags)
 
     async def _create_overwrites(self, guild, overwrites_data):
         """Создает словарь пермишенов для канала"""

@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.database import DB_PATH, initialize_table, TABLES_SCHEMAS
 import sqlite3
 from datetime import datetime
@@ -138,13 +138,10 @@ class Bio(commands.GroupCog, group_name="bio"):
             embed.set_thumbnail(url=target_user.display_avatar.url)
             
             if timestamp:
-                try:
-                    # Обрезаем миллисекунды перед парсингом
-                    timestamp = timestamp.split('.')[0]
-                    formatted_time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S').strftime('%d.%m.%Y %H:%M')
-                    embed.set_footer(text=f"Последнее обновление: {formatted_time}")
-                except Exception as e:
-                    print(f"Ошибка форматирования времени: {e}")
+                # Обрезаем миллисекунды перед парсингом
+                timestamp = timestamp.split('.')[0]
+                formatted_time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S').strftime('%d.%m.%Y %H:%M')
+                embed.set_footer(text=f"Последнее обновление: {formatted_time}")
             
             await interaction.response.send_message(embed=embed)
 

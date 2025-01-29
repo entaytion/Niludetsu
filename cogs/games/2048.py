@@ -5,7 +5,7 @@ from discord.ui import View, Button
 import random
 import json
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 
 class Game2048:
     def __init__(self):

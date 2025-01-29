@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 
 class Translit(commands.Cog):
     def __init__(self, bot):
@@ -100,54 +100,40 @@ class Translit(commands.Cog):
     @app_commands.command(name="t", description="Транслитерация текста с латиницы на кириллицу")
     @app_commands.describe(text="Текст для транслитерации")
     async def translit(self, interaction: discord.Interaction, text: str):
-        try:
-            translated = self.transliterate(text)
-            embed = create_embed(
-                title="🔄 Транслитерация"
-            )
-            embed.add_field(
-                name="Исходный текст:",
-                value=f"```{text}```",
-                inline=False
-            )
-            embed.add_field(
-                name="Результат:",
-                value=f"```{translated}```",
-                inline=False
-            )
-            await interaction.response.send_message(embed=embed)
-        except Exception as e:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Произошла ошибка при транслитерации: {str(e)}"
-                )
-            )
+        translated = self.transliterate(text)
+        embed = create_embed(
+            title="🔄 Транслитерация"
+        )
+        embed.add_field(
+            name="Исходный текст:",
+            value=f"```{text}```",
+            inline=False
+        )
+        embed.add_field(
+            name="Результат:",
+            value=f"```{translated}```",
+            inline=False
+        )
+        await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="k", description="Исправление текста, набранного в неправильной раскладке")
     @app_commands.describe(text="Текст для исправления")
     async def keyboard(self, interaction: discord.Interaction, text: str):
-        try:
-            fixed = self.fix_layout(text)
-            embed = create_embed(
-                title="⌨️ Исправление раскладки"
-            )
-            embed.add_field(
-                name="Исходный текст:",
-                value=f"```{text}```",
-                inline=False
-            )
-            embed.add_field(
-                name="Результат:",
-                value=f"```{fixed}```",
-                inline=False
-            )
-            await interaction.response.send_message(embed=embed)
-        except Exception as e:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"{EMOJIS['ERROR']} Произошла ошибка при исправлении раскладки: {str(e)}"
-                )
-            )
+        fixed = self.fix_layout(text)
+        embed = create_embed(
+            title="⌨️ Исправление раскладки"
+        )
+        embed.add_field(
+            name="Исходный текст:",
+            value=f"```{text}```",
+            inline=False
+        )
+        embed.add_field(
+            name="Результат:",
+            value=f"```{fixed}```",
+            inline=False
+        )
+        await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Translit(bot)) 

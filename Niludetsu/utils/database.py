@@ -14,14 +14,17 @@ TABLES_SCHEMAS = {
             balance INTEGER,
             deposit INTEGER,
             last_daily TEXT,
-            last_work TEXT, 
+            last_work TEXT,
             last_rob TEXT,
             xp INTEGER,
             level INTEGER,
             spouse TEXT,
             marriage_date TEXT,
             roles TEXT DEFAULT '',
-            reputation INTEGER DEFAULT 0
+            reputation INTEGER DEFAULT 0,
+            messages_count INTEGER DEFAULT 0,
+            voice_time INTEGER DEFAULT 0,
+            last_voice_update TEXT DEFAULT NULL
         )
     ''',
     'roles': '''
@@ -36,9 +39,9 @@ TABLES_SCHEMAS = {
     'warnings': '''
         CREATE TABLE IF NOT EXISTS warnings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            guild_id INTEGER,
-            moderator_id INTEGER,
+            user_id TEXT,
+            guild_id TEXT,
+            moderator_id TEXT,
             reason TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             active BOOLEAN DEFAULT TRUE
@@ -100,10 +103,26 @@ def initialize_db() -> None:
             cursor.execute(schema)
             
             if table_name == 'users':
+                # Проверяем существующие колонки
                 cursor.execute("PRAGMA table_info(users)")
-                columns = [column[1] for column in cursor.fetchall()]
-                if 'roles' not in columns:
-                    cursor.execute('ALTER TABLE users ADD COLUMN roles TEXT DEFAULT ""')
+                existing_columns = {column[1] for column in cursor.fetchall()}
+                
+                # Список необходимых колонок и их типов
+                required_columns = {
+                    'messages_count': 'INTEGER DEFAULT 0',
+                    'voice_time': 'INTEGER DEFAULT 0',
+                    'roles': 'TEXT DEFAULT ""',
+                    'xp': 'INTEGER DEFAULT 0',
+                    'level': 'INTEGER DEFAULT 0'
+                }
+                
+                # Добавляем отсутствующие колонки
+                for column, column_type in required_columns.items():
+                    if column not in existing_columns:
+                        try:
+                            cursor.execute(f'ALTER TABLE users ADD COLUMN {column} {column_type}')
+                        except sqlite3.OperationalError:
+                            pass  # Колонка уже существует
         
         conn.commit()
 
@@ -245,4 +264,13 @@ def delete_role(role_id: int) -> bool:
             conn.commit()
             return True
     except Exception:
-        return False 
+        return False
+
+def format_voice_time(seconds: int) -> str:
+    """Форматирование времени в голосовом канале"""
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    
+    if hours > 0:
+        return f"{hours} ч {minutes} мин"
+    return f"{minutes} мин" 

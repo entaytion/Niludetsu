@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import random
 from typing import List, Optional
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.database import initialize_table, TABLES_SCHEMAS, DB_PATH
 
 class Giveaways(commands.Cog):

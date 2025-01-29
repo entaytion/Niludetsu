@@ -4,7 +4,7 @@ import asyncio
 from datetime import datetime, timedelta
 import re
 from Niludetsu.utils.embed import create_embed
-from Niludetsu.core.base import EMOJIS
+from Niludetsu.utils.emojis import EMOJIS
 
 class Reminder(commands.GroupCog, group_name="reminder"):
     def __init__(self, bot):
@@ -156,14 +156,6 @@ class Reminder(commands.GroupCog, group_name="reminder"):
                     title="❌ Ошибка",
                     description=str(e) if str(e) != "Неверный формат времени" else 
                               "Неверный формат времени! Используйте: 30с, 15м, 2ч, 1д, 1н",
-                    color=0xe74c3c
-                )
-            )
-        except Exception as e:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    title="❌ Ошибка",
-                    description=f"Произошла ошибка: {str(e)}",
                     color=0xe74c3c
                 )
             )
