@@ -17,17 +17,13 @@ def format_date(date):
     return f"<t:{int(date.timestamp())}:F> (<t:{int(date.timestamp())}:R>)"
 
 def get_member_status(member):
-    if member is None:
-        return "🔴 Не на сервере"
-    if member.status == discord.Status.online:
-        return "🟢 В сети"
-    elif member.status == discord.Status.idle:
-        return "🟡 Неактивен"
-    elif member.status == discord.Status.dnd:
-        return "🔴 Не беспокоить"
-    elif member.status == discord.Status.offline:
-        return "⚫ Не в сети"
-    return "Неизвестно"
+    status_emoji = {
+        discord.Status.online: "🟢 В сети",
+        discord.Status.idle: "🟡 Неактивен",
+        discord.Status.dnd: "🔴 Не беспокоить",
+        discord.Status.offline: "⚫ Не в сети"
+    }
+    return status_emoji.get(member.status, "❓ Неизвестно")
 
 def get_user_badges(user):
     badges = []
@@ -46,11 +42,11 @@ def get_user_badges(user):
     if flags.bug_hunter_level_2:
         badges.append("🐛 Охотник за багами 2 уровня")
     if flags.hypesquad_bravery:
-        badges.append("<:discord_bravery:1332429970668257311> Bravery")  # Замените ID на реальный
+        badges.append("<:discord_bravery:1332429970668257311> Bravery")
     if flags.hypesquad_brilliance:
-        badges.append("<:discord_brillance:1332429912782540852> Brilliance")  # Замените ID на реальный
+        badges.append("<:discord_brillance:1332429912782540852> Brilliance") 
     if flags.hypesquad_balance:
-        badges.append("<:discord_balance:1332429979622965248> Balance")  # Замените ID на реальный
+        badges.append("<:discord_balance:1332429979622965248> Balance")
     if flags.early_supporter:
         badges.append("👑 Ранний поддержавший")
     if flags.verified_bot_developer:
@@ -102,133 +98,89 @@ class UserInfo(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name="userinfo", description="Показать информацию о пользователе")
-    @app_commands.describe(
-        user="Пользователь, о котором вы хотите узнать информацию"
-    )
-    async def userinfo(
-        self,
-        interaction: discord.Interaction,
-        user: discord.User = None
-    ):
-        try:
-            await interaction.response.defer()
-            
-            # Если пользователь не указан, показываем информацию об авторе команды
-            target_user = user or interaction.user
-            target_member = interaction.guild.get_member(target_user.id)
-
-            # Создаем эмбед
-            embed = create_embed(
-                title=f"Информация о пользователе {target_user.name}",
-                thumbnail={'url': target_user.display_avatar.url},
-                color="DEFAULT"
-            )
-
-            # Основная информация
+    @app_commands.describe(user="Пользователь, о котором нужна информация")
+    async def userinfo(self, interaction: discord.Interaction, user: discord.Member = None):
+        await interaction.response.defer()
+        
+        member = user or interaction.user
+        
+        # Получаем роли пользователя
+        roles = [role.mention for role in member.roles if role.name != "@everyone"]
+        roles.reverse()
+        
+        # Получаем даты
+        created_at = int(member.created_at.timestamp())
+        joined_at = int(member.joined_at.timestamp()) if member.joined_at else None
+        
+        # Получаем статус и активности
+        status = get_member_status(member)
+        activities = get_member_activities(member)
+        badges = get_user_badges(member)
+        
+        # Создаем эмбед
+        embed = create_embed(
+            title=f"Информация о пользователе {member.name}",
+            color=member.color.value if member.color != discord.Color.default() else 0x2b2d31
+        )
+        
+        # Добавляем основную информацию
+        embed.add_field(
+            name="📋 Основная информация",
+            value=f"{EMOJIS['DOT']} **ID:** {member.id}\n"
+                  f"{EMOJIS['DOT']} **Имя:** {member.name}\n"
+                  f"{EMOJIS['DOT']} **Никнейм:** {member.display_name}\n"
+                  f"{EMOJIS['DOT']} **Бот:** {'Да' if member.bot else 'Нет'}\n"
+                  f"{EMOJIS['DOT']} **Создан:** <t:{created_at}:D> (<t:{created_at}:R>)",
+            inline=False
+        )
+        
+        # Информация о присоединении к серверу
+        if joined_at:
             embed.add_field(
-                name="📋 Основная информация",
-                value=(
-                    f"**Имя:** {target_user.name}\n"
-                    f"**Тег:** {target_user}\n"
-                    f"**ID:** {target_user.id}\n"
-                    f"**Статус:** {get_member_status(target_member)}\n"
-                    f"**Бот:** {'Да' if target_user.bot else 'Нет'}\n"
-                    f"**Создан:** {format_date(target_user.created_at)}\n"
-                    f"**Баннер:** {'Есть' if target_user.banner else 'Нет'}"
-                ),
+                name="📥 Информация о присоединении",
+                value=f"{EMOJIS['DOT']} **Присоединился:** <t:{joined_at}:D> (<t:{joined_at}:R>)\n"
+                      f"{EMOJIS['DOT']} **Позиция присоединения:** #{sorted(interaction.guild.members, key=lambda m: m.joined_at or datetime.max).index(member) + 1}",
                 inline=False
             )
-
-            # Значки пользователя
-            badges = get_user_badges(target_user)
+        
+        # Добавляем значки
+        if badges:
             embed.add_field(
                 name="🏅 Значки",
                 value="\n".join(badges),
                 inline=False
             )
-
-            # Информация о пользователе на сервере (если есть)
-            if target_member:
-                roles = [role.mention for role in target_member.roles[1:]]  # Исключаем @everyone
-                
-                member_info = (
-                    f"**Никнейм:** {target_member.nick or 'Не установлен'}\n"
-                    f"**Присоединился:** {format_date(target_member.joined_at)}\n"
-                    f"**Высшая роль:** {target_member.top_role.mention if len(roles) > 0 else 'Нет ролей'}\n"
-                    f"**Роли [{len(roles)}]:** {' '.join(roles) if roles else 'Нет ролей'}\n"
-                    f"**Буст сервера:** {'Да' if target_member.premium_since else 'Нет'}"
-                )
-                
-                embed.add_field(
-                    name="📊 Информация на сервере",
-                    value=member_info,
-                    inline=False
-                )
-
-                # Разрешения пользователя
-                key_permissions = []
-                permissions = target_member.guild_permissions
-                if permissions.administrator:
-                    key_permissions.append("👑 Администратор")
-                if permissions.manage_guild:
-                    key_permissions.append("⚙️ Управление сервером")
-                if permissions.ban_members:
-                    key_permissions.append("🔨 Бан участников")
-                if permissions.kick_members:
-                    key_permissions.append("👢 Кик участников")
-                if permissions.manage_channels:
-                    key_permissions.append("🔧 Управление каналами")
-                if permissions.manage_roles:
-                    key_permissions.append("📝 Управление ролями")
-                
-                if key_permissions:
-                    embed.add_field(
-                        name="🔑 Ключевые разрешения",
-                        value="\n".join(key_permissions),
-                        inline=False
-                    )
-
-                # Активности пользователя
-                activities = get_member_activities(target_member)
-                if activities:
-                    embed.add_field(
-                        name="🎯 Активности",
-                        value="\n".join(activities),
-                        inline=False
-                    )
-
-                # Устройство, с которого пользователь сидит
-                platforms = []
-                if target_member.desktop_status != discord.Status.offline:
-                    platforms.append("💻 Компьютер")
-                if target_member.mobile_status != discord.Status.offline:
-                    platforms.append("📱 Телефон")
-                if target_member.web_status != discord.Status.offline:
-                    platforms.append("🌐 Браузер")
-                
-                if platforms:
-                    embed.add_field(
-                        name="📱 Устройства",
-                        value="\n".join(platforms),
-                        inline=False
-                    )
-
-            # Добавляем футер с временем запроса
-            embed = create_embed(
-                title=embed.title,
-                description=embed.description,
-                fields=embed.fields,
-                footer={'text': f"Запрошено {interaction.user.name}"},
-                timestamp=datetime.now(),
-                color="DEFAULT"
+        
+        # Добавляем роли
+        if roles:
+            embed.add_field(
+                name=f"👑 Роли ({len(roles)})",
+                value=" ".join(roles) if len(" ".join(roles)) < 1024 else f"Слишком много ролей ({len(roles)})",
+                inline=False
             )
-
-            # Отправляем сообщение
-            await interaction.followup.send(embed=embed)
-            
-        except Exception as e:
-            print(f"Ошибка в команде userinfo: {str(e)}")
-            await interaction.followup.send("Произошла ошибка при выполнении команды.")
+        
+        # Добавляем статус и активности
+        embed.add_field(
+            name="📊 Статус",
+            value=status,
+            inline=True
+        )
+        
+        if activities:
+            embed.add_field(
+                name="🎮 Активности",
+                value="\n\n".join(activities),
+                inline=False
+            )
+        
+        # Устанавливаем миниатюру и футер
+        embed.set_thumbnail(url=member.display_avatar.url)
+        embed.set_footer(
+            text=f"Запросил {interaction.user.name}",
+            icon_url=interaction.user.display_avatar.url
+        )
+        
+        await interaction.followup.send(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(UserInfo(bot))

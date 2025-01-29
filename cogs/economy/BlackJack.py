@@ -95,11 +95,16 @@ class BlackJack(commands.Cog):
         }
 
         embed = create_embed(
-            title="Блекджек",
-            description=f"**Ваши карты:** {' '.join(player_hand)} (Сумма: {self.calculate_hand(player_hand)})\n"
-                       f"**Карты дилера:** {dealer_hand[0]} ?\n\n"
-                       "Выберите действие:",
-            color="BLUE"
+            title=f"🎰 Блекджек | Ставка: {bet:,} {EMOJIS['MONEY']}",
+            description=(
+                f"{EMOJIS['DOT']} **Ваши карты:** {' '.join(player_hand)} `{self.calculate_hand(player_hand)}`\n"
+                f"{EMOJIS['DOT']} **Карты дилера:** {dealer_hand[0]} ? `?`\n\n"
+                f"**Выберите действие:**\n"
+                f"🎯 `Взять карту` - получить еще одну карту\n"
+                f"⏹️ `Достаточно` - закончить набор карт"
+            ),
+            color="BLUE",
+            footer={"text": f"Игрок: {interaction.user.name}", "icon_url": interaction.user.display_avatar.url}
         )
 
         view = discord.ui.View()
@@ -118,11 +123,16 @@ class BlackJack(commands.Cog):
                 await self.end_game(interaction, "bust")
             else:
                 embed = create_embed(
-                    title="Блекджек",
-                    description=f"**Ваши карты:** {' '.join(game['player_hand'])} (Сумма: {player_value})\n"
-                               f"**Карты дилера:** {game['dealer_hand'][0]} ?\n\n"
-                               "Выберите действие:",
-                    color="BLUE"
+                    title=f"🎰 Блекджек | Ставка: {game['bet']:,} {EMOJIS['MONEY']}",
+                    description=(
+                        f"{EMOJIS['DOT']} **Ваши карты:** {' '.join(game['player_hand'])} `{player_value}`\n"
+                        f"{EMOJIS['DOT']} **Карты дилера:** {game['dealer_hand'][0]} ? `?`\n\n"
+                        f"**Выберите действие:**\n"
+                        f"🎯 `Взять карту` - получить еще одну карту\n"
+                        f"⏹️ `Достаточно` - закончить набор карт"
+                    ),
+                    color="BLUE",
+                    footer={"text": f"Игрок: {interaction.user.name}", "icon_url": interaction.user.display_avatar.url}
                 )
                 await interaction.response.edit_message(embed=embed, view=view)
 
@@ -154,17 +164,35 @@ class BlackJack(commands.Cog):
         winnings = 0
         
         if reason == "bust":
-            result = "**Вы проиграли! У вас перебор!**"
+            result = "❌ **Перебор!** Вы проиграли..."
+            color = "RED"
         elif dealer_value > 21:
-            result = "**Вы выиграли! У дилера перебор!**"
+            result = "🎉 **Поздравляем!** У дилера перебор - вы выиграли!"
+            color = "GREEN"
+        elif player_value > dealer_value:
+            result = "🎉 **Поздравляем!** Ваша комбинация оказалась сильнее!"
+            color = "GREEN"
+        elif player_value < dealer_value:
+            result = "❌ **Вы проиграли!** Комбинация дилера оказалась сильнее."
+            color = "RED"
+        else:
+            result = "🤝 **Ничья!** Ваши комбинации равны."
+            color = "YELLOW"
+
+        description = (
+            f"{EMOJIS['DOT']} **Ваши карты:** {' '.join(game['player_hand'])} `{player_value}`\n"
+            f"{EMOJIS['DOT']} **Карты дилера:** {' '.join(game['dealer_hand'])} `{dealer_value}`\n\n"
+        )
+
+        description += result + "\n"
+
+        if player_value > 21:
+            winnings = 0
+        elif dealer_value > 21:
             winnings = game['bet'] * 2
         elif player_value > dealer_value:
-            result = "**Вы выиграли!**"
             winnings = game['bet'] * 2
-        elif player_value < dealer_value:
-            result = "**Вы проиграли!**"
         else:
-            result = "**Ничья!**"
             winnings = game['bet']
 
         if winnings > 0:
@@ -173,19 +201,14 @@ class BlackJack(commands.Cog):
             user_data['balance'] += winnings
             save_user(user_id, user_data)
 
-        description = (
-            f"**Ваши карты:** {' '.join(game['player_hand'])} (Сумма: {player_value})\n"
-            f"**Карты дилера:** {' '.join(game['dealer_hand'])} (Сумма: {dealer_value})\n\n"
-            f"{result}\n"
-        )
-
         if winnings > 0:
-            description += f"{EMOJIS['DOT']} **Выигрыш:** {winnings:,} {EMOJIS['MONEY']}"
+            description += f"\n💰 **Выигрыш:** {winnings:,} {EMOJIS['MONEY']}"
 
         embed = create_embed(
-            title="Конец игры",
+            title="🎰 Результаты игры в Блекджек",
             description=description,
-            color="GREEN" if winnings > 0 else "RED"
+            color=color,
+            footer={"text": f"Игрок: {interaction.user.name}", "icon_url": interaction.user.display_avatar.url}
         )
         
         del self.active_games[interaction.user.id]

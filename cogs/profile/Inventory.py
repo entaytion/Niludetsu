@@ -14,7 +14,7 @@ class Inventory(commands.Cog):
         
         try:
             user_id = str(interaction.user.id)
-            user_data = get_user(self.bot, user_id)
+            user_data = get_user(user_id)
             if not user_data.get('roles'):
                 await interaction.followup.send(
                     embed=create_embed(

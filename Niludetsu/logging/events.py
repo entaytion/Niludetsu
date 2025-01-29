@@ -1,4 +1,5 @@
-from ..core.base import BaseLogger, EMOJIS
+from ..utils.logging import BaseLogger
+from ..core.base import EMOJIS
 import discord
 from typing import Optional, List
 from discord import ScheduledEvent

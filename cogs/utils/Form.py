@@ -347,11 +347,10 @@ class Forms(commands.Cog):
                 "Ваша заявка успешно отправлена!\n"
                 "Ожидайте ответа от администрации."
             ),
-            color=0x00FF00,
-            ephemeral=True
+            color=0x00FF00
         )
         
-        await interaction.response.send_message(embed=success_embed)
+        await interaction.response.send_message(embed=success_embed, ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Forms(bot))

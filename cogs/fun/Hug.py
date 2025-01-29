@@ -25,7 +25,17 @@ class Hug(commands.Cog):
         if member.id == interaction.user.id:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы не можете обнять самого себя!",
+                    description="❌ Вы не можете обнять самого себя!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+            return
+
+        if member.bot:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description="❌ Вы не можете обнять бота!",
                     color="RED"
                 ),
                 ephemeral=True
@@ -33,13 +43,12 @@ class Hug(commands.Cog):
             return
 
         gif_url = random.choice(self.hug_gifs)
-        await interaction.response.send_message(
-            embed=create_embed(
-                description=f"{interaction.user.mention} обнял(а) {member.mention}",
-                image=gif_url,
-                color="GREEN"
-            )
+        embed = create_embed(
+            description=f"🤗 {interaction.user.mention} обнял(а) {member.mention}",
+            color="BLUE"
         )
+        embed.set_image(url=gif_url)
+        await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Hug(bot))

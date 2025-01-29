@@ -13,16 +13,6 @@ class Withdraw(commands.Cog):
         amount="Сумма для снятия с банка"
     )
     async def withdraw(self, interaction: discord.Interaction, amount: int):
-        """
-        Команда для снятия денег с банка
-        
-        Parameters
-        ----------
-        interaction : discord.Interaction
-            Объект взаимодействия
-        amount : int
-            Сумма для снятия с банка
-        """
         # Проверка суммы
         if amount <= 0:
             await interaction.response.send_message(

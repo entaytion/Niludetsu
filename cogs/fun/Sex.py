@@ -26,7 +26,7 @@ class Sex(commands.Cog):
         if member.id == interaction.user.id:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы не можете заняться любовью с самим собой!",
+                    description="❌ Вы не можете заняться любовью с самим собой!",
                     color="RED"
                 ),
                 ephemeral=True
@@ -36,7 +36,7 @@ class Sex(commands.Cog):
         if member.bot:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы не можете заняться любовью с ботом!",
+                    description="❌ Вы не можете заняться любовью с ботом!",
                     color="RED"
                 ),
                 ephemeral=True
@@ -50,7 +50,7 @@ class Sex(commands.Cog):
         if not user_data or not user_data.get('spouse'):
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Вы должны состоять в браке чтобы заниматься любовью!",
+                    description="❌ Вы должны состоять в браке чтобы заниматься любовью!",
                     color="RED"
                 ),
                 ephemeral=True
@@ -61,7 +61,7 @@ class Sex(commands.Cog):
             spouse = interaction.guild.get_member(int(user_data['spouse']))
             await interaction.response.send_message(
                 embed=create_embed(
-                    description=f"Вы можете заниматься любовью только со своим супругом ({spouse.mention if spouse else 'партнером'})!",
+                    description=f"❌ Вы можете заниматься любовью только со своим супругом ({spouse.mention if spouse else 'партнером'})!",
                     color="RED"
                 ),
                 ephemeral=True
@@ -69,13 +69,12 @@ class Sex(commands.Cog):
             return
 
         gif_url = random.choice(self.sex_gifs)
-        await interaction.response.send_message(
-            embed=create_embed(
-                description=f"{interaction.user.mention} занимается любовью с {member.mention}",
-                image=gif_url,
-                color="GREEN"
-            )
+        embed = create_embed(
+            description=f"💕 {interaction.user.mention} занимается любовью с {member.mention}",
+            color="BLUE"
         )
+        embed.set_image(url=gif_url)
+        await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Sex(bot)) 

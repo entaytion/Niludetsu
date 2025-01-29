@@ -4,22 +4,14 @@ from Niludetsu.utils.embed import create_embed
 from Niludetsu.utils.database import get_user, save_user
 from Niludetsu.core.base import EMOJIS
 from datetime import datetime, timedelta
+import random
 
 class Daily(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.daily_amount = 1000  # Базовая сумма ежедневной награды
 
     @discord.app_commands.command(name="daily", description="Получить ежедневную награду")
     async def daily(self, interaction: discord.Interaction):
-        """
-        Команда для получения ежедневной награды
-        
-        Parameters
-        ----------
-        interaction : discord.Interaction
-            Объект взаимодействия
-        """
         user_id = str(interaction.user.id)
         user_data = get_user(user_id)
 
@@ -46,8 +38,8 @@ class Daily(commands.Cog):
                 
                 await interaction.response.send_message(
                     embed=create_embed(
-                        description=f"Вы уже получили ежедневную награду.\n"
-                                  f"Следующую награду можно получить через: "
+                        description=f"❌ Вы уже получили ежедневную награду\n"
+                                  f"⏰ Следующую награду можно получить через: "
                                   f"**{hours}ч {minutes}м**",
                         color="RED"
                     ),
@@ -55,8 +47,8 @@ class Daily(commands.Cog):
                 )
                 return
 
-        # Рассчитываем награду (можно добавить бонусы за стрик и т.д.)
-        reward = self.daily_amount
+        # Рандомная награда от 100 до 1000
+        reward = random.randint(100, 1000)
 
         # Обновляем данные пользователя
         user_data['balance'] = user_data.get('balance', 0) + reward
@@ -66,9 +58,9 @@ class Daily(commands.Cog):
         # Отправляем сообщение об успешном получении награды
         await interaction.response.send_message(
             embed=create_embed(
-                title="Ежедневная награда получена!",
-                description=f"Вы получили {reward:,} {EMOJIS['MONEY']}\n"
-                          f"Ваш текущий баланс: {user_data['balance']:,} {EMOJIS['MONEY']}",
+                title="🎁 Ежедневная награда",
+                description=f"💰 Вы получили: **{reward:,}** {EMOJIS['MONEY']}\n"
+                          f"💳 Баланс: **{user_data['balance']:,}** {EMOJIS['MONEY']}",
                 color="GREEN"
             )
         )

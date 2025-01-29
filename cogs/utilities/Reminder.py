@@ -15,36 +15,47 @@ class Reminder(commands.GroupCog, group_name="reminder"):
     def cog_unload(self):
         self.check_reminders.cancel()
 
-    def parse_time(self, time_str: str) -> timedelta:
+    def parse_time(self, time_str: str) -> tuple[timedelta, str]:
         """Парсинг строки времени в timedelta"""
         time_units = {
-            'с': 'seconds',
-            'м': 'minutes',
-            'ч': 'hours',
-            'д': 'days',
-            'н': 'weeks'
+            'с': ('seconds', 'секунд'),
+            'м': ('minutes', 'минут'),
+            'ч': ('hours', 'часов'),
+            'д': ('days', 'дней'),
+            'н': ('weeks', 'недель')
         }
         
         total_seconds = 0
         pattern = r'(\d+)([смчдн])'
         matches = re.findall(pattern, time_str.lower())
         
+        if not matches:
+            raise ValueError("Неверный формат времени")
+            
+        time_parts = []
         for value, unit in matches:
+            value = int(value)
             if unit in time_units:
+                unit_name = time_units[unit][1]
                 if unit == 'н':  # недели
-                    total_seconds += int(value) * 7 * 24 * 60 * 60
+                    total_seconds += value * 7 * 24 * 60 * 60
+                    time_parts.append(f"{value} {unit_name}")
                 elif unit == 'д':  # дни
-                    total_seconds += int(value) * 24 * 60 * 60
+                    total_seconds += value * 24 * 60 * 60
+                    time_parts.append(f"{value} {unit_name}")
                 elif unit == 'ч':  # часы
-                    total_seconds += int(value) * 60 * 60
+                    total_seconds += value * 60 * 60
+                    time_parts.append(f"{value} {unit_name}")
                 elif unit == 'м':  # минуты
-                    total_seconds += int(value) * 60
+                    total_seconds += value * 60
+                    time_parts.append(f"{value} {unit_name}")
                 elif unit == 'с':  # секунды
-                    total_seconds += int(value)
+                    total_seconds += value
+                    time_parts.append(f"{value} {unit_name}")
         
-        return timedelta(seconds=total_seconds)
+        return timedelta(seconds=total_seconds), ", ".join(time_parts)
 
-    @tasks.loop(seconds=30)
+    @tasks.loop(seconds=1)
     async def check_reminders(self):
         current_time = datetime.now()
         to_remove = []
@@ -59,6 +70,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
                             embed = create_embed(
                                 title="⏰ Напоминание",
                                 description=f"{reminder['message']}",
+                                color=0x2ecc71
                             )
                             try:
                                 await channel.send(f"{user.mention}", embed=embed)
@@ -78,71 +90,81 @@ class Reminder(commands.GroupCog, group_name="reminder"):
 
     @discord.app_commands.command(name="create", description="Создать новое напоминание")
     @discord.app_commands.describe(
-        time="Время до напоминания (например: 30м, 1ч, 2д)",
+        time="Время до напоминания (например: 30с, 15м, 2ч, 1д, 1н)",
         message="Текст напоминания"
     )
     async def create(self, interaction: discord.Interaction, time: str, message: str):
         try:
-            time_delta = self.parse_time(time)
-            if time_delta.total_seconds() < 30:
+            time_delta, time_str = self.parse_time(time)
+            
+            # Проверка минимального времени
+            if time_delta.total_seconds() < 5:  # Минимум 5 секунд
                 await interaction.response.send_message(
                     embed=create_embed(
-                        description="Минимальное время напоминания - 30 секунд!"
+                        title="❌ Ошибка",
+                        description="Минимальное время напоминания - 5 секунд!",
+                        color=0xe74c3c
                     )
                 )
                 return
             
+            # Проверка максимального времени
             if time_delta.total_seconds() > 30 * 24 * 60 * 60:  # 30 дней
                 await interaction.response.send_message(
                     embed=create_embed(
-                        description="Максимальное время напоминания - 30 дней!"
+                        title="❌ Ошибка",
+                        description="Максимальное время напоминания - 30 дней!",
+                        color=0xe74c3c
                     )
                 )
                 return
 
             reminder_time = datetime.now() + time_delta
             
+            # Проверка количества напоминаний
             if interaction.user.id not in self.reminders:
                 self.reminders[interaction.user.id] = []
             
             if len(self.reminders[interaction.user.id]) >= 5:
                 await interaction.response.send_message(
                     embed=create_embed(
-                        description="У вас уже установлено максимальное количество напоминаний (5)!"
+                        title="❌ Ошибка",
+                        description="У вас уже установлено максимальное количество напоминаний (5)!",
+                        color=0xe74c3c
                     )
                 )
                 return
 
+            # Добавляем напоминание
             self.reminders[interaction.user.id].append({
                 'message': message,
                 'time': reminder_time,
-                'channel': interaction.channel  # Сохраняем канал, где было создано напоминание
+                'channel': interaction.channel
             })
-
-            # Форматирование времени для отображения
-            time_str = []
-            if time_delta.days > 0:
-                time_str.append(f"{time_delta.days} дней")
-            hours = time_delta.seconds // 3600
-            if hours > 0:
-                time_str.append(f"{hours} часов")
-            minutes = (time_delta.seconds % 3600) // 60
-            if minutes > 0:
-                time_str.append(f"{minutes} минут")
-            seconds = time_delta.seconds % 60
-            if seconds > 0:
-                time_str.append(f"{seconds} секунд")
 
             await interaction.response.send_message(
                 embed=create_embed(
                     title="⏰ Напоминание создано",
-                    description=f"Я напомню вам через {', '.join(time_str)}:\n{message}"
+                    description=f"Я напомню вам через {time_str}:\n{message}",
+                    color=0x2ecc71
+                )
+            )
+            
+        except ValueError as e:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    title="❌ Ошибка",
+                    description=str(e) if str(e) != "Неверный формат времени" else 
+                              "Неверный формат времени! Используйте: 30с, 15м, 2ч, 1д, 1н",
+                    color=0xe74c3c
                 )
             )
         except Exception as e:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Неверный формат времени! Используйте: 30с, 15м, 2ч, 1д, 1н"
+                    title="❌ Ошибка",
+                    description=f"Произошла ошибка: {str(e)}",
+                    color=0xe74c3c
                 )
             )
 
@@ -151,7 +173,9 @@ class Reminder(commands.GroupCog, group_name="reminder"):
         if interaction.user.id not in self.reminders or not self.reminders[interaction.user.id]:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="У вас нет активных напоминаний!"
+                    title="📝 Напоминания",
+                    description="У вас нет активных напоминаний!",
+                    color=0xf1c40f
                 )
             )
             return
@@ -161,6 +185,9 @@ class Reminder(commands.GroupCog, group_name="reminder"):
             time_left = reminder['time'] - datetime.now()
             total_seconds = int(time_left.total_seconds())
             
+            if total_seconds < 0:
+                continue
+                
             days = total_seconds // (24 * 3600)
             hours = (total_seconds % (24 * 3600)) // 3600
             minutes = (total_seconds % 3600) // 60
@@ -173,15 +200,16 @@ class Reminder(commands.GroupCog, group_name="reminder"):
                 time_parts.append(f"{hours}ч")
             if minutes > 0:
                 time_parts.append(f"{minutes}м")
-            if seconds > 0 and not (days > 0 or hours > 0):  # показываем секунды только если нет дней и часов
+            if seconds > 0 or not time_parts:  # показываем секунды всегда, если нет других единиц
                 time_parts.append(f"{seconds}с")
             
-            time_str = " ".join(time_parts) if time_parts else "меньше минуты"
+            time_str = " ".join(time_parts)
             reminders_list.append(f"**{i}.** Через {time_str}: {reminder['message']}")
 
         embed = create_embed(
-            title="⏰ Ваши напоминания",
-            description="\n".join(reminders_list)
+            title="📝 Ваши напоминания",
+            description="\n".join(reminders_list),
+            color=0x3498db
         )
         await interaction.response.send_message(embed=embed)
 
@@ -195,7 +223,9 @@ class Reminder(commands.GroupCog, group_name="reminder"):
             
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Напоминание с таким номером не найдено!"
+                    title="❌ Ошибка",
+                    description="Напоминание с таким номером не найдено!",
+                    color=0xe74c3c
                 )
             )
             return
@@ -206,8 +236,9 @@ class Reminder(commands.GroupCog, group_name="reminder"):
 
         await interaction.response.send_message(
             embed=create_embed(
-                title="⏰ Напоминание удалено",
-                description=f"Удалено напоминание:\n{removed_reminder['message']}"
+                title="✅ Напоминание удалено",
+                description=f"Удалено напоминание:\n{removed_reminder['message']}",
+                color=0x2ecc71
             )
         )
 

@@ -14,18 +14,6 @@ class Pay(commands.Cog):
         amount="Сумма для перевода"
     )
     async def pay(self, interaction: discord.Interaction, user: discord.Member, amount: int):
-        """
-        Команда для перевода денег другому пользователю
-        
-        Parameters
-        ----------
-        interaction : discord.Interaction
-            Объект взаимодействия
-        user : discord.Member
-            Пользователь, которому нужно перевести деньги
-        amount : int
-            Сумма для перевода
-        """
         # Проверка на перевод самому себе
         if user.id == interaction.user.id:
             await interaction.response.send_message(

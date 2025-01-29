@@ -32,18 +32,23 @@ class LevelSystem(commands.Cog):
                         if member.bot:
                             continue
                         user_id = str(member.id)
-                        user = get_user(self.bot, user_id)
+                        user = get_user(user_id)
                         if not user:  # Проверка на None
                             continue
-                        xp = user['xp']
-                        level = user['level']
-                        xp += 3
+                        xp = user.get('xp', 0)
+                        level = user.get('level', 1)
+                        
+                        # Начисляем опыт за голосовой канал
+                        xp += 5  # Увеличил награду за голосовой канал
 
+                        # Проверяем, достигнут ли следующий уровень
                         next_level_xp = calculate_next_level_xp(level)
-                        if xp >= next_level_xp:
+                        while xp >= next_level_xp:
                             xp -= next_level_xp
                             level += 1
                             await self.level_up_notification(member, level, guild)
+                            await self.give_role_by_level(member, level)
+                            next_level_xp = calculate_next_level_xp(level)
 
                         user['xp'] = xp
                         user['level'] = level
@@ -56,8 +61,10 @@ class LevelSystem(commands.Cog):
             return
 
         embed = create_embed(
-            title="Новый уровень!",
-            description=f"Поздравляю, {member.mention}!\nТеперь у вас {level} уровень!",
+            title=f"{EMOJIS['LEVELUP']} Новый уровень!",
+            description=f"🎉 Поздравляем, {member.mention}!\n"
+                       f"Теперь у вас {level} уровень!",
+            color="BLUE"
         )
         await notification_channel.send(embed=embed)
 
@@ -106,19 +113,26 @@ class LevelSystem(commands.Cog):
             return 
 
         user_id = str(message.author.id)
-        user = get_user(self.bot, user_id)
+        user = get_user(user_id)
         if not user: 
             return
-        xp = user['xp']
-        level = user['level']
 
+        xp = user.get('xp', 0)
+        level = user.get('level', 1)
+
+        # Начисляем опыт за сообщение
         if len(message.content) >= 7:
-            xp += 1
+            xp_gain = min(len(message.content) // 7, 5)  # Максимум 5 XP за сообщение
+            xp += xp_gain
+
+            # Проверяем, достигнут ли следующий уровень
             next_level_xp = calculate_next_level_xp(level)
-            if xp >= next_level_xp:
+            while xp >= next_level_xp:
                 xp -= next_level_xp
                 level += 1
                 await self.level_up_notification(message.author, level, message.guild)
+                await self.give_role_by_level(message.author, level)
+                next_level_xp = calculate_next_level_xp(level)
 
             user['xp'] = xp
             user['level'] = level

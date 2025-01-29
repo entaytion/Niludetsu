@@ -13,16 +13,6 @@ class Deposit(commands.Cog):
         amount="Сумма для внесения в банк"
     )
     async def deposit(self, interaction: discord.Interaction, amount: int):
-        """
-        Команда для внесения денег в банк
-        
-        Parameters
-        ----------
-        interaction : discord.Interaction
-            Объект взаимодействия
-        amount : int
-            Сумма для внесения в банк
-        """
         # Проверка суммы
         if amount <= 0:
             await interaction.response.send_message(

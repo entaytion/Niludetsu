@@ -287,13 +287,14 @@ class Help(commands.Cog):
             "utilities": {
                 "title": "Команды для утилит",
                 "emoji": "🧷",
-                "original_commands": ["/afk", "/ai", "/currency", "/exchange", "/k", "/math", "/poll", "/qr", "/quote", "/rand", "/reminder", "/t", "/translate", "/weather", "/whois"],
-                "commands": [cmd for cmd in ["/afk", "/ai", "/currency", "/exchange", "/k", "/math", "/poll", "/qr", "/quote", "/rand", "/reminder", "/t", "/translate", "/weather", "/whois"]
+                "original_commands": ["/afk", "/ai", "/currency", "/exchange", "/emoji", "/k", "/math", "/poll", "/qr", "/quote", "/rand", "/reminder", "/t", "/translate", "/weather", "/whois"],
+                "commands": [cmd for cmd in ["/afk", "/ai", "/currency", "/exchange", "/emoji", "/k", "/math", "/poll", "/qr", "/quote", "/rand", "/reminder", "/t", "/translate", "/weather", "/whois"]
                            if self.is_command_available(cmd.strip('/'), "utilities")],
                 "description": "\n".join([
                     f"{EMOJIS['DOT']} `/afk <reason>` — установить статус AFK.",
-                    f"{EMOJIS['DOT']} `/ai [prompt]` — спросить что-то у ИИ.",
+                    f"{EMOJIS['DOT']} `/ai [ask/info/providers]` — спросить что-то у ИИ.",
                     f"{EMOJIS['DOT']} `/currency` — показать текущий курс валют.",
+                    f"{EMOJIS['DOT']} `/emoji [download/pack/all]` — скачать эмодзи.",
                     f"{EMOJIS['DOT']} `/exchange [amount] [from_currency] [to_currency]` — конвертировать сумму из одной валюты в другую.",
                     f"{EMOJIS['DOT']} `/k [text]` — исправление раскладки.",
                     f"{EMOJIS['DOT']} `/math [expression]` — решить математическую задачу.",

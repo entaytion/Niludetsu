@@ -8,7 +8,7 @@ from . import logging
 from . import game
 from . import music
 
-__version__ = "beta-4"
+__version__ = "beta-5"
 __author__ = "Entaytion"
 __license__ = "GNU General Public License v3.0"
 

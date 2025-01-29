@@ -1,4 +1,4 @@
-from ..core.base import BaseLogger, LoggingState
+from ..utils.logging import BaseLogger, LoggingState
 import discord
 from discord.ext import commands
 from typing import Optional, Union

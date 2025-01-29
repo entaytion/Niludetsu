@@ -64,7 +64,7 @@ class Level(commands.Cog):
                 return
 
             user_id = str(user.id)
-            user_data = get_user(self.client, user_id)
+            user_data = get_user(user_id)
 
             if not user_data:
                 await interaction.response.send_message(

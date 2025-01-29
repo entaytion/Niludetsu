@@ -13,10 +13,10 @@ class RoleInfo(commands.Cog):
     @app_commands.command(name="roleinfo", description="Получить детальную информацию о роли")
     @app_commands.describe(role="Роль, о которой вы хотите узнать информацию")
     async def roleinfo(self, interaction: discord.Interaction, role: discord.Role):
-        # Создаем эмбед
+        # Создаем базовый эмбед
         embed = create_embed(
             title=f"Информация о роли {role.name}",
-            color="DEFAULT"
+            color=role.color.value if role.color != discord.Color.default() else 0x2b2d31
         )
 
         # Базовая информация
@@ -63,7 +63,7 @@ class RoleInfo(commands.Cog):
                 inline=False
             )
 
-        # Упоминание
+        # Упоминание и тег
         embed.add_field(
             name="💬 Упоминание",
             value=f"{EMOJIS['DOT']} **Можно упоминать:** {':white_check_mark:' if role.mentionable else ':x:'}\n"
@@ -71,24 +71,14 @@ class RoleInfo(commands.Cog):
             inline=False
         )
 
-        # Иконка роли (если есть)
+        # Добавляем иконку роли и футер
         if role.icon:
-            embed = create_embed(
-                title=embed.title,
-                description=embed.description,
-                fields=embed.fields,
-                thumbnail={'url': role.icon.url},
-                footer={'text': f"Запросил {interaction.user.name}", 'icon_url': interaction.user.avatar.url if interaction.user.avatar else None},
-                color="DEFAULT"
-            )
-        else:
-            embed = create_embed(
-                title=embed.title,
-                description=embed.description,
-                fields=embed.fields,
-                footer={'text': f"Запросил {interaction.user.name}", 'icon_url': interaction.user.avatar.url if interaction.user.avatar else None},
-                color="DEFAULT"
-            )
+            embed.set_thumbnail(url=role.icon.url)
+            
+        embed.set_footer(
+            text=f"Запросил {interaction.user.name}",
+            icon_url=interaction.user.display_avatar.url
+        )
 
         await interaction.response.send_message(embed=embed)
 

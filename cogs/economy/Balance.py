@@ -19,20 +19,6 @@ class Balance(commands.Cog):
                      user: discord.Member = None,
                      action: str = None, 
                      amount: int = None):
-        """
-        Команда для просмотра и управления балансом пользователя
-        
-        Parameters
-        ----------
-        interaction : discord.Interaction
-            Объект взаимодействия
-        user : discord.Member, optional
-            Пользователь, чей баланс нужно просмотреть/изменить
-        action : str, optional
-            Действие с балансом (set, add, del)
-        amount : int, optional
-            Сумма для изменения баланса
-        """
         user = user or interaction.user
 
         # Проверка, является ли пользователь ботом

@@ -18,19 +18,21 @@ class Work(commands.Cog):
             {"name": "Фотограф", "min_reward": 380, "max_reward": 1150},
             {"name": "Переводчик", "min_reward": 420, "max_reward": 1250},
             {"name": "Блогер", "min_reward": 460, "max_reward": 1400},
+            {"name": "Юрист", "min_reward": 500, "max_reward": 1500},
+            {"name": "Бухгалтер", "min_reward": 480, "max_reward": 1350},
+            {"name": "Маркетолог", "min_reward": 440, "max_reward": 1200},
+            {"name": "Директор", "min_reward": 550, "max_reward": 1600},
+            {"name": "Продавец", "min_reward": 390, "max_reward": 1100},
+            {"name": "Водитель", "min_reward": 410, "max_reward": 1150},
+            {"name": "Уборщик", "min_reward": 370, "max_reward": 1050},
+            {"name": "Повар", "min_reward": 430, "max_reward": 1200},
+            {"name": "Учитель", "min_reward": 470, "max_reward": 1350},
+            {"name": "Секретарь", "min_reward": 360, "max_reward": 1000}
         ]
         self.work_cooldown = 3600  # 1 час в секундах
 
     @discord.app_commands.command(name="work", description="Заработать деньги")
     async def work(self, interaction: discord.Interaction):
-        """
-        Команда для заработка денег
-        
-        Parameters
-        ----------
-        interaction : discord.Interaction
-            Объект взаимодействия
-        """
         user_id = str(interaction.user.id)
         user_data = get_user(user_id)
 

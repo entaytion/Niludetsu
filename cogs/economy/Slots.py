@@ -9,23 +9,34 @@ from Niludetsu.core.base import EMOJIS
 
 class SpinAgainButton(discord.ui.Button):
     def __init__(self, slots_instance, bet):
-        super().__init__(style=ButtonStyle.primary, label="Крутить еще раз", custom_id="spin_again")
+        super().__init__(style=ButtonStyle.primary, label="Крутить еще раз", emoji="🎰")
         self.slots = slots_instance
         self.bet = bet
         
     async def callback(self, interaction: Interaction):
+        if interaction.user.id != self.slots.last_player:
+            await interaction.response.send_message(
+                embed=create_embed(
+                    description="❌ Это не ваша игра!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+            return
         await interaction.response.defer()
         await self.slots.play_slots(interaction, self.bet, interaction.message)
 
 class SpinAgainNewBetButton(discord.ui.Button):
     def __init__(self):
-        super().__init__(style=ButtonStyle.secondary, label="Изменить ставку", custom_id="new_bet")
+        super().__init__(style=ButtonStyle.secondary, label="Изменить ставку", emoji="💰")
         
     async def callback(self, interaction: Interaction):
         await interaction.response.send_message(
             embed=create_embed(
-                description="Используйте команду `/slots` чтобы сделать новую ставку"
-            )
+                description="Используйте команду `/slots` чтобы сделать новую ставку",
+                color="BLUE"
+            ),
+            ephemeral=True
         )
 
 class SlotsView(discord.ui.View):
@@ -42,17 +53,22 @@ class Slots(commands.Cog):
             3: {'💎': 10, '🍓': 7, '🍇': 6, '🍒': 5, '🍋': 4, '🍊': 3, '🍎': 2},
             2: {'💎': 3, '🍓': 2, '🍇': 2, '🍒': 2, '🍋': 1.5, '🍊': 1.5, '🍎': 1.5}
         }
+        self.last_player = None
 
     async def spin_animation(self, message, bet):
         for _ in range(3):
             slots = [random.choice(self.slots_emojis) for _ in range(3)]
             slots_display = " | ".join(slots)
-            description = f"**{EMOJIS['DOT']} Слоты крутятся...** \n[ {slots_display} ]\n\n"
-            description += f"**{EMOJIS['DOT']} Ставка:** {bet} {EMOJIS['MONEY']}"
+            description = (
+                f"🎲 **Слоты крутятся...**\n"
+                f"[ {slots_display} ]\n\n"
+                f"💰 **Ставка:** {bet:,} {EMOJIS['MONEY']}"
+            )
             
             embed = create_embed(
                 title="🎰 Слот-машина",
-                description=description
+                description=description,
+                color="BLUE"
             )
             
             await message.edit(embed=embed)
@@ -61,6 +77,7 @@ class Slots(commands.Cog):
     async def play_slots(self, interaction: Interaction, bet: int, message=None):
         try:
             user_id = str(interaction.user.id)
+            self.last_player = interaction.user.id
             user_data = get_user(user_id)
 
             if not user_data:
@@ -74,24 +91,15 @@ class Slots(commands.Cog):
                 save_user(user_id, user_data)
 
             if user_data['balance'] < bet:
+                embed = create_embed(
+                    description=f"❌ У вас недостаточно средств!\n"
+                              f"💰 Ваш баланс: {user_data['balance']:,} {EMOJIS['MONEY']}",
+                    color="RED"
+                )
                 if message:
-                    await message.edit(
-                        embed=create_embed(
-                            description=f"У вас недостаточно средств для такой ставки!\n"
-                                      f"Ваш баланс: {user_data['balance']:,} {EMOJIS['MONEY']}",
-                            color="RED"
-                        ),
-                        ephemeral=True
-                    )
+                    await message.edit(embed=embed, view=None)
                 else:
-                    await interaction.followup.send(
-                        embed=create_embed(
-                            description=f"У вас недостаточно средств для такой ставки!\n"
-                                      f"Ваш баланс: {user_data['balance']:,} {EMOJIS['MONEY']}",
-                            color="RED"
-                        ),
-                        ephemeral=True
-                    )
+                    await interaction.followup.send(embed=embed, ephemeral=True)
                 return
 
             user_data['balance'] -= bet
@@ -99,7 +107,8 @@ class Slots(commands.Cog):
 
             initial_embed = create_embed(
                 title="🎰 Слот-машина",
-                description="**Крутим барабаны...**"
+                description="🎲 **Крутим барабаны...**",
+                color="BLUE"
             )
             
             if message:
@@ -122,27 +131,31 @@ class Slots(commands.Cog):
                 winnings = int(bet * self.multipliers[max_count][winning_symbol])
 
             slots_display = " | ".join(slots)
-            description = f"**{EMOJIS['DOT']} Слоты:** [ {slots_display} ]\n\n"
+            description = [f"🎲 **Результат:** [ {slots_display} ]\n"]
 
             if winnings > 0:
                 user_data = get_user(user_id)
                 user_data['balance'] += winnings
                 save_user(user_id, user_data)
                 
-                description += f"**{EMOJIS['DOT']} Поздравляем! Вы выиграли!**\n"
-                description += f"**{EMOJIS['DOT']} Множитель:** x{self.multipliers[max_count][winning_symbol]}\n"
-                description += f"**{EMOJIS['DOT']} Выигрыш:** {winnings:,} {EMOJIS['MONEY']}\n"
-                description += f"**{EMOJIS['DOT']} Баланс:** {user_data['balance']:,} {EMOJIS['MONEY']}"
+                description.extend([
+                    f"🎉 **Поздравляем! Вы выиграли!**",
+                    f"✨ **Множитель:** x{self.multipliers[max_count][winning_symbol]}",
+                    f"💰 **Выигрыш:** {winnings:,} {EMOJIS['MONEY']}",
+                    f"💳 **Баланс:** {user_data['balance']:,} {EMOJIS['MONEY']}"
+                ])
                 color = "GREEN"
             else:
-                description += f"**{EMOJIS['DOT']} К сожалению, вы проиграли!**\n"
-                description += f"**{EMOJIS['DOT']} Ставка:** {bet:,} {EMOJIS['MONEY']}\n"
-                description += f"**{EMOJIS['DOT']} Баланс:** {user_data['balance']:,} {EMOJIS['MONEY']}"
+                description.extend([
+                    f"❌ **Вы проиграли!**",
+                    f"💰 **Ставка:** {bet:,} {EMOJIS['MONEY']}",
+                    f"💳 **Баланс:** {user_data['balance']:,} {EMOJIS['MONEY']}"
+                ])
                 color = "RED"
 
             embed = create_embed(
                 title="🎰 Слот-машина",
-                description=description,
+                description="\n".join(description),
                 color=color
             )
 
@@ -152,12 +165,13 @@ class Slots(commands.Cog):
         except Exception as e:
             print(f"Error in slots command: {e}")
             error_embed = create_embed(
-                description="Произошла ошибка при выполнении команды."
+                description="❌ Произошла ошибка при выполнении команды.",
+                color="RED"
             )
             if message:
-                await message.edit(embed=error_embed)
+                await message.edit(embed=error_embed, view=None)
             else:
-                await interaction.followup.send(embed=error_embed)
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
 
     @discord.app_commands.command(name="slots", description="Сыграть в слоты")
     @discord.app_commands.describe(bet="Сумма ставки")
@@ -165,7 +179,7 @@ class Slots(commands.Cog):
         if bet <= 0:
             await interaction.response.send_message(
                 embed=create_embed(
-                    description="Ставка должна быть больше 0!",
+                    description="❌ Ставка должна быть больше 0!",
                     color="RED"
                 ),
                 ephemeral=True
@@ -177,12 +191,13 @@ class Slots(commands.Cog):
 
     @slots.error
     async def slots_error(self, interaction: discord.Interaction, error):
-        if isinstance(error, commands.MissingRequiredArgument):
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description="Пожалуйста, укажите сумму ставки: `/slots bet:сумма`"
-                )
-            )
+        await interaction.response.send_message(
+            embed=create_embed(
+                description="❌ Пожалуйста, укажите сумму ставки: `/slots bet:сумма`",
+                color="RED"
+            ),
+            ephemeral=True
+        )
 
 async def setup(bot):
     await bot.add_cog(Slots(bot))

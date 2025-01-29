@@ -25,18 +25,13 @@ class LoggingState:
         cls.log_channel = channel
         cls.initialized = True
 
-class Logger:
-    """Класс для работы с логированием"""
-    _instance = None
-    
-    def __new__(cls, bot: discord.Client):
-        if cls._instance is None:
-            cls._instance = super(Logger, cls).__new__(cls)
-            cls._instance.bot = bot
-            cls._instance.owner_id = "636570363605680139"
-            if not LoggingState.initialized:
-                bot.loop.create_task(cls._instance.initialize_logs())
-        return cls._instance
+class BaseLogger:
+    """Базовый класс для всех логгеров"""
+    def __init__(self, bot: discord.Client):
+        self.bot = bot
+        self.owner_id = "636570363605680139"
+        if not LoggingState.initialized:
+            bot.loop.create_task(self.initialize_logs())
 
     async def initialize_logs(self) -> None:
         """Инициализация канала логов"""
@@ -63,25 +58,6 @@ class Logger:
             if webhook:
                 LoggingState.webhook = webhook
 
-            # Отправляем только одно сообщение при первой инициализации
-            if not bot_state.is_initialized('logging_system'):
-                logger_name = self.__class__.__name__.replace('Logger', '')
-                if logger_name not in LoggingState.initialized_loggers:
-                    LoggingState.initialized_loggers.append(logger_name)
-                    
-                if len(LoggingState.initialized_loggers) == 15:  # Общее количество логгеров
-                    embed = create_embed(
-                        title="✅ Система логирования активирована",
-                        description="Инициализированы следующие логгеры:\n" + 
-                                  "\n".join([f"• {name}" for name in LoggingState.initialized_loggers]),
-                        color='GREEN'
-                    )
-                    if LoggingState.webhook:
-                        await LoggingState.webhook.send(embed=embed)
-                    else:
-                        await channel.send(embed=embed)
-                    bot_state.mark_initialized('logging_system')
-                
         except Exception as e:
             print(f"Ошибка при инициализации логов: {e}")
 
@@ -105,7 +81,6 @@ class Logger:
             if not LoggingState.initialized or not LoggingState.log_channel:
                 return
 
-            # Создаем эмбед используя функцию из utils.embed
             embed = create_embed(
                 title=title,
                 description=description,
@@ -115,7 +90,6 @@ class Logger:
                 **kwargs
             )
 
-            # Отправляем сообщение с учетом задержки
             current_time = datetime.utcnow()
             if LoggingState.last_message_time:
                 time_diff = (current_time - LoggingState.last_message_time).total_seconds()
@@ -131,6 +105,42 @@ class Logger:
             
         except Exception as e:
             print(f"Ошибка при логировании события: {e}")
+
+class Logger(BaseLogger):
+    """Класс для работы с логированием"""
+    _instance = None
+    
+    def __new__(cls, bot: discord.Client):
+        if cls._instance is None:
+            cls._instance = super(Logger, cls).__new__(cls)
+            cls._instance.__init__(bot)  # Вызываем инициализацию BaseLogger
+        return cls._instance
+
+    async def initialize_logs(self) -> None:
+        """Инициализация канала логов"""
+        if LoggingState.initialized:
+            return
+            
+        await super().initialize_logs()  # Вызываем метод базового класса
+        
+        # Отправляем только одно сообщение при первой инициализации
+        if not bot_state.is_initialized('logging_system'):
+            logger_name = self.__class__.__name__.replace('Logger', '')
+            if logger_name not in LoggingState.initialized_loggers:
+                LoggingState.initialized_loggers.append(logger_name)
+                
+            if len(LoggingState.initialized_loggers) == 15:  # Общее количество логгеров
+                embed = create_embed(
+                    title="✅ Система логирования активирована",
+                    description="Инициализированы следующие логгеры:\n" + 
+                              "\n".join([f"• {name}" for name in LoggingState.initialized_loggers]),
+                    color='GREEN'
+                )
+                if LoggingState.webhook:
+                    await LoggingState.webhook.send(embed=embed)
+                else:
+                    await LoggingState.log_channel.send(embed=embed)
+                bot_state.mark_initialized('logging_system')
 
     async def show_logs_info(self, interaction: discord.Interaction) -> None:
         """Показывает информацию о текущем канале логов"""

@@ -1,8 +1,8 @@
 import discord
 from discord.ext import commands
-from utils import get_user, save_user, create_embed
+from Niludetsu.utils.database import get_user, save_user, DB_PATH
+from Niludetsu.utils.embed import create_embed
 import sqlite3
-from utils import DB_PATH
 
 POSITIVE_TRIGGERS = ['плюс', 'согл', 'спс', 'спасибо', 'сяп', 'сенкс', 'thanks', 'thx', '👍', '❤️']
 NEGATIVE_TRIGGERS = ['минус', 'не согл', 'нет', 'неа', '👎'] 

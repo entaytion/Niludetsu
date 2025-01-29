@@ -4,7 +4,9 @@ from discord import app_commands
 import yaml
 import sqlite3
 from datetime import datetime, timedelta
-from utils import create_embed, initialize_table, TABLES_SCHEMAS, has_helper_role, command_cooldown
+from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.database import initialize_table, TABLES_SCHEMAS
+from Niludetsu.utils.decorators import has_helper_role, command_cooldown
 
 # Загрузка конфигурации
 with open('config/config.yaml', 'r', encoding='utf-8') as f:

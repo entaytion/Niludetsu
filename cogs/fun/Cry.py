@@ -22,13 +22,12 @@ class Cry(commands.Cog):
     @discord.app_commands.command(name="cry", description="Заплакать")
     async def cry(self, interaction: discord.Interaction):
         gif_url = random.choice(self.cry_gifs)
-        await interaction.response.send_message(
-            embed=create_embed(
-                description=f"{interaction.user.mention} плачет",
-                image=gif_url,
-                color="BLUE"
-            )
+        embed = create_embed(
+            description=f"😢 {interaction.user.mention} плачет",
+            color="BLUE"
         )
+        embed.set_image(url=gif_url)
+        await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Cry(bot)) 

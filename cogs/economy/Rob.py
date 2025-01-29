@@ -19,16 +19,6 @@ class Rob(commands.Cog):
         user="Пользователь, которого хотите ограбить"
     )
     async def rob(self, interaction: discord.Interaction, user: discord.Member):
-        """
-        Команда для ограбления другого пользователя
-        
-        Parameters
-        ----------
-        interaction : discord.Interaction
-            Объект взаимодействия
-        user : discord.Member
-            Пользователь, которого нужно ограбить
-        """
         # Проверка на ограбление самого себя
         if user.id == interaction.user.id:
             await interaction.response.send_message(

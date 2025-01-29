@@ -47,58 +47,35 @@ class LGBT(commands.Cog):
         
         user = user or interaction.user
         
-        try:
-            # Скачиваем аватар
-            avatar_bytes = await self.download_avatar(user.display_avatar.with_size(512).url)
-            if not avatar_bytes:
-                await interaction.followup.send(
-                    embed=create_embed(
-                        description="Не удалось загрузить аватар!",
-                        color="RED"
-                    ),
-                    ephemeral=True
-                )
-                return
-            
-            # Открываем изображение
-            with Image.open(io.BytesIO(avatar_bytes)) as avatar:
-                avatar = avatar.convert('RGBA')
-                
-                # Создаем радужный оверлей
-                rainbow = self.create_rainbow_overlay(avatar.size)
-                
-                # Устанавливаем прозрачность 35%
-                rainbow.putalpha(int(255 * 0.35))
-                
-                # Накладываем эффект
-                result = Image.alpha_composite(avatar, rainbow)
-                
-                # Сохраняем результат
-                output = io.BytesIO()
-                result.save(output, format='PNG')
-                output.seek(0)
-                
-                # Создаем файл для отправки
-                file = discord.File(output, filename='lgbt_avatar.png')
-                
-                await interaction.followup.send(
-                    embed=create_embed(
-                        title=f"🌈 LGBT аватар для {user.name}",
-                        image="attachment://lgbt_avatar.png",
-                        color="RANDOM"
-                    ),
-                    file=file
-                )
-                
-        except Exception as e:
-            print(f"Ошибка в команде lgbt: {str(e)}")
+        avatar_bytes = await self.download_avatar(user.display_avatar.with_size(512).url)
+        if not avatar_bytes:
             await interaction.followup.send(
                 embed=create_embed(
-                    description="Произошла ошибка при обработке изображения.",
+                    description="Не удалось загрузить аватар!",
                     color="RED"
                 ),
                 ephemeral=True
             )
+            return
+        
+        avatar = Image.open(io.BytesIO(avatar_bytes)).convert('RGBA')
+        rainbow = self.create_rainbow_overlay(avatar.size)
+        rainbow.putalpha(int(255 * 0.35))
+        result = Image.alpha_composite(avatar, rainbow)
+        
+        output = io.BytesIO()
+        result.save(output, format='PNG')
+        output.seek(0)
+        
+        file = discord.File(output, filename='lgbt_avatar.png')
+        
+        embed = create_embed(
+            title=f"🌈 LGBT аватар для {user.name}",
+            color="DEFAULT"
+        )
+        embed.set_image(url="attachment://lgbt_avatar.png")
+        
+        await interaction.followup.send(embed=embed, file=file)
 
 async def setup(bot):
     await bot.add_cog(LGBT(bot)) 

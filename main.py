@@ -9,6 +9,7 @@ import asyncio
 from Niludetsu.utils.cog_loader import cog_loader
 from Niludetsu.utils.config_loader import bot_state
 from Niludetsu.utils.command_sync import CommandSync
+from Niludetsu.utils.embed import create_embed
 from typing import Union
 
 # --- Discord Bot setup ---
@@ -125,6 +126,8 @@ async def log_command_error(ctx_or_interaction: Union[commands.Context, discord.
             
             # Отправляем пинг создателя и эмбед
             owner_id = config['settings']['owner_id']
+            await log_channel.send(f"<@{owner_id}>", embed=error_embed)
+            
     except Exception as e:
         print(f"❌ Ошибка при логировании: {e}")
 
@@ -139,7 +142,11 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
         if isinstance(error, commands.UserInputError):
             error_message = str(error)
         
-        await ctx.send(error_message, delete_after=10)
+        error_embed = discord.Embed(
+            description=error_message,
+            color=discord.Color.red()
+        )
+        await ctx.send(embed=error_embed, delete_after=10)
         
         # Логируем ошибку
         await log_command_error(ctx, error)
@@ -158,10 +165,15 @@ async def on_app_command_error(interaction: discord.Interaction, error: commands
         if isinstance(error, commands.UserInputError):
             error_message = str(error)
         
+        error_embed = discord.Embed(
+            description=error_message,
+            color=discord.Color.red()
+        )
+        
         if not interaction.response.is_done():
-            await interaction.response.send_message(error_message, ephemeral=True)
+            await interaction.response.send_message(embed=error_embed, ephemeral=True)
         else:
-            await interaction.followup.send(error_message, ephemeral=True)
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
         
         # Логируем ошибку
         await log_command_error(interaction, error)
@@ -189,7 +201,7 @@ async def create_default_files():
 # --- Основные события ---
 @bot.event
 async def setup_hook():
-    bot_state.reset()  # Сбрасываем состояние при запуске
+    bot_state.reset()
     await create_default_files()
     await load_cogs()
 
