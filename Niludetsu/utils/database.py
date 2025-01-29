@@ -6,8 +6,26 @@ from datetime import datetime
 
 DB_PATH = 'config/database.db'
 
+def get_db_connection():
+    """Создает и возвращает соединение с базой данных"""
+    return sqlite3.connect(DB_PATH)
+
 # --- DATABASE SCHEMAS ---
 TABLES_SCHEMAS = {
+    'temp_rooms': '''
+        CREATE TABLE IF NOT EXISTS temp_rooms (
+            channel_id TEXT PRIMARY KEY,
+            guild_id TEXT,
+            owner_id TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            name TEXT,
+            type INTEGER,
+            parent_id TEXT,
+            limit_users INTEGER DEFAULT 0,
+            is_locked BOOLEAN DEFAULT 0,
+            allowed_users TEXT DEFAULT '[]'
+        )
+    ''',
     'users': '''
         CREATE TABLE IF NOT EXISTS users (
             user_id TEXT PRIMARY KEY,
@@ -24,7 +42,16 @@ TABLES_SCHEMAS = {
             reputation INTEGER DEFAULT 0,
             messages_count INTEGER DEFAULT 0,
             voice_time INTEGER DEFAULT 0,
-            last_voice_update TEXT DEFAULT NULL
+            voice_joins INTEGER DEFAULT 0,
+            last_voice_join REAL DEFAULT NULL,
+            warnings INTEGER DEFAULT 0,
+            is_banned BOOLEAN DEFAULT 0,
+            ban_reason TEXT DEFAULT NULL,
+            ban_time INTEGER DEFAULT NULL,
+            mute_time INTEGER DEFAULT NULL,
+            mute_reason TEXT DEFAULT NULL,
+            notes TEXT DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''',
     'roles': '''
@@ -273,4 +300,153 @@ def format_voice_time(seconds: int) -> str:
     
     if hours > 0:
         return f"{hours} ч {minutes} мин"
-    return f"{minutes} мин" 
+    return f"{minutes} мин"
+
+def create_tables():
+    """Создание и обновление таблиц в базе данных"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    for table_name, schema in TABLES_SCHEMAS.items():
+        # Создаем таблицу если её нет
+        cursor.execute(schema)
+        
+        # Получаем список существующих столбцов
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        existing_columns = {column[1] for column in cursor.fetchall()}
+        
+        # Извлекаем определения столбцов из схемы
+        column_definitions = schema.split('\n')[2:-2]
+        
+        for column_def in column_definitions:
+            column_def = column_def.strip().strip(',')
+            if column_def and not column_def.startswith('PRIMARY KEY'):
+                # Извлекаем имя столбца
+                column_name = column_def.split()[0]
+                
+                # Пропускаем первичные ключи и составные ограничения
+                if column_name == 'PRIMARY' or ',' in column_name:
+                    continue
+                
+                # Если столбец не существует, добавляем его
+                if column_name not in existing_columns:
+                    try:
+                        # Для временных меток используем текущее время как константное значение
+                        if 'CURRENT_TIMESTAMP' in column_def or 'DATETIME' in column_def:
+                            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            column_def = column_def.replace('DEFAULT CURRENT_TIMESTAMP', f"DEFAULT '{current_time}'")
+                            column_def = column_def.replace('TIMESTAMP', 'TEXT')
+                            column_def = column_def.replace('DATETIME', 'TEXT')
+                        
+                        alter_query = f"ALTER TABLE {table_name} ADD COLUMN {column_def}"
+                        cursor.execute(alter_query)
+                        print(f"✅ Добавлен столбец {column_name} в таблицу {table_name}")
+                    except sqlite3.OperationalError as e:
+                        print(f"⚠️ Ошибка при добавлении столбца {column_name}: {e}")
+
+    conn.commit()
+    conn.close()
+
+def add_temp_room(channel_id: str, guild_id: str, owner_id: str, name: str, channel_type: int, parent_id: str = None, limit_users: int = 0) -> bool:
+    """Добавление временной приватной комнаты в базу данных"""
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO temp_rooms (channel_id, guild_id, owner_id, name, type, parent_id, limit_users)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (channel_id, guild_id, owner_id, name, channel_type, parent_id, limit_users))
+            conn.commit()
+            return True
+    except Exception as e:
+        print(f"Ошибка при добавлении временной комнаты: {e}")
+        return False
+
+def get_temp_room(channel_id: str) -> Optional[Dict[str, Any]]:
+    """Получение информации о временной приватной комнате"""
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM temp_rooms WHERE channel_id = ?", (channel_id,))
+            result = cursor.fetchone()
+            
+            if result:
+                columns = [description[0] for description in cursor.description]
+                room_data = dict(zip(columns, result))
+                # Преобразуем строку allowed_users в список
+                if 'allowed_users' in room_data:
+                    room_data['allowed_users'] = json.loads(room_data['allowed_users'])
+                return room_data
+            return None
+    except Exception as e:
+        print(f"Ошибка при получении временной комнаты: {e}")
+        return None
+
+def remove_temp_room(channel_id: str) -> bool:
+    """Удаление временной приватной комнаты из базы данных"""
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM temp_rooms WHERE channel_id = ?", (channel_id,))
+            conn.commit()
+            return True
+    except Exception as e:
+        print(f"Ошибка при удалении временной комнаты: {e}")
+        return False
+
+def get_user_temp_rooms(owner_id: str) -> List[Dict[str, Any]]:
+    """Получение всех временных приватных комнат пользователя"""
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM temp_rooms WHERE owner_id = ?", (owner_id,))
+            results = cursor.fetchall()
+            
+            if results:
+                columns = [description[0] for description in cursor.description]
+                rooms = []
+                for row in results:
+                    room_data = dict(zip(columns, row))
+                    # Преобразуем строку allowed_users в список
+                    if 'allowed_users' in room_data:
+                        room_data['allowed_users'] = json.loads(room_data['allowed_users'])
+                    rooms.append(room_data)
+                return rooms
+            return []
+    except Exception as e:
+        print(f"Ошибка при получении временных комнат пользователя: {e}")
+        return []
+
+def update_temp_room(channel_id: str, **kwargs) -> bool:
+    """Обновление параметров временной приватной комнаты"""
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            
+            # Если обновляем список разрешенных пользователей, преобразуем его в JSON
+            if 'allowed_users' in kwargs:
+                kwargs['allowed_users'] = json.dumps(kwargs['allowed_users'])
+            
+            # Формируем SET часть запроса
+            set_clause = ', '.join([f"{k} = ?" for k in kwargs.keys()])
+            values = tuple(kwargs.values()) + (channel_id,)
+            
+            query = f"UPDATE temp_rooms SET {set_clause} WHERE channel_id = ?"
+            cursor.execute(query, values)
+            conn.commit()
+            return True
+    except Exception as e:
+        print(f"Ошибка при обновлении временной комнаты: {e}")
+        return False
+
+def is_temp_room_owner(channel_id: str, user_id: str) -> bool:
+    """Проверка, является ли пользователь владельцем временной комнаты"""
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT owner_id FROM temp_rooms WHERE channel_id = ?", (channel_id,))
+            result = cursor.fetchone()
+            return result is not None and result[0] == user_id
+    except Exception as e:
+        print(f"Ошибка при проверке владельца комнаты: {e}")
+        return False 

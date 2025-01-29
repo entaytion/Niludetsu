@@ -1,10 +1,23 @@
-from ..utils.logging import BaseLogger
+from ..utils.logging import BaseLogger, LoggingState
 from ..utils.emojis import EMOJIS
+from ..utils.embed import create_embed
 import discord
 from typing import Optional
+import traceback
 
 class VoiceLogger(BaseLogger):
     """Логгер для голосовых каналов Discord."""
+    
+    def __init__(self, bot: discord.Client):
+        super().__init__(bot)
+        self.log_channel = None
+        bot.loop.create_task(self._initialize())
+    
+    async def _initialize(self):
+        """Инициализация логгера"""
+        await self.bot.wait_until_ready()
+        await self.initialize_logs()
+        self.log_channel = LoggingState.log_channel
     
     async def log_voice_channel_full(self, channel: discord.VoiceChannel):
         """Логирование заполнения голосового канала"""
@@ -39,24 +52,19 @@ class VoiceLogger(BaseLogger):
             thumbnail_url=member.display_avatar.url
         )
         
-    async def log_voice_user_switch(self, member: discord.Member, before: discord.VoiceChannel, after: discord.VoiceChannel):
-        """Логирование перехода пользователя между голосовыми каналами"""
-        fields = [
-            {"name": f"{EMOJIS['DOT']} Пользователь", "value": member.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} ID пользователя", "value": str(member.id), "inline": True},
-            {"name": f"{EMOJIS['DOT']} Предыдущий канал", "value": before.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Новый канал", "value": after.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Участников (предыдущий)", "value": f"{len(before.members)}/{before.user_limit if before.user_limit else '∞'}", "inline": True},
-            {"name": f"{EMOJIS['DOT']} Участников (новый)", "value": f"{len(after.members)}/{after.user_limit if after.user_limit else '∞'}", "inline": True}
-        ]
-        
-        await self.log_event(
-            title=f"{EMOJIS['INFO']} Пользователь сменил голосовой канал",
-            description=f"Пользователь перешел в другой голосовой канал",
-            color='BLUE',
-            fields=fields,
-            thumbnail_url=member.display_avatar.url
+    async def log_voice_user_switch(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState) -> None:
+        """Логирование перехода пользователя между каналами"""
+        embed = create_embed(
+            title="🎤 Изменение голосового канала",
+            description=f"{member.mention} сменил канал",
+            fields=[
+                {"name": "📍 Предыдущий канал", "value": before.channel.mention if before.channel else "Нет", "inline": True},
+                {"name": "📍 Новый канал", "value": after.channel.mention if after.channel else "Нет", "inline": True},
+            ],
+            color="BLUE",
+            footer={"text": f"ID пользователя: {member.id}"}
         )
+        await self.log_channel.send(embed=embed)
         
     async def log_voice_user_leave(self, member: discord.Member, channel: discord.VoiceChannel):
         """Логирование выхода пользователя из голосового канала"""
@@ -110,11 +118,15 @@ class VoiceLogger(BaseLogger):
             thumbnail_url=member.display_avatar.url
         )
 
-    async def log_voice_status_update(self, member: discord.Member, before: Optional[discord.VoiceChannel], after: Optional[discord.VoiceChannel]):
+    async def log_voice_status_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         """Логирование изменений статуса голосового канала"""
-        if not before and after:  # Пользователь присоединился
-            await self.log_voice_user_join(member, after)
-        elif before and not after:  # Пользователь отключился
-            await self.log_voice_user_leave(member, before)
-        elif before and after and before != after:  # Пользователь перешел в другой канал
-            await self.log_voice_user_switch(member, before, after) 
+        try:
+            if not before.channel and after.channel:  # Пользователь присоединился
+                await self.log_voice_user_join(member, after.channel)
+            elif before.channel and not after.channel:  # Пользователь отключился
+                await self.log_voice_user_leave(member, before.channel)
+            elif before.channel and after.channel and before.channel != after.channel:  # Пользователь перешел в другой канал
+                await self.log_voice_user_switch(member, before, after)
+        except Exception as e:
+            print(f"❌ Ошибка при логировании голосового события: {e}")
+            traceback.print_exc() 

@@ -327,8 +327,8 @@ class Logs(commands.Cog):
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        if self.logging_enabled and self.log_channel:
-            await self.loggers['voice'].log_voice_state_update(member, before, after)
+        """Логирование изменений голосового состояния"""
+        await self.loggers['voice'].log_voice_status_update(member, before, after)
 
     @commands.Cog.listener()
     async def on_thread_create(self, thread):

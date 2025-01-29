@@ -6,6 +6,16 @@ import yaml
 import os
 from Niludetsu.utils.embed import create_embed
 from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.database import (
+    get_temp_room,
+    add_temp_room,
+    remove_temp_room,
+    get_user_temp_rooms,
+    update_temp_room,
+    is_temp_room_owner
+)
+from Niludetsu.logging.voice import VoiceLogger
+import traceback
 
 def load_config():
     with open('config/config.yaml', 'r', encoding='utf-8') as f:
@@ -13,30 +23,26 @@ def load_config():
 
 class VoiceChannelManager:
     def __init__(self):
-        self.voice_channels = {}
-        self.load_channels()
         self.config = load_config()
     
-    def load_channels(self):
-        if os.path.exists('config/voice_channels.yaml'):
-            with open('config/voice_channels.yaml', 'r', encoding='utf-8') as f:
-                self.voice_channels = yaml.safe_load(f)
+    def add_channel(self, user_id: str, channel_id: int, guild_id: str, name: str):
+        """Добавляет канал в базу данных"""
+        return add_temp_room(
+            channel_id=str(channel_id),
+            guild_id=guild_id,
+            owner_id=user_id,
+            name=name,
+            channel_type=2  # 2 - voice channel
+        )
     
-    def save_channels(self):
-        with open('config/voice_channels.yaml', 'w', encoding='utf-8') as f:
-            yaml.dump(self.voice_channels, f)
-    
-    def add_channel(self, user_id: str, channel_id: int):
-        self.voice_channels[str(user_id)] = channel_id
-        self.save_channels()
-    
-    def remove_channel(self, user_id: str):
-        if str(user_id) in self.voice_channels:
-            del self.voice_channels[str(user_id)]
-            self.save_channels()
+    def remove_channel(self, channel_id: str):
+        """Удаляет канал из базы данных"""
+        return remove_temp_room(channel_id)
     
     def get_channel(self, user_id: str) -> int:
-        return self.voice_channels.get(str(user_id))
+        """Получает ID канала пользователя"""
+        rooms = get_user_temp_rooms(user_id)
+        return int(rooms[0]['channel_id']) if rooms else None
 
 class VoiceChannelView(ui.View):
     def __init__(self):
@@ -162,7 +168,7 @@ class VoiceChannelView(ui.View):
                     )
                     
                     manager.remove_channel(str(interaction.user.id))
-                    manager.add_channel(str(new_owner_id), voice_channel.id)
+                    manager.add_channel(str(new_owner_id), voice_channel.id, str(interaction.guild.id), voice_channel.name)
                     
                     await i.response.send_message(
                         f"Права на канал переданы пользователю {new_owner.mention}",
@@ -212,8 +218,12 @@ class VoiceChannelView(ui.View):
                     
                         # Добавляем кнопки навигации если есть больше одной страницы
                         if len(self.all_options) > 1:
-                            self.add_item(ui.Button(label="⬅️", custom_id="prev", disabled=True))
-                            self.add_item(ui.Button(label="➡️", custom_id="next"))
+                            self.prev_button = ui.Button(label="⬅️", custom_id=f"prev_{interaction.id}", disabled=True)
+                            self.next_button = ui.Button(label="➡️", custom_id=f"next_{interaction.id}")
+                            self.prev_button.callback = self.prev_page
+                            self.next_button.callback = self.next_page
+                            self.add_item(self.prev_button)
+                            self.add_item(self.next_button)
                     
                 def create_select(self):
                     select = ui.Select(
@@ -258,13 +268,11 @@ class VoiceChannelView(ui.View):
                     select.callback = select_callback
                     return select
                 
-                @ui.button(label="⬅️", custom_id="prev")
-                async def prev_page(self, interaction: discord.Interaction, button: ui.Button):
+                async def prev_page(self, interaction: discord.Interaction):
                     self.current_page = max(0, self.current_page - 1)
                     await self.update_view(interaction)
                 
-                @ui.button(label="➡️", custom_id="next")
-                async def next_page(self, interaction: discord.Interaction, button: ui.Button):
+                async def next_page(self, interaction: discord.Interaction):
                     self.current_page = min(len(self.all_options) - 1, self.current_page + 1)
                     await self.update_view(interaction)
                 
@@ -275,16 +283,10 @@ class VoiceChannelView(ui.View):
                     
                     # Обновляем кнопки навигации
                     if len(self.all_options) > 1:
-                        self.add_item(ui.Button(
-                            label="⬅️",
-                            custom_id="prev",
-                            disabled=self.current_page == 0
-                        ))
-                        self.add_item(ui.Button(
-                            label="➡️",
-                            custom_id="next",
-                            disabled=self.current_page == len(self.all_options) - 1
-                        ))
+                        self.prev_button.disabled = self.current_page == 0
+                        self.next_button.disabled = self.current_page == len(self.all_options) - 1
+                        self.add_item(self.prev_button)
+                        self.add_item(self.next_button)
                     
                     await interaction.response.edit_message(view=self)
             
@@ -461,7 +463,12 @@ class VoiceChannelCog(commands.Cog):
         self.bot = bot
         self.manager = VoiceChannelManager()
         self.config = load_config()
+        self.voice_logger = VoiceLogger(bot)
         bot.loop.create_task(self.setup_voice_channel())
+    
+    def create_panel_view(self):
+        """Создает панель управления для приватных каналов"""
+        return VoiceChannelView()
     
     async def setup_voice_channel(self):
         await self.bot.wait_until_ready()
@@ -502,69 +509,116 @@ class VoiceChannelCog(commands.Cog):
             )
         )
         
-        await message.edit(content=None, embed=embed, view=VoiceChannelView())
+        await message.edit(content=None, embed=embed, view=self.create_panel_view())
         print("✅ Панель управления голосовыми комнатами обновлена")
     
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        # Получаем ID канала создания из конфига
-        voice_channel_id = self.config.get('voice', {}).get('main_channel')
-        
-        if not voice_channel_id:
-            return
+        try:
+            # Логируем изменение состояния
+            await self.voice_logger.log_voice_status_update(member, before, after)
             
-        # Если пользователь зашел в канал создания
-        if after.channel and str(after.channel.id) == str(voice_channel_id):
-            try:
-                # Создаем новый канал
-                new_channel = await after.channel.guild.create_voice_channel(
-                    name=f"🎮 Канал {member.name}",
-                    category=after.channel.category,
-                    bitrate=64000  # Устанавливаем стандартный битрейт
-                )
+            # Получаем ID канала создания из конфига
+            voice_channel_id = self.config.get('voice', {}).get('main_channel')
+            
+            if not voice_channel_id:
+                return
                 
-                # Выдаем права создателю
-                await new_channel.set_permissions(member,
-                    manage_channels=True,
-                    move_members=True,
-                    view_channel=True,
-                    connect=True,
-                    speak=True
-                )
-                
-                # Устанавливаем права по умолчанию
-                await new_channel.set_permissions(member.guild.default_role,
-                    connect=True,
-                    view_channel=True
-                )
-                
-                # Перемещаем пользователя
-                await member.move_to(new_channel)
-                
-                # Сохраняем информацию о канале
-                self.manager.add_channel(str(member.id), new_channel.id)
-                print(f"✅ Создан новый голосовой канал для {member.name} (ID: {new_channel.id})")
-                
-            except Exception as e:
-                print(f"❌ Ошибка при создании канала: {e}")
-        
-        # Проверяем, не покинул ли кто-то канал
-        if before.channel:
-            # Проверяем все приватные каналы
-            for user_id, channel_id in list(self.manager.voice_channels.items()):
-                channel = self.bot.get_channel(channel_id)
-                if channel:
-                    # Если это тот канал, который покинули
-                    if channel.id == before.channel.id:
-                        # Если в канале никого не осталось
-                        if len(channel.members) == 0:
-                            try:
-                                await channel.delete()
-                                self.manager.remove_channel(user_id)
-                                print(f"✅ Удален пустой голосовой канал (ID: {channel_id})")
-                            except Exception as e:
-                                print(f"❌ Ошибка при удалении канала: {e}")
-                            break
+            # Если пользователь зашел в канал создания
+            if after.channel and str(after.channel.id) == str(voice_channel_id):
+                try:
+                    # Создаем новый канал
+                    new_channel = await after.channel.guild.create_voice_channel(
+                        name=f"🎮 Канал {member.name}",
+                        category=after.channel.category,
+                        bitrate=64000
+                    )
+                    
+                    # Выдаем права создателю (без возможности напрямую менять настройки)
+                    await new_channel.set_permissions(member,
+                        view_channel=True,
+                        connect=True,
+                        speak=True,
+                        stream=True,
+                        use_voice_activation=True,
+                        priority_speaker=True,
+                        # Убираем права на прямое управление каналом
+                        manage_channels=False,
+                        manage_permissions=False,
+                        move_members=False
+                    )
+                    
+                    # Устанавливаем права по умолчанию
+                    await new_channel.set_permissions(member.guild.default_role,
+                        connect=True,
+                        view_channel=True,
+                        speak=True,
+                        stream=True,
+                        use_voice_activation=True,
+                        # Запрещаем все права управления
+                        manage_channels=False,
+                        manage_permissions=False,
+                        move_members=False,
+                        priority_speaker=False
+                    )
+                    
+                    # Перемещаем пользователя
+                    await member.move_to(new_channel)
+                    
+                    # Сохраняем информацию о канале в БД
+                    self.manager.add_channel(
+                        str(member.id),
+                        new_channel.id,
+                        str(member.guild.id),
+                        new_channel.name
+                    )
+                    
+                    # Отправляем уведомление о создании канала
+                    try:
+                        await member.send(
+                            embed=create_embed(
+                                title="🎮 Приватный канал создан",
+                                description=(
+                                    f"Ваш канал успешно создан!\n"
+                                    f"Для управления каналом используйте панель управления в канале {self.bot.get_channel(int(self.config['voice']['chat_channel'])).mention}\n\n"
+                                    "**Доступные действия:**\n"
+                                    "• Изменение названия\n"
+                                    "• Управление доступом\n"
+                                    "• Установка лимита пользователей\n"
+                                    "• Блокировка/разблокировка канала\n"
+                                    "• Управление видимостью\n"
+                                    "• Управление пользователями\n"
+                                    "• Настройка битрейта"
+                                ),
+                                color="GREEN"
+                            )
+                        )
+                    except:
+                        pass  # Если не удалось отправить сообщение, пропускаем
+                    
+                    print(f"✅ Создан новый голосовой канал для {member.name} (ID: {new_channel.id})")
+                    
+                except Exception as e:
+                    print(f"❌ Ошибка при создании канала: {e}")
+                    traceback.print_exc()
+            
+            # Проверяем, не покинул ли кто-то канал
+            if before.channel:
+                # Получаем информацию о канале из БД
+                channel_info = get_temp_room(str(before.channel.id))
+                if channel_info:
+                    # Если в канале никого не осталось
+                    if len(before.channel.members) == 0:
+                        try:
+                            await before.channel.delete()
+                            self.manager.remove_channel(str(before.channel.id))
+                            print(f"✅ Удален пустой голосовой канал (ID: {before.channel.id})")
+                        except Exception as e:
+                            print(f"❌ Ошибка при удалении канала: {e}")
+                            traceback.print_exc()
+        except Exception as e:
+            print(f"❌ Ошибка при обработке голосового события: {e}")
+            traceback.print_exc()
 
 async def setup(bot):
     await bot.add_cog(VoiceChannelCog(bot)) 

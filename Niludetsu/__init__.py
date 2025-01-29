@@ -1,5 +1,6 @@
 """
-Niludetsu - библиотека для создания Discord бота
+Niludetsu - библиотека для создания Discord бота.
+Основной функционал, работа с серверами, музыка, игры, API, и многое другое.
 """
 
 from . import core
@@ -9,7 +10,7 @@ from . import game
 from . import music
 from . import api
 
-__version__ = "beta-6"
+__version__ = "beta-7"
 __author__ = "Entaytion"
 __license__ = "GNU General Public License v3.0"
 

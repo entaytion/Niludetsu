@@ -7,11 +7,15 @@ import os
 import yaml
 import asyncio
 import traceback
+from typing import Union
+# --- Импорты из Niludetsu ---
 from Niludetsu.utils.cog_loader import cog_loader
 from Niludetsu.utils.config_loader import bot_state
 from Niludetsu.utils.command_sync import CommandSync
 from Niludetsu.utils.embed import create_embed
-from typing import Union
+from Niludetsu.utils.database import create_tables
+from Niludetsu.core.server_checker import ServerChecker
+from Niludetsu.core.level_system import LevelSystem
 
 # --- Discord Bot setup ---
 intents = discord.Intents.all()
@@ -25,8 +29,10 @@ with open('config/config.yaml', 'r', encoding='utf-8') as f:
 client_id = config['bot']['client_id']
 rpc = None
 
-# Инициализируем CommandSync
+# Инициализируем системные компоненты
 command_sync = CommandSync(bot)
+server_checker = None
+level_system = None
 
 # --- RPC (Rich Presence) ---
 async def update_presence():
@@ -215,14 +221,19 @@ async def create_default_files():
 @bot.event
 async def setup_hook():
     try:
+        global server_checker, level_system
         bot_state.reset()
         await create_default_files()
+        create_tables()  # Создаем/обновляем таблицы
         await load_cogs()
+        
+        # Инициализируем системные компоненты
+        server_checker = ServerChecker(bot)
+        level_system = LevelSystem(bot)
     except Exception as e:
         print(f"❌ Ошибка в setup_hook: {e}")
         traceback.print_exc()
 
-# --- Запуск бота ---
 @bot.event
 async def on_ready():
     try:
@@ -234,10 +245,38 @@ async def on_ready():
             )
         )
         await command_sync.sync_commands()
-        await update_presence()
+        await update_presence() 
         cog_loader.print_loaded_cogs()
     except Exception as e:
         print(f"❌ Ошибка в on_ready: {e}")
         traceback.print_exc()
 
-bot.run(config['bot']['token'])
+@bot.event
+async def on_message(message):
+    try:
+        if level_system:
+            await level_system.process_message(message)
+        await bot.process_commands(message)
+    except Exception as e:
+        print(f"❌ Ошибка при обработке сообщения: {e}")
+        traceback.print_exc()
+
+bot.run(config['bot']['main_token'])
+
+# --- Запуск ботов параллельно ---
+# --- Unreleased ---
+""" async def run_bots():
+    client = commands.Bot(command_prefix='!', intents=discord.Intents.all())
+    client2 = commands.Bot(command_prefix='.', intents=discord.Intents.all())
+    
+    try:
+        await asyncio.gather(
+            client.start(config['bot']['main_token']),
+            client2.start(config['bot']['voice_token'])
+        )
+    except KeyboardInterrupt:
+        await client.close()
+        await client2.close()
+
+if __name__ == '__main__':
+    asyncio.run(run_bots()) """

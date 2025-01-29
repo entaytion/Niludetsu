@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands, tasks
 from Niludetsu.utils.database import get_user, save_user
 from datetime import datetime, timedelta
+import traceback
 
 class UserStats(commands.Cog):
     def __init__(self, bot):
@@ -27,21 +28,51 @@ class UserStats(commands.Cog):
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        user_id = str(member.id)
-        
-        # Пользователь присоединился к голосовому каналу
-        if before.channel is None and after.channel is not None:
-            self.voice_states[user_id] = datetime.utcnow()
+        """Обработка изменений голосового состояния для статистики"""
+        try:
+            if member.bot:
+                return
+
+            user_id = str(member.id)
+            user_data = get_user(user_id)
             
-        # Пользователь покинул голосовой канал
-        elif before.channel is not None and after.channel is None:
-            join_time = self.voice_states.pop(user_id, None)
-            if join_time:
-                duration = int((datetime.utcnow() - join_time).total_seconds())
-                user_data = get_user(user_id)
-                if user_data:
-                    user_data['voice_time'] = user_data.get('voice_time', 0) + duration
+            # Создаем базовые данные, если их нет
+            if not user_data:
+                user_data = {
+                    'user_id': user_id,
+                    'voice_time': 0,
+                    'voice_joins': 0,
+                    'last_voice_join': None,
+                    'messages_count': 0
+                }
+                save_user(user_id, user_data)
+            else:
+                # Убеждаемся, что все необходимые поля существуют и инициализированы
+                if 'voice_time' not in user_data or user_data['voice_time'] is None:
+                    user_data['voice_time'] = 0
+                if 'voice_joins' not in user_data or user_data['voice_joins'] is None:
+                    user_data['voice_joins'] = 0
+                if 'last_voice_join' not in user_data:
+                    user_data['last_voice_join'] = None
+                save_user(user_id, user_data)
+
+            # Если пользователь присоединился к голосовому каналу
+            if not before.channel and after.channel:
+                user_data['last_voice_join'] = datetime.utcnow().timestamp()
+                user_data['voice_joins'] = int(user_data['voice_joins']) + 1
+                save_user(user_id, user_data)
+
+            # Если пользователь покинул голосовой канал
+            elif before.channel and not after.channel:
+                if user_data.get('last_voice_join'):
+                    duration = int(datetime.utcnow().timestamp() - float(user_data['last_voice_join']))
+                    user_data['voice_time'] = int(user_data['voice_time']) + duration
+                    user_data['last_voice_join'] = None
                     save_user(user_id, user_data)
+
+        except Exception as e:
+            print(f"❌ Ошибка при обработке голосовой статистики: {e}")
+            traceback.print_exc()
 
     @tasks.loop(minutes=5.0)
     async def update_voice_time(self):
