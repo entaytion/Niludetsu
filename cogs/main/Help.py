@@ -140,8 +140,8 @@ class Help(commands.Cog):
             "economy": {
                 "title": "Команды экономики",
                 "emoji": "💰",
-                "original_commands": ["/blackjack", "/casino", "/daily", "/deposit", "/duel", "/pay", "/rob", "/sell", "/shop", "/slots", "/withdraw", "/work"],
-                "commands": [cmd for cmd in ["/blackjack", "/casino", "/daily", "/deposit", "/duel", "/pay", "/rob", "/sell", "/shop", "/slots", "/withdraw", "/work"]
+                "original_commands": ["/blackjack", "/casino", "/daily", "/deposit", "/duel", "/pay", "/rob", "/shop", "/slots", "/withdraw", "/work"],
+                "commands": [cmd for cmd in ["/blackjack", "/casino", "/daily", "/deposit", "/duel", "/pay", "/rob", "/shop", "/slots", "/withdraw", "/work"]
                            if self.is_command_available(cmd.strip('/'), "economy")],
                 "description": "\n".join([
                     f"{EMOJIS['DOT']} `/blackjack [bet]` — играть в блекджек.",
@@ -151,7 +151,6 @@ class Help(commands.Cog):
                     f"{EMOJIS['DOT']} `/duel [user] [bet]` — позвать кого-то на дуэль.",
                     f"{EMOJIS['DOT']} `/pay [user] [amount]` — перевести деньги.",
                     f"{EMOJIS['DOT']} `/rob [user]` — украсть деньги с кошелька (кулдаун: `5 минут`).",
-                    f"{EMOJIS['DOT']} `/sell [id_role]` — продать роль.",
                     f"{EMOJIS['DOT']} `/shop [id_role]` — просмотреть магазин.",
                     f"{EMOJIS['DOT']} `/slots [amount]` — играть в слот-машину.",
                     f"{EMOJIS['DOT']} `/withdraw [amount]` — снять деньги из банка.",

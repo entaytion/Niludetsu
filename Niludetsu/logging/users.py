@@ -1,5 +1,6 @@
 from ..utils.logging import BaseLogger
 from ..utils.emojis import EMOJIS
+from ..utils.embed import create_embed
 import discord
 from typing import Optional, List
 from datetime import datetime
@@ -7,6 +8,10 @@ from datetime import datetime
 class UserLogger(BaseLogger):
     """Логгер для пользователей Discord."""
     
+    def __init__(self, bot):
+        super().__init__(bot)
+        self.bot = bot
+
     async def log_user_name_update(self, before: discord.Member, after: discord.Member):
         """Логирование изменения никнейма пользователя"""
         fields = [
@@ -122,4 +127,49 @@ class UserLogger(BaseLogger):
             color='GREEN',
             fields=fields,
             thumbnail_url=member.display_avatar.url
-        ) 
+        )
+
+    async def log_member_update(self, before, after):
+        """Логирование изменений участника"""
+        # Игнорируем изменения статуса и активности
+        if before.status != after.status or before.activities != after.activities:
+            return
+
+        changes = []
+
+        # Проверяем изменение никнейма
+        if before.nick != after.nick:
+            changes.append(f"**Никнейм:** {before.nick or 'Нет'} ➜ {after.nick or 'Нет'}")
+
+        # Проверяем изменение ролей
+        if before.roles != after.roles:
+            removed_roles = set(before.roles) - set(after.roles)
+            added_roles = set(after.roles) - set(before.roles)
+
+            if removed_roles:
+                roles_text = ", ".join(role.mention for role in removed_roles)
+                changes.append(f"**Удалены роли:** {roles_text}")
+
+            if added_roles:
+                roles_text = ", ".join(role.mention for role in added_roles)
+                changes.append(f"**Добавлены роли:** {roles_text}")
+
+        # Проверяем изменение таймаута
+        if before.timed_out_until != after.timed_out_until:
+            if after.timed_out_until:
+                changes.append(f"**Таймаут до:** {after.timed_out_until.strftime('%d.%m.%Y %H:%M:%S')}")
+            else:
+                changes.append("**Таймаут снят**")
+
+        # Если есть изменения, отправляем лог
+        if changes:
+            await self.log_event(
+                title="👤 Обновление участника",
+                description="\n".join(changes),
+                color="BLUE",
+                fields=[
+                    {"name": "Пользователь", "value": after.mention, "inline": True},
+                    {"name": "ID", "value": str(after.id), "inline": True}
+                ],
+                thumbnail_url=after.display_avatar.url
+            ) 
