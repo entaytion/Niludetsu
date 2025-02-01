@@ -1,13 +1,14 @@
 import discord
 from discord.ext import commands
 import random
-from Niludetsu.utils.database import get_user, save_user
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.database import Database
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class BlackJack(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.db = Database()
         self.deck = []
         self.card_values = {
             'A': 11, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7,
@@ -48,7 +49,7 @@ class BlackJack(commands.Cog):
     async def blackjack(self, interaction: discord.Interaction, bet: int):
         if bet <= 0:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="Ставка должна быть больше 0!",
                     color="RED"
                 ),
@@ -57,21 +58,11 @@ class BlackJack(commands.Cog):
             return
 
         user_id = str(interaction.user.id)
-        user_data = get_user(user_id)
-        
-        if not user_data:
-            user_data = {
-                'balance': 0,
-                'deposit': 0,
-                'xp': 0,
-                'level': 1,
-                'roles': '[]'
-            }
-            save_user(user_id, user_data)
+        user_data = await self.db.ensure_user(interaction.user.id)
 
         if user_data['balance'] < bet:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description=f"У вас недостаточно средств для такой ставки!\n"
                               f"Ваш баланс: {user_data['balance']:,} {EMOJIS['MONEY']}",
                     color="RED"
@@ -80,8 +71,11 @@ class BlackJack(commands.Cog):
             )
             return
 
-        user_data['balance'] -= bet
-        save_user(user_id, user_data)
+        await self.db.update(
+            "users",
+            where={"user_id": user_id},
+            values={"balance": user_data['balance'] - bet}
+        )
 
         deck = self.create_deck()
         player_hand = [deck.pop(), deck.pop()]
@@ -94,7 +88,7 @@ class BlackJack(commands.Cog):
             'bet': bet
         }
 
-        embed = create_embed(
+        embed=Embed(
             title=f"🎰 Блекджек | Ставка: {bet:,} {EMOJIS['MONEY']}",
             description=(
                 f"{EMOJIS['DOT']} **Ваши карты:** {' '.join(player_hand)} `{self.calculate_hand(player_hand)}`\n"
@@ -122,7 +116,7 @@ class BlackJack(commands.Cog):
             if player_value > 21:
                 await self.end_game(interaction, "bust")
             else:
-                embed = create_embed(
+                embed=Embed(
                     title=f"🎰 Блекджек | Ставка: {game['bet']:,} {EMOJIS['MONEY']}",
                     description=(
                         f"{EMOJIS['DOT']} **Ваши карты:** {' '.join(game['player_hand'])} `{player_value}`\n"
@@ -192,19 +186,24 @@ class BlackJack(commands.Cog):
             winnings = game['bet'] * 2
         elif player_value > dealer_value:
             winnings = game['bet'] * 2
-        else:
+        elif player_value == dealer_value:
             winnings = game['bet']
+        else:
+            winnings = 0
 
         if winnings > 0:
             user_id = str(interaction.user.id)
-            user_data = get_user(user_id)
-            user_data['balance'] += winnings
-            save_user(user_id, user_data)
+            user_data = await self.db.get_row("users", user_id=user_id)
+            await self.db.update(
+                "users",
+                where={"user_id": user_id},
+                values={"balance": user_data['balance'] + winnings}
+            )
 
         if winnings > 0:
             description += f"\n💰 **Выигрыш:** {winnings:,} {EMOJIS['MONEY']}"
 
-        embed = create_embed(
+        embed=Embed(
             title="🎰 Результаты игры в Блекджек",
             description=description,
             color=color,

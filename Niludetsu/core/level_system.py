@@ -4,9 +4,19 @@ import re
 from typing import Optional, Dict, List, Union
 import discord
 from discord.ext import commands, tasks
-from ..utils.database import get_user, save_user, calculate_next_level_xp
-from ..utils.embed import create_embed
+from ..database import Database
+from ..utils.embed import Embed
 from ..utils.emojis import EMOJIS
+
+def calculate_next_level_xp(level: int) -> int:
+    """
+    Рассчитывает количество опыта, необходимое для следующего уровня
+    Args:
+        level (int): Текущий уровень
+    Returns:
+        int: Количество опыта для следующего уровня
+    """
+    return 5 * (level ** 2) + 50 * level + 100
 
 class LevelSystem:
     def __init__(self, bot: commands.Bot):
@@ -16,6 +26,7 @@ class LevelSystem:
             bot (commands.Bot): Экземпляр бота
         """
         self.bot = bot
+        self.db = Database()
         self.CATEGORY_ID = 1128436199204343828
         self.NOTIFICATION_CHANNEL_ID = 1125546970522583070
         self.ROLES = {
@@ -65,9 +76,16 @@ class LevelSystem:
             member (discord.Member): Участник для обработки
         """
         user_id = str(member.id)
-        user = get_user(user_id)
+        user = await self.db.get_row("users", user_id=user_id)
         if not user:
-            return
+            user = await self.db.insert("users", {
+                'user_id': user_id,
+                'balance': 0,
+                'deposit': 0,
+                'xp': 0,
+                'level': 1,
+                'roles': '[]'
+            })
 
         xp = user.get('xp', 0)
         level = user.get('level', 1)
@@ -89,7 +107,7 @@ class LevelSystem:
         if not notification_channel:
             return
 
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['LEVELUP']} Новый уровень!",
             description=f"🎉 Поздравляем, {member.mention}!\n"
                        f"Теперь у вас {level} уровень!",
@@ -141,11 +159,14 @@ class LevelSystem:
             await self._give_role_by_level(member, level)
             next_level_xp = calculate_next_level_xp(level)
 
-        user = get_user(user_id)
-        if user:
-            user['xp'] = xp
-            user['level'] = level
-            save_user(user_id, user)
+        await self.db.update(
+            "users",
+            where={"user_id": user_id},
+            values={
+                "xp": xp,
+                "level": level
+            }
+        )
 
     async def process_message(self, message: discord.Message) -> None:
         """
@@ -162,9 +183,16 @@ class LevelSystem:
             return
 
         user_id = str(message.author.id)
-        user = get_user(user_id)
+        user = await self.db.get_row("users", user_id=user_id)
         if not user:
-            return
+            user = await self.db.insert("users", {
+                'user_id': user_id,
+                'balance': 0,
+                'deposit': 0,
+                'xp': 0,
+                'level': 1,
+                'roles': '[]'
+            })
 
         xp = user.get('xp', 0)
         level = user.get('level', 1)

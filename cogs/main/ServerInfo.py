@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from datetime import datetime
 from typing import Optional
@@ -63,7 +63,7 @@ class ServerInfo(commands.Cog):
         member_status = self.get_member_status(guild)
         
         # Создаем основной эмбед
-        embed = create_embed(
+        embed=Embed(
             title=f"ℹ️ Информация о сервере {guild.name}",
             description=f"{guild.description if guild.description else 'Описание отсутствует'}",
             color="DEFAULT"

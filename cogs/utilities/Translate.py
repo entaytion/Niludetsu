@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.api.Translate import TranslateAPI
 
 class Translate(commands.Cog):
@@ -39,7 +39,7 @@ class Translate(commands.Cog):
         result = await self.translate_api.translate_text(text, to_lang, from_lang)
 
         # Создаем эмбед с переводом
-        embed = create_embed(
+        embed=Embed(
             title="🌐 Перевод",
             description=(
                 f"**Оригинал ({self.translate_api.get_language_name(result['from_lang'])}):**\n"

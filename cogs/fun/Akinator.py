@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.api.Akinator import Akinator as AkinatorGame
 
 class AkinatorView(discord.ui.View):
@@ -32,7 +32,7 @@ class AkinatorView(discord.ui.View):
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
         self.aki.go_back()
-        embed = create_embed(
+        embed=Embed(
             title="🧞‍♂️ Акинатор",
             description=f"**Вопрос #{self.aki.step + 1}**\n{self.aki.question}",
             color="BLUE"
@@ -48,7 +48,7 @@ class AkinatorView(discord.ui.View):
                 description += f"{self.aki.description}\n\n"
             description += f"Я уверен на {round(self.aki.progression)}%"
             
-            embed = create_embed(
+            embed=Embed(
                 title="🧞‍♂️ Я думаю, это...",
                 description=description,
                 color="GREEN"
@@ -56,7 +56,7 @@ class AkinatorView(discord.ui.View):
             if self.aki.photo:
                 embed.set_image(url=self.aki.photo)
         else:
-            embed = create_embed(
+            embed=Embed(
                 description="Игра завершена! Я не смог угадать 😢",
                 color="RED"
             )
@@ -72,7 +72,7 @@ class AkinatorView(discord.ui.View):
                 description += f"{self.aki.description}\n\n"
             description += f"Я уверен на {round(self.aki.progression)}%"
             
-            embed = create_embed(
+            embed=Embed(
                 title="🧞‍♂️ Я думаю, это...",
                 description=description,
                 color="GREEN"
@@ -81,7 +81,7 @@ class AkinatorView(discord.ui.View):
                 embed.set_image(url=self.aki.photo)
             await interaction.edit_original_response(embed=embed, view=None)
         else:
-            embed = create_embed(
+            embed=Embed(
                 title="🧞‍♂️ Акинатор",
                 description=f"**Вопрос #{self.aki.step + 1}**\n{self.aki.question}",
                 color="BLUE"
@@ -97,7 +97,7 @@ class Akinator(commands.Cog):
     async def akinator(self, interaction: discord.Interaction):
         if interaction.user.id in self.games:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Вы уже играете! Завершите текущую игру.",
                     color="RED"
                 ),
@@ -108,7 +108,7 @@ class Akinator(commands.Cog):
         aki = AkinatorGame()
         q = aki.start_game()
 
-        embed = create_embed(
+        embed=Embed(
             title="🧞‍♂️ Акинатор",
             description=f"**Вопрос #{aki.step + 1}**\n{q}",
             color="BLUE"

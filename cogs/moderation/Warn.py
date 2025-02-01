@@ -2,15 +2,15 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import yaml
-import sqlite3
 from datetime import datetime, timedelta
-from Niludetsu.utils.embed import create_embed
-from Niludetsu.utils.database import initialize_table, TABLES_SCHEMAS
+from Niludetsu.utils.embed import Embed
+from Niludetsu.database import Database
 from Niludetsu.utils.decorators import has_helper_role, command_cooldown
 from Niludetsu.utils.emojis import EMOJIS
+import asyncio
 
 # Загрузка конфигурации
-with open('config/config.yaml', 'r', encoding='utf-8') as f:
+with open('data/config.yaml', 'r', encoding='utf-8') as f:
     config = yaml.safe_load(f)
 
 MOD_ROLE_ID = int(config.get('moderation', {}).get('mod_role', 0))
@@ -37,19 +37,15 @@ def has_helper_role():
 class Warn(commands.GroupCog, group_name="warn"):
     def __init__(self, bot):
         self.bot = bot
-        self.db = sqlite3.connect('config/database.db')
-        self.setup_database()
+        self.db = Database()
+        asyncio.create_task(self.db.init())  # Асинхронная инициализация базы данных
 
-    def setup_database(self):
-        initialize_table('warnings', TABLES_SCHEMAS['warnings'])
-
-    def get_user_active_warnings(self, user_id: int, guild_id: int) -> int:
-        cursor = self.db.cursor()
-        cursor.execute(
+    async def get_user_active_warnings(self, user_id: int, guild_id: int) -> int:
+        result = await self.db.execute(
             "SELECT COUNT(*) FROM warnings WHERE user_id = ? AND guild_id = ? AND active = TRUE",
-            (user_id, guild_id)
+            (str(user_id), str(guild_id))
         )
-        return cursor.fetchone()[0]
+        return result[0][0] if result else 0
 
     @app_commands.command(name="add", description="Выдать предупреждение пользователю")
     @app_commands.describe(
@@ -67,7 +63,7 @@ class Warn(commands.GroupCog, group_name="warn"):
         # Проверки
         if user.id == interaction.user.id:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Вы не можете выдать предупреждение самому себе!",
                     color="RED"
@@ -77,7 +73,7 @@ class Warn(commands.GroupCog, group_name="warn"):
 
         if user.bot:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Нельзя выдать предупреждение боту!",
                     color="RED"
@@ -87,7 +83,7 @@ class Warn(commands.GroupCog, group_name="warn"):
 
         if user.guild_permissions.administrator:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Нельзя выдать предупреждение администратору!",
                     color="RED"
@@ -96,7 +92,7 @@ class Warn(commands.GroupCog, group_name="warn"):
             )
 
         # Отправляем сообщение о начале процесса
-        progress_embed = create_embed(
+        progress_embed=Embed(
             title=f"{EMOJIS['LOADING']} Выдача предупреждения",
             description=f"Выдаю предупреждение для {user.mention}...",
             color="YELLOW"
@@ -104,17 +100,15 @@ class Warn(commands.GroupCog, group_name="warn"):
         await interaction.response.send_message(embed=progress_embed)
 
         # Добавляем предупреждение в базу данных
-        cursor = self.db.cursor()
-        cursor.execute(
+        await self.db.execute(
             "INSERT INTO warnings (user_id, guild_id, moderator_id, reason) VALUES (?, ?, ?, ?)",
-            (user.id, interaction.guild.id, interaction.user.id, reason)
+            (str(user.id), str(interaction.guild.id), str(interaction.user.id), reason)
         )
-        self.db.commit()
 
-        warning_count = self.get_user_active_warnings(user.id, interaction.guild.id)
+        warning_count = await self.get_user_active_warnings(user.id, interaction.guild.id)
 
         # Создаем эмбед для личного сообщения
-        dm_embed = create_embed(
+        dm_embed=Embed(
             title=f"{EMOJIS['WARNING']} Предупреждение получено",
             description=(
                 f"**Сервер:** {interaction.guild.name}\n"
@@ -134,7 +128,7 @@ class Warn(commands.GroupCog, group_name="warn"):
             pass
 
         # Создаем эмбед для канала
-        warn_embed = create_embed(
+        warn_embed=Embed(
             title=f"{EMOJIS['WARNING']} Выдано предупреждение",
             color="RED"
         )
@@ -181,25 +175,23 @@ class Warn(commands.GroupCog, group_name="warn"):
         warning_id: int
     ):
         # Отправляем сообщение о начале процесса
-        progress_embed = create_embed(
+        progress_embed=Embed(
             title=f"{EMOJIS['LOADING']} Удаление предупреждения",
             description=f"Удаляю предупреждение у {user.mention}...",
             color="YELLOW"
         )
         await interaction.response.send_message(embed=progress_embed)
-
-        cursor = self.db.cursor()
         
         # Проверяем, существует ли предупреждение
-        cursor.execute(
+        result = await self.db.execute(
             "SELECT * FROM warnings WHERE id = ? AND user_id = ? AND guild_id = ? AND active = TRUE",
-            (warning_id, user.id, interaction.guild.id)
+            (warning_id, str(user.id), str(interaction.guild.id))
         )
-        warning = cursor.fetchone()
+        warning = result[0] if result else None
         
         if not warning:
             return await interaction.edit_original_response(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Предупреждение не найдено!",
                     color="RED"
@@ -207,19 +199,18 @@ class Warn(commands.GroupCog, group_name="warn"):
             )
 
         # Деактивируем предупреждение
-        cursor.execute(
+        await self.db.execute(
             "UPDATE warnings SET active = FALSE WHERE id = ?",
             (warning_id,)
         )
-        self.db.commit()
 
-        warning_count = self.get_user_active_warnings(user.id, interaction.guild.id)
+        warning_count = await self.get_user_active_warnings(user.id, interaction.guild.id)
 
         # Пытаемся отправить личное сообщение
         dm_sent = False
         try:
             await user.send(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['SUCCESS']} Предупреждение снято",
                     description=(
                         f"**Сервер:** {interaction.guild.name}\n"
@@ -234,7 +225,7 @@ class Warn(commands.GroupCog, group_name="warn"):
             pass
 
         # Создаем эмбед для канала
-        remove_embed = create_embed(
+        remove_embed=Embed(
             title=f"{EMOJIS['SUCCESS']} Предупреждение удалено",
             color="GREEN"
         )
@@ -272,44 +263,29 @@ class Warn(commands.GroupCog, group_name="warn"):
         user: discord.Member
     ):
         # Отправляем сообщение о начале процесса
-        progress_embed = create_embed(
+        progress_embed=Embed(
             title=f"{EMOJIS['LOADING']} Очистка предупреждений",
             description=f"Удаляю все предупреждения у {user.mention}...",
             color="YELLOW"
         )
         await interaction.response.send_message(embed=progress_embed)
 
-        cursor = self.db.cursor()
-        
-        # Получаем количество активных предупреждений до очистки
-        warnings_before = self.get_user_active_warnings(user.id, interaction.guild.id)
-        
-        if warnings_before == 0:
-            return await interaction.edit_original_response(
-                embed=create_embed(
-                    title=f"{EMOJIS['INFO']} Информация",
-                    description=f"У пользователя {user.mention} нет активных предупреждений",
-                    color="BLUE"
-                )
-            )
-
         # Деактивируем все предупреждения
-        cursor.execute(
+        await self.db.execute(
             "UPDATE warnings SET active = FALSE WHERE user_id = ? AND guild_id = ? AND active = TRUE",
-            (user.id, interaction.guild.id)
+            (str(user.id), str(interaction.guild.id))
         )
-        self.db.commit()
 
         # Пытаемся отправить личное сообщение
         dm_sent = False
         try:
             await user.send(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['SUCCESS']} Предупреждения сняты",
                     description=(
                         f"**Сервер:** {interaction.guild.name}\n"
                         f"**Модератор:** {interaction.user.mention}\n"
-                        f"**Снято предупреждений:** `{warnings_before}`"
+                        f"**Предупреждения:** `0/{MAX_WARNINGS}`"
                     ),
                     color="GREEN"
                 )
@@ -319,7 +295,7 @@ class Warn(commands.GroupCog, group_name="warn"):
             pass
 
         # Создаем эмбед для канала
-        clear_embed = create_embed(
+        clear_embed=Embed(
             title=f"{EMOJIS['SUCCESS']} Предупреждения очищены",
             color="GREEN"
         )
@@ -335,8 +311,8 @@ class Warn(commands.GroupCog, group_name="warn"):
             inline=True
         )
         clear_embed.add_field(
-            name=f"{EMOJIS['WARNING']} Снято предупреждений",
-            value=f"`{warnings_before}`",
+            name=f"{EMOJIS['WARNING']} Предупреждения",
+            value=f"`0/{MAX_WARNINGS}`",
             inline=True
         )
         clear_embed.add_field(

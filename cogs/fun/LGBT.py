@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import random
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from PIL import Image, ImageDraw
 import io
 import aiohttp
@@ -50,7 +50,7 @@ class LGBT(commands.Cog):
         avatar_bytes = await self.download_avatar(user.display_avatar.with_size(512).url)
         if not avatar_bytes:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     description="Не удалось загрузить аватар!",
                     color="RED"
                 ),
@@ -69,7 +69,7 @@ class LGBT(commands.Cog):
         
         file = discord.File(output, filename='lgbt_avatar.png')
         
-        embed = create_embed(
+        embed=Embed(
             title=f"🌈 LGBT аватар для {user.name}",
             color="DEFAULT"
         )

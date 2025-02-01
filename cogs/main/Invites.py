@@ -4,7 +4,7 @@ from discord.ext import commands
 import yaml
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, List, Tuple
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class AccountType:
@@ -76,14 +76,14 @@ class InviteTracker:
         self.bot = bot
         self.invites: Dict[int, List[discord.Invite]] = {}
         self.invite_uses: Dict[int, Dict[str, int]] = {}
-        with open("config/config.yaml", "r", encoding="utf-8") as f:
+        with open("data/config.yaml", "r", encoding="utf-8") as f:
             self.config = yaml.safe_load(f)
             self.settings = self.config.get('invites', {})
         
     def save_settings(self):
         """Сохраняет настройки в файл"""
         self.config['invites'] = self.settings
-        with open('config/config.yaml', 'w', encoding='utf-8') as f:
+        with open('data/config.yaml', 'w', encoding='utf-8') as f:
             yaml.dump(self.config, f, indent=4, allow_unicode=True)
 
     async def cache_invites(self):
@@ -194,7 +194,7 @@ class InviteTracker:
 
     async def format_join_message(self, member: discord.Member, invite: Optional[discord.Invite]) -> discord.Embed:
         """Форматирует сообщение о входе участника"""
-        embed = create_embed(
+        embed=Embed(
             title=f"👋 Новый участник #{len(member.guild.members)}",
             color=0x2ecc71,
             timestamp=datetime.now(timezone.utc)
@@ -266,7 +266,7 @@ class InviteTracker:
 
     async def format_leave_message(self, member: discord.Member) -> discord.Embed:
         """Форматирует сообщение о выходе участника"""
-        embed = create_embed(
+        embed=Embed(
             title=f"👋 Участник покинул сервер",
             color=0xe74c3c,
             timestamp=datetime.now(timezone.utc)
@@ -402,7 +402,7 @@ class InvitesCog(commands.Cog):
     async def set_log_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
         self.invite_tracker.set_log_channel(interaction.guild_id, channel.id)
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 description=f"{EMOJIS['SUCCESS']} Канал для логов инвайтов установлен: {channel.mention}"
             ),
             ephemeral=True
@@ -414,7 +414,7 @@ class InvitesCog(commands.Cog):
     async def set_welcome_message(self, interaction: discord.Interaction, *, message: str):
         self.invite_tracker.set_welcome_message(interaction.guild_id, message)
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 description=f"{EMOJIS['SUCCESS']} Приветственное сообщение установлено!"
             ),
             ephemeral=True
@@ -426,7 +426,7 @@ class InvitesCog(commands.Cog):
     async def set_leave_message(self, interaction: discord.Interaction, *, message: str):
         self.invite_tracker.set_leave_message(interaction.guild_id, message)
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 description=f"{EMOJIS['SUCCESS']} Сообщение при выходе установлено!"
             ),
             ephemeral=True
@@ -473,7 +473,7 @@ class InvitesCog(commands.Cog):
             # Получаем информацию о приглашении через клиент бота
             invite = await self.bot.fetch_invite(code)
             
-            embed = create_embed(
+            embed=Embed(
                 title="📨 Информация о приглашении",
                 color="BLUE"
             )
@@ -534,7 +534,7 @@ class InvitesCog(commands.Cog):
             
         except discord.NotFound:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Приглашение не найдено",
                     color="RED"
                 ),
@@ -542,7 +542,7 @@ class InvitesCog(commands.Cog):
             )
         except discord.Forbidden:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ У меня нет прав для просмотра информации об этом приглашении",
                     color="RED"
                 ),
@@ -559,7 +559,7 @@ class InvitesCog(commands.Cog):
             
             if not guild_invites:
                 await interaction.followup.send(
-                    embed=create_embed(
+                    embed=Embed(
                         description=f"{EMOJIS['INFO']} На сервере нет активных приглашений!",
                         color=0xe74c3c
                     ),
@@ -568,7 +568,7 @@ class InvitesCog(commands.Cog):
                 return
                 
             embeds = []
-            current_embed = create_embed(
+            current_embed=Embed(
                 title="Активные приглашения",
                 timestamp=datetime.utcnow()
             )
@@ -577,7 +577,7 @@ class InvitesCog(commands.Cog):
                 # Каждые 25 полей создаем новый эмбед
                 if i > 0 and i % 25 == 0:
                     embeds.append(current_embed)
-                    current_embed = create_embed(
+                    current_embed=Embed(
                         title="Активные приглашения (продолжение)",
                         timestamp=datetime.utcnow()
                     )
@@ -607,7 +607,7 @@ class InvitesCog(commands.Cog):
                 
         except discord.Forbidden:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     description=f"{EMOJIS['ERROR']} У меня нет прав для просмотра приглашений!",
                     color=0xe74c3c
                 ),

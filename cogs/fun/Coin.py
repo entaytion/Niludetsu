@@ -2,25 +2,25 @@ import discord
 from discord.ext import commands
 import random
 import asyncio
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 
 class Coin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.coin_frames = [
-            "( ﾟ◡ﾟ)/⌒🪙",
-            "( ﾟ◡ﾟ)/  ⌒🪙",
-            "( ﾟ◡ﾟ)/    ⌒🪙",
-            "( ﾟ◡ﾟ)/      🪙",
-            "( ﾟ◡ﾟ)/    ✨🪙",
-            "( ﾟ◡ﾟ)/  ✨🪙",
-            "( ﾟ◡ﾟ)/✨🪙",
+            "(^‿^)/⌒🪙",
+            "(^‿^)/  ⌒🪙",
+            "(^‿^)/    ⌒🪙", 
+            "(^‿^)/      🪙",
+            "(^‿^)/    ✨🪙",
+            "(^‿^)/  ✨🪙",
+            "(^‿^)/✨🪙",
         ]
 
     @discord.app_commands.command(name="coin", description="Подбросить монетку")
     async def coin(self, interaction: discord.Interaction):
         # Отправляем начальное сообщение
-        embed = create_embed(
+        embed=Embed(
             title="🪙 Подбрасываю монетку...",
             description=self.coin_frames[0],
             color="BLUE"
@@ -38,7 +38,7 @@ class Coin(commands.Cog):
         result = random.choice(["Орёл", "Решка"])
         
         # Показываем результат
-        final_embed = create_embed(
+        final_embed=Embed(
             title="🪙 Результат броска",
             description=f"( ﾟ◡ﾟ)/ 🪙\n\n**Выпало:** {result}",
             color="GREEN"

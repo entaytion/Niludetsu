@@ -4,7 +4,7 @@ from discord.ext import commands
 import yaml
 import os
 from typing import Optional, Literal
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 import asyncio
 import time
@@ -12,7 +12,7 @@ import time
 class Settings(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.config_file = 'config/config.yaml'
+        self.config_file = 'data/config.yaml'
         self.load_settings()
         self._command_cache = {}
         self._last_sync = 0
@@ -154,7 +154,7 @@ class Settings(commands.Cog):
         # Проверяем, не отключена ли группа
         if group_name and group_name in self.settings["commands"]["disabled_groups"]:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description=f"{EMOJIS['ERROR']} Группа команд `{group_name}` отключена!",
                     color=0xe74c3c
                 ),
@@ -165,7 +165,7 @@ class Settings(commands.Cog):
         # Проверяем, не отключена ли команда
         if command_name in self.settings["commands"]["disabled_commands"]:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description=f"{EMOJIS['ERROR']} Команда `{command_name}` отключена!",
                     color=0xe74c3c
                 ),
@@ -193,7 +193,7 @@ class Settings(commands.Cog):
         """Включение/выключение отдельных команд"""
         if not await self.is_owner(interaction):
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Доступ запрещен",
                     description="Эта команда доступна только создателю бота!",
                     color="RED"
@@ -235,7 +235,7 @@ class Settings(commands.Cog):
 
             if not cmd_exists:
                 await interaction.followup.send(
-                    embed=create_embed(
+                    embed=Embed(
                         title=f"{EMOJIS['ERROR']} Команда не найдена",
                         description=f"Команда `{command}` не найдена!",
                         color="RED"
@@ -258,7 +258,7 @@ class Settings(commands.Cog):
 
         if success:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['SETTINGS']} Настройки команд",
                     description=success_message,
                     color="GREEN"
@@ -267,7 +267,7 @@ class Settings(commands.Cog):
             )
         else:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Произошла ошибка при обновлении команд. Попробуйте позже.",
                     color="RED"
@@ -292,7 +292,7 @@ class Settings(commands.Cog):
         """Включение/выключение групп команд"""
         if not await self.is_owner(interaction):
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Доступ запрещен",
                     description="Эта команда доступна только создателю бота!",
                     color="RED"
@@ -330,7 +330,7 @@ class Settings(commands.Cog):
 
             if not group_exists:
                 await interaction.followup.send(
-                    embed=create_embed(
+                    embed=Embed(
                         title=f"{EMOJIS['ERROR']} Группа не найдена",
                         description=f"Группа команд `{group}` не найдена!",
                         color="RED"
@@ -353,7 +353,7 @@ class Settings(commands.Cog):
 
         if success:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['SETTINGS']} Настройки групп",
                     description=success_message,
                     color="GREEN"
@@ -362,7 +362,7 @@ class Settings(commands.Cog):
             )
         else:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Произошла ошибка при обновлении команд. Попробуйте позже.",
                     color="RED"
@@ -375,7 +375,7 @@ class Settings(commands.Cog):
         """Показывает список отключенных команд и групп"""
         if not await self.is_owner(interaction):
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Доступ запрещен",
                     description="Эта команда доступна только создателю бота!",
                     color="RED"
@@ -387,7 +387,7 @@ class Settings(commands.Cog):
         disabled_commands = self.settings["commands"]["disabled_commands"]
         disabled_groups = self.settings["commands"]["disabled_groups"]
 
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['SETTINGS']} Отключенные команды и группы",
             color="BLUE"
         )

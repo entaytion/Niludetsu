@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from datetime import datetime
 import humanize
@@ -118,7 +118,7 @@ class UserInfo(commands.Cog):
         badges = get_user_badges(member)
         
         # Создаем эмбед
-        embed = create_embed(
+        embed=Embed(
             title=f"Информация о пользователе {member.name}",
             color=member.color.value if member.color != discord.Color.default() else 0x2b2d31
         )

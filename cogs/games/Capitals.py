@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 import random
 import asyncio
 
@@ -93,7 +93,7 @@ class Capitals(commands.Cog):
         
         if game.is_active:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="Игра уже идет в этом канале!",
                     color="RED"
                 ),
@@ -102,7 +102,7 @@ class Capitals(commands.Cog):
             return
             
         if game.start_game(interaction.channel_id):
-            embed = create_embed(
+            embed=Embed(
                 title="🏛️ Угадай столицу",
                 description=(
                     f"Я загадал столицу страны **{game.current_country}**\n"
@@ -129,7 +129,7 @@ class Capitals(commands.Cog):
         game.attempts.append(guess)
         
         if game.check_answer(guess):
-            embed = create_embed(
+            embed=Embed(
                 title="🎉 Поздравляем!",
                 description=(
                     f"Вы угадали! Это действительно **{CAPITALS[game.current_country]}**\n"
@@ -144,7 +144,7 @@ class Capitals(commands.Cog):
             attempts_left = game.max_attempts - len(game.attempts)
             
             if attempts_left == 0:
-                embed = create_embed(
+                embed=Embed(
                     title="❌ Игра окончена!",
                     description=(
                         f"К сожалению, вы не угадали. Это была столица **{CAPITALS[game.current_country]}**\n"
@@ -155,7 +155,7 @@ class Capitals(commands.Cog):
                 )
                 game.stop_game()
             else:
-                embed = create_embed(
+                embed=Embed(
                     description=(
                         f"{hint}\n"
                         f"Осталось попыток: **{attempts_left}**"

@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import sqlite3
 from datetime import datetime
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.decorators import has_mod_role
 
@@ -36,7 +36,7 @@ class Warns(commands.GroupCog, group_name="warns"):
         warnings = cursor.fetchall()
 
         if not warnings:
-            embed = create_embed(
+            embed=Embed(
                 title=f"{EMOJIS['INFO']} Информация о предупреждениях",
                 description=f"{EMOJIS['SUCCESS']} У {'вас' if user == interaction.user else user.mention} нет активных предупреждений!",
                 color="GREEN"
@@ -62,7 +62,7 @@ class Warns(commands.GroupCog, group_name="warns"):
                 f"{EMOJIS['TIME']} **Дата:** `{time_str}`\n"
             )
 
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['WARN']} Предупреждения пользователя {user.name}",
             description="\n".join(warnings_list),
             color="YELLOW"
@@ -114,7 +114,7 @@ class Warns(commands.GroupCog, group_name="warns"):
         
         if not warning:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Предупреждение с указанным ID не найдено!",
                     color="RED"
@@ -131,7 +131,7 @@ class Warns(commands.GroupCog, group_name="warns"):
         except:
             time_str = "Неизвестное время"
             
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['INFO']} Информация о предупреждении #{warning_id}",
             color="BLUE"
         )

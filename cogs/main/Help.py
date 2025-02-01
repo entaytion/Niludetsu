@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class CategorySelect(discord.ui.Select):
@@ -36,7 +36,7 @@ class CategorySelect(discord.ui.Select):
                 description += "\n\n⚠️ **Отключенные команды в этой категории:**\n"
                 description += ", ".join(f"`/{cmd}`" for cmd in disabled_commands)
             
-            embed = create_embed(
+            embed=Embed(
                 title=f"{cat_info['emoji']} {cat_info['title']}",
                 description=description,
                 footer={'text': f"{cat_info['footer']} • [] - обязательный параметр, <> - необязательный параметр",
@@ -46,7 +46,7 @@ class CategorySelect(discord.ui.Select):
             await interaction.response.edit_message(embed=embed, view=self.view)
         except discord.errors.NotFound:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="Это меню устарело. Используйте `/help` еще раз!",
                     color="RED"
                 )
@@ -79,7 +79,7 @@ class AllCommandsButton(discord.ui.Button):
                 if disabled_commands:
                     all_commands.append(f"\n⚠️ *Отключенные команды:* {', '.join(f'`{cmd}`' for cmd in disabled_commands)}")
             
-            embed = create_embed(
+            embed=Embed(
                 title="📚 Список всех команд",
                 description="\n".join(all_commands) if all_commands else "Нет доступных команд",
                 footer={'text': "Выберите категорию ниже для подробного описания команд • [] - обязательный параметр, <> - необязательный параметр",
@@ -89,7 +89,7 @@ class AllCommandsButton(discord.ui.Button):
             await interaction.response.edit_message(embed=embed)
         except discord.errors.NotFound:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="Это меню устарело. Используйте `/help` еще раз!",
                     color="RED"
                 )
@@ -269,15 +269,14 @@ class Help(commands.Cog):
             "profile": {
                 "title": "Команды профиля",
                 "emoji": "👤", 
-                "original_commands": ["/avatar", "/bio", "/leaderboard", "/profile", "/streak"],
-                "commands": [cmd for cmd in ["/avatar", "/bio", "/leaderboard", "/profile", "/streak"]
+                "original_commands": ["/avatar", "/bio", "/leaderboard", "/profile"],
+                "commands": [cmd for cmd in ["/avatar", "/bio", "/leaderboard", "/profile"]
                            if self.is_command_available(cmd.strip('/'), "profile")],
                 "description": "\n".join([
                     f"{EMOJIS['DOT']} `/avatar <user>` — просмотреть аватар пользователя.",
                     f"{EMOJIS['DOT']} `/bio [set/view/clear]` — просмотреть профиль.",
                     f"{EMOJIS['DOT']} `/leaderboard [money/level/reputation]` — просмотреть лидеров.",
                     f"{EMOJIS['DOT']} `/profile <user>` — проверить уровень.",
-                    f"{EMOJIS['DOT']} `/streak <user>` — просмотреть вашого питомца Огонька."
                 ]),
                 "footer": "Справочник по командам из раздела \"Профиль\""
             },
@@ -335,7 +334,7 @@ class Help(commands.Cog):
                      if k not in self.settings_cog.settings["disabled_groups"]}
 
         # Создаем начальное сообщение
-        initial_embed = create_embed(
+        initial_embed=Embed(
             title="📚 Справочник по командам",
             description="Выберите категорию из списка ниже для просмотра команд.\n\n" +
                        (f"⚠️ Отключено команд: {disabled_count}\n" if disabled_count > 0 else "") +

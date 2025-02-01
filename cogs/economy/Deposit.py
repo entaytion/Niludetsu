@@ -1,12 +1,13 @@
 import discord
 from discord.ext import commands
-from Niludetsu.utils.embed import create_embed
-from Niludetsu.utils.database import get_user, save_user
+from Niludetsu.utils.embed import Embed
+from Niludetsu.database import Database
 from Niludetsu.utils.emojis import EMOJIS
 
 class Deposit(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.db = Database()
 
     @discord.app_commands.command(name="deposit", description="Положить деньги в банк")
     @discord.app_commands.describe(
@@ -16,7 +17,7 @@ class Deposit(commands.Cog):
         # Проверка суммы
         if amount <= 0:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="Сумма должна быть больше 0.",
                     color="RED"
                 ),
@@ -26,22 +27,12 @@ class Deposit(commands.Cog):
 
         # Получаем данные пользователя
         user_id = str(interaction.user.id)
-        user_data = get_user(user_id)
-
-        if not user_data:
-            user_data = {
-                'balance': 0,
-                'deposit': 0,
-                'xp': 0,
-                'level': 1,
-                'roles': '[]'
-            }
-            save_user(user_id, user_data)
+        user_data = await self.db.ensure_user(user_id)
 
         # Проверка баланса
         if user_data.get('balance', 0) < amount:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description=f"У вас недостаточно средств.\n"
                               f"Ваш баланс: {user_data.get('balance', 0):,} {EMOJIS['MONEY']}",
                     color="RED"
@@ -51,17 +42,25 @@ class Deposit(commands.Cog):
             return
 
         # Выполняем перевод в банк
-        user_data['balance'] = user_data.get('balance', 0) - amount
-        user_data['deposit'] = user_data.get('deposit', 0) + amount
-        save_user(user_id, user_data)
+        new_balance = user_data.get('balance', 0) - amount
+        new_deposit = user_data.get('deposit', 0) + amount
+        
+        await self.db.update(
+            "users",
+            where={"user_id": user_id},
+            values={
+                "balance": new_balance,
+                "deposit": new_deposit
+            }
+        )
 
         # Отправляем сообщение об успешном внесении
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 title="Деньги внесены в банк",
                 description=f"Вы внесли {amount:,} {EMOJIS['MONEY']} в банк\n"
-                          f"Баланс в банке: {user_data['deposit']:,} {EMOJIS['MONEY']}\n"
-                          f"Наличные: {user_data['balance']:,} {EMOJIS['MONEY']}",
+                          f"Баланс в банке: {new_deposit:,} {EMOJIS['MONEY']}\n"
+                          f"Наличные: {new_balance:,} {EMOJIS['MONEY']}",
                 color="GREEN"
             )
         )

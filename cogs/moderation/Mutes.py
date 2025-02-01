@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from datetime import datetime
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 
@@ -16,7 +16,7 @@ class Mutes(commands.Cog):
     async def mutes(self, interaction: discord.Interaction):
         if not interaction.user.guild_permissions.moderate_members:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description="У вас нет прав на просмотр списка мутов!",
                     color="RED"
@@ -25,7 +25,7 @@ class Mutes(commands.Cog):
             )
 
         # Отправляем начальное сообщение
-        progress_embed = create_embed(
+        progress_embed=Embed(
             title=f"{EMOJIS['LOADING']} Загрузка списка мутов",
             description="Собираю информацию о замученных участниках...",
             color="YELLOW"
@@ -44,7 +44,7 @@ class Mutes(commands.Cog):
                     })
 
         if not muted_members:
-            no_mutes_embed = create_embed(
+            no_mutes_embed=Embed(
                 title=f"{EMOJIS['INFO']} Список мутов",
                 description="На сервере нет замученных участников",
                 color="GREEN"
@@ -55,7 +55,7 @@ class Mutes(commands.Cog):
         muted_members.sort(key=lambda x: x['until'])
 
         # Создаем эмбед со списком
-        mutes_embed = create_embed(
+        mutes_embed=Embed(
             title=f"{EMOJIS['MUTE']} Список замученных участников",
             description=f"Всего замучено: `{len(muted_members)}` участников",
             color="BLUE"

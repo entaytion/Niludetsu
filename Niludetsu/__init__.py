@@ -6,7 +6,6 @@ Niludetsu - библиотека для создания Discord бота.
 from . import core
 from . import utils
 from . import logging
-from . import game
 from . import music
 from . import api
 
@@ -18,7 +17,6 @@ __all__ = [
     'core',
     'utils',
     'logging',
-    'game',
     'music',
     'api'
 ] 

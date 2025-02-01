@@ -19,7 +19,7 @@ class Akinator:
     """
     
     def __init__(self, theme: str = "characters", lang: str = "ru", child_mode: bool = False) -> None:
-        self.server = f"https://srv13.akinator.com:9398/ws"
+        self.server = f"https://srv2.akinator.com:9157/ws"
         self.lang = lang
         self.theme = theme
         self.child_mode = child_mode

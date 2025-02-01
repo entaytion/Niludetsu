@@ -6,7 +6,7 @@ import traceback
 from typing import Optional
 from datetime import datetime
 from Niludetsu.utils.config_loader import bot_state
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 import asyncio
 
 from Niludetsu.logging.users import UserLogger
@@ -64,7 +64,7 @@ class Logs(commands.Cog):
             return
             
         try:
-            with open('config/config.yaml', 'r', encoding='utf-8') as f:
+            with open('data/config.yaml', 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
                 if 'logging' in config and 'main_channel' in config['logging']:
                     channel_id = int(config['logging']['main_channel'])
@@ -79,7 +79,7 @@ class Logs(commands.Cog):
                     
                     if not bot_state.is_initialized('logging_system'):
                         await self.log_channel.send(
-                            embed=create_embed(
+                            embed=Embed(
                                 title="✅ Система логирования активирована",
                                 description="Канал логов успешно подключен и готов к работе.",
                                 color="GREEN"
@@ -104,10 +104,10 @@ class Logs(commands.Cog):
     def save_config(self, channel_id):
         """Сохранение конфигурации"""
         try:
-            with open('config/config.yaml', 'r', encoding='utf-8') as f:
+            with open('data/config.yaml', 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
             config['logging']['main_channel'] = str(channel_id)
-            with open('config/config.yaml', 'w', encoding='utf-8') as f:
+            with open('data/config.yaml', 'w', encoding='utf-8') as f:
                 yaml.dump(config, f, indent=4)
         except Exception as e:
             print(f"Error saving config: {e}")
@@ -119,7 +119,7 @@ class Logs(commands.Cog):
     async def logs_status(self, interaction: discord.Interaction):
         if not self._initialized:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Система логирования не инициализирована!",
                     color="RED"
                 ),
@@ -127,7 +127,7 @@ class Logs(commands.Cog):
             )
             return
 
-        embed = create_embed(
+        embed=Embed(
             title="📊 Статус системы логирования",
             description=(
                 f"**Статус:** {'🟢 Включена' if self.logging_enabled else '🔴 Отключена'}\n"
@@ -144,14 +144,14 @@ class Logs(commands.Cog):
         self.save_config(channel.id)
         
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 description=f"✅ Канал логов установлен: {channel.mention}",
                 color="GREEN"
             )
         )
         
         await channel.send(
-            embed=create_embed(
+            embed=Embed(
                 title="✅ Канал логов активирован",
                 description="Этот канал теперь будет использоваться для системных логов.",
                 color="GREEN"
@@ -163,7 +163,7 @@ class Logs(commands.Cog):
     async def logs_test(self, interaction: discord.Interaction):
         if not self.log_channel:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Канал логов не установлен!",
                     color="RED"
                 ),
@@ -172,7 +172,7 @@ class Logs(commands.Cog):
             return
 
         await self.log_channel.send(
-            embed=create_embed(
+            embed=Embed(
                 title="🧪 Тестовое сообщение",
                 description="Это тестовое сообщение системы логирования.",
                 footer={"text": f"Отправлено: {interaction.user}"}
@@ -180,7 +180,7 @@ class Logs(commands.Cog):
         )
         
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 description="✅ Тестовое сообщение отправлено!",
                 color="GREEN"
             ),
@@ -192,7 +192,7 @@ class Logs(commands.Cog):
     async def logs_disable(self, interaction: discord.Interaction):
         if not self.logging_enabled:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Система логирования уже отключена!",
                     color="RED"
                 ),
@@ -202,7 +202,7 @@ class Logs(commands.Cog):
 
         self.logging_enabled = False
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 description="✅ Система логирования отключена",
                 color="GREEN"
             )
@@ -213,7 +213,7 @@ class Logs(commands.Cog):
     async def logs_enable(self, interaction: discord.Interaction):
         if self.logging_enabled:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Система логирования уже включена!",
                     color="RED"
                 ),
@@ -223,7 +223,7 @@ class Logs(commands.Cog):
 
         if not self.log_channel:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Сначала установите канал для логов!",
                     color="RED"
                 ),
@@ -233,7 +233,7 @@ class Logs(commands.Cog):
 
         self.logging_enabled = True
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 description="✅ Система логирования включена",
                 color="GREEN"
             )
@@ -263,7 +263,7 @@ class Logs(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_emojis_update(self, guild, before, after):
         if self.logging_enabled and self.log_channel:
-            await self.loggers['emoji'].log_emoji_update(guild, before, after)
+            await self.loggers['emoji'].log_emoji_update(before, after)
 
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel):

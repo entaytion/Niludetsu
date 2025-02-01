@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 import random
 
 # База данных стран и их флагов
@@ -42,7 +42,7 @@ class Country(commands.Cog):
         country = random.choice(list(COUNTRIES.keys()))
         flag_url = COUNTRIES[country]
         
-        embed = create_embed(
+        embed=Embed(
             title="🌍 Угадай страну по флагу",
             description="Напишите название страны, флаг которой изображен на картинке",
             color="BLUE"
@@ -61,7 +61,7 @@ class Country(commands.Cog):
         try:
             message = await self.bot.wait_for('message', check=check, timeout=30.0)
             
-            embed = create_embed(
+            embed=Embed(
                 title="🎉 Поздравляем!",
                 description=f"{message.author.mention}, вы угадали! Это действительно **{country}**!",
                 color="GREEN"
@@ -71,7 +71,7 @@ class Country(commands.Cog):
             await message.reply(embed=embed)
             
         except TimeoutError:
-            embed = create_embed(
+            embed=Embed(
                 title="❌ Время вышло!",
                 description=f"Никто не угадал. Это была страна **{country}**",
                 color="RED"

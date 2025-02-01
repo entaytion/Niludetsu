@@ -1,11 +1,11 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import json
+import yaml
 import os
 from datetime import datetime
 import typing
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 def format_permission(perm_name: str) -> str:
@@ -36,13 +36,13 @@ class Backup(commands.Cog):
         await interaction.response.defer()
         
         # Создаем эмбед с основной информацией
-        embed = create_embed(
+        embed=Embed(
             title=f"📊 Информация о сервере {interaction.guild.name}",
             fields=[
                 {
                     "name": "🔧 Основное",
                     "value": f"ID: {interaction.guild.id}\n"
-                            f"Владелец: {interaction.guild.owner.mention}\n"
+                            f"Владелец: {interaction.guild.owner.mention} (ID: {interaction.guild.owner.id})\n"
                             f"Создан: {discord.utils.format_dt(interaction.guild.created_at, 'D')}\n"
                             f"Уровень проверки: {interaction.guild.verification_level}\n"
                             f"Буст уровень: {interaction.guild.premium_tier}",
@@ -52,7 +52,7 @@ class Backup(commands.Cog):
                     "name": "📈 Статистика",
                     "value": f"Участников: {interaction.guild.member_count}\n"
                             f"Ролей: {len(interaction.guild.roles)}\n"
-                            f"Каналов: {len(interaction.guild.channels)}\n"
+                            f"Каналов: {len(interaction.guild.channels)} (ID системного канала: {interaction.guild.system_channel.id if interaction.guild.system_channel else 'Нет'})\n"
                             f"Эмодзи: {len(interaction.guild.emojis)}\n"
                             f"Стикеров: {len(interaction.guild.stickers)}",
                     "inline": False
@@ -62,6 +62,33 @@ class Backup(commands.Cog):
         )
         
         await interaction.followup.send(embed=embed)
+        
+        # Отправляем информацию о каналах
+        channels_embed = Embed(
+            title="📚 Информация о каналах",
+            fields=[],
+            color="BLUE"
+        )
+        
+        for category in interaction.guild.categories:
+            channel_list = [f"• {channel.name} (ID: {channel.id})" for channel in category.channels]
+            channels_embed.fields.append({
+                "name": f"📁 {category.name} (ID: {category.id})",
+                "value": "\n".join(channel_list) if channel_list else "Пусто",
+                "inline": False
+            })
+            
+        # Каналы без категории
+        no_category_channels = [c for c in interaction.guild.channels if not c.category]
+        if no_category_channels:
+            channel_list = [f"• {channel.name} (ID: {channel.id})" for channel in no_category_channels]
+            channels_embed.fields.append({
+                "name": "🗂️ Без категории",
+                "value": "\n".join(channel_list),
+                "inline": False
+            })
+            
+        await interaction.followup.send(embed=channels_embed)
         
         # Отправляем информацию о ролях
         roles_info = []
@@ -106,8 +133,16 @@ class Backup(commands.Cog):
                 fields.append({"name": "🔊 Голосовые права", "value": "\n".join(voice_perms), "inline": False})
             if general_perms:
                 fields.append({"name": "🔧 Общие права", "value": "\n".join(general_perms), "inline": False})
+                
+            # Добавляем информацию о пользователях с этой ролью
+            members_with_role = [f"{member.name}#{member.discriminator} (ID: {member.id})" for member in role.members[:10]]
+            if members_with_role:
+                members_text = "\n".join(members_with_role)
+                if len(role.members) > 10:
+                    members_text += f"\n... и еще {len(role.members) - 10} пользователей"
+                fields.append({"name": "👥 Пользователи с ролью", "value": members_text, "inline": False})
             
-            role_embed = create_embed(
+            role_embed=Embed(
                 title=f"👑 Роль: {role.name}",
                 fields=fields,
                 color=str(role.color)
@@ -251,12 +286,12 @@ class Backup(commands.Cog):
             os.makedirs('backups')
             
         # Сохраняем бэкап в файл
-        backup_filename = f'backups/backup_{interaction.guild.id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+        backup_filename = f'backups/backup_{interaction.guild.id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.yaml'
         with open(backup_filename, 'w', encoding='utf-8') as f:
-            json.dump(backup_data, f, indent=4, ensure_ascii=False)
+            yaml.dump(backup_data, f, allow_unicode=True, sort_keys=False)
         
         # Создаем эмбед с информацией о бэкапе
-        embed = create_embed(
+        embed=Embed(
             title="✅ Резервная копия создана",
             description=f"Файл: `{backup_filename}`",
             fields=[
@@ -376,12 +411,12 @@ class Backup(commands.Cog):
             
         await interaction.response.defer()
         
-        if not file.filename.endswith('.json'):
-            await interaction.followup.send("❌ Пожалуйста, загрузите файл резервной копии в формате JSON!")
+        if not file.filename.endswith('.yaml'):
+            await interaction.followup.send("❌ Пожалуйста, загрузите файл резервной копии в формате YAML!")
             return
             
         backup_content = await file.read()
-        backup_data = json.loads(backup_content)
+        backup_data = yaml.safe_load(backup_content)
         
         # Проверяем версию бэкапа
         if "backup_version" not in backup_data:

@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class Avatar(commands.Cog):
@@ -29,7 +29,7 @@ class Avatar(commands.Cog):
         }
         
         # Создаем эмбед
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['AVATAR']} Аватар {'вашего профиля' if target == interaction.user else f'профиля {target.name}'}",
             description="",
             color="BLUE",

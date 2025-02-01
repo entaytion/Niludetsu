@@ -4,7 +4,7 @@ from discord import app_commands
 from discord.ui import View, Button
 import random
 import json
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class Game2048:
@@ -160,7 +160,7 @@ class GameView(View):
         if self.game.move("right"):
             await self.update_game(interaction)
         else:
-            await interaction.response.send_message("Недопустимый ход!")
+            await interaction.response.send_message("Недопустимый ход!", ephemeral=True)
             
     @discord.ui.button(label="🔄", style=discord.ButtonStyle.danger, custom_id="restart")
     async def restart(self, interaction: discord.Interaction, button: Button):
@@ -172,7 +172,7 @@ class GameView(View):
         await self.update_game(interaction)
     
     async def update_game(self, interaction: discord.Interaction):
-        embed = create_embed(
+        embed=Embed(
             title="🎮 2048",
             description=f"**Счёт:** {self.game.score}\n\n{self.game.get_board_str()}",
             color="BLUE"
@@ -194,7 +194,7 @@ class Game2048Cog(commands.Cog):
         game = Game2048()
         view = GameView(game, interaction.user.id)
         
-        embed = create_embed(
+        embed=Embed(
             title="🎮 2048",
             description=f"**Счёт:** {game.score}\n\n{game.get_board_str()}",
             color="BLUE"

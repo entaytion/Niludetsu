@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 EMOJI_NUMBERS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟']
@@ -36,7 +36,7 @@ class Poll(commands.Cog):
         
         if len(options) < 2:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     description="Нужно указать минимум 2 варианта ответа!"
                 )
             )
@@ -48,7 +48,7 @@ class Poll(commands.Cog):
             description += f"{EMOJI_NUMBERS[i]} {option}\n"
 
         # Создаем эмбед
-        embed = create_embed(
+        embed=Embed(
             title="📊 Опрос",
             description=description,
             footer={"text": f"Создал: {interaction.user.name}"}

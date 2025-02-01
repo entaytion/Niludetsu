@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from PIL import Image, ImageDraw, ImageFont
 import io
 import aiohttp
@@ -75,7 +75,7 @@ class Demotivator(commands.Cog):
 
         if not image.content_type.startswith('image/'):
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     description="Пожалуйста, загрузите изображение!",
                     color="RED"
                 ),
@@ -86,7 +86,7 @@ class Demotivator(commands.Cog):
         image_bytes = await self.download_image(image.url)
         if not image_bytes:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     description="Не удалось загрузить изображение!",
                     color="RED"
                 ),
@@ -97,7 +97,7 @@ class Demotivator(commands.Cog):
         result = self.create_demotivator(image_bytes, top_text, bottom_text)
         file = discord.File(result, filename='demotivator.png')
         
-        embed = create_embed(
+        embed=Embed(
             title="Демотиватор создан!",
             color="GREEN"
         )

@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class Skip(commands.Cog):
@@ -19,7 +19,7 @@ class Skip(commands.Cog):
 
         if not player.playing:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Сейчас ничего не играет!",
                     color="RED"
@@ -31,7 +31,7 @@ class Skip(commands.Cog):
         state = self.music.get_voice_state(interaction.guild)
         if not state:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Не удалось получить информацию о воспроизведении!",
                     color="RED"
@@ -43,7 +43,7 @@ class Skip(commands.Cog):
         current = state.current
         if not current:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Не удалось получить информацию о текущем треке!",
                     color="RED"
@@ -55,7 +55,7 @@ class Skip(commands.Cog):
         # Пропускаем текущий трек
         await player.stop()
 
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['SKIP']} Трек пропущен",
             description=f"**[{current.title}]({current.uri})** пропущен",
             color="BLUE"

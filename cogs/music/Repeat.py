@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from enum import Enum
 
@@ -34,7 +34,7 @@ class Repeat(commands.Cog):
 
         if not player.playing:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Сейчас ничего не играет!",
                     color="RED"
@@ -46,7 +46,7 @@ class Repeat(commands.Cog):
         state = self.music.get_voice_state(interaction.guild)
         if not state:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Не удалось получить информацию о воспроизведении!",
                     color="RED"
@@ -59,7 +59,7 @@ class Repeat(commands.Cog):
         state.loop = not state.loop
         song = self.music.get_current_song(interaction.guild_id)
 
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['REPEAT']} Повтор {'включен' if state.loop else 'выключен'}",
             color="GREEN" if state.loop else "RED"
         )

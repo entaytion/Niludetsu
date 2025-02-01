@@ -1,6 +1,6 @@
 from ..utils.logging import BaseLogger
 from ..utils.emojis import EMOJIS
-from ..utils.embed import create_embed
+from ..utils.embed import Embed
 import discord
 from typing import Optional, List
 from datetime import datetime
@@ -173,3 +173,21 @@ class UserLogger(BaseLogger):
                 ],
                 thumbnail_url=after.display_avatar.url
             ) 
+
+    async def log_member_remove(self, member: discord.Member):
+        """Логирование выхода участника с сервера"""
+        fields = [
+            {"name": f"{EMOJIS['DOT']} Пользователь", "value": f"{member} ({member.mention})", "inline": True},
+            {"name": f"{EMOJIS['DOT']} ID", "value": str(member.id), "inline": True},
+            {"name": f"{EMOJIS['DOT']} Дата регистрации", "value": f"<t:{int(member.created_at.timestamp())}:F>", "inline": False},
+            {"name": f"{EMOJIS['DOT']} Дата входа", "value": f"<t:{int(member.joined_at.timestamp())}:F>", "inline": False},
+            {"name": f"{EMOJIS['DOT']} Роли", "value": ", ".join([role.mention for role in member.roles[1:]]) or "Нет", "inline": False}
+        ]
+        
+        await self.log_event(
+            title=f"{EMOJIS['ERROR']} Участник покинул сервер",
+            description=f"Пользователь покинул сервер",
+            color='RED',
+            fields=fields,
+            thumbnail_url=member.display_avatar.url
+        ) 

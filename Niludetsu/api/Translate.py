@@ -1,12 +1,14 @@
-import yaml
+import os
 from typing import Optional, Dict, List, Tuple
 from deep_translator import GoogleTranslator
+from dotenv import load_dotenv
 
 class TranslateAPI:
     def __init__(self):
-        with open('config/config.yaml', 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
-            self.detect_lang_api_key = config['apis']['language_detection']['key']
+        load_dotenv()
+        self.detect_lang_api_key = os.getenv('LANGUAGE_DETECTION_API_KEY')
+        if not self.detect_lang_api_key:
+            raise ValueError("LANGUAGE_DETECTION_API_KEY не найден в .env файле")
         
         self.languages = {
             'en': 'Английский',

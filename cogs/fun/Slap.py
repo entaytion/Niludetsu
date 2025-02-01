@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.api.Gifs import GifsAPI
 
 class Slap(commands.Cog):
@@ -13,7 +13,7 @@ class Slap(commands.Cog):
     async def slap(self, interaction: discord.Interaction, member: discord.Member):
         if member.id == interaction.user.id:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Вы не можете ударить самого себя!",
                     color="RED"
                 ),
@@ -23,7 +23,7 @@ class Slap(commands.Cog):
 
         if member.bot:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Вы не можете ударить бота!",
                     color="RED"
                 ),
@@ -32,7 +32,7 @@ class Slap(commands.Cog):
             return
 
         gif_url = self.gifs_api.get_random_gif('slap')
-        embed = create_embed(
+        embed=Embed(
             description=f"👋 {interaction.user.mention} ударил(а) {member.mention}",
             color="BLUE"
         )

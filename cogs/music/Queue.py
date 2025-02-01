@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class Queue(commands.Cog):
@@ -21,7 +21,7 @@ class Queue(commands.Cog):
 
         if not player.playing:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Сейчас ничего не играет!",
                     color="RED"
@@ -33,7 +33,7 @@ class Queue(commands.Cog):
         state = self.music.get_voice_state(interaction.guild)
         if not state:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Не удалось получить информацию об очереди!",
                     color="RED"
@@ -45,7 +45,7 @@ class Queue(commands.Cog):
         current = state.current
         if not current:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Не удалось получить информацию о текущем треке!",
                     color="RED"
@@ -55,7 +55,7 @@ class Queue(commands.Cog):
             return
 
         # Создаем эмбед с очередью
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['QUEUE']} Очередь воспроизведения",
             color="BLUE"
         )

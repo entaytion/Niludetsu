@@ -2,8 +2,8 @@ import discord
 from discord.ext import commands
 import random
 import asyncio
-from Niludetsu.utils.database import get_user, save_user
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.database import Database
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class BetView(discord.ui.View):
@@ -39,6 +39,7 @@ class BetView(discord.ui.View):
 class Casino(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.db = Database()
         self.roulette_numbers = {
             0: {"color": "🟢", "type": "zero"},
             **{i: {"color": "⬛" if i % 2 == 0 else "🟥", "type": "even" if i % 2 == 0 else "odd"}
@@ -50,7 +51,7 @@ class Casino(commands.Cog):
     async def casino(self, interaction: discord.Interaction, bet: int):
         if bet <= 0:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Ставка должна быть больше 0!",
                     color="RED"
                 ),
@@ -59,21 +60,11 @@ class Casino(commands.Cog):
             return
 
         user_id = str(interaction.user.id)
-        user_data = get_user(user_id)
-        
-        if not user_data:
-            user_data = {
-                'balance': 0,
-                'deposit': 0,
-                'xp': 0,
-                'level': 1,
-                'roles': '[]'
-            }
-            save_user(user_id, user_data)
+        user_data = await self.db.ensure_user(user_id)
 
         if user_data['balance'] < bet:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description=f"❌ У вас недостаточно средств для такой ставки!\n"
                               f"Ваш баланс: {user_data['balance']:,} {EMOJIS['MONEY']}",
                     color="RED"
@@ -84,7 +75,7 @@ class Casino(commands.Cog):
 
         # Выбор типа ставки через кнопки
         view = BetView()
-        embed = create_embed(
+        embed=Embed(
             title="🎰 Рулетка | Выбор ставки",
             description=(
                 f"**Ваша ставка:** {bet:,} {EMOJIS['MONEY']}\n\n"
@@ -104,7 +95,7 @@ class Casino(commands.Cog):
         await view.wait()
         if view.value is None:
             await interaction.edit_original_response(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Время выбора ставки истекло!",
                     color="RED"
                 ),
@@ -113,11 +104,14 @@ class Casino(commands.Cog):
             return
 
         bet_type = view.value
-        user_data['balance'] -= bet
-        save_user(user_id, user_data)
+        await self.db.update(
+            "users",
+            where={"user_id": user_id},
+            values={"balance": user_data['balance'] - bet}
+        )
 
         # Начальное сообщение
-        embed = create_embed(
+        embed=Embed(
             title="🎰 Рулетка | Запуск",
             description="🎲 Рулетка запущена...\n\n" +
                        f"**Ставка:** {bet:,} {EMOJIS['MONEY']}\n" +
@@ -177,16 +171,19 @@ class Casino(commands.Cog):
             winnings = bet * 2
 
         if winnings > 0:
-            user_data = get_user(user_id)
-            user_data['balance'] += winnings
-            save_user(user_id, user_data)
+            user_data = await self.db.get_row("users", user_id=user_id)
+            await self.db.update(
+                "users",
+                where={"user_id": user_id},
+                values={"balance": user_data['balance'] + winnings}
+            )
             result_text = f"🎉 **Поздравляем! Вы выиграли!**"
             color = "GREEN"
         else:
             result_text = "❌ **Вы проиграли!**"
             color = "RED"
 
-        final_embed = create_embed(
+        final_embed=Embed(
             title="🎰 Результаты игры в рулетку",
             description=(
                 f"**Выпало число:** {number} {result['color']}\n"

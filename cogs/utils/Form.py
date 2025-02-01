@@ -4,7 +4,7 @@ from discord import app_commands
 from discord.ui import Modal, TextInput, View, Button, Select
 import yaml
 import datetime
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class PositionSelect(Select):
@@ -134,7 +134,7 @@ class ApplicationView(View):
         
         if user:
             try:
-                embed = create_embed(
+                embed=Embed(
                     title=f"{status_emoji} Статус вашей заявки",
                     description=(
                         f"Ваша заявка на должность {self.position} была **{status}**!"
@@ -185,7 +185,7 @@ class ApplicationView(View):
 class Forms(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        with open("config/config.yaml", "r", encoding="utf-8") as f:
+        with open("data/config.yaml", "r", encoding="utf-8") as f:
             self.config = yaml.safe_load(f)
         bot.loop.create_task(self.setup_form_view())
 
@@ -200,7 +200,7 @@ class Forms(commands.Cog):
                 if channel:
                     try:
                         message = await channel.fetch_message(int(message_id))
-                        embed = create_embed(
+                        embed=Embed(
                             title="📋 Набор в команду сервера",
                             description=(
                                 "**Доступные должности:**\n\n"
@@ -261,7 +261,7 @@ class Forms(commands.Cog):
             await interaction.response.send_message("❌ Неверный формат ID канала!")
             return
 
-        embed = create_embed(
+        embed=Embed(
             title="📋 Набор в команду сервера",
             description=(
                 "**Доступные должности:**\n\n"
@@ -286,7 +286,7 @@ class Forms(commands.Cog):
             'message': str(message_id)
         })
         
-        with open('config/config.yaml', 'w', encoding='utf-8') as f:
+        with open('data/config.yaml', 'w', encoding='utf-8') as f:
             yaml.dump(self.config, f, indent=4, allow_unicode=True)
 
         await interaction.response.send_message(
@@ -302,10 +302,10 @@ class Forms(commands.Cog):
             self.config['forms'] = {}
         self.config['forms']['channel'] = str(channel.id)
         
-        with open('config/config.yaml', 'w', encoding='utf-8') as f:
+        with open('data/config.yaml', 'w', encoding='utf-8') as f:
             yaml.dump(self.config, f, indent=4, allow_unicode=True)
             
-        embed = create_embed(
+        embed=Embed(
             title="✅ Канал для заявок установлен",
             description=f"Канал {channel.mention} успешно установлен для получения заявок."
         )
@@ -323,7 +323,7 @@ class Forms(commands.Cog):
 
         application_data = {field_name: field.value for field_name, field in modal.fields.items()}
 
-        embed = create_embed(
+        embed=Embed(
             title=f"📝 Новая заявка на должность {position}",
             description=(
                 f"{EMOJIS['DOT']} **От:** {interaction.user.mention} (`{interaction.user.id}`)\n\n"
@@ -341,7 +341,7 @@ class Forms(commands.Cog):
 
         await channel.send(embed=embed, view=ApplicationView(application_data, interaction.user.id, position))
         
-        success_embed = create_embed(
+        success_embed=Embed(
             title="✅ Заявка отправлена",
             description=(
                 "Ваша заявка успешно отправлена!\n"

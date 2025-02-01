@@ -1,7 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 
@@ -27,7 +27,7 @@ class Massrole(commands.Cog):
         try:
             if not interaction.user.guild_permissions.manage_roles:
                 return await interaction.response.send_message(
-                    embed=create_embed(
+                    embed=Embed(
                         title=f"{EMOJIS['ERROR']} Ошибка прав",
                         description="У вас нет прав на управление ролями!",
                         color="RED"
@@ -37,7 +37,7 @@ class Massrole(commands.Cog):
 
             if role >= interaction.guild.me.top_role:
                 return await interaction.response.send_message(
-                    embed=create_embed(
+                    embed=Embed(
                         title=f"{EMOJIS['ERROR']} Ошибка прав",
                         description="Я не могу управлять этой ролью, так как она выше или равна моей высшей роли!",
                         color="RED"
@@ -47,7 +47,7 @@ class Massrole(commands.Cog):
 
             if action.lower() not in ['add', 'remove']:
                 return await interaction.response.send_message(
-                    embed=create_embed(
+                    embed=Embed(
                         title=f"{EMOJIS['ERROR']} Ошибка параметра",
                         description="Действие должно быть 'add' или 'remove'!",
                         color="RED"
@@ -56,7 +56,7 @@ class Massrole(commands.Cog):
                 )
 
             # Отправляем начальное сообщение о процессе
-            progress_embed = create_embed(
+            progress_embed=Embed(
                 title=f"{EMOJIS['LOADING']} Обработка ролей",
                 description=f"{'Выдаю' if action.lower() == 'add' else 'Удаляю'} роль {role.mention} всем участникам...",
                 color="YELLOW"
@@ -89,7 +89,7 @@ class Massrole(commands.Cog):
                     failed_count += 1
 
             # Создаем эмбед с результатами
-            result_embed = create_embed(
+            result_embed=Embed(
                 title=f"{EMOJIS['SUCCESS']} Обработка ролей завершена",
                 color="GREEN"
             )
@@ -131,7 +131,7 @@ class Massrole(commands.Cog):
             await interaction.edit_original_response(embed=result_embed)
 
         except discord.Forbidden:
-            error_embed = create_embed(
+            error_embed=Embed(
                 title=f"{EMOJIS['ERROR']} Ошибка прав",
                 description="У меня недостаточно прав для управления ролями!",
                 color="RED"

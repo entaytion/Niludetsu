@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 from discord.ui import Modal, TextInput, View, Button
 import yaml
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 import asyncio
 
@@ -96,7 +96,7 @@ class ReportView(View):
 
         if user:
             try:
-                embed = create_embed(
+                embed=Embed(
                     title=f"{status_emoji} Статус вашей жалобы",
                     description=f"Ваша жалоба была **{status}**!",
                     color=color
@@ -143,7 +143,7 @@ class ReportView(View):
 class Reports(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        with open("config/config.yaml", "r", encoding="utf-8") as f:
+        with open("data/config.yaml", "r", encoding="utf-8") as f:
             self.config = yaml.safe_load(f)
         bot.loop.create_task(self.setup_reports_view())
 
@@ -158,7 +158,7 @@ class Reports(commands.Cog):
                 if channel:
                     try:
                         message = await channel.fetch_message(int(message_id))
-                        embed = create_embed(
+                        embed=Embed(
                             title="⚠️ Подать жалобу",
                             description=(
                                 "**Столкнулись с нарушением правил?**\n"
@@ -205,7 +205,7 @@ class Reports(commands.Cog):
                 attachment = file_msg.attachments[0]
                 file_attachment = await attachment.to_file()
                 
-                embed = create_embed(
+                embed=Embed(
                     title=f"⚠️ Новая жалоба",
                     description=(
                         f"○ **От:** {interaction.user.mention} ({interaction.user.id})\n"
@@ -230,7 +230,7 @@ class Reports(commands.Cog):
                 )
             except asyncio.TimeoutError:
                 proof = "Файл не был предоставлен"
-                embed = create_embed(
+                embed=Embed(
                     title=f"⚠️ Новая жалоба",
                     description=(
                         f"○ **От:** {interaction.user.mention} ({interaction.user.id})\n"
@@ -243,7 +243,7 @@ class Reports(commands.Cog):
                     color=0xFF0000
                 )
         else:
-            embed = create_embed(
+            embed=Embed(
                 title=f"⚠️ Новая жалоба",
                 description=(
                     f"○ **От:** {interaction.user.mention} ({interaction.user.id})\n"
@@ -264,7 +264,7 @@ class Reports(commands.Cog):
         else:
             await channel.send(embed=embed, view=ReportView(interaction.user.id, user))
         
-        success_embed = create_embed(
+        success_embed=Embed(
             title="✅ Жалоба отправлена",
             description="Ваша жалоба успешно отправлена! Персонал рассмотрит её в ближайшее время.",
             color=0x00FF00
@@ -288,7 +288,7 @@ class Reports(commands.Cog):
 
         try:
             if action == "create":
-                embed = create_embed(
+                embed=Embed(
                     title="⚠️ Подать жалобу",
                     description=(
                         "**Столкнулись с нарушением правил?**\n"
@@ -311,10 +311,10 @@ class Reports(commands.Cog):
                     'channel': str(interaction.channel_id)
                 })
                 
-                with open('config/config.yaml', 'w', encoding='utf-8') as f:
+                with open('data/config.yaml', 'w', encoding='utf-8') as f:
                     yaml.dump(self.config, f, indent=4, allow_unicode=True)
 
-                success_embed = create_embed(
+                success_embed=Embed(
                     title="✅ Панель жалоб создана",
                     description=f"Панель жалоб успешно создана в канале {interaction.channel.mention}",
                     color=0x00FF00
@@ -325,10 +325,10 @@ class Reports(commands.Cog):
                     self.config['reports'] = {}
                 self.config['reports']['channel'] = str(interaction.channel_id)
                 
-                with open('config/config.yaml', 'w', encoding='utf-8') as f:
+                with open('data/config.yaml', 'w', encoding='utf-8') as f:
                     yaml.dump(self.config, f, indent=4, allow_unicode=True)
                     
-                embed = create_embed(
+                embed=Embed(
                     title="✅ Канал для жалоб установлен",
                     description=f"Канал {interaction.channel.mention} успешно установлен для получения жалоб."
                 )

@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 
 class CrashError(Exception):
     """Специальная ошибка для тестирования"""
@@ -14,7 +14,7 @@ class Crash(commands.Cog):
     @app_commands.command(name="crash", description="Создать тестовую ошибку для проверки логирования")
     async def crash(self, interaction: discord.Interaction):
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 description="🔨 Создаю тестовую ошибку...",
                 color="RED"
             )

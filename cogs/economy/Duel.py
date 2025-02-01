@@ -2,8 +2,8 @@ import discord
 from discord.ext import commands
 import random
 import asyncio
-from Niludetsu.utils.database import get_user, save_user
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.database import Database
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class DuelView(discord.ui.View):
@@ -24,6 +24,7 @@ class DuelView(discord.ui.View):
 class Duel(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.db = Database()
         self.weapons = {
             "🔫 Пистолет": {"dmg": (15, 25), "accuracy": 0.8, "crit": 0.2},
             "🗡️ Нож": {"dmg": (20, 30), "accuracy": 0.9, "crit": 0.3},
@@ -54,7 +55,7 @@ class Duel(commands.Cog):
     async def duel(self, interaction: discord.Interaction, member: discord.Member, bet: int):
         if member.bot:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Нельзя вызвать на дуэль бота!",
                     color="RED"
                 ),
@@ -64,7 +65,7 @@ class Duel(commands.Cog):
 
         if member.id == interaction.user.id:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Нельзя вызвать на дуэль самого себя!",
                     color="RED"
                 ),
@@ -74,7 +75,7 @@ class Duel(commands.Cog):
 
         if bet <= 0:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Ставка должна быть больше 0!",
                     color="RED"
                 ),
@@ -85,12 +86,12 @@ class Duel(commands.Cog):
         challenger_id = str(interaction.user.id)
         opponent_id = str(member.id)
 
-        challenger_data = get_user(challenger_id)
-        opponent_data = get_user(opponent_id)
+        challenger_data = await self.db.ensure_user(challenger_id)
+        opponent_data = await self.db.ensure_user(opponent_id)
 
-        if not challenger_data or challenger_data['balance'] < bet:
+        if challenger_data['balance'] < bet:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description=f"❌ У вас недостаточно средств!\n"
                               f"Ваш баланс: {challenger_data.get('balance', 0):,} {EMOJIS['MONEY']}",
                     color="RED"
@@ -99,9 +100,9 @@ class Duel(commands.Cog):
             )
             return
 
-        if not opponent_data or opponent_data['balance'] < bet:
+        if opponent_data['balance'] < bet:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description=f"❌ У {member.mention} недостаточно средств!\n"
                               f"Баланс противника: {opponent_data.get('balance', 0):,} {EMOJIS['MONEY']}",
                     color="RED"
@@ -111,7 +112,7 @@ class Duel(commands.Cog):
             return
 
         view = DuelView()
-        embed = create_embed(
+        embed=Embed(
             title="⚔️ Вызов на дуэль!",
             description=(
                 f"{interaction.user.mention} вызывает {member.mention} на дуэль!\n\n"
@@ -125,7 +126,7 @@ class Duel(commands.Cog):
         await view.wait()
         if view.value is None:
             await interaction.edit_original_response(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Время на принятие дуэли истекло!",
                     color="RED"
                 ),
@@ -134,7 +135,7 @@ class Duel(commands.Cog):
             return
         elif not view.value:
             await interaction.edit_original_response(
-                embed=create_embed(
+                embed=Embed(
                     description=f"🏳️ {member.mention} отказался от дуэли!",
                     color="RED"
                 ),
@@ -143,17 +144,23 @@ class Duel(commands.Cog):
             return
 
         # Снимаем ставки с обоих игроков
-        challenger_data['balance'] -= bet
-        opponent_data['balance'] -= bet
-        save_user(challenger_id, challenger_data)
-        save_user(opponent_id, opponent_data)
+        await self.db.update(
+            "users",
+            where={"user_id": challenger_id},
+            values={"balance": challenger_data['balance'] - bet}
+        )
+        await self.db.update(
+            "users",
+            where={"user_id": opponent_id},
+            values={"balance": opponent_data['balance'] - bet}
+        )
 
         # Начинаем дуэль
         challenger_hp = 100
         opponent_hp = 100
         round_num = 1
 
-        duel_embed = create_embed(
+        duel_embed=Embed(
             title="⚔️ Дуэль началась!",
             description=(
                 f"**{interaction.user.name}** vs **{member.name}**\n"
@@ -224,32 +231,45 @@ class Duel(commands.Cog):
 
         # Определяем победителя
         if challenger_hp <= 0 and opponent_hp <= 0:
-            winner = None
-            winner_data = None
             result_text = "🤝 **Ничья!** Оба игрока пали в бою!"
             color = "YELLOW"
+            # Возвращаем ставки обоим игрокам
+            await self.db.update(
+                "users",
+                where={"user_id": challenger_id},
+                values={"balance": challenger_data['balance']}
+            )
+            await self.db.update(
+                "users",
+                where={"user_id": opponent_id},
+                values={"balance": opponent_data['balance']}
+            )
         elif challenger_hp <= 0:
             winner = member
-            winner_data = opponent_data
+            winner_id = opponent_id
             result_text = f"🏆 Победитель: {member.mention}!"
             color = "GREEN"
         else:
             winner = interaction.user
-            winner_data = challenger_data
+            winner_id = challenger_id
             result_text = f"🏆 Победитель: {interaction.user.mention}!"
             color = "GREEN"
 
-        if winner:
-            winner_data['balance'] += bet * 2
-            save_user(str(winner.id), winner_data)
+        if challenger_hp > 0 or opponent_hp > 0:  # Если не ничья
+            winner_data = await self.db.get_row("users", user_id=winner_id)
+            await self.db.update(
+                "users",
+                where={"user_id": winner_id},
+                values={"balance": winner_data['balance'] + bet * 2}
+            )
 
-        final_embed = create_embed(
+        final_embed=Embed(
             title="⚔️ Дуэль окончена!",
             description=(
                 f"{result_text}\n\n"
                 f"❤️ {interaction.user.name}: {max(0, challenger_hp)} HP\n"
                 f"❤️ {member.name}: {max(0, opponent_hp)} HP\n\n"
-                f"💰 Выигрыш: **{bet * 2:,}** {EMOJIS['MONEY']}"
+                f"💰 Награда победителю: **{bet * 2:,}** {EMOJIS['MONEY']}"
             ),
             color=color
         )

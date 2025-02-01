@@ -4,7 +4,7 @@ from discord import app_commands
 import yaml
 import asyncio
 from datetime import datetime
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class TicketView(discord.ui.View):
@@ -14,7 +14,7 @@ class TicketView(discord.ui.View):
     @discord.ui.button(label="Создать тикет", style=discord.ButtonStyle.primary, emoji="📩", custom_id="create_ticket")
     async def create_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Загружаем конфигурацию
-        with open('config/config.yaml', 'r', encoding='utf-8') as f:
+        with open('data/config.yaml', 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
         
         with open('config/tickets.yaml', 'r', encoding='utf-8') as f:
@@ -36,7 +36,7 @@ class TicketView(discord.ui.View):
         
         if existing_ticket:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="У вас уже есть открытый тикет!"
                 ),
                 ephemeral=True
@@ -76,7 +76,7 @@ class TicketView(discord.ui.View):
             yaml.dump(ticket_data, f, default_flow_style=False, allow_unicode=True)
 
         # Отправляем сообщение в канал тикета
-        embed = create_embed(
+        embed=Embed(
             title=f"Тикет #{ticket_number}",
             description=f"Здравствуйте, {interaction.user.mention}!\nОпишите вашу проблему, и команда поддержки скоро вам поможет."
         )
@@ -90,7 +90,7 @@ class TicketView(discord.ui.View):
 
         # Отправляем подтверждение создания тикета
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 description=f"Ваш тикет #{ticket_number} создан: {channel.mention}"
             ),
             ephemeral=True
@@ -99,7 +99,7 @@ class TicketView(discord.ui.View):
         # Логируем создание тикета
         logs_channel = interaction.guild.get_channel(int(config['tickets']['logs_channel']))
         if logs_channel:
-            log_embed = create_embed(
+            log_embed=Embed(
                 title=f"Тикет #{ticket_number} создан",
                 description=f"**Пользователь:** {interaction.user.mention}\n**Канал:** {channel.mention}"
             )
@@ -140,7 +140,7 @@ class RatingView(discord.ui.View):
             yaml.dump(ticket_data, f, default_flow_style=False, allow_unicode=True)
 
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 description=f"Спасибо за оценку! Вы поставили {rating} звезд."
             ),
             ephemeral=True
@@ -153,7 +153,7 @@ class TicketControlView(discord.ui.View):
 
     @discord.ui.button(label="Закрыть", style=discord.ButtonStyle.danger, emoji="🔒", custom_id="close_ticket")
     async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
-        with open('config/config.yaml', 'r', encoding='utf-8') as f:
+        with open('data/config.yaml', 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
         
         with open('config/tickets.yaml', 'r', encoding='utf-8') as f:
@@ -163,7 +163,7 @@ class TicketControlView(discord.ui.View):
             support_role_id = int(config['tickets']['support_role'])
             if not interaction.user.get_role(support_role_id) and not interaction.user.guild_permissions.administrator:
                 return await interaction.response.send_message(
-                    embed=create_embed(
+                    embed=Embed(
                         description="У вас нет прав на закрытие тикета!"
                     ),
                     ephemeral=True
@@ -181,7 +181,7 @@ class TicketControlView(discord.ui.View):
                     yaml.dump(ticket_data, f, default_flow_style=False, allow_unicode=True)
 
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 description="Тикет будет закрыт через 5 секунд..."
             )
         )
@@ -189,7 +189,7 @@ class TicketControlView(discord.ui.View):
         # Отправляем форму оценки создателю тикета
         user = interaction.guild.get_member(ticket_info["user_id"])
         if user:
-            rating_embed = create_embed(
+            rating_embed=Embed(
                 title="Оцените качество поддержки",
                 description="Пожалуйста, оцените качество поддержки от 1 до 5"
             )
@@ -201,7 +201,7 @@ class TicketControlView(discord.ui.View):
         # Логируем закрытие тикета
         logs_channel = interaction.guild.get_channel(int(config['tickets']['logs_channel']))
         if logs_channel:
-            log_embed = create_embed(
+            log_embed=Embed(
                 title=f"Тикет #{ticket_info['number']} закрыт",
                 description=f"**Канал:** {interaction.channel.name}\n**Закрыт модератором:** {interaction.user.mention}"
             )
@@ -229,7 +229,7 @@ class AddMemberModal(discord.ui.Modal, title="Добавить участник�
             
             if not user:
                 return await interaction.response.send_message(
-                    embed=create_embed(
+                    embed=Embed(
                         description="Пользователь не найден!"
                     ),
                     ephemeral=True
@@ -251,13 +251,13 @@ class AddMemberModal(discord.ui.Modal, title="Добавить участник�
                     yaml.dump(ticket_data, f, default_flow_style=False, allow_unicode=True)
 
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description=f"Пользователь {user.mention} добавлен в тикет!"
                 )
             )
         except ValueError:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="Неверный формат ID!"
                 ),
                 ephemeral=True
@@ -276,7 +276,7 @@ class Tickets(commands.GroupCog, name="tickets"):
     @app_commands.command(name="setup", description="Настроить панель тикетов")
     @app_commands.default_permissions(administrator=True)
     async def setup(self, interaction: discord.Interaction):
-        with open('config/config.yaml', 'r', encoding='utf-8') as f:
+        with open('data/config.yaml', 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
 
         channel_id = int(config['tickets']['panel']['channel'])
@@ -284,14 +284,14 @@ class Tickets(commands.GroupCog, name="tickets"):
 
         if not channel:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="Канал для панели тикетов не найден!",
                     color='RED'
                 ),
                 ephemeral=True
             )
 
-        embed = create_embed(
+        embed=Embed(
             title="📩 Система тикетов",
             description="Нажмите на кнопку ниже, чтобы создать тикет и связаться с командой поддержки.",
             color='BLUE'
@@ -301,7 +301,7 @@ class Tickets(commands.GroupCog, name="tickets"):
         await channel.send(embed=embed, view=view)
         
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 description="Панель тикетов успешно настроена!",
                 color='GREEN'
             ),
@@ -322,7 +322,7 @@ class Tickets(commands.GroupCog, name="tickets"):
         ratings = ticket_data["ratings"].values()
         avg_rating = sum(ratings) / len(ratings) if ratings else 0
 
-        embed = create_embed(
+        embed=Embed(
             title="📊 Статистика тикетов",
             color='BLUE'
         )

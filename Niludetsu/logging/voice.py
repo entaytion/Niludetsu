@@ -1,6 +1,6 @@
 from ..utils.logging import BaseLogger, LoggingState
 from ..utils.emojis import EMOJIS
-from ..utils.embed import create_embed
+from ..utils.embed import Embed
 import discord
 from typing import Optional
 import traceback
@@ -54,7 +54,7 @@ class VoiceLogger(BaseLogger):
         
     async def log_voice_user_switch(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState) -> None:
         """Логирование перехода пользователя между каналами"""
-        embed = create_embed(
+        embed=Embed(
             title="🎤 Изменение голосового канала",
             description=f"{member.mention} сменил канал",
             fields=[

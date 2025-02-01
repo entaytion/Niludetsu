@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class Nightcore(commands.Cog):
@@ -28,7 +28,7 @@ class Nightcore(commands.Cog):
 
         if not player.playing:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Сейчас ничего не играет!",
                     color="RED"
@@ -43,14 +43,16 @@ class Nightcore(commands.Cog):
         self.set_nightcore(guild_id, enabled)
 
         # Применяем эффект
+        filters = player.filters
         if enabled:
-            await player.set_timescale(speed=1.2, pitch=1.2, rate=1)
+            filters.timescale.set(speed=1.2, pitch=1.2, rate=1.0)
         else:
-            await player.set_timescale(speed=1.0, pitch=1.0, rate=1)
+            filters.timescale.reset()
+        await player.set_filters(filters)
 
         song = self.music.get_current_song(guild_id)
 
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['EFFECT']} Эффект Nightcore",
             description=f"Эффект Nightcore **{'включен' if enabled else 'выключен'}**",
             color="GREEN" if enabled else "RED"
@@ -64,14 +66,16 @@ class Nightcore(commands.Cog):
                 inline=False
             )
 
-        embed.add_field(
-            name=f"{EMOJIS['SETTINGS']} Настройки эффекта",
-            value=(
-                f"**Скорость:** `{'120%' if enabled else '100%'}`\n"
-                f"**Тональность:** `{'120%' if enabled else '100%'}`"
-            ),
-            inline=False
-        )
+        if enabled:
+            embed.add_field(
+                name=f"{EMOJIS['SETTINGS']} Настройки эффекта",
+                value=(
+                    f"**Скорость:** `120%`\n"
+                    f"**Тональность:** `120%`\n"
+                    f"**Частота:** `100%`"
+                ),
+                inline=False
+            )
 
         embed.set_footer(text=f"{'Эффект применен' if enabled else 'Эффект отключен'} • {interaction.user}")
         await interaction.response.send_message(embed=embed)

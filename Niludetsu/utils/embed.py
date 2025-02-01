@@ -2,8 +2,10 @@
 Модуль для работы с эмбедами Discord
 """
 
+from typing import Optional, Union, List
 import discord
-from typing import Optional, Dict, Any, List, Union
+from datetime import datetime
+from .constants import Colors, Emojis
 
 # Цвета по умолчанию
 COLORS = {
@@ -16,88 +18,194 @@ COLORS = {
     'BLACK': 0x000000
 }
 
-def create_embed(
-    title: Optional[str] = None,
-    description: Optional[str] = None,
-    color: Union[str, int] = 'BLUE',
-    fields: Optional[List[Dict[str, Any]]] = None,
-    footer: Optional[Dict[str, str]] = None,
-    image_url: Optional[str] = None,
-    author: Optional[Dict[str, str]] = None,
-    url: Optional[str] = None,
-    timestamp: Optional[bool] = None,
-    thumbnail_url: Optional[str] = None
-) -> discord.Embed:
+class Embed(discord.Embed):
     """
-    Создает красивый эмбед для Discord с заданными параметрами.
-    
-    Args:
-        title: Заголовок эмбеда
-        description: Описание эмбеда
-        color: Цвет эмбеда (название или hex-код)
-        fields: Список полей эмбеда
-        footer: Футер эмбеда (текст и иконка)
-        image_url: URL изображения
-        author: Информация об авторе
-        url: URL для заголовка
-        timestamp: Добавить временную метку
-        thumbnail_url: URL миниатюры
-    
-    Returns:
-        discord.Embed: Готовый эмбед
+    Утилита для создания красивых эмбедов с предустановленными стилями
     """
-    try:
-        # Если color это строка, пытаемся получить цвет из COLORS
+    
+    def __init__(
+        self,
+        title: str = None,
+        description: str = None,
+        color: Union[int, str] = Colors.PRIMARY,
+        fields: Optional[List[dict]] = None,
+        footer: Optional[dict] = None,
+        image_url: Optional[str] = None,
+        author: Optional[dict] = None,
+        url: Optional[str] = None,
+        timestamp: Optional[bool] = None,
+        thumbnail_url: Optional[str] = None,
+        **kwargs
+    ):
+        """Инициализация эмбеда"""
+        # Если цвет передан как строка, конвертируем его
         if isinstance(color, str):
-            color = COLORS.get(color.upper(), COLORS['DEFAULT'])
+            color = getattr(Colors, color.upper(), Colors.PRIMARY)
             
-        embed = discord.Embed(
+        # Инициализируем родительский класс
+        super().__init__(
             title=title,
             description=description,
-            colour=discord.Colour(color)
+            color=color,
+            url=url,
+            timestamp=datetime.utcnow() if timestamp else None,
+            **kwargs
         )
         
+        # Добавляем дополнительные поля
         if fields:
             for field in fields:
-                if not all(key in field for key in ['name', 'value']):
-                    continue
-                embed.add_field(
-                    name=field['name'],
-                    value=field['value'], 
-                    inline=field.get('inline', False)
-                )
+                self.add_field(**field)
                 
         if footer:
-            if isinstance(footer, dict):
-                embed.set_footer(
-                    text=footer.get('text', ''),
-                    icon_url=footer.get('icon_url', '')
-                )
-                
-        if image_url:
-            embed.set_image(url=image_url)
+            self.set_footer(**footer)
             
         if thumbnail_url:
-            embed.set_thumbnail(url=thumbnail_url)
+            self.set_thumbnail(url=thumbnail_url)
             
-        if author and isinstance(author, dict):
-            embed.set_author(
-                name=author.get('name'),
-                icon_url=author.get('icon_url'),
-                url=author.get('url')
-            )
+        if image_url:
+            self.set_image(url=image_url)
             
-        if url:
-            embed.url = url
-            
-        if timestamp:
-            embed.timestamp = discord.utils.utcnow()
-            
-        return embed
-        
-    except Exception as e:
-        print(f"⚠️ Ошибка при создании эмбеда: {str(e)}")
-        return discord.Embed(
-            description="Ошибка при создании эмбеда",
-            colour=discord.Colour(COLORS['RED'])
-        ) 
+        if author:
+            self.set_author(**author)
+    
+    @staticmethod
+    def default(
+        title: str = None,
+        description: str = None,
+        color: int = Colors.PRIMARY,
+        fields: Optional[List[dict]] = None,
+        footer: Optional[dict] = None,
+        image_url: Optional[str] = None,
+        author: Optional[dict] = None,
+        url: Optional[str] = None,
+        timestamp: Optional[bool] = None,
+        thumbnail_url: Optional[str] = None,
+        **kwargs
+    ) -> discord.Embed:
+        """Создает стандартный эмбед с заданными параметрами"""
+        return Embed(
+            title=title,
+            description=description,
+            color=color,
+            fields=fields,
+            footer=footer,
+            image_url=image_url,
+            author=author,
+            url=url,
+            timestamp=timestamp,
+            thumbnail_url=thumbnail_url,
+            **kwargs
+        )
+    
+    @staticmethod
+    def success(
+        title: str = "Успешно!",
+        description: str = None,
+        fields: Optional[List[dict]] = None,
+        footer: Optional[dict] = None,
+        image_url: Optional[str] = None,
+        author: Optional[dict] = None,
+        url: Optional[str] = None,
+        timestamp: Optional[bool] = None,
+        thumbnail_url: Optional[str] = None,
+        **kwargs
+    ) -> discord.Embed:
+        """Создает эмбед успешного действия"""
+        return Embed(
+            title=f"{Emojis.SUCCESS} {title}",
+            description=description,
+            color=Colors.SUCCESS,
+            fields=fields,
+            footer=footer,
+            image_url=image_url,
+            author=author,
+            url=url,
+            timestamp=timestamp,
+            thumbnail_url=thumbnail_url,
+            **kwargs
+        )
+    
+    @staticmethod
+    def error(
+        title: str = "Ошибка!",
+        description: str = None,
+        fields: Optional[List[dict]] = None,
+        footer: Optional[dict] = None,
+        image_url: Optional[str] = None,
+        author: Optional[dict] = None,
+        url: Optional[str] = None,
+        timestamp: Optional[bool] = None,
+        thumbnail_url: Optional[str] = None,
+        **kwargs
+    ) -> discord.Embed:
+        """Создает эмбед ошибки"""
+        return Embed(
+            title=f"{Emojis.ERROR} {title}",
+            description=description,
+            color=Colors.ERROR,
+            fields=fields,
+            footer=footer,
+            image_url=image_url,
+            author=author,
+            url=url,
+            timestamp=timestamp,
+            thumbnail_url=thumbnail_url,
+            **kwargs
+        )
+    
+    @staticmethod
+    def warning(
+        title: str = "Предупреждение.",
+        description: str = None,
+        fields: Optional[List[dict]] = None,
+        footer: Optional[dict] = None,
+        image_url: Optional[str] = None,
+        author: Optional[dict] = None,
+        url: Optional[str] = None,
+        timestamp: Optional[bool] = None,
+        thumbnail_url: Optional[str] = None,
+        **kwargs
+    ) -> discord.Embed:
+        """Создает эмбед предупреждения"""
+        return Embed(
+            title=f"{Emojis.WARNING} {title}",
+            description=description,
+            color=Colors.WARNING,
+            fields=fields,
+            footer=footer,
+            image_url=image_url,
+            author=author,
+            url=url,
+            timestamp=timestamp,
+            thumbnail_url=thumbnail_url,
+            **kwargs
+        )
+    
+    @staticmethod
+    def info(
+        title: str = "Информация.",
+        description: str = None,
+        fields: Optional[List[dict]] = None,
+        footer: Optional[dict] = None,
+        image_url: Optional[str] = None,
+        author: Optional[dict] = None,
+        url: Optional[str] = None,
+        timestamp: Optional[bool] = None,
+        thumbnail_url: Optional[str] = None,
+        **kwargs
+    ) -> discord.Embed:
+        """Создает информационный эмбед"""
+        return Embed(
+            title=f"{Emojis.INFO} {title}",
+            description=description,
+            color=Colors.INFO,
+            fields=fields,
+            footer=footer,
+            image_url=image_url,
+            author=author,
+            url=url,
+            timestamp=timestamp,
+            thumbnail_url=thumbnail_url,
+            **kwargs
+        )

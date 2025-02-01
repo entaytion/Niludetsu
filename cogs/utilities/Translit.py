@@ -1,7 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class Translit(commands.Cog):
@@ -101,7 +101,7 @@ class Translit(commands.Cog):
     @app_commands.describe(text="Текст для транслитерации")
     async def translit(self, interaction: discord.Interaction, text: str):
         translated = self.transliterate(text)
-        embed = create_embed(
+        embed=Embed(
             title="🔄 Транслитерация"
         )
         embed.add_field(
@@ -120,7 +120,7 @@ class Translit(commands.Cog):
     @app_commands.describe(text="Текст для исправления")
     async def keyboard(self, interaction: discord.Interaction, text: str):
         fixed = self.fix_layout(text)
-        embed = create_embed(
+        embed=Embed(
             title="⌨️ Исправление раскладки"
         )
         embed.add_field(

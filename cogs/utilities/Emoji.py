@@ -5,7 +5,7 @@ import aiohttp
 import io
 import zipfile
 from typing import Optional
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class Emoji(commands.Cog):
@@ -36,7 +36,7 @@ class Emoji(commands.Cog):
             zip_buffer.seek(0)
             file = discord.File(zip_buffer, filename=f"all_emojis.zip")
             
-            embed = create_embed(
+            embed=Embed(
                 title="📥 Скачивание эмодзи",
                 description=f"{EMOJIS['DOT']} **Статус:** Успешно\n"
                           f"{EMOJIS['DOT']} **Количество:** `{len(interaction.guild.emojis)}`\n"
@@ -61,7 +61,7 @@ class Emoji(commands.Cog):
                         extension = '.gif' if emoji_obj.animated else '.png'
                         file = discord.File(io.BytesIO(image_data), filename=f"{emoji_obj.name}{extension}")
                         
-                        embed = create_embed(
+                        embed=Embed(
                             title="📥 Скачивание эмодзи",
                             description=f"{EMOJIS['DOT']} **Статус:** Успешно\n"
                                       f"{EMOJIS['DOT']} **Имя:** `{emoji_obj.name}`\n"
@@ -72,7 +72,7 @@ class Emoji(commands.Cog):
                         raise ValueError("Не удалось скачать эмодзи")
 
         except (ValueError, AttributeError) as e:
-            embed = create_embed(
+            embed=Embed(
                 title="❌ Ошибка",
                 description=str(e) if str(e) != "Эмодзи не найдено" else "Не удалось найти указанное эмодзи",
                 color=0xe74c3c
@@ -124,13 +124,13 @@ class Emoji(commands.Cog):
             if failed_downloads:
                 description.append(f"{EMOJIS['DOT']} **Не удалось:** {', '.join(f'`{name}`' for name in failed_downloads)}")
             
-            embed = create_embed(
+            embed=Embed(
                 title="📥 Скачивание эмодзи",
                 description="\n".join(description)
             )
             await interaction.followup.send(embed=embed, file=file)
         else:
-            embed = create_embed(
+            embed=Embed(
                 title="❌ Ошибка",
                 description="Не удалось найти или скачать указанные эмодзи",
                 color=0xe74c3c
@@ -156,7 +156,7 @@ class Emoji(commands.Cog):
         zip_buffer.seek(0)
         file = discord.File(zip_buffer, filename=f"all_emojis.zip")
         
-        embed = create_embed(
+        embed=Embed(
             title="📥 Скачивание эмодзи",
             description=f"{EMOJIS['DOT']} **Статус:** Успешно\n"
                       f"{EMOJIS['DOT']} **Количество:** `{len(interaction.guild.emojis)}`\n"

@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from typing import Optional
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 
@@ -27,7 +27,7 @@ class Unlock(commands.Cog):
     ):
         if not interaction.user.guild_permissions.manage_channels:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description="У вас нет прав на управление каналами!",
                     color="RED"
@@ -39,7 +39,7 @@ class Unlock(commands.Cog):
             failed_count = 0
             failed_channels = []
             
-            progress_embed = create_embed(
+            progress_embed=Embed(
                 title=f"{EMOJIS['LOADING']} Разблокировка каналов",
                 description="Идет процесс разблокировки всех каналов...",
                 color="YELLOW"
@@ -57,7 +57,7 @@ class Unlock(commands.Cog):
                     failed_count += 1
                     failed_channels.append(ch.mention)
             
-            result_embed = create_embed(
+            result_embed=Embed(
                 title=f"{EMOJIS['UNLOCK']} Массовая разблокировка завершена",
                 color="GREEN"
             )
@@ -90,7 +90,7 @@ class Unlock(commands.Cog):
             overwrites.send_messages = None
             await target_channel.set_permissions(interaction.guild.default_role, overwrite=overwrites)
             
-            unlock_embed = create_embed(
+            unlock_embed=Embed(
                 title=f"{EMOJIS['UNLOCK']} Канал разблокирован",
                 color="GREEN"
             )

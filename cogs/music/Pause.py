@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class Pause(commands.Cog):
@@ -19,7 +19,7 @@ class Pause(commands.Cog):
 
         if not player.playing:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Сейчас ничего не играет!",
                     color="RED"
@@ -30,7 +30,7 @@ class Pause(commands.Cog):
 
         if player.paused:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Музыка уже на паузе!",
                     color="RED"
@@ -39,10 +39,10 @@ class Pause(commands.Cog):
             )
             return
 
-        await player.pause()
+        await player.pause(True)
         song = self.music.get_current_song(interaction.guild_id)
 
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['PAUSE']} Пауза",
             description=f"**[{song.title}]({song.uri})** поставлен на паузу",
             color="YELLOW"

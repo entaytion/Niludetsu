@@ -1,12 +1,13 @@
 import discord
 from discord.ext import commands
-from Niludetsu.utils.embed import create_embed
-from Niludetsu.utils.database import get_user
+from Niludetsu.utils.embed import Embed
+from Niludetsu.database import Database
 from Niludetsu.api.Gifs import GifsAPI
 
 class Sex(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.db = Database()
         self.gifs_api = GifsAPI()
 
     @discord.app_commands.command(name="sex", description="Заняться любовью с супругом")
@@ -14,7 +15,7 @@ class Sex(commands.Cog):
     async def sex(self, interaction: discord.Interaction, member: discord.Member):
         if member.id == interaction.user.id:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Вы не можете заняться любовью с самим собой!",
                     color="RED"
                 ),
@@ -24,7 +25,7 @@ class Sex(commands.Cog):
 
         if member.bot:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Вы не можете заняться любовью с ботом!",
                     color="RED"
                 ),
@@ -33,12 +34,12 @@ class Sex(commands.Cog):
             return
 
         # Проверяем брак
-        user_data = get_user(str(interaction.user.id))
-        target_data = get_user(str(member.id))
+        user_data = await self.db.get_row("users", user_id=str(interaction.user.id))
+        target_data = await self.db.get_row("users", user_id=str(member.id))
 
         if not user_data or not user_data.get('spouse'):
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Вы должны состоять в браке чтобы заниматься любовью!",
                     color="RED"
                 ),
@@ -49,7 +50,7 @@ class Sex(commands.Cog):
         if str(member.id) != user_data['spouse']:
             spouse = interaction.guild.get_member(int(user_data['spouse']))
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description=f"❌ Вы можете заниматься любовью только со своим супругом ({spouse.mention if spouse else 'партнером'})!",
                     color="RED"
                 ),
@@ -58,7 +59,7 @@ class Sex(commands.Cog):
             return
 
         gif_url = self.gifs_api.get_random_gif('sex')
-        embed = create_embed(
+        embed=Embed(
             description=f"💕 {interaction.user.mention} занимается любовью с {member.mention}",
             color="BLUE"
         )

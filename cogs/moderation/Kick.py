@@ -1,13 +1,13 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 import yaml
 
 # Загрузка конфигурации
-CONFIG_FILE = 'config/config.yaml'
+CONFIG_FILE = 'data/config.yaml'
 with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
     config = yaml.safe_load(f)
 
@@ -23,7 +23,7 @@ class UndoKickButton(discord.ui.Button):
         try:
             if not await has_mod_role()(interaction):
                 return await interaction.response.send_message(
-                    embed=create_embed(
+                    embed=Embed(
                         title=f"{EMOJIS['ERROR']} Ошибка прав",
                         description="У вас недостаточно прав для отмены кика!",
                         color="RED"
@@ -39,7 +39,7 @@ class UndoKickButton(discord.ui.Button):
             )
             
             try:
-                dm_embed = create_embed(
+                dm_embed=Embed(
                     title=f"{EMOJIS['INVITE']} Приглашение на сервер",
                     description=f"Модератор {interaction.user.mention} отменил ваш кик.\nВы можете вернуться на сервер по этой ссылке: {invite.url}",
                     color="GREEN"
@@ -49,7 +49,7 @@ class UndoKickButton(discord.ui.Button):
             except discord.Forbidden:
                 dm_sent = False
 
-            undo_embed = create_embed(
+            undo_embed=Embed(
                 title=f"{EMOJIS['SUCCESS']} Кик отменён",
                 color="GREEN"
             )
@@ -75,7 +75,7 @@ class UndoKickButton(discord.ui.Button):
             
         except discord.NotFound:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Пользователь не найден!",
                     color="RED"
@@ -84,7 +84,7 @@ class UndoKickButton(discord.ui.Button):
             )
         except discord.Forbidden:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description="У меня недостаточно прав для создания приглашения!",
                     color="RED"
@@ -118,7 +118,7 @@ class Kick(commands.Cog):
     ):
         if user.id == interaction.user.id:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Вы не можете кикнуть самого себя!",
                     color="RED"
@@ -128,7 +128,7 @@ class Kick(commands.Cog):
 
         if user.id == self.bot.user.id:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Я не могу кикнуть самого себя!",
                     color="RED"
@@ -138,7 +138,7 @@ class Kick(commands.Cog):
 
         if user.top_role >= interaction.user.top_role:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Вы не можете кикнуть участника с ролью выше или равной вашей!",
                     color="RED"
@@ -147,7 +147,7 @@ class Kick(commands.Cog):
             )
 
         try:
-            kick_embed = create_embed(
+            kick_embed=Embed(
                 title=f"{EMOJIS['KICK']} Кик пользователя",
                 color="YELLOW"
             )
@@ -171,7 +171,7 @@ class Kick(commands.Cog):
             kick_embed.set_footer(text=f"ID пользователя: {user.id}")
             
             try:
-                dm_embed = create_embed(
+                dm_embed=Embed(
                     title=f"{EMOJIS['KICK']} Вы были кикнуты",
                     color="YELLOW"
                 )
@@ -199,7 +199,7 @@ class Kick(commands.Cog):
             
         except discord.Forbidden:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description=f"У меня недостаточно прав для кика {user.mention}!",
                     color="RED"

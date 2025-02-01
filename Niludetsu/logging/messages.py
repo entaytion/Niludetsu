@@ -14,9 +14,15 @@ class MessageLogger(BaseLogger):
             
         fields = [
             {"name": f"{EMOJIS['DOT']} Автор", "value": message.author.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Канал", "value": message.channel.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} ID сообщения", "value": str(message.id), "inline": True}
         ]
+        
+        # Добавляем информацию о канале в зависимости от его типа
+        if isinstance(message.channel, discord.DMChannel):
+            fields.append({"name": f"{EMOJIS['DOT']} Канал", "value": f"Личные сообщения с {message.channel.recipient}", "inline": True})
+        else:
+            fields.append({"name": f"{EMOJIS['DOT']} Канал", "value": message.channel.mention, "inline": True})
+            
+        fields.append({"name": f"{EMOJIS['DOT']} ID сообщения", "value": str(message.id), "inline": True})
         
         if message.content:
             fields.append({"name": f"{EMOJIS['DOT']} Содержание", "value": message.content[:1024], "inline": False})
@@ -27,7 +33,7 @@ class MessageLogger(BaseLogger):
             
         await self.log_event(
             title=f"{EMOJIS['ERROR']} Сообщение удалено",
-            description=f"Удалено сообщение в канале {message.channel.mention}",
+            description=f"Удалено сообщение {'в личных сообщениях' if isinstance(message.channel, discord.DMChannel) else f'в канале {message.channel.mention}'}",
             color='RED',
             fields=fields
         )
@@ -88,17 +94,27 @@ class MessageLogger(BaseLogger):
         if before.content == after.content:
             return
             
+        # Базовые поля
         fields = [
             {"name": f"{EMOJIS['DOT']} Автор", "value": after.author.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Канал", "value": after.channel.mention, "inline": True},
+        ]
+        
+        # Добавляем информацию о канале в зависимости от его типа
+        if isinstance(after.channel, discord.DMChannel):
+            fields.append({"name": f"{EMOJIS['DOT']} Канал", "value": f"Личные сообщения с {after.channel.recipient}", "inline": True})
+        else:
+            fields.append({"name": f"{EMOJIS['DOT']} Канал", "value": after.channel.mention, "inline": True})
+            
+        # Добавляем остальные поля
+        fields.extend([
             {"name": f"{EMOJIS['DOT']} Ссылка", "value": f"[Перейти]({after.jump_url})", "inline": True},
             {"name": f"{EMOJIS['DOT']} Старое содержание", "value": before.content[:1024] or "Пусто", "inline": False},
             {"name": f"{EMOJIS['DOT']} Новое содержание", "value": after.content[:1024] or "Пусто", "inline": False}
-        ]
+        ])
         
         await self.log_event(
             title=f"{EMOJIS['INFO']} Сообщение отредактировано",
-            description=f"Отредактировано сообщение в канале {after.channel.mention}",
+            description=f"Отредактировано сообщение {'в личных сообщениях' if isinstance(after.channel, discord.DMChannel) else f'в канале {after.channel.mention}'}",
             color='BLUE',
             fields=fields
         )

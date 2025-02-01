@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 from discord.ui import Modal, TextInput, View, Button
 import yaml
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class ReasonModal(Modal):
@@ -81,7 +81,7 @@ class IdeaView(View):
 
         if user:
             try:
-                embed = create_embed(
+                embed=Embed(
                     title=f"{status_emoji} Статус вашей идеи",
                     description=f"Ваша идея была **{status}**!",
                     color=color,
@@ -129,7 +129,7 @@ class IdeaView(View):
 class Ideas(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        with open("config/config.yaml", "r", encoding="utf-8") as f:
+        with open("data/config.yaml", "r", encoding="utf-8") as f:
             self.config = yaml.safe_load(f)
         bot.loop.create_task(self.setup_ideas_view())
 
@@ -144,7 +144,7 @@ class Ideas(commands.Cog):
                 if channel:
                     try:
                         message = await channel.fetch_message(int(message_id))
-                        embed = create_embed(
+                        embed=Embed(
                             title="💡 Предложить идею",
                             description=(
                                 "**Есть идея по улучшению сервера?**\n"
@@ -177,7 +177,7 @@ class Ideas(commands.Cog):
             await interaction.response.send_message("❌ Канал для идей не найден!")
             return
 
-        embed = create_embed(
+        embed=Embed(
             title=f"💡 Новая идея: {title}",
             description=(
                 f"{EMOJIS['DOT']} **От:** {interaction.user.mention} (`{interaction.user.id}`)\n\n"
@@ -191,7 +191,7 @@ class Ideas(commands.Cog):
 
         await channel.send(embed=embed, view=IdeaView(interaction.user.id))
 
-        success_embed = create_embed(
+        success_embed=Embed(
             title="✅ Идея отправлена",
             description="Ваша идея успешно отправлена!\nОжидайте ответа от администрации.",
             color=0x00FF00
@@ -230,7 +230,7 @@ class Ideas(commands.Cog):
             await interaction.response.send_message("❌ Неверный формат ID канала!")
             return
 
-        embed = create_embed(
+        embed=Embed(
             title="💡 Предложить идею",
             description=(
                 "**Есть идея по улучшению сервера?**\n"
@@ -252,10 +252,10 @@ class Ideas(commands.Cog):
             'message': str(message_id)
         })
 
-        with open("config/config.yaml", "w", encoding='utf-8') as f:
+        with open("data/config.yaml", "w", encoding='utf-8') as f:
             yaml.dump(self.config, f, indent=4, allow_unicode=True)
 
-        success_embed = create_embed(
+        success_embed=Embed(
             title="✅ Панель идей создана",
             description=(
                 f"📝 ID сообщения: `{message_id}`\n"
@@ -272,10 +272,10 @@ class Ideas(commands.Cog):
             self.config['ideas'] = {}
         self.config['ideas']['channel'] = str(channel.id)
 
-        with open("config/config.yaml", "w", encoding='utf-8') as f:
+        with open("data/config.yaml", "w", encoding='utf-8') as f:
             yaml.dump(self.config, f, indent=4, allow_unicode=True)
 
-        embed = create_embed(
+        embed=Embed(
             title="✅ Канал для идей установлен",
             description=f"Канал {channel.mention} успешно установлен для получения идей.",
         )

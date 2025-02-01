@@ -4,7 +4,7 @@ from discord.ext import commands
 from typing import Optional
 from datetime import datetime, timedelta
 import asyncio
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 
@@ -30,7 +30,7 @@ class Mute(commands.Cog):
     ):
         if not interaction.user.guild_permissions.moderate_members:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description="У вас нет прав на управление мутами участников!",
                     color="RED"
@@ -40,7 +40,7 @@ class Mute(commands.Cog):
 
         if member.top_role >= interaction.user.top_role:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description="Вы не можете замутить участника с ролью выше или равной вашей!",
                     color="RED"
@@ -72,7 +72,7 @@ class Mute(commands.Cog):
 
         except ValueError:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка формата",
                     description="Неверный формат длительности! Используйте: 30s, 5m, 2h, 1d",
                     color="RED"
@@ -83,7 +83,7 @@ class Mute(commands.Cog):
         # Проверяем, не замучен ли уже участник
         if member.id in self.muted_users:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description=f"Участник {member.mention} уже замучен!",
                     color="RED"
@@ -94,7 +94,7 @@ class Mute(commands.Cog):
         end_time = datetime.utcnow() + timedelta(seconds=duration_seconds)
         
         # Отправляем сообщение о начале мута
-        progress_embed = create_embed(
+        progress_embed=Embed(
             title=f"{EMOJIS['LOADING']} Применение мута",
             description=f"Применяю мут для {member.mention}...",
             color="YELLOW"
@@ -109,7 +109,7 @@ class Mute(commands.Cog):
             self.muted_users[member.id] = end_time
 
             # Создаем эмбед с информацией о муте
-            mute_embed = create_embed(
+            mute_embed=Embed(
                 title=f"{EMOJIS['MUTE']} Участник замучен",
                 color="RED"
             )
@@ -142,7 +142,7 @@ class Mute(commands.Cog):
             # Отправляем уведомление участнику
             try:
                 await member.send(
-                    embed=create_embed(
+                    embed=Embed(
                         title=f"{EMOJIS['MUTE']} Вы получили мут",
                         description=(
                             f"**Сервер:** {interaction.guild.name}\n"
@@ -162,7 +162,7 @@ class Mute(commands.Cog):
 
         except discord.Forbidden:
             await interaction.edit_original_response(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description="У меня недостаточно прав для мута участников!",
                     color="RED"
@@ -179,7 +179,7 @@ class Mute(commands.Cog):
                 # Отправляем уведомление участнику
                 try:
                     await member.send(
-                        embed=create_embed(
+                        embed=Embed(
                             title=f"{EMOJIS['SUCCESS']} Мут снят",
                             description=f"Ваш мут на сервере {guild.name} был автоматически снят.",
                             color="GREEN"

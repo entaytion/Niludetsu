@@ -6,7 +6,7 @@ import yaml
 import asyncio
 from .decorators import load_config
 from ..utils.config_loader import bot_state
-from ..utils.embed import create_embed
+from ..utils.embed import Embed
 
 class LoggingState:
     """Глобальное состояние системы логирования"""
@@ -81,7 +81,7 @@ class BaseLogger:
             if not LoggingState.initialized or not LoggingState.log_channel:
                 return
 
-            embed = create_embed(
+            embed=Embed(
                 title=title,
                 description=description,
                 color=color,
@@ -130,7 +130,7 @@ class Logger(BaseLogger):
                 LoggingState.initialized_loggers.append(logger_name)
                 
             if len(LoggingState.initialized_loggers) == 15:  # Общее количество логгеров
-                embed = create_embed(
+                embed=Embed(
                     title="✅ Система логирования активирована",
                     description="Инициализированы следующие логгеры:\n" + 
                               "\n".join([f"• {name}" for name in LoggingState.initialized_loggers]),

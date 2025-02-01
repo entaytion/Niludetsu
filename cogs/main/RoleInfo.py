@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 from datetime import datetime
 from typing import Optional
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class RoleInfo(commands.Cog):
@@ -14,7 +14,7 @@ class RoleInfo(commands.Cog):
     @app_commands.describe(role="Роль, о которой вы хотите узнать информацию")
     async def roleinfo(self, interaction: discord.Interaction, role: discord.Role):
         # Создаем базовый эмбед
-        embed = create_embed(
+        embed=Embed(
             title=f"Информация о роли {role.name}",
             color=role.color.value if role.color != discord.Color.default() else 0x2b2d31
         )

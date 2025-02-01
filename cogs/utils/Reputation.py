@@ -1,8 +1,8 @@
 import discord
 from discord.ext import commands
-from Niludetsu.utils.database import get_user, save_user, DB_PATH
-from Niludetsu.utils.embed import create_embed
-import sqlite3
+from Niludetsu.database import Database
+from Niludetsu.utils.embed import Embed
+import asyncio
 
 POSITIVE_TRIGGERS = ['плюс', 'согл', 'спс', 'спасибо', 'сяп', 'сенкс', 'thanks', 'thx', '👍', '❤️']
 NEGATIVE_TRIGGERS = ['минус', 'не согл', 'нет', 'неа', '👎'] 
@@ -10,16 +10,24 @@ NEGATIVE_TRIGGERS = ['минус', 'не согл', 'нет', 'неа', '👎']
 class Reputation(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.initialize_reputation_column()
+        self.db = Database()
+        asyncio.create_task(self._initialize())
         
-    def initialize_reputation_column(self):
-        with sqlite3.connect(DB_PATH) as conn:
-            cursor = conn.cursor()
-            cursor.execute("PRAGMA table_info(users)")
-            columns = [column[1] for column in cursor.fetchall()]
-            if 'reputation' not in columns:
-                cursor.execute('ALTER TABLE users ADD COLUMN reputation INTEGER DEFAULT 0')
-                conn.commit()
+    async def _initialize(self):
+        """Асинхронная инициализация"""
+        await self.db.init()
+        await self.initialize_reputation_column()
+        
+    async def initialize_reputation_column(self):
+        """Инициализация колонки репутации"""
+        # Проверяем наличие колонки reputation
+        result = await self.db.fetch_all("PRAGMA table_info(users)")
+        if not result:
+            return
+            
+        columns = [row['name'] for row in result]
+        if 'reputation' not in columns:
+            await self.db.execute('ALTER TABLE users ADD COLUMN reputation INTEGER DEFAULT 0')
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -48,41 +56,58 @@ class Reputation(commands.Cog):
             if not is_positive and not is_negative:
                 return
 
-            target_user = get_user(self.bot, str(referenced_message.author.id))
-            if target_user is None:
-                return
+            # Получаем данные пользователя
+            target_user_id = str(referenced_message.author.id)
+            user_data = await self.db.get_row("users", user_id=target_user_id)
             
-            # Обновление репутации в БД напрямую
-            with sqlite3.connect(DB_PATH) as conn:
-                cursor = conn.cursor()
-                if is_positive:
-                    cursor.execute(
-                        "UPDATE users SET reputation = reputation + 1 WHERE user_id = ?",
-                        (str(referenced_message.author.id),)
-                    )
-                    await message.add_reaction('⬆️')
-                    cursor.execute("SELECT reputation FROM users WHERE user_id = ?", 
-                                 (str(referenced_message.author.id),))
-                    new_rep = cursor.fetchone()[0]
-                    embed = create_embed(
-                        description=f"{message.author.mention} повысил репутацию {referenced_message.author.mention}\nРепутация: {new_rep}",
-                        image_url="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcDd6ZWF1Y2E3OGE4MWF2NmF1NXJ5Y2RxbWF4Z2t0bG95aWsyeGpmbiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/dMsh6gRYJDymXSIatd/giphy.gif"
-                    )
-                elif is_negative:
-                    cursor.execute(
-                        "UPDATE users SET reputation = reputation - 1 WHERE user_id = ?",
-                        (str(referenced_message.author.id),)
-                    )
-                    await message.add_reaction('⬇️')
-                    cursor.execute("SELECT reputation FROM users WHERE user_id = ?",
-                                 (str(referenced_message.author.id),))
-                    new_rep = cursor.fetchone()[0]
-                    embed = create_embed(
-                        description=f"{message.author.mention} понизил репутацию {referenced_message.author.mention}\nРепутация: {new_rep}",
-                        image_url="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmZ5ZWN0Y2RqbWd2bXd1NXBxYnBxaWQ2aHdqbDV1ZWx1ZWxqd2JxdyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3oEjHAUOqG3lSS0f1C/giphy.gif"
-                    )
-                conn.commit()
-                await message.channel.send(embed=embed)
+            if user_data is None:
+                # Создаем запись для пользователя если её нет
+                user_data = await self.db.insert("users", {
+                    'user_id': target_user_id,
+                    'reputation': 0,
+                    'balance': 0,
+                    'deposit': 0,
+                    'xp': 0,
+                    'level': 1
+                })
+            
+            # Обновляем репутацию
+            if is_positive:
+                await self.db.execute(
+                    "UPDATE users SET reputation = reputation + 1 WHERE user_id = ?",
+                    (target_user_id,)
+                )
+                await message.add_reaction('⬆️')
+                
+                result = await self.db.execute(
+                    "SELECT reputation FROM users WHERE user_id = ?", 
+                    (target_user_id,)
+                )
+                new_rep = result[0][0] if result else 0
+                
+                embed=Embed(
+                    description=f"{message.author.mention} повысил репутацию {referenced_message.author.mention}\nРепутация: {new_rep}",
+                    image_url="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcDd6ZWF1Y2E3OGE4MWF2NmF1NXJ5Y2RxbWF4Z2t0bG95aWsyeGpmbiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/dMsh6gRYJDymXSIatd/giphy.gif"
+                )
+            elif is_negative:
+                await self.db.execute(
+                    "UPDATE users SET reputation = reputation - 1 WHERE user_id = ?",
+                    (target_user_id,)
+                )
+                await message.add_reaction('⬇️')
+                
+                result = await self.db.execute(
+                    "SELECT reputation FROM users WHERE user_id = ?",
+                    (target_user_id,)
+                )
+                new_rep = result[0][0] if result else 0
+                
+                embed=Embed(
+                    description=f"{message.author.mention} понизил репутацию {referenced_message.author.mention}\nРепутация: {new_rep}",
+                    image_url="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmZ5ZWN0Y2RqbWd2bXd1NXBxYnBxaWQ2aHdqbDV1ZWx1ZWxqd2JxdyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3oEjHAUOqG3lSS0f1C/giphy.gif"
+                )
+                
+            await message.channel.send(embed=embed)
 
         except Exception as e:
             print(f"Error in reputation system: {e}")

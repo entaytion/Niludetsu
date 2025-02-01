@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 import random
 
 class RPS(commands.Cog):
@@ -24,7 +24,7 @@ class RPS(commands.Cog):
         choice = choice.lower()
         if choice not in choices:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="Выберите: камень, ножницы или бумага!",
                     color="RED"
                 ),
@@ -52,7 +52,7 @@ class RPS(commands.Cog):
                 color = "RED"
                 
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title="🎮 Камень-Ножницы-Бумага",
                     description=f"**Ваш выбор:** {choices[choice]} {choice}\n"
                               f"**Выбор бота:** {choices[bot_choice]} {bot_choice}\n\n"
@@ -64,7 +64,7 @@ class RPS(commands.Cog):
             # Игра против участника
             if opponent.bot:
                 await interaction.response.send_message(
-                    embed=create_embed(
+                    embed=Embed(
                         description="Вы не можете играть с ботами!",
                         color="RED"
                     ),
@@ -74,7 +74,7 @@ class RPS(commands.Cog):
 
             if opponent.id == interaction.user.id:
                 await interaction.response.send_message(
-                    embed=create_embed(
+                    embed=Embed(
                         description="Вы не можете играть сами с собой!",
                         color="RED"
                     ),
@@ -85,7 +85,7 @@ class RPS(commands.Cog):
             game_id = f"{interaction.user.id}-{opponent.id}"
             if game_id in self.active_games:
                 await interaction.response.send_message(
-                    embed=create_embed(
+                    embed=Embed(
                         description="У вас уже есть активная игра с этим участником!",
                         color="RED"
                     ),
@@ -144,7 +144,7 @@ class RPS(commands.Cog):
                         color = "GREEN"
 
                     await button_interaction.message.edit(
-                        embed=create_embed(
+                        embed=Embed(
                             title="🎮 Камень-Ножницы-Бумага",
                             description=f"**Выбор <@{game['player1']['id']}>:** {choices[choice1]} {choice1}\n"
                                       f"**Выбор <@{game['player2']['id']}>:** {choices[choice2]} {choice2}\n\n"
@@ -159,7 +159,7 @@ class RPS(commands.Cog):
                     if self.game_id in self.cog.active_games:
                         del self.cog.active_games[self.game_id]
                         await self.message.edit(
-                            embed=create_embed(
+                            embed=Embed(
                                 description="Время на ответ истекло!",
                                 color="RED"
                             ),
@@ -169,7 +169,7 @@ class RPS(commands.Cog):
             view = RPSButtons(self, game_id)
             await interaction.response.send_message(
                 content=f"{opponent.mention}, вас вызвали на игру в Камень-Ножницы-Бумага!",
-                embed=create_embed(
+                embed=Embed(
                     title="🎮 Камень-Ножницы-Бумага",
                     description="Выберите свой ход:",
                     color="BLUE"

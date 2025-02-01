@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class NowPlaying(commands.Cog):
@@ -21,7 +21,7 @@ class NowPlaying(commands.Cog):
 
         if not player.playing:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Сейчас ничего не играет!",
                     color="RED"
@@ -33,7 +33,7 @@ class NowPlaying(commands.Cog):
         song = self.music.get_current_song(interaction.guild_id)
         if not song:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Не удалось получить информацию о треке!",
                     color="RED"
@@ -55,7 +55,7 @@ class NowPlaying(commands.Cog):
             progress = f"`{current_min}:{current_sec:02d}` - `{total_min}:{total_sec:02d}`"
 
         # Создаем эмбед с информацией о треке
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['MUSIC']} Сейчас играет",
             description=f"**[{song.title}]({song.uri})**\n{EMOJIS['ARTIST']} **Автор:** {song.author}",
             color="BLUE"

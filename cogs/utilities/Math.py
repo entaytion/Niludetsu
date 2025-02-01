@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import math
 import re
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class Math(commands.Cog):
@@ -119,7 +119,7 @@ class Math(commands.Cog):
         else:
             formatted_result = f"{result:.2f}"
 
-        embed = create_embed(
+        embed=Embed(
             title="🔢 Калькулятор"
         )
         embed.add_field(

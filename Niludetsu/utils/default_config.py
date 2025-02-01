@@ -1,19 +1,4 @@
 default_config = {
-    'apis': {
-        'exchange_rate': {
-            'key': ''
-        },
-        'language_detection': {
-            'key': ''
-        },
-        'weather': {
-            'key': ''
-        }
-    },
-    'bot': {
-        'client_id': '',
-        'token': ''
-    },
     'forms': {
         'channel': '',
         'message': ''
@@ -31,7 +16,7 @@ default_config = {
         'main_channel': ''
     },
     'moderation': {
-        'max_warnings': 0
+        'max_warnings': 5
     },
     'music': {
         'lavalink': {
@@ -61,23 +46,23 @@ default_config = {
         'staff': {
             'admin': {
                 'id': '',
-                'permissions': 0
+                'permissions': 1829587348488183
             },
             'ae': {
                 'id': '',
-                'permissions': 0
+                'permissions': 8
             },
             'helper': {
                 'id': '',
-                'permissions': 0
+                'permissions': 1818581733343041
             },
             'moderator': {
                 'id': '',
-                'permissions': 0
+                'permissions': 1829585469439937
             },
             'partner_manager': {
                 'id': '',
-                'permissions': 0
+                'permissions': 1818581733343041
             }
         }
     },

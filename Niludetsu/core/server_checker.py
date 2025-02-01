@@ -2,7 +2,7 @@ import discord
 from typing import Optional, List
 import yaml
 from pathlib import Path
-from ..utils.embed import create_embed
+from ..utils.embed import Embed
 
 class ServerChecker:
     def __init__(self, bot):
@@ -11,7 +11,7 @@ class ServerChecker:
     
     def _load_config(self) -> None:
         """Загрузка конфигурации из файла"""
-        with open(Path("config/config.yaml"), "r", encoding="utf-8") as f:
+        with open(Path("data/config.yaml"), "r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
             self.allowed_servers = config.get('settings', {}).get('allowed_servers', [])
             self.owner_id = config.get('settings', {}).get('owner_id')
@@ -25,7 +25,7 @@ class ServerChecker:
         )
         
         if notification_channel:
-            embed = create_embed(
+            embed=Embed(
                 title="⚠️ Ограниченный доступ",
                 description="Извините, но этот бот является приватным и может использоваться только на определенных серверах.\n\nБот будет отключен через несколько секунд.",
                 color="RED",

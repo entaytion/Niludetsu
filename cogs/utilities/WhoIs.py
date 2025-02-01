@@ -5,7 +5,7 @@ import socket
 import whois
 import requests
 from datetime import datetime
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class WhoIs(commands.Cog):
@@ -24,7 +24,7 @@ class WhoIs(commands.Cog):
         except socket.error:
             is_ip = False
 
-        embed = create_embed(title=f"🔍 WhoIs информация для {target}")
+        embed=Embed(title=f"🔍 WhoIs информация для {target}")
         
         if is_ip:
             # Получаем информацию об IP

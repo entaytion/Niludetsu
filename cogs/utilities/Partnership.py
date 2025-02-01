@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 import yaml
 import asyncio
@@ -72,7 +72,7 @@ class Partnership(commands.Cog):
         """Обработчик ошибок для слеш-команд"""
         if isinstance(error, app_commands.CheckFailure):
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Отказано в доступе",
                     description="У вас недостаточно прав для использования этой команды!",
                     color="RED"
@@ -81,7 +81,7 @@ class Partnership(commands.Cog):
             )
         else:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Произошла ошибка при выполнении команды!",
                     color="RED"
@@ -99,7 +99,7 @@ class Partnership(commands.Cog):
         """Присваивает партнерство пользователю"""
         if interaction.channel_id != self.partnership_channel_id:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Неверный канал",
                     description="Эта команда может быть использована только в канале партнерств!",
                     color="RED"
@@ -116,7 +116,7 @@ class Partnership(commands.Cog):
                 member = await interaction.guild.fetch_member(user_id)
         except (ValueError, discord.NotFound):
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Пользователь не найден",
                     description="Указанный пользователь не найден на сервере!",
                     color="RED"
@@ -132,7 +132,7 @@ class Partnership(commands.Cog):
             else:  # Если не указан, пробуем получить из ответа
                 if not interaction.message or not interaction.message.reference:
                     await interaction.response.send_message(
-                        embed=create_embed(
+                        embed=Embed(
                             title=f"{EMOJIS['ERROR']} Отсутствует сообщение",
                             description="Укажите ID сообщения или используйте команду в ответ на сообщение!",
                             color="RED"
@@ -143,7 +143,7 @@ class Partnership(commands.Cog):
                 referenced_message = await interaction.channel.fetch_message(interaction.message.reference.message_id)
         except (ValueError, discord.NotFound):
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Сообщение не найдено",
                     description="Указанное сообщение не найдено!",
                     color="RED"
@@ -157,7 +157,7 @@ class Partnership(commands.Cog):
         
         if not match:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Отсутствует ссылка",
                     description="В сообщении нет ссылки на Discord сервер!",
                     color="RED"
@@ -179,7 +179,7 @@ class Partnership(commands.Cog):
         partnerships_channel = self.bot.get_channel(self.partnerships_output_channel_id)
         if not partnerships_channel:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Канал не найден",
                     description="Не удалось найти канал для отправки партнерств!",
                     color="RED"
@@ -194,7 +194,7 @@ class Partnership(commands.Cog):
         partnership_msg = await partnerships_channel.send(prefix, allowed_mentions=discord.AllowedMentions.none())
         
         if cleaned_text.strip():
-            embed = create_embed(
+            embed=Embed(
                 title=f"{EMOJIS['INFO']} Описание сервера",
                 description=cleaned_text.strip(),
                 color="BLUE"
@@ -209,7 +209,7 @@ class Partnership(commands.Cog):
         self.save_partners()
 
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 title=f"{EMOJIS['SUCCESS']} Партнерство добавлено",
                 description=f"Партнерство успешно добавлено в канал {partnerships_channel.mention}",
                 color="GREEN"

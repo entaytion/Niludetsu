@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 import io
 import time
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 # Добавляем кастомный шрифт
@@ -159,7 +159,7 @@ class Analytics(commands.Cog):
         boosters = len(guild.premium_subscribers)
         
         # Создаем основной эмбед
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['STATS']} Аналитика сервера {guild.name}",
             description=f"{EMOJIS['INFO']} Подробная статистика сервера",
             fields=[
@@ -294,7 +294,7 @@ class Analytics(commands.Cog):
         system_info = self.get_system_info()
         
         # Создаем эмбед
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['BOT']} Статистика бота {self.bot.user.name}",
             description=f"{EMOJIS['INFO']} Многофункциональный бот для вашего сервера!"
         )
@@ -420,7 +420,7 @@ class Analytics(commands.Cog):
         plt.close()
         
         # Создаем эмбед
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['ROLES']} Аналитика ролей {guild.name}",
             description=f"{EMOJIS['INFO']} Подробная статистика ролей сервера"
         )
@@ -549,7 +549,7 @@ class Analytics(commands.Cog):
         plt.close()
         
         # Создаем эмбед
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['CHANNELS']} Аналитика каналов {guild.name}",
             description=f"{EMOJIS['INFO']} Подробная статистика каналов сервера"
         )

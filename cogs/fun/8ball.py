@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import random
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 
 class Ball(commands.Cog):
     def __init__(self, bot):
@@ -35,7 +35,7 @@ class Ball(commands.Cog):
         response = random.choice(self.responses)
         
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 title="🎱 Магический шар",
                 description=f"**Вопрос:** {question}\n**Ответ:** {response}",
                 color="BLUE"

@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
-from Niludetsu.utils.embed import create_embed
-from Niludetsu.utils.database import get_user, save_user
+from Niludetsu.utils.embed import Embed
+from Niludetsu.database import Database
 from Niludetsu.utils.emojis import EMOJIS
 from datetime import datetime, timedelta
 import random
@@ -9,8 +9,8 @@ import random
 class Rob(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.db = Database()
         self.rob_cooldown = 7200  # 2 часа в секундах
-        self.min_balance_to_rob = 1000  # Минимальный баланс для ограбления
         self.success_chance = 0.4  # 40% шанс успеха
         self.max_rob_percent = 0.3  # Максимальный процент кражи (30%)
 
@@ -22,7 +22,7 @@ class Rob(commands.Cog):
         # Проверка на ограбление самого себя
         if user.id == interaction.user.id:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="Вы не можете ограбить самого себя.",
                     color="RED"
                 ),
@@ -33,7 +33,7 @@ class Rob(commands.Cog):
         # Проверка на бота
         if user.bot and user.id != 1264591814208262154:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="Вы не можете ограбить бота.",
                     color="RED"
                 ),
@@ -43,17 +43,7 @@ class Rob(commands.Cog):
 
         # Получаем данные грабителя
         robber_id = str(interaction.user.id)
-        robber_data = get_user(robber_id)
-
-        if not robber_data:
-            robber_data = {
-                'balance': 0,
-                'deposit': 0,
-                'xp': 0,
-                'level': 1,
-                'roles': '[]',
-                'last_rob': None
-            }
+        robber_data = await self.db.ensure_user(robber_id)
 
         # Проверяем кулдаун
         last_rob = robber_data.get('last_rob')
@@ -67,7 +57,7 @@ class Rob(commands.Cog):
                 minutes = int((time_left.total_seconds() % 3600) // 60)
                 
                 await interaction.response.send_message(
-                    embed=create_embed(
+                    embed=Embed(
                         description=f"Вы слишком устали для ограбления.\n"
                                   f"Отдохните еще: **{hours}ч {minutes}м**",
                         color="RED"
@@ -78,56 +68,62 @@ class Rob(commands.Cog):
 
         # Получаем данные жертвы
         victim_id = str(user.id)
-        victim_data = get_user(victim_id)
-
-        if not victim_data or victim_data.get('balance', 0) < self.min_balance_to_rob:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"У этого пользователя слишком мало денег для ограбления.\n"
-                              f"Минимальная сумма: {self.min_balance_to_rob:,} {EMOJIS['MONEY']}",
-                    color="RED"
-                ),
-                ephemeral=True
-            )
-            return
+        victim_data = await self.db.ensure_user(victim_id)
 
         # Проверяем успех ограбления
         if random.random() <= self.success_chance:
             # Успешное ограбление
             max_steal = int(victim_data['balance'] * self.max_rob_percent)
-            stolen = random.randint(1, max_steal)
+            stolen = random.randint(1, max(1, max_steal))
 
             # Обновляем балансы
-            robber_data['balance'] = robber_data.get('balance', 0) + stolen
-            victim_data['balance'] = victim_data.get('balance', 0) - stolen
+            new_robber_balance = robber_data.get('balance', 0) + stolen
+            new_victim_balance = victim_data.get('balance', 0) - stolen
 
-            # Обновляем время последнего ограбления
-            robber_data['last_rob'] = datetime.utcnow().isoformat()
+            # Обновляем время последнего ограбления и баланс грабителя
+            await self.db.update(
+                "users",
+                where={"user_id": robber_id},
+                values={
+                    "balance": new_robber_balance,
+                    "last_rob": datetime.utcnow().isoformat()
+                }
+            )
 
-            # Сохраняем изменения
-            save_user(robber_id, robber_data)
-            save_user(victim_id, victim_data)
+            # Обновляем баланс жертвы
+            await self.db.update(
+                "users",
+                where={"user_id": victim_id},
+                values={"balance": new_victim_balance}
+            )
 
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title="Успешное ограбление!",
                     description=f"Вы украли {stolen:,} {EMOJIS['MONEY']} у {user.mention}\n"
-                              f"Ваш текущий баланс: {robber_data['balance']:,} {EMOJIS['MONEY']}",
+                              f"Ваш текущий баланс: {new_robber_balance:,} {EMOJIS['MONEY']}",
                     color="GREEN"
                 )
             )
         else:
             # Неудачное ограбление
             fine = random.randint(100, 1000)
-            robber_data['balance'] = max(0, robber_data.get('balance', 0) - fine)
-            robber_data['last_rob'] = datetime.utcnow().isoformat()
-            save_user(robber_id, robber_data)
+            new_robber_balance = max(0, robber_data.get('balance', 0) - fine)
+            
+            await self.db.update(
+                "users",
+                where={"user_id": robber_id},
+                values={
+                    "balance": new_robber_balance,
+                    "last_rob": datetime.utcnow().isoformat()
+                }
+            )
 
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title="Неудачное ограбление!",
                     description=f"Вас поймала полиция и оштрафовала на {fine:,} {EMOJIS['MONEY']}\n"
-                              f"Ваш текущий баланс: {robber_data['balance']:,} {EMOJIS['MONEY']}",
+                              f"Ваш текущий баланс: {new_robber_balance:,} {EMOJIS['MONEY']}",
                     color="RED"
                 )
             )

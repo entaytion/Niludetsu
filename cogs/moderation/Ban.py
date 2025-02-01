@@ -1,13 +1,13 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.decorators import command_cooldown, has_admin_role
 import yaml
 
 # Загрузка конфигурации
-CONFIG_FILE = 'config/config.yaml'
+CONFIG_FILE = 'data/config.yaml'
 with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
     config = yaml.safe_load(f)
 
@@ -19,7 +19,7 @@ class UnbanButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         if not await has_admin_role()(interaction):
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description="У вас недостаточно прав для разбана пользователей!",
                     color="RED"
@@ -31,7 +31,7 @@ class UnbanButton(discord.ui.Button):
             user = await interaction.client.fetch_user(self.user_id)
             await interaction.guild.unban(user, reason=f"Разбан от {interaction.user}")
             
-            unban_embed = create_embed(
+            unban_embed=Embed(
                 title=f"{EMOJIS['UNBAN']} Пользователь разбанен",
                 color="GREEN"
             )
@@ -52,7 +52,7 @@ class UnbanButton(discord.ui.Button):
             await interaction.response.send_message(embed=unban_embed)
             
             try:
-                dm_embed = create_embed(
+                dm_embed=Embed(
                     title=f"{EMOJIS['UNBAN']} Вы были разбанены",
                     color="GREEN"
                 )
@@ -72,7 +72,7 @@ class UnbanButton(discord.ui.Button):
                 
         except discord.NotFound:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Пользователь не найден!",
                     color="RED"
@@ -81,7 +81,7 @@ class UnbanButton(discord.ui.Button):
             )
         except discord.Forbidden:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description="У меня недостаточно прав для разбана пользователей!",
                     color="RED"
@@ -115,7 +115,7 @@ class Ban(commands.Cog):
     ):
         if user.id == interaction.user.id:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Вы не можете забанить самого себя!",
                     color="RED"
@@ -125,7 +125,7 @@ class Ban(commands.Cog):
 
         if user.id == self.bot.user.id:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Я не могу забанить самого себя!",
                     color="RED"
@@ -135,7 +135,7 @@ class Ban(commands.Cog):
 
         if user.top_role >= interaction.user.top_role:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Вы не можете забанить участника с ролью выше или равной вашей!",
                     color="RED"
@@ -144,7 +144,7 @@ class Ban(commands.Cog):
             )
 
         try:
-            ban_embed = create_embed(
+            ban_embed=Embed(
                 title=f"{EMOJIS['BAN']} Бан пользователя",
                 color="RED"
             )
@@ -174,7 +174,7 @@ class Ban(commands.Cog):
             ban_embed.set_footer(text=f"ID пользователя: {user.id}")
             
             try:
-                dm_embed = create_embed(
+                dm_embed=Embed(
                     title=f"{EMOJIS['BAN']} Вы были забанены",
                     color="RED"
                 )
@@ -202,7 +202,7 @@ class Ban(commands.Cog):
             
         except discord.Forbidden:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description=f"У меня недостаточно прав для бана {user.mention}!",
                     color="RED"

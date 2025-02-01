@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.api.Weather import WeatherAPI
 
@@ -19,7 +19,7 @@ class Weather(commands.Cog):
         weather_data = await self.weather_api.get_weather(city)
         if not weather_data:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Не удалось найти указанный город!"
                 )
             )
@@ -39,7 +39,7 @@ class Weather(commands.Cog):
             f"{EMOJIS['DOT']} Закат: `{formatted_data['sunset']}`"
         )
 
-        embed = create_embed(
+        embed=Embed(
             title=f"🌍 Погода в городе {formatted_data['city_name']}",
             description=description
         )

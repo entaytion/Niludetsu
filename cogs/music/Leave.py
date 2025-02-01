@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class Leave(commands.Cog):
@@ -20,7 +20,7 @@ class Leave(commands.Cog):
         state = self.music.get_voice_state(interaction.guild)
         if not state:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Бот не подключен к голосовому каналу!",
                     color="RED"
@@ -32,7 +32,7 @@ class Leave(commands.Cog):
         channel = player.channel
         await state.stop()
 
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['LEAVE']} Отключение",
             description=f"Бот отключен от канала {channel.mention}",
             color="BLUE"

@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from mcstatus import JavaServer
 import datetime
 import asyncio
@@ -104,7 +104,7 @@ class MCServer(commands.Cog):
             fields.append(("📝 MOTD", f"```{motd}```", False))
         
         # Создаем основной эмбед
-        embed = create_embed(
+        embed=Embed(
             title=f"🎮 Информация о сервере Minecraft",
             description=f"**IP:** `{ip}`\n\n",
             color="GREEN" if online > 0 else "RED"

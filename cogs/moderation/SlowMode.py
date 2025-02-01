@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from typing import Optional
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 
@@ -27,7 +27,7 @@ class Slowmode(commands.Cog):
     ):
         if not interaction.user.guild_permissions.manage_channels:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description="У вас нет прав на управление каналами!",
                     color="RED"
@@ -38,7 +38,7 @@ class Slowmode(commands.Cog):
         target_channel = channel or interaction.channel
 
         # Отправляем начальное сообщение
-        progress_embed = create_embed(
+        progress_embed=Embed(
             title=f"{EMOJIS['LOADING']} Изменение медленного режима",
             description=f"Устанавливаю задержку в канале {target_channel.mention}...",
             color="YELLOW"
@@ -70,7 +70,7 @@ class Slowmode(commands.Cog):
             )
 
             # Создаем эмбед с результатами
-            result_embed = create_embed(
+            result_embed=Embed(
                 title=f"{EMOJIS['SUCCESS']} Медленный режим изменен",
                 color="GREEN"
             )
@@ -104,7 +104,7 @@ class Slowmode(commands.Cog):
             # Отправляем уведомление в канал
             try:
                 await target_channel.send(
-                    embed=create_embed(
+                    embed=Embed(
                         title=f"{EMOJIS['INFO']} Медленный режим изменен",
                         description=(
                             f"**Модератор:** {interaction.user.mention}\n"
@@ -119,7 +119,7 @@ class Slowmode(commands.Cog):
 
         except discord.Forbidden:
             await interaction.edit_original_response(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description=f"У меня недостаточно прав для изменения настроек канала {target_channel.mention}!",
                     color="RED"

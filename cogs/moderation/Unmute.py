@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 import yaml
@@ -9,7 +9,7 @@ import yaml
 class Unmute(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        with open("config/config.yaml", "r", encoding="utf-8") as f:
+        with open("data/config.yaml", "r", encoding="utf-8") as f:
             self.config = yaml.safe_load(f)
     
     @app_commands.command(name="unmute", description="Размутить участника")
@@ -22,7 +22,7 @@ class Unmute(commands.Cog):
     async def unmute(self, interaction: discord.Interaction, member: discord.Member, reason: str = "Причина не указана"):
         if not interaction.guild.me.guild_permissions.moderate_members:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description="У меня нет прав на размут участников!",
                     color="RED"
@@ -32,7 +32,7 @@ class Unmute(commands.Cog):
         mute_role_id = self.config.get('moderation', {}).get('mute_role')
         if not mute_role_id:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка конфигурации",
                     description="Роль мута не настроена в конфигурации!",
                     color="RED"
@@ -42,7 +42,7 @@ class Unmute(commands.Cog):
         mute_role = interaction.guild.get_role(int(mute_role_id))
         if not mute_role:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Роль мута не найдена на сервере!",
                     color="RED"
@@ -54,7 +54,7 @@ class Unmute(commands.Cog):
 
         if not has_mute_role and not is_timed_out:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description=f"{member.mention} не находится в муте!",
                     color="RED"
@@ -68,7 +68,7 @@ class Unmute(commands.Cog):
             if is_timed_out:
                 await member.timeout(None, reason=reason)
             
-            unmute_embed = create_embed(
+            unmute_embed=Embed(
                 title=f"{EMOJIS['UNMUTE']} Размут участника",
                 color="GREEN"
             )
@@ -94,7 +94,7 @@ class Unmute(commands.Cog):
             await interaction.response.send_message(embed=unmute_embed)
             
             try:
-                dm_embed = create_embed(
+                dm_embed=Embed(
                     title=f"{EMOJIS['UNMUTE']} Вы были размучены",
                     color="GREEN"
                 )
@@ -119,7 +119,7 @@ class Unmute(commands.Cog):
             
         except discord.Forbidden:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description=f"У меня недостаточно прав для размута {member.mention}!",
                     color="RED"

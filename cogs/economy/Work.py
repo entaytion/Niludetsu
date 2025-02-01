@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
-from Niludetsu.utils.embed import create_embed
-from Niludetsu.utils.database import get_user, save_user
+from Niludetsu.utils.embed import Embed
+from Niludetsu.database import Database
 from Niludetsu.utils.emojis import EMOJIS
 from datetime import datetime, timedelta
 import random
@@ -9,6 +9,7 @@ import random
 class Work(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.db = Database()
         self.jobs = [
             {"name": "Программист", "min_reward": 500, "max_reward": 1500},
             {"name": "Дизайнер", "min_reward": 400, "max_reward": 1200},
@@ -34,17 +35,7 @@ class Work(commands.Cog):
     @discord.app_commands.command(name="work", description="Заработать деньги")
     async def work(self, interaction: discord.Interaction):
         user_id = str(interaction.user.id)
-        user_data = get_user(user_id)
-
-        if not user_data:
-            user_data = {
-                'balance': 0,
-                'deposit': 0,
-                'xp': 0,
-                'level': 1,
-                'roles': '[]',
-                'last_work': None
-            }
+        user_data = await self.db.ensure_user(user_id)
 
         # Проверяем, когда пользователь последний раз работал
         last_work = user_data.get('last_work')
@@ -58,7 +49,7 @@ class Work(commands.Cog):
                 seconds = int(time_left.total_seconds() % 60)
                 
                 await interaction.response.send_message(
-                    embed=create_embed(
+                    embed=Embed(
                         description=f"Вы слишком устали для работы.\n"
                                   f"Отдохните еще: **{minutes}м {seconds}с**",
                         color="RED"
@@ -76,13 +67,18 @@ class Work(commands.Cog):
         total_reward = reward + level_bonus
 
         # Обновляем данные пользователя
-        user_data['balance'] = user_data.get('balance', 0) + total_reward
-        user_data['last_work'] = datetime.utcnow().isoformat()
+        new_balance = user_data.get('balance', 0) + total_reward
+        new_xp = user_data.get('xp', 0) + random.randint(10, 20)
         
-        # Добавляем опыт за работу
-        user_data['xp'] = user_data.get('xp', 0) + random.randint(10, 20)
-        
-        save_user(user_id, user_data)
+        await self.db.update(
+            "users",
+            where={"user_id": user_id},
+            values={
+                "balance": new_balance,
+                "xp": new_xp,
+                "last_work": datetime.utcnow().isoformat()
+            }
+        )
 
         # Формируем сообщение
         description = [
@@ -92,10 +88,10 @@ class Work(commands.Cog):
         if level_bonus > 0:
             description.append(f"Бонус за уровень: +{level_bonus:,} {EMOJIS['MONEY']}")
             
-        description.append(f"\nВаш текущий баланс: {user_data['balance']:,} {EMOJIS['MONEY']}")
+        description.append(f"\nВаш текущий баланс: {new_balance:,} {EMOJIS['MONEY']}")
 
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 title="Работа выполнена!",
                 description="\n".join(description),
                 color="GREEN"

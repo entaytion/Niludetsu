@@ -2,6 +2,15 @@
 Утилиты для работы с Discord ботом
 """
 
-from .embed import create_embed, COLORS
+from .embed import Embed
+from .constants import Colors, Emojis
 
-__all__ = ['create_embed', 'COLORS'] 
+__version__ = "0.1.0"
+
+__all__ = [
+    'Embed',
+    'create_embed',
+    'Colors',
+    'Emojis',
+    'Database',
+] 

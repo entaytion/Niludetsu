@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 import random
 import yaml
 
@@ -12,7 +12,7 @@ ABSENT = "⬛"   # Буква отсутствует в слове
 
 class WordleGame:
     def __init__(self, channel_id: int, message_id: int, word_length: int = 5):
-        with open("config/config.yaml", "r", encoding="utf-8") as f:
+        with open("data/config.yaml", "r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
             words = config.get('words', {}).get(str(word_length), [])
             if not words:
@@ -35,20 +35,27 @@ class WordleGame:
     def make_guess(self, guess: str) -> tuple[str, list[tuple[str, str]]]:
         """Проверяет попытку и возвращает результат"""
         guess = guess.upper()
+        
+        # Проверяем длину слова
+        if len(guess) != len(self.word):
+            raise ValueError(f"Слово должно быть длиной {len(self.word)} букв")
+            
         result = ""
         letters_with_styles = []
         word_letters = list(self.word)
         
         # Первый проход: находим точные совпадения
-        for i, letter in enumerate(guess):
-            if letter == word_letters[i]:
-                result += CORRECT
-                letters_with_styles.append((letter, "correct"))
-                word_letters[i] = None
-                self.used_letters['correct'].add(letter)
-            else:
-                result += "?"
-                letters_with_styles.append((letter, "unknown"))
+        for i in range(len(self.word)):
+            if i < len(guess):
+                letter = guess[i]
+                if letter == word_letters[i]:
+                    result += CORRECT
+                    letters_with_styles.append((letter, "correct"))
+                    word_letters[i] = None
+                    self.used_letters['correct'].add(letter)
+                else:
+                    result += "?"
+                    letters_with_styles.append((letter, "unknown"))
 
         # Второй проход: проверяем буквы на неправильных позициях
         for i, (letter, style) in enumerate(letters_with_styles):
@@ -104,7 +111,7 @@ class Wordle(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.active_games = {}  # {channel_id: {user_id: game}}
-        with open("config/config.yaml", "r", encoding="utf-8") as f:
+        with open("data/config.yaml", "r", encoding="utf-8") as f:
             self.config = yaml.safe_load(f)
             self.available_lengths = [
                 length for length in map(int, self.config.get('words', {}).keys())
@@ -113,17 +120,9 @@ class Wordle(commands.Cog):
             self.available_lengths.sort()
 
     @app_commands.command(name="wordle", description="Начать игру в Wordle")
-    @app_commands.describe(word_length="Длина загаданного слова")
-    async def wordle(self, interaction: discord.Interaction, word_length: int = 5):
-        if word_length not in self.available_lengths:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    description=f"❌ Доступные длины слов: {', '.join(map(str, self.available_lengths))}",
-                    color="RED"
-                ),
-                ephemeral=True
-            )
-            return
+    async def wordle(self, interaction: discord.Interaction):
+        # Случайно выбираем длину слова из доступных
+        word_length = random.choice(self.available_lengths)
 
         channel_id = interaction.channel_id
         user_id = interaction.user.id
@@ -131,7 +130,7 @@ class Wordle(commands.Cog):
         # Проверяем есть ли активная игра у пользователя
         if channel_id in self.active_games and user_id in self.active_games[channel_id]:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="У вас уже есть активная игра!",
                     color="RED"
                 ),
@@ -142,7 +141,7 @@ class Wordle(commands.Cog):
         try:
             # Создаем сообщение с игрой
             message = await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title="🎯 Wordle",
                     description=(
                         f"**{interaction.user.mention} начал игру в Wordle!**\n\n"
@@ -168,7 +167,7 @@ class Wordle(commands.Cog):
             self.active_games[channel_id][user_id] = game
         except ValueError as e:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description=f"❌ {str(e)}",
                     color="RED"
                 ),
@@ -232,7 +231,7 @@ class Wordle(commands.Cog):
             channel = message.channel
             game_message = await channel.fetch_message(game.message_id)
             await game_message.edit(
-                embed=create_embed(
+                embed=Embed(
                     title="🎯 Wordle",
                     description=description,
                     color="GREEN" if game.is_won else "RED" if game.is_over else "BLUE"

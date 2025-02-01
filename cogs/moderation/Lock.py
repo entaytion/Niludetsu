@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from typing import Optional
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 
@@ -28,7 +28,7 @@ class Lock(commands.Cog):
         try:
             if not interaction.user.guild_permissions.manage_channels:
                 return await interaction.response.send_message(
-                    embed=create_embed(
+                    embed=Embed(
                         title=f"{EMOJIS['ERROR']} Ошибка прав",
                         description="У вас нет прав на управление каналами!",
                         color="RED"
@@ -41,7 +41,7 @@ class Lock(commands.Cog):
                 failed_count = 0
                 failed_channels = []
                 
-                progress_embed = create_embed(
+                progress_embed=Embed(
                     title=f"{EMOJIS['LOADING']} Блокировка каналов",
                     description="Идет процесс блокировки всех каналов...",
                     color="YELLOW"
@@ -63,7 +63,7 @@ class Lock(commands.Cog):
                         failed_count += 1
                         failed_channels.append(ch.mention)
                 
-                result_embed = create_embed(
+                result_embed=Embed(
                     title=f"{EMOJIS['LOCK']} Массовая блокировка завершена",
                     color="RED"
                 )
@@ -110,7 +110,7 @@ class Lock(commands.Cog):
                     reason=f"Блокировка от {interaction.user}"
                 )
                 
-                lock_embed = create_embed(
+                lock_embed=Embed(
                     title=f"{EMOJIS['LOCK']} Канал заблокирован",
                     color="RED"
                 )
@@ -139,7 +139,7 @@ class Lock(commands.Cog):
                 # Отправляем уведомление в заблокированный канал
                 try:
                     await target_channel.send(
-                        embed=create_embed(
+                        embed=Embed(
                             title=f"{EMOJIS['LOCK']} Канал заблокирован",
                             description=f"Модератор: {interaction.user.mention}\n"
                                       f"Причина: {f'```{reason}```' if reason else '`Не указана`'}",
@@ -150,7 +150,7 @@ class Lock(commands.Cog):
                     pass
 
         except discord.Forbidden:
-            error_embed = create_embed(
+            error_embed=Embed(
                 title=f"{EMOJIS['ERROR']} Ошибка прав",
                 description=f"У меня недостаточно прав для блокировки {'каналов' if all_channels else target_channel.mention}!",
                 color="RED"

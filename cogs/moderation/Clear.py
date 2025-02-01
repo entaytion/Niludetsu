@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 import asyncio
@@ -29,20 +29,10 @@ class Clear(commands.Cog):
     ):
         try:
             target_channel = channel or interaction.channel
-            
-            if not interaction.user.guild_permissions.manage_messages:
-                return await interaction.response.send_message(
-                    embed=create_embed(
-                        title=f"{EMOJIS['ERROR']} Ошибка прав",
-                        description="У вас нет прав на управление сообщениями!",
-                        color="RED"
-                    ),
-                    ephemeral=True
-                )
 
             if not interaction.guild.me.guild_permissions.manage_messages:
                 return await interaction.response.send_message(
-                    embed=create_embed(
+                    embed=Embed(
                         title=f"{EMOJIS['ERROR']} Ошибка прав",
                         description="У меня нет прав на управление сообщениями!",
                         color="RED"
@@ -51,7 +41,7 @@ class Clear(commands.Cog):
                 )
 
             # Отправляем начальное сообщение о процессе
-            progress_embed = create_embed(
+            progress_embed=Embed(
                 title=f"{EMOJIS['LOADING']} Очистка сообщений",
                 description="Идет процесс удаления сообщений...",
                 color="YELLOW"
@@ -72,7 +62,7 @@ class Clear(commands.Cog):
             )
 
             # Создаем эмбед с результатами
-            result_embed = create_embed(
+            result_embed=Embed(
                 title=f"{EMOJIS['SUCCESS']} Очистка завершена",
                 color="GREEN"
             )
@@ -111,7 +101,7 @@ class Clear(commands.Cog):
 
             # Отправляем временное уведомление в канал
             notification = await target_channel.send(
-                embed=create_embed(
+                embed=Embed(
                     description=f"{EMOJIS['SUCCESS']} Удалено `{len(deleted)}` сообщений",
                     color="GREEN"
                 )
@@ -124,7 +114,7 @@ class Clear(commands.Cog):
 
         except discord.Forbidden:
             await interaction.edit_original_response(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description=f"У меня недостаточно прав для очистки сообщений в {target_channel.mention}!",
                     color="RED"

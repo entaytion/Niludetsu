@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from typing import Optional
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 
@@ -25,7 +25,7 @@ class Unban(commands.Cog):
     ):
         if not interaction.user.guild_permissions.ban_members:
             return await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description="У вас нет прав на управление банами!",
                     color="RED"
@@ -34,7 +34,7 @@ class Unban(commands.Cog):
             )
 
         # Отправляем начальное сообщение
-        progress_embed = create_embed(
+        progress_embed=Embed(
             title=f"{EMOJIS['LOADING']} Разбан участника",
             description=f"Выполняю разбан участника с ID: `{user}`...",
             color="YELLOW"
@@ -49,7 +49,7 @@ class Unban(commands.Cog):
             except (ValueError, discord.NotFound):
                 # Если ID неверный или пользователь не забанен
                 return await interaction.edit_original_response(
-                    embed=create_embed(
+                    embed=Embed(
                         title=f"{EMOJIS['ERROR']} Ошибка",
                         description="Пользователь с таким ID не найден в списке забаненных!",
                         color="RED"
@@ -63,7 +63,7 @@ class Unban(commands.Cog):
             )
 
             # Создаем эмбед с результатами
-            unban_embed = create_embed(
+            unban_embed=Embed(
                 title=f"{EMOJIS['SUCCESS']} Участник разбанен",
                 color="GREEN"
             )
@@ -99,7 +99,7 @@ class Unban(commands.Cog):
             # Пытаемся отправить уведомление пользователю
             try:
                 await ban_entry.user.send(
-                    embed=create_embed(
+                    embed=Embed(
                         title=f"{EMOJIS['SUCCESS']} Вы были разбанены",
                         description=(
                             f"**Сервер:** {interaction.guild.name}\n"
@@ -114,7 +114,7 @@ class Unban(commands.Cog):
 
         except discord.Forbidden:
             await interaction.edit_original_response(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка прав",
                     description="У меня недостаточно прав для разбана участников!",
                     color="RED"

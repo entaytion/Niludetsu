@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class Karaoke(commands.Cog):
@@ -28,7 +28,7 @@ class Karaoke(commands.Cog):
 
         if not player.playing:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Сейчас ничего не играет!",
                     color="RED"
@@ -43,24 +43,21 @@ class Karaoke(commands.Cog):
         self.set_karaoke(guild_id, enabled)
 
         # Применяем эффект
+        filters = player.filters
         if enabled:
-            await player.set_karaoke(
+            filters.karaoke.set(
                 level=1.0,
                 mono_level=1.0,
                 filter_band=220.0,
                 filter_width=100.0
             )
         else:
-            await player.set_karaoke(
-                level=0.0,
-                mono_level=0.0,
-                filter_band=0.0,
-                filter_width=0.0
-            )
+            filters.karaoke.reset()
+        await player.set_filters(filters)
 
         song = self.music.get_current_song(guild_id)
 
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['KARAOKE']} Эффект Караоке",
             description=f"Эффект Караоке **{'включен' if enabled else 'выключен'}**",
             color="GREEN" if enabled else "RED"

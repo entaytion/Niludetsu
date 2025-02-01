@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 import qrcode
 import io
@@ -26,7 +26,7 @@ class QR(commands.Cog):
         # Перевіряємо розмір
         if not 1 <= size <= 10:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     description="Размер должен быть от 1 до 10!"
                 )
             )
@@ -52,7 +52,7 @@ class QR(commands.Cog):
             
             # Відправляємо QR-код
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     title="🔲 QR-код создан",
                     description=f"Содержимое: `{content}`"
                 ),

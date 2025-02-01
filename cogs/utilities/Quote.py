@@ -3,7 +3,7 @@ from discord.ext import commands
 from PIL import Image, ImageDraw, ImageFont
 import io
 import aiohttp
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 import textwrap
 import os
@@ -90,7 +90,7 @@ class Quote(commands.Cog):
                 quoted_message = await interaction.channel.fetch_message(message_id)
             except:
                 await interaction.followup.send(
-                    embed=create_embed(
+                    embed=Embed(
                         description="Не удалось найти сообщение с указанным ID!"
                     )
                 )
@@ -103,7 +103,7 @@ class Quote(commands.Cog):
             
             if not reference_message:
                 await interaction.followup.send(
-                    embed=create_embed(
+                    embed=Embed(
                         description="Используйте команду сразу после сообщения, которое хотите процитировать, или укажите ID сообщения!"
                     )
                 )

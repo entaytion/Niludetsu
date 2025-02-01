@@ -6,10 +6,11 @@
 import discord
 from discord.ext import commands
 import wavelink
-from ..utils import create_embed
-import yaml
+from Niludetsu.utils.embed import Embed
 from typing import Optional, Union
 import asyncio
+import os
+from dotenv import load_dotenv
 
 class Song:
     """Класс, представляющий песню"""
@@ -118,10 +119,7 @@ class Music:
         Returns:
             bool: True если плеер подключен, False если нет
         """
-        try:
-            return player.channel is not None and player.channel.id is not None
-        except AttributeError:
-            return False
+        return player.channel is not None and player.channel.id is not None
 
     def __init__(self, bot: commands.Bot):
         if not self._initialized:
@@ -132,10 +130,15 @@ class Music:
             self._connection_error_logged = False
             self.wavelink = wavelink  # Добавляем доступ к wavelink
 
-            # Загружаем конфигурацию
-            with open('config/config.yaml', 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f)
-                self.lavalink_config = config.get('music', {}).get('lavalink', {})
+            # Загружаем переменные окружения
+            load_dotenv()
+            self.lavalink_config = {
+                'host': os.getenv('LAVALINK_HOST'),
+                'port': os.getenv('LAVALINK_PORT'),
+                'password': os.getenv('LAVALINK_PASSWORD'),
+                'identifier': os.getenv('LAVALINK_IDENTIFIER'),
+                'secure': os.getenv('LAVALINK_SECURE', 'false').lower() == 'true'
+            }
 
             # Инициализируем подключение к Lavalink только один раз
             if not hasattr(self, '_connect_task'):
@@ -163,35 +166,24 @@ class Music:
         """Подключение к серверу Lavalink"""
         await self.bot.wait_until_ready()
 
-        try:
-            # Проверяем, есть ли уже активная нода
-            if hasattr(self, '_node_connected') and self._node_connected:
-                return
+        # Проверяем, есть ли уже активная нода
+        if hasattr(self, '_node_connected') and self._node_connected:
+            return
 
-            self.wavelink_node = wavelink.Node(
-                uri=f"{'ws' if not self.lavalink_config['secure'] else 'wss'}://{self.lavalink_config['host']}:{self.lavalink_config['port']}",
-                password=self.lavalink_config['password'],
-                identifier=self.lavalink_config['identifier']
-            )
-            
-            await wavelink.Pool.connect(nodes=[self.wavelink_node], client=self.bot)
-            self._node_connected = True
-            print("✅ Lavalink node connected successfully!")
-            
-        except wavelink.exceptions.InvalidNodeException:
-            if not hasattr(self, '_connection_error_logged'):
-                print("❌ Ошибка подключения к Lavalink: нет доступных нод")
-                self._connection_error_logged = True
-        except Exception as e:
-            if not hasattr(self, '_connection_error_logged'):
-                print(f"❌ Ошибка подключения к Lavalink: {str(e)}")
-                self._connection_error_logged = True
+        self.wavelink_node = wavelink.Node(
+            uri=f"{'ws' if not self.lavalink_config['secure'] else 'wss'}://{self.lavalink_config['host']}:{self.lavalink_config['port']}",
+            password=self.lavalink_config['password'],
+            identifier=self.lavalink_config['identifier']
+        )
+        
+        await wavelink.Pool.connect(nodes=[self.wavelink_node], client=self.bot)
+        self._node_connected = True
 
     async def join_voice(self, interaction: discord.Interaction) -> Optional[wavelink.Player]:
         """Подключение к голосовому каналу"""
         if not interaction.user.voice:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Вы должны находиться в голосовом канале!"
                 ),
                 ephemeral=True
@@ -202,16 +194,12 @@ class Music:
         if not channel:
             return None
 
-        try:
-            player = wavelink.Pool.get_node().get_player(interaction.guild.id)
-            if not player:
-                player = await channel.connect(cls=wavelink.Player)
-            elif player.channel.id != channel.id:
-                await player.move_to(channel)
-            return player
-        except Exception as e:
-            print(f"Error joining voice: {e}")
-            return None
+        player = wavelink.Pool.get_node().get_player(interaction.guild.id)
+        if not player:
+            player = await channel.connect(cls=wavelink.Player)
+        elif player.channel.id != channel.id:
+            await player.move_to(channel)
+        return player
 
     async def ensure_voice(self, interaction: discord.Interaction) -> Optional[wavelink.Player]:
         """Проверка и подключение к голосовому каналу"""
@@ -221,7 +209,7 @@ class Music:
 
         if not player._connected:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Не удалось подключиться к голосовому каналу!"
                 ),
                 ephemeral=True
@@ -249,63 +237,122 @@ class Music:
         """Получает текстовый канал для гильдии"""
         return self._text_channels.get(guild_id)
 
+    async def search_track(self, query: str) -> Optional[wavelink.Playable]:
+        """
+        Поиск трека с поддержкой разных источников и проверкой доступности
+        """
+        search_query = query
+        
+        # Если это прямая ссылка на YouTube
+        if 'youtube.com/' in query or 'youtu.be/' in query:
+            # Пытаемся извлечь ID видео для прямого поиска
+            if 'youtube.com/watch?v=' in query:
+                video_id = query.split('watch?v=')[1].split('&')[0]
+            elif 'youtu.be/' in query:
+                video_id = query.split('youtu.be/')[1].split('?')[0]
+            else:
+                video_id = None
+            
+            if video_id:
+                search_query = f"https://youtube.com/watch?v={video_id}"
+            
+            tracks = await wavelink.Playable.search(search_query, source="ytsearch")
+        
+        # Если это Spotify ссылка
+        elif 'spotify.com/' in query:
+            tracks = await wavelink.Playable.search(query, source="spsearch")
+        
+        # Если это SoundCloud ссылка
+        elif 'soundcloud.com/' in query:
+            tracks = await wavelink.Playable.search(query, source="scsearch")
+        
+        else:
+            # Пробуем разные источники последовательно
+            tracks = await wavelink.Playable.search(query, source="ytsearch")
+            if not tracks:
+                tracks = await wavelink.Playable.search(query, source="scsearch")
+            if not tracks:
+                # Пробуем поиск по YouTube Music
+                tracks = await wavelink.Playable.search(query, source="ytmsearch")
+
+        if not tracks:
+            return None
+
+        track = tracks[0]
+        
+        # Расширенная проверка доступности трека
+        if not track.uri or getattr(track, 'is_failed', False):
+            # Пробуем следующий трек из результатов
+            if len(tracks) > 1:
+                for alt_track in tracks[1:]:
+                    if alt_track.uri and not getattr(alt_track, 'is_failed', False):
+                        return alt_track
+            return None
+
+        return track
+
     async def play_song(self, interaction: discord.Interaction, query: str):
         """Воспроизведение песни"""
-        # Сохраняем текстовый канал
-        self.set_text_channel(interaction.guild_id, interaction.channel)
-        
         # Сразу откладываем ответ
         await interaction.response.defer()
-
+        
+        # Проверяем подключение к голосовому каналу
         player = await self.ensure_voice(interaction)
         if not player:
-            return
-
-        # Поиск трека
-        try:
-            tracks = await wavelink.Playable.search(query)
-            if not tracks:
-                await interaction.followup.send(
-                    embed=create_embed(
-                        description="❌ Ничего не найдено!"
-                    ),
-                    ephemeral=True
-                )
-                return
-
-            track = tracks[0]
-            # Создаем объект Song с информацией о запросившем
-            song = Song(track, interaction.user)
-            
-            if player.playing:
-                # Добавляем в очередь сам трек wavelink
-                await player.queue.put_wait(track)
-                await interaction.followup.send(
-                    embed=create_embed(
-                        title="🎵 Добавлено в очередь",
-                        description=f"**{track.title}**\nАвтор: {track.author}"
-                    )
-                )
-            else:
-                # Начинаем воспроизведение
-                song.start_time = discord.utils.utcnow()
-                await player.play(track)
-                self.set_current_song(interaction.guild_id, song)  # Сохраняем информацию о текущем треке
-                await interaction.followup.send(
-                    embed=create_embed(
-                        title="🎵 Сейчас играет",
-                        description=f"**{track.title}**\nАвтор: {track.author}"
-                    )
-                )
-
-        except Exception as e:
-            print(f"Error playing song: {e}")
             await interaction.followup.send(
-                embed=create_embed(
-                    description="❌ Произошла ошибка при воспроизведении!"
+                embed=Embed(
+                    description="❌ Не удалось подключиться к голосовому каналу!",
+                    color="RED"
                 ),
                 ephemeral=True
             )
+            return
+
+        # Поиск трека
+        track = await self.search_track(query)
+        if not track:
+            await interaction.followup.send(
+                embed=Embed(
+                    description="❌ По вашему запросу ничего не найдено или контент недоступен!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+            return
+
+        song = Song(track, interaction.user)
+
+        # Получаем состояние голосового канала
+        state = self.get_voice_state(interaction.guild)
+        if not state:
+            return
+
+        # Начинаем воспроизведение
+        if player.playing:
+            # Добавляем в очередь
+            await player.queue.put_wait(track)
+            await state.songs.put(song)  # Синхронизируем с нашей очередью
+            await interaction.followup.send(
+                embed=Embed(
+                    title="🎵 Добавлено в очередь",
+                    description=f"**{track.title}**\nДлительность: {song.format_duration()}",
+                    color="GREEN"
+                )
+            )
+        else:
+            # Воспроизводим сразу
+            await player.play(track)
+            state.current = song  # Устанавливаем текущий трек в состоянии
+            self.set_current_song(interaction.guild_id, song)  # И в глобальном хранилище
+            await interaction.followup.send(
+                embed=Embed(
+                    title="🎵 Сейчас играет",
+                    description=f"**{track.title}**\nДлительность: {song.format_duration()}",
+                    color="GREEN"
+                )
+            )
+        
+        self.set_text_channel(interaction.guild_id, interaction.channel)
 
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         """Обработчик изменений в голосовых каналах"""
@@ -324,93 +371,88 @@ class Music:
         members = [m for m in voice_client.channel.members if not m.bot]
         
         if not members:
-            try:
-                player = wavelink.Pool.get_node().get_player(voice_client.guild.id)
-                if player:
-                    await player.disconnect()
-                    # Получаем сохраненный текстовый канал
-                    text_channel = self.get_text_channel(voice_client.guild.id)
-                    if text_channel:
-                        await text_channel.send(
-                            embed=create_embed(
-                                description=f"👋 Бот покинул канал {voice_client.channel.name}, так как все пользователи вышли"
-                            )
+            player = wavelink.Pool.get_node().get_player(voice_client.guild.id)
+            if player:
+                await player.disconnect()
+                # Получаем сохраненный текстовый канал
+                text_channel = self.get_text_channel(voice_client.guild.id)
+                if text_channel:
+                    await text_channel.send(
+                        embed=Embed(
+                            description=f"👋 Бот покинул канал {voice_client.channel.name}, так как все пользователи вышли"
                         )
-            except Exception as e:
-                print(f"Ошибка при отключении от канала: {e}")
+                    )
 
     async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
-        """Обработчик окончания трека"""
-        try:
-            player = payload.player
-            if not player:
-                return
-
-            guild_id = int(player.guild.id)
-            current_song = self.get_current_song(guild_id)
+        """Обработчик события окончания трека"""
+        if not payload or not payload.player:
+            return
             
-            # Очищаем информацию о текущем треке
-            self.set_current_song(guild_id, None)
+        guild_id = payload.player.guild.id if payload.player.guild else None
+        if not guild_id:
+            return
             
-            # Получаем режим повтора
-            repeat_cog = self.bot.get_cog('Repeat')
-            if repeat_cog:
-                from cogs.music.Repeat import RepeatMode
-                repeat_mode = repeat_cog.get_repeat_mode(guild_id)
-
-                if repeat_mode == RepeatMode.SINGLE and current_song:
-                    # Для режима повтора одного трека
-                    await player.play(current_song.track)
-                    self.set_current_song(guild_id, current_song)
-                    return
+        # Получаем текстовый канал для этой гильдии
+        text_channel = self.get_text_channel(guild_id)
+        if not text_channel:
+            return
             
-            # Если есть следующий трек в очереди, воспроизводим его
-            if not player.queue.is_empty:
-                next_track = await player.queue.get_wait()
-                next_song = Song(next_track, current_song.requester if current_song else None)
-                await player.play(next_track)
-                self.set_current_song(guild_id, next_song)
-
-                # Если включен режим повтора очереди, добавляем текущий трек в конец
-                if repeat_cog and repeat_mode == RepeatMode.QUEUE and current_song:
-                    await player.queue.put_wait(current_song.track)
-                
-                # Отправляем сообщение о новом треке в сохраненный канал
-                text_channel = self.get_text_channel(guild_id)
-                if text_channel:
-                    embed = create_embed(
-                        title="🎵 Сейчас играет",
-                        description=f"**{next_track.title}**\nАвтор: {next_track.author}"
-                    )
-                    try:
-                        await text_channel.send(embed=embed)
-                    except Exception as e:
-                        print(f"Ошибка при отправке сообщения о новом треке: {e}")
-        except Exception as e:
-            print(f"Ошибка в обработчике окончания трека: {e}")
+        state = self.get_voice_state(payload.player.guild)
+        
+        if not state:
+            return
+            
+        # Очищаем текущий трек
+        state.current = None
+        self.set_current_song(guild_id, None)
+        
+        # Если есть следующий трек в очереди
+        if not state.songs.empty():
+            next_song = await state.songs.get()
+            await payload.player.play(next_song.track)
+            state.current = next_song
+            self.set_current_song(guild_id, next_song)
+            
+            await text_channel.send(
+                embed=Embed(
+                    title="🎵 Сейчас играет",
+                    description=f"**{next_song.title}**\nДлительность: {next_song.format_duration()}",
+                    color="BLUE"
+                )
+            )
+        else:
+            await text_channel.send(
+                embed=Embed(
+                    title="🎵 Очередь завершена",
+                    description="Все треки воспроизведены",
+                    color="BLUE"
+                )
+            )
 
     async def on_wavelink_track_exception(self, payload: wavelink.TrackExceptionEventPayload):
-        """Обработчик ошибок воспроизведения"""
-        try:
-            player = payload.player
-            if not player:
-                return
-                
-            if not player.queue.is_empty:
-                next_track = await player.queue.get_wait()
-                await player.play(next_track)
-        except Exception as e:
-            print(f"Ошибка в обработчике исключения трека: {e}")
+        """Обработчик ошибок трека"""
+        guild_id = payload.player.guild.id
+        channel = self.get_text_channel(guild_id)
+        
+        if channel:
+            await channel.send(
+                embed=Embed(
+                    title="❌ Ошибка воспроизведения",
+                    description=f"Произошла ошибка при воспроизведении трека:\n**{payload.track.title}**",
+                    color="RED"
+                )
+            )
 
     async def on_wavelink_track_stuck(self, payload: wavelink.TrackStuckEventPayload):
         """Обработчик зависания трека"""
-        try:
-            player = payload.player
-            if not player:
-                return
-                
-            if not player.queue.is_empty:
-                next_track = await player.queue.get_wait()
-                await player.play(next_track)
-        except Exception as e:
-            print(f"Ошибка в обработчике зависания трека: {e}") 
+        guild_id = payload.player.guild.id
+        channel = self.get_text_channel(guild_id)
+        
+        if channel:
+            await channel.send(
+                embed=Embed(
+                    title="⚠️ Проблема воспроизведения",
+                    description=f"Трек зависает:\n**{payload.track.title}**",
+                    color="YELLOW"
+                )
+            )

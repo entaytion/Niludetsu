@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.api.Gifs import GifsAPI
 
 class Cry(commands.Cog):
@@ -11,7 +11,7 @@ class Cry(commands.Cog):
     @discord.app_commands.command(name="cry", description="Заплакать")
     async def cry(self, interaction: discord.Interaction):
         gif_url = self.gifs_api.get_random_gif('cry')
-        embed = create_embed(
+        embed=Embed(
             description=f"😢 {interaction.user.mention} плачет",
             color="BLUE"
         )

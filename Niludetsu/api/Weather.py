@@ -1,13 +1,15 @@
 import aiohttp
-import yaml
+import os
 from typing import Optional, Dict
 from datetime import datetime
+from dotenv import load_dotenv
 
 class WeatherAPI:
     def __init__(self):
-        with open('config/config.yaml', 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
-            self.api_key = config['apis']['weather']['key']
+        load_dotenv()
+        self.api_key = os.getenv('WEATHER_API_KEY')
+        if not self.api_key:
+            raise ValueError("WEATHER_API_KEY не найден в .env файле")
         
         self.base_url = "http://api.openweathermap.org/data/2.5/weather"
         self.forecast_url = "http://api.openweathermap.org/data/2.5/forecast"

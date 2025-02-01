@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 import random
 
 class TicTacToeButton(discord.ui.Button):
@@ -19,7 +19,7 @@ class TicTacToeButton(discord.ui.Button):
 
         if interaction.user != view.current_player:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="Сейчас не ваш ход!",
                     color="RED"
                 ),
@@ -60,7 +60,7 @@ class TicTacToeButton(discord.ui.Button):
             color = "BLUE"
 
         await interaction.response.edit_message(
-            embed=create_embed(
+            embed=Embed(
                 title="🎮 Крестики-нолики",
                 description=content,
                 color=color
@@ -129,7 +129,7 @@ class TicTacToe(commands.Cog):
     async def tictactoe(self, interaction: discord.Interaction, opponent: discord.Member):
         if opponent.bot:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="Вы не можете играть с ботом!",
                     color="RED"
                 ),
@@ -139,7 +139,7 @@ class TicTacToe(commands.Cog):
             
         if opponent == interaction.user:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="Вы не можете играть сами с собой!",
                     color="RED"
                 ),
@@ -149,7 +149,7 @@ class TicTacToe(commands.Cog):
 
         view = TicTacToeView(interaction.user, opponent)
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 title="🎮 Крестики-нолики",
                 description=f"Ход игрока {interaction.user.mention}",
                 color="BLUE"

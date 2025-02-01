@@ -1,15 +1,40 @@
 import discord
 from discord.ext import commands
-from easy_pil import Canvas, Editor, Font
-from Niludetsu.utils.database import get_user, calculate_next_level_xp, format_voice_time, get_user_roles, get_role_by_id, remove_role_from_user, save_user
-from Niludetsu.utils.embed import create_embed
+from discord import app_commands
+from typing import Optional, List, Dict, Any
+from easy_pil import Canvas, Editor, Font, load_image_async
+from Niludetsu.database import Database
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 import aiohttp
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import os
 import io
-import sqlite3
+import json
+import asyncio
+
+def calculate_next_level_xp(level: int) -> int:
+    """
+    Рассчитывает количество опыта, необходимое для следующего уровня
+    Args:
+        level (int): Текущий уровень
+    Returns:
+        int: Количество опыта для следующего уровня
+    """
+    return 5 * (level ** 2) + 50 * level + 100
+
+def format_voice_time(seconds: int) -> str:
+    """
+    Форматирует время в голосовых каналах в читаемый вид
+    Args:
+        seconds (int): Количество секунд
+    Returns:
+        str: Отформатированное время
+    """
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    return f"{hours}ч {minutes}м"
 
 class SellRoleButton(discord.ui.Button):
     def __init__(self, role_id: int, role_name: str, price: int):
@@ -24,10 +49,11 @@ class SellRoleButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         # Получаем роль
-        role_data = get_role_by_id(self.role_id)
+        role_data = await self.view.cog.db.get_row("shop_roles", role_id=self.role_id)
+
         if not role_data:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title="❌ Ошибка",
                     description="Роль не найдена в базе данных.",
                     color="RED"
@@ -36,10 +62,10 @@ class SellRoleButton(discord.ui.Button):
             )
             return
 
-        role = interaction.guild.get_role(role_data['discord_role_id'])
+        role = interaction.guild.get_role(int(role_data['role_id']))
         if not role:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title="❌ Ошибка",
                     description="Роль не найдена на сервере.",
                     color="RED"
@@ -51,7 +77,7 @@ class SellRoleButton(discord.ui.Button):
         # Проверяем, есть ли роль у пользователя
         if role not in interaction.user.roles:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title="❌ Ошибка",
                     description="У вас нет этой роли.",
                     color="RED"
@@ -63,31 +89,49 @@ class SellRoleButton(discord.ui.Button):
         sell_price = int(self.price * 0.7)  # Возвращаем 70% от стоимости
         bot_profit = self.price - sell_price  # 30% в казну сервера
 
-        # Обновляем баланс пользователя
+        # Получаем текущие данные пользователя
         user_id = str(interaction.user.id)
-        user_data = get_user(user_id)
-        user_data['balance'] = user_data.get('balance', 0) + sell_price
-        save_user(user_id, user_data)
+        user_data = await self.view.cog.db.get_row("users", user_id=user_id)
+        
+        # Получаем список ролей пользователя и удаляем продаваемую роль
+        try:
+            user_roles = eval(user_data['roles'])
+            user_roles.remove(self.role_id)
+        except:
+            user_roles = []
+
+        # Обновляем баланс и список ролей пользователя
+        await self.view.cog.db.update(
+            "users",
+            where={"user_id": user_id},
+            values={
+                "balance": user_data.get('balance', 0) + sell_price,
+                "roles": str(user_roles)
+            }
+        )
 
         # Обновляем баланс бота (казну сервера)
         bot_id = '1264591814208262154'  # ID бота
-        bot_data = get_user(bot_id)
-        bot_data['balance'] = bot_data.get('balance', 0) + bot_profit
-        save_user(bot_id, bot_data)
+        bot_data = await self.view.cog.db.get_row("users", user_id=bot_id)
+        await self.view.cog.db.update(
+            "users",
+            where={"user_id": bot_id},
+            values={"balance": bot_data.get('balance', 0) + bot_profit}
+        )
 
         # Удаляем роль у пользователя
         await interaction.user.remove_roles(role)
-        remove_role_from_user(user_id, self.role_id)
 
         # Создаем новый view для обновленного инвентаря
         new_view = InventoryView(str(interaction.user.id), interaction.user.global_name or interaction.user.name, True)
+        new_view.cog = self.view.cog
         
         # Создаем embed с информацией о продаже
-        sell_embed = create_embed(
+        sell_embed=Embed(
             title="✅ Роль продана",
             description=(
                 f"Вы продали роль **{role.name}** за {sell_price:,} {EMOJIS['MONEY']}\n"
-                f"Ваш новый баланс: {user_data['balance']:,} {EMOJIS['MONEY']}\n"
+                f"Ваш новый баланс: {user_data['balance'] + sell_price:,} {EMOJIS['MONEY']}\n"
                 f"С продажи роли, 30% отправляется в **казну сервера**"
             ),
             color="GREEN"
@@ -102,13 +146,31 @@ class InventoryView(discord.ui.View):
         self.user_id = user_id
         self.user_name = user_name
         self.is_self = is_self
+        self.cog = None
 
     async def refresh_inventory(self, interaction: discord.Interaction):
-        user_roles = get_user_roles(self.user_id)
-        
+        # Получаем данные пользователя
+        user_data = await self.cog.db.get_row("users", user_id=self.user_id)
+        if not user_data or not user_data['roles']:
+            await interaction.response.send_message(
+                embed=Embed(
+                    title="🎒 Инвентарь",
+                    description=f"У {self.user_name} нет купленных ролей.",
+                    color="BLUE"
+                ),
+                ephemeral=True
+            )
+            return
+
+        # Получаем список ID ролей
+        try:
+            user_roles = eval(user_data['roles'])  # Преобразуем строку в список
+        except:
+            user_roles = []
+
         if not user_roles:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title="🎒 Инвентарь",
                     description=f"У {self.user_name} нет купленных ролей.",
                     color="BLUE"
@@ -120,13 +182,13 @@ class InventoryView(discord.ui.View):
         # Получаем информацию о ролях
         roles_data = []
         for role_id in user_roles:
-            role_data = get_role_by_id(role_id)
+            role_data = await self.cog.db.get_row("shop_roles", role_id=role_id)
             if role_data:
                 roles_data.append(role_data)
 
         if not roles_data:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title="🎒 Инвентарь",
                     description=f"У {self.user_name} нет купленных ролей.",
                     color="BLUE"
@@ -143,18 +205,18 @@ class InventoryView(discord.ui.View):
         self.clear_items()
         
         for role_data in roles_data:
-            role = interaction.guild.get_role(role_data['discord_role_id'])
+            role = interaction.guild.get_role(int(role_data['role_id']))
             if role:
-                sell_price = int(role_data['balance'] * 0.7)
-                roles_list.append(f"• {role.name} — {role_data['balance']:,} 💰 (продажа: {sell_price:,} 💰)")
-                total_value += role_data['balance']
+                sell_price = int(role_data['price'] * 0.7)  # Возвращаем 70% от стоимости
+                roles_list.append(f"• {role.name} — {role_data['price']:,} 💰 (продажа: {sell_price:,} 💰)")
+                total_value += role_data['price']
                 
                 # Добавляем кнопку продажи только если это инвентарь пользователя
                 if self.is_self:
-                    self.add_item(SellRoleButton(role_data['role_id'], role.name, role_data['balance']))
+                    self.add_item(SellRoleButton(role_data['role_id'], role.name, role_data['price']))
 
         # Создаем embed с информацией
-        embed = create_embed(
+        embed=Embed(
             title=f"🎒 Инвентарь {self.user_name}",
             description="\n".join([
                 "**Купленные роли:**",
@@ -181,6 +243,7 @@ class InventoryButton(discord.ui.Button):
         is_self = str(interaction.user.id) == self.user_id
         
         view = InventoryView(self.user_id, self.user_name, is_self)
+        view.cog = self.view.cog
         await view.refresh_inventory(interaction)
 
 class ProfileView(discord.ui.View):
@@ -191,6 +254,7 @@ class ProfileView(discord.ui.View):
 class Profile(commands.Cog):
     def __init__(self, client):
         self.client = client
+        self.db = Database()
         self.font_path_regular = os.path.join('config', 'fonts', 'TTNormsPro-Regular.ttf')
         self.font_path_bold = os.path.join('config', 'fonts', 'TTNormsPro-Bold.ttf')
         self.money_icon_path = os.path.join('config', 'images', 'profile', 'money.png')
@@ -235,7 +299,7 @@ class Profile(commands.Cog):
         
         if user.bot:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Вы не можете просмотреть профиль бота.",
                     color="RED"
@@ -244,111 +308,144 @@ class Profile(commands.Cog):
             return
 
         user_id = str(user.id)
-        user_data = get_user(user_id)
+        user_data = await self.db.get_row("users", user_id=user_id)
 
         if not user_data:
-            await interaction.response.send_message(
-                embed=create_embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
-                    description="Пользователь не найден в базе данных.",
-                    color="RED"
-                )
-            )
-            return
-        
-        xp = user_data.get('xp', 0)
-        level = user_data.get('level', 0)
-        next_level_xp = calculate_next_level_xp(level)
-        messages_count = user_data.get('messages_count', 0)
-        voice_time = user_data.get('voice_time', 0)
-        balance = user_data.get('balance', 0)
-        deposit = user_data.get('deposit', 0)
+            user_data = await self.db.insert("users", {
+                'user_id': user_id,
+                'balance': 0,
+                'deposit': 0,
+                'xp': 0,
+                'level': 1,
+                'roles': '[]'
+            })
 
-        # Создаем фон
-        background = Editor(Canvas((900, 300), color="#0f0f0f"))
+        # Создаем новый Canvas
+        background = Editor(Image.new('RGBA', (800, 600), color=(20, 20, 30, 255)))
         
-        # Загружаем и добавляем аватар
-        profile_image = await self.load_image_async(user.avatar.url)
-        profile = Editor(profile_image).resize((150, 150)).circle_image()
-        background.paste(profile.image, (25, 25))
+        # Создаем градиентный фон
+        gradient = Image.new('RGBA', (800, 600))
+        draw = ImageDraw.Draw(gradient)
+        for y in range(600):
+            r = int(30 * (1 - y/600))
+            g = int(30 * (1 - y/600))
+            b = int(40 * (1 - y/600))
+            draw.line([(0, y), (800, y)], fill=(r, g, b, 255))
+        
+        background.image = Image.alpha_composite(background.image, gradient)
+        
+        # Добавляем декоративные элементы
+        # Верхняя панель
+        self.rounded_rectangle(ImageDraw.Draw(background.image), 20, 20, 780, 200, 20, fill=(40, 40, 55, 255))
+        # Нижняя панель для статистики
+        self.rounded_rectangle(ImageDraw.Draw(background.image), 20, 220, 780, 580, 20, fill=(40, 40, 55, 255))
+
+        # Загружаем и добавляем аватар с обводкой
+        profile_image = await self.load_image_async(str(user.display_avatar.url))
+        profile_image = Editor(profile_image).resize((140, 140)).circle_image()
+        
+        # Создаем обводку для аватара
+        circle_border = Image.new('RGBA', (150, 150), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(circle_border)
+        draw.ellipse((0, 0, 149, 149), outline=(255, 255, 255, 255), width=3)
+        circle_border = Editor(circle_border)
+        
+        # Накладываем аватар и обводку
+        background.paste(profile_image, (40, 40))
+        background.paste(circle_border, (35, 35))
 
         # Загружаем шрифты
-        font_bold = ImageFont.truetype(self.font_path_bold, 40)
-        font_regular = ImageFont.truetype(self.font_path_regular, 30)
-        font_small = ImageFont.truetype(self.font_path_regular, 25)
+        font_regular = Font(self.font_path_regular, size=30)
+        font_small = Font(self.font_path_regular, size=25)
+        font_smaller = Font(self.font_path_regular, size=20)
+        font_bold = Font(self.font_path_bold, size=40)
 
-        # Добавляем информацию о пользователе
-        display_name = user.global_name or user.name
-        background.text((200, 20), display_name, font=font_bold, color="white")
-        
-        # Первая колонка
-        background.text((200, 80), f"Уровень: {level}", font=font_regular, color="white")
-        background.text((200, 120), f"Опыт: {xp}/{next_level_xp}", font=font_regular, color="white")
-        
-        # Вторая колонка
-        background.text((500, 80), f"Сообщений: {messages_count:,}", font=font_regular, color="white")
-        background.text((500, 120), f"Время в войсе: {self.format_time(voice_time)}", font=font_regular, color="white")
-        
-        # Баланс с иконкой
-        balance_text = f"Баланс: {balance:,}"
-        background.text((200, 160), balance_text, font=font_regular, color="white")
-        
-        # Депозит с иконкой
-        deposit_text = f"В банке: {deposit:,}"
-        background.text((500, 160), deposit_text, font=font_regular, color="white")
-        
-        # Добавляем иконки денег
-        if os.path.exists(self.money_icon_path):
-            money_icon = Image.open(self.money_icon_path)
-            money_icon = money_icon.resize((25, 25))  # Размер иконки
-            
-            # Иконка для баланса
-            text_width = ImageDraw.Draw(background.image).textlength(balance_text, font=font_regular)
-            money_editor = Editor(money_icon)
-            background.paste(money_editor, (int(200 + text_width + 10), 160))
-            
-            # Иконка для депозита
-            text_width_deposit = ImageDraw.Draw(background.image).textlength(deposit_text, font=font_regular)
-            money_editor_deposit = Editor(money_icon)
-            background.paste(money_editor_deposit, (int(500 + text_width_deposit + 10), 160))
+        # Добавляем имя пользователя
+        background.text((210, 50), user.name, font=font_bold, color="white")
 
-        # Прогресс-бар опыта
-        progress_bar_x = 200
-        progress_bar_y = 240
-        progress_bar_width = 650
-        progress_bar_height = 20
-        progress = int((xp / next_level_xp) * progress_bar_width) if next_level_xp else 0
+        # Добавляем уровень и опыт с прогресс-баром
+        level = user_data.get('level', 1)
+        xp = user_data.get('xp', 0)
+        next_level_xp = calculate_next_level_xp(level)
+        xp_percentage = min(xp / next_level_xp * 100, 100)
 
-        draw = ImageDraw.Draw(background.image)
-
+        # Рисуем прогресс-бар
+        bar_width = 300
+        bar_height = 20
+        bar_x = 210
+        bar_y = 100
+        
         # Фон прогресс-бара
-        self.rounded_rectangle(draw,
-                            progress_bar_x,
-                            progress_bar_y,
-                            progress_bar_x + progress_bar_width,
-                            progress_bar_y + progress_bar_height,
-                            10,
-                            fill="#1f1f1f")
-
+        self.rounded_rectangle(
+            ImageDraw.Draw(background.image),
+            bar_x, bar_y,
+            bar_x + bar_width, bar_y + bar_height,
+            10, fill=(30, 30, 40, 255)
+        )
+        
         # Заполненная часть прогресс-бара
-        fill_x2 = max(progress_bar_x + progress, progress_bar_x)
-        self.rounded_rectangle(draw, 
-                            progress_bar_x,
-                            progress_bar_y,
-                            fill_x2,
-                            progress_bar_y + progress_bar_height,
-                            10,
-                            fill="#f20c3c")
-
-        # Конвертируем изображение в байты и отправляем
-        with io.BytesIO() as image_binary:
-            background.image.save(image_binary, 'PNG')
-            image_binary.seek(0)
-            user_name = user.global_name or user.name
-            await interaction.response.send_message(
-                file=discord.File(fp=image_binary, filename='profile.png'),
-                view=ProfileView(user_id, user_name)
+        filled_width = int(bar_width * (xp_percentage / 100))
+        if filled_width > 0:
+            self.rounded_rectangle(
+                ImageDraw.Draw(background.image),
+                bar_x, bar_y,
+                bar_x + filled_width, bar_y + bar_height,
+                10, fill=(70, 130, 180, 255)
             )
+
+        # Текст уровня и опыта
+        background.text((210, 130), f"Уровень {level}", font=font_regular, color="white")
+        background.text((400, 130), f"XP: {xp:,}/{next_level_xp:,}", font=font_small, color="#cccccc")
+
+        # Добавляем баланс с иконками
+        balance = user_data.get('balance', 0)
+        deposit = user_data.get('deposit', 0)
+        total = balance + deposit
+
+        # Рисуем секции для денег
+        money_section_y = 250
+        self.rounded_rectangle(ImageDraw.Draw(background.image), 40, money_section_y, 380, money_section_y + 100, 15, fill=(50, 50, 65, 255))
+        
+        # Иконка денег и баланс
+        money_icon = Editor(self.money_icon_path).resize((25, 25))
+        background.paste(money_icon, (60, money_section_y + 20))
+        background.text((95, money_section_y + 15), f"Баланс: {balance:,}", font=font_regular, color="white")
+        background.text((95, money_section_y + 55), f"В банке: {deposit:,}", font=font_small, color="#cccccc")
+
+        # Статистика справа
+        stats_x = 420
+        stats_y = 250
+        self.rounded_rectangle(ImageDraw.Draw(background.image), stats_x, stats_y, 760, stats_y + 300, 15, fill=(50, 50, 65, 255))
+        
+        # Заголовок статистики
+        background.text((stats_x + 20, stats_y + 20), "Статистика", font=font_regular, color="white")
+        
+        # Статистика с иконками
+        stats_start_y = stats_y + 70
+        line_height = 45
+        
+        # Время в войсе
+        voice_time = user_data.get('voice_time', 0)
+        formatted_voice_time = format_voice_time(voice_time)
+        background.text((stats_x + 20, stats_start_y), f"🎤 Время в войсе: {formatted_voice_time}", font=font_small, color="#cccccc")
+        
+        # Подключения
+        voice_joins = user_data.get('voice_joins', 0)
+        background.text((stats_x + 20, stats_start_y + line_height), f"🔌 Подключений: {voice_joins:,}", font=font_small, color="#cccccc")
+        
+        # Сообщения
+        messages_count = user_data.get('messages_count', 0)
+        background.text((stats_x + 20, stats_start_y + line_height * 2), f"💬 Сообщений: {messages_count:,}", font=font_small, color="#cccccc")
+
+        # Конвертируем изображение в файл
+        file = discord.File(fp=background.image_bytes, filename="profile.png")
+
+        # Создаем view с кнопкой инвентаря
+        view = ProfileView(user_id, user.global_name or user.name)
+        view.cog = self
+
+        # Отправляем сообщение с изображением и кнопкой
+        await interaction.response.send_message(file=file, view=view)
 
 async def setup(client):
     await client.add_cog(Profile(client)) 

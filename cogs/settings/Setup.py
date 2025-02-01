@@ -1,14 +1,14 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 import yaml
 
 class Setup(commands.GroupCog, name="setup"):
     def __init__(self, bot):
         self.bot = bot
-        with open('config/config.yaml', 'r', encoding='utf-8') as f:
+        with open('data/config.yaml', 'r', encoding='utf-8') as f:
             self.config = yaml.safe_load(f)
 
     def is_owner():
@@ -18,7 +18,7 @@ class Setup(commands.GroupCog, name="setup"):
 
     async def update_role_id(self, role_id: str, role: discord.Role):
         """Обновляет ID роли в конфиге"""
-        with open('config/config.yaml', 'r', encoding='utf-8') as f:
+        with open('data/config.yaml', 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
             
         # Ищем роль в конфиге и обновляем её ID
@@ -28,7 +28,7 @@ class Setup(commands.GroupCog, name="setup"):
                     role_data['id'] = str(role.id)
                     break
         
-        with open('config/config.yaml', 'w', encoding='utf-8') as f:
+        with open('data/config.yaml', 'w', encoding='utf-8') as f:
             yaml.dump(config, f, allow_unicode=True)
 
     @app_commands.command(name="moderation", description="Настроить роли модерации")
@@ -38,7 +38,7 @@ class Setup(commands.GroupCog, name="setup"):
         await interaction.response.defer()
         
         progress_msg = await interaction.followup.send(
-            embed=create_embed(
+            embed=Embed(
                 title=f"{EMOJIS['LOADING']} Настройка сервера",
                 description="Настройка ролей модерации...",
                 color="BLUE"
@@ -64,8 +64,9 @@ class Setup(commands.GroupCog, name="setup"):
                 roles_updated.append(existing_role)
             else:
                 # Создаем новую роль
+                role_name = role_id.upper() if role_id == 'ae' else role_id.replace('-', ' ').title()
                 role = await interaction.guild.create_role(
-                    name=role_id.upper() if role_id == 'ae' else role_id.replace('_', ' ').title(),
+                    name=role_name,
                     permissions=discord.Permissions(role_data['permissions']),
                     reason='Автоматическая настройка сервера'
                 )
@@ -151,7 +152,7 @@ class Setup(commands.GroupCog, name="setup"):
             for role in roles_updated:
                 description += f"{EMOJIS['ROLE']} {role.mention}\n"
         
-        await progress_msg.edit(embed=create_embed(
+        await progress_msg.edit(embed=Embed(
             title=f"{EMOJIS['SETTINGS']} Настройка сервера",
             description=description,
             color="GREEN"
@@ -203,7 +204,7 @@ class Setup(commands.GroupCog, name="setup"):
                 await ch.set_permissions(verified_role, overwrite=overwrites)
 
         # Отправляем сообщение верификации
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['VERIFY']} Верификация",
             description=f"{EMOJIS['WELCOME']} Добро пожаловать на сервер!\n{EMOJIS['INFO']} Нажмите на кнопку ниже, чтобы получить доступ.",
             color="BLUE"
@@ -221,7 +222,7 @@ class Setup(commands.GroupCog, name="setup"):
         await channel.send(embed=embed, view=view)
         
         await interaction.followup.send(
-            embed=create_embed(
+            embed=Embed(
                 title=f"{EMOJIS['SETTINGS']} Настройка верификации",
                 description=f"{EMOJIS['SUCCESS']} Настройка завершена!\n\n"
                           f"{EMOJIS['CHANNEL']} Канал верификации: {channel.mention}\n"
@@ -237,7 +238,7 @@ class Setup(commands.GroupCog, name="setup"):
         await interaction.response.defer()
         
         progress_msg = await interaction.followup.send(
-            embed=create_embed(
+            embed=Embed(
                 title=f"{EMOJIS['LOADING']} Настройка каналов",
                 description="Создание и настройка каналов...",
                 color="BLUE"
@@ -278,7 +279,7 @@ class Setup(commands.GroupCog, name="setup"):
             for channel in channels_updated:
                 description += f"{EMOJIS['CHANNEL']} {channel.mention}\n"
         
-        await progress_msg.edit(embed=create_embed(
+        await progress_msg.edit(embed=Embed(
             title=f"{EMOJIS['SETTINGS']} Настройка каналов",
             description=description,
             color="GREEN"

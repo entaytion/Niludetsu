@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 import g4f
 import asyncio
@@ -278,7 +278,7 @@ class AI(commands.Cog):
         response, provider_name = await self.get_ai_response(вопрос)
         
         if response:
-            embed = create_embed(
+            embed=Embed(
                 title=f"{self.AI_EMOJI} Ответ ИИ",
                 description=response,
                 color=0x2b2d31
@@ -295,7 +295,7 @@ class AI(commands.Cog):
             
             await interaction.followup.send(embed=embed)
         else:
-            error_embed = create_embed(
+            error_embed=Embed(
                 title=f"{EMOJIS['ERROR']} Ошибка",
                 description="Не удалось получить ответ от ИИ. Все доступные провайдеры временно недоступны. Попробуйте позже.",
                 color=0xe74c3c
@@ -306,7 +306,7 @@ class AI(commands.Cog):
     async def providers_list(self, interaction: discord.Interaction):
         """Показывает список доступных провайдеров ИИ"""
         embeds = []  # Список для хранения нескольких эмбедов
-        current_embed = create_embed(
+        current_embed=Embed(
             title=f"{self.AI_EMOJI} Доступные провайдеры ИИ (Часть 1)",
             color=0x2b2d31
         )
@@ -356,7 +356,7 @@ class AI(commands.Cog):
                     if field_count >= 25 or len(providers_text) == 0:
                         embeds.append(current_embed)
                         embed_count += 1
-                        current_embed = create_embed(
+                        current_embed=Embed(
                             title=f"{self.AI_EMOJI} Доступные провайдеры ИИ (Часть {embed_count})",
                             color=0x2b2d31
                         )
@@ -375,7 +375,7 @@ class AI(commands.Cog):
                     if field_count >= 25:
                         embeds.append(current_embed)
                         embed_count += 1
-                        current_embed = create_embed(
+                        current_embed=Embed(
                             title=f"{self.AI_EMOJI} Доступные провайдеры ИИ (Часть {embed_count})",
                             color=0x2b2d31
                         )
@@ -409,7 +409,7 @@ class AI(commands.Cog):
         
         if not found_provider:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description=f"Провайдер '{provider}' не найден",
                     color=0xe74c3c
@@ -419,7 +419,7 @@ class AI(commands.Cog):
             return
         
         provider_class, info = found_provider
-        embed = create_embed(
+        embed=Embed(
             title=f"{self.AI_EMOJI} Информация о провайдере {info['name']}",
             color=0x2b2d31
         )

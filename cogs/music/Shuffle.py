@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 import random
 
@@ -20,7 +20,7 @@ class Shuffle(commands.Cog):
 
         if not player.playing:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Сейчас ничего не играет!",
                     color="RED"
@@ -32,7 +32,7 @@ class Shuffle(commands.Cog):
         state = self.music.get_voice_state(interaction.guild)
         if not state:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="Не удалось получить информацию об очереди!",
                     color="RED"
@@ -43,7 +43,7 @@ class Shuffle(commands.Cog):
 
         if state.songs.empty():
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title=f"{EMOJIS['ERROR']} Ошибка",
                     description="В очереди нет треков для перемешивания!",
                     color="RED"
@@ -59,7 +59,7 @@ class Shuffle(commands.Cog):
         for song in queue_list:
             await state.songs.put(song)
 
-        embed = create_embed(
+        embed=Embed(
             title=f"{EMOJIS['SHUFFLE']} Очередь перемешана",
             description=f"Перемешано `{len(queue_list)}` треков",
             color="BLUE"

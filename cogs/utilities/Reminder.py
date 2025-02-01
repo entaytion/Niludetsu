@@ -3,7 +3,7 @@ from discord.ext import commands, tasks
 import asyncio
 from datetime import datetime, timedelta
 import re
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class Reminder(commands.GroupCog, group_name="reminder"):
@@ -67,7 +67,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
                     if user:
                         channel = reminder.get('channel')
                         if channel:
-                            embed = create_embed(
+                            embed=Embed(
                                 title="⏰ Напоминание",
                                 description=f"{reminder['message']}",
                                 color=0x2ecc71
@@ -100,7 +100,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
             # Проверка минимального времени
             if time_delta.total_seconds() < 5:  # Минимум 5 секунд
                 await interaction.response.send_message(
-                    embed=create_embed(
+                    embed=Embed(
                         title="❌ Ошибка",
                         description="Минимальное время напоминания - 5 секунд!",
                         color=0xe74c3c
@@ -111,7 +111,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
             # Проверка максимального времени
             if time_delta.total_seconds() > 30 * 24 * 60 * 60:  # 30 дней
                 await interaction.response.send_message(
-                    embed=create_embed(
+                    embed=Embed(
                         title="❌ Ошибка",
                         description="Максимальное время напоминания - 30 дней!",
                         color=0xe74c3c
@@ -127,7 +127,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
             
             if len(self.reminders[interaction.user.id]) >= 5:
                 await interaction.response.send_message(
-                    embed=create_embed(
+                    embed=Embed(
                         title="❌ Ошибка",
                         description="У вас уже установлено максимальное количество напоминаний (5)!",
                         color=0xe74c3c
@@ -143,7 +143,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
             })
 
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title="⏰ Напоминание создано",
                     description=f"Я напомню вам через {time_str}:\n{message}",
                     color=0x2ecc71
@@ -152,7 +152,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
             
         except ValueError as e:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title="❌ Ошибка",
                     description=str(e) if str(e) != "Неверный формат времени" else 
                               "Неверный формат времени! Используйте: 30с, 15м, 2ч, 1д, 1н",
@@ -164,7 +164,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
     async def list(self, interaction: discord.Interaction):
         if interaction.user.id not in self.reminders or not self.reminders[interaction.user.id]:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title="📝 Напоминания",
                     description="У вас нет активных напоминаний!",
                     color=0xf1c40f
@@ -198,7 +198,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
             time_str = " ".join(time_parts)
             reminders_list.append(f"**{i}.** Через {time_str}: {reminder['message']}")
 
-        embed = create_embed(
+        embed=Embed(
             title="📝 Ваши напоминания",
             description="\n".join(reminders_list),
             color=0x3498db
@@ -214,7 +214,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
             number > len(self.reminders[interaction.user.id])):
             
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     title="❌ Ошибка",
                     description="Напоминание с таким номером не найдено!",
                     color=0xe74c3c
@@ -227,7 +227,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
             del self.reminders[interaction.user.id]
 
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 title="✅ Напоминание удалено",
                 description=f"Удалено напоминание:\n{removed_reminder['message']}",
                 color=0x2ecc71

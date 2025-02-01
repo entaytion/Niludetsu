@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 import random
 
 class Minesweeper(commands.Cog):
@@ -88,7 +88,7 @@ class Minesweeper(commands.Cog):
         # Проверяем размер поля
         if not 5 <= size <= 10:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="Размер поля должен быть от 5 до 10!",
                     color="RED"
                 ),
@@ -100,7 +100,7 @@ class Minesweeper(commands.Cog):
         max_bombs = (size * size) // 3
         if not 3 <= bombs <= max_bombs:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description=f"Количество бомб должно быть от 3 до {max_bombs}!",
                     color="RED"
                 ),
@@ -113,7 +113,7 @@ class Minesweeper(commands.Cog):
         formatted_board = self.format_board(board)
         
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 title="💣 Сапер",
                 description=f"**Размер поля:** {size}x{size}\n"
                           f"**Количество бомб:** {bombs}\n\n"
@@ -124,7 +124,7 @@ class Minesweeper(commands.Cog):
 
     @minesweeper_group.command(name="help", description="Показать помощь по игре Сапёр")
     async def minesweeper_help(self, interaction: discord.Interaction):
-        embed = create_embed(
+        embed=Embed(
             title="💣 Помощь по игре Сапёр",
             description=(
                 "**Как играть:**\n"

@@ -1,12 +1,13 @@
 import discord
 from discord.ext import commands
-from Niludetsu.utils.embed import create_embed
-from Niludetsu.utils.database import get_user, save_user
+from Niludetsu.utils.embed import Embed
+from Niludetsu.database import Database
 from Niludetsu.utils.emojis import EMOJIS
 
 class Withdraw(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.db = Database()
 
     @discord.app_commands.command(name="withdraw", description="Снять деньги с банка")
     @discord.app_commands.describe(
@@ -16,7 +17,7 @@ class Withdraw(commands.Cog):
         # Проверка суммы
         if amount <= 0:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description="Сумма должна быть больше 0.",
                     color="RED"
                 ),
@@ -26,22 +27,12 @@ class Withdraw(commands.Cog):
 
         # Получаем данные пользователя
         user_id = str(interaction.user.id)
-        user_data = get_user(user_id)
-
-        if not user_data:
-            user_data = {
-                'balance': 0,
-                'deposit': 0,
-                'xp': 0,
-                'level': 1,
-                'roles': '[]'
-            }
-            save_user(user_id, user_data)
+        user_data = await self.db.ensure_user(user_id)
 
         # Проверка баланса в банке
         if user_data.get('deposit', 0) < amount:
             await interaction.response.send_message(
-                embed=create_embed(
+                embed=Embed(
                     description=f"У вас недостаточно средств в банке.\n"
                               f"Баланс в банке: {user_data.get('deposit', 0):,} {EMOJIS['MONEY']}",
                     color="RED"
@@ -51,17 +42,25 @@ class Withdraw(commands.Cog):
             return
 
         # Выполняем снятие из банка
-        user_data['deposit'] = user_data.get('deposit', 0) - amount
-        user_data['balance'] = user_data.get('balance', 0) + amount
-        save_user(user_id, user_data)
+        new_deposit = user_data.get('deposit', 0) - amount
+        new_balance = user_data.get('balance', 0) + amount
+        
+        await self.db.update(
+            "users",
+            where={"user_id": user_id},
+            values={
+                "deposit": new_deposit,
+                "balance": new_balance
+            }
+        )
 
         # Отправляем сообщение об успешном снятии
         await interaction.response.send_message(
-            embed=create_embed(
+            embed=Embed(
                 title="Деньги сняты с банка",
                 description=f"Вы сняли {amount:,} {EMOJIS['MONEY']} с банка\n"
-                          f"Баланс в банке: {user_data['deposit']:,} {EMOJIS['MONEY']}\n"
-                          f"Наличные: {user_data['balance']:,} {EMOJIS['MONEY']}",
+                          f"Баланс в банке: {new_deposit:,} {EMOJIS['MONEY']}\n"
+                          f"Наличные: {new_balance:,} {EMOJIS['MONEY']}",
                 color="GREEN"
             )
         )

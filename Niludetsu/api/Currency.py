@@ -1,12 +1,14 @@
 import aiohttp
-import yaml
+import os
 from typing import Optional, Dict
+from dotenv import load_dotenv
 
 class CurrencyAPI:
     def __init__(self):
-        with open('config/config.yaml', 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
-            self.api_key = config['apis']['exchange_rate']['key']
+        load_dotenv()
+        self.api_key = os.getenv('EXCHANGE_RATE_API_KEY')
+        if not self.api_key:
+            raise ValueError("EXCHANGE_RATE_API_KEY не найден в .env файле")
         
         self.api_url = f"https://v6.exchangerate-api.com/v6/{self.api_key}/latest/"
         self.currencies = {

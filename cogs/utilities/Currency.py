@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 from Niludetsu.api.Currency import CurrencyAPI
 
@@ -19,7 +19,7 @@ class Currency(commands.Cog):
         base_currency = валюта.upper()
         if not self.currency_api.is_supported_currency(base_currency):
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Указанная валюта не поддерживается!"
                 )
             )
@@ -28,7 +28,7 @@ class Currency(commands.Cog):
         data = await self.currency_api.get_exchange_rate(base_currency)
         if not data:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Не удалось получить курсы валют!"
                 )
             )
@@ -42,7 +42,7 @@ class Currency(commands.Cog):
                 rate = rates[currency]
                 description += f"{EMOJIS['DOT']} **{name}:** `{rate:.2f}`\n"
 
-        embed = create_embed(
+        embed=Embed(
             title=f"💱 Курсы валют",
             description=description,
             footer={"text": f"Данные предоставлены ExchangeRate-API • {data['time_last_update_utc'][:10]}"}
@@ -65,7 +65,7 @@ class Currency(commands.Cog):
 
         if not self.currency_api.is_supported_currency(from_currency) or not self.currency_api.is_supported_currency(to_currency):
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Одна из указанных валют не поддерживается!"
                 )
             )
@@ -74,7 +74,7 @@ class Currency(commands.Cog):
         data = await self.currency_api.get_exchange_rate(from_currency)
         if not data:
             await interaction.followup.send(
-                embed=create_embed(
+                embed=Embed(
                     description="❌ Не удалось получить курсы валют!"
                 )
             )
@@ -89,7 +89,7 @@ class Currency(commands.Cog):
             f"{converted_amount:.2f} {self.currency_api.get_currency_name(to_currency)}"
         )
 
-        embed = create_embed(
+        embed=Embed(
             description=description,
             footer={"text": f"Курс: 1 {from_currency} = {rate:.4f} {to_currency}"}
         )

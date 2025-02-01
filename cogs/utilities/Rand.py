@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import random
-from Niludetsu.utils.embed import create_embed
+from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.emojis import EMOJIS
 
 class Rand(commands.Cog):
@@ -33,7 +33,7 @@ class Rand(commands.Cog):
             result = random.randint(0, max)
             range_text = f"от 0 до {max}"
 
-        embed = create_embed(
+        embed=Embed(
             title="🎲 Случайное число",
             description=f"В диапазоне {range_text}"
         )
