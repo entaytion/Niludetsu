@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import re
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from Niludetsu.utils.decorators import command_cooldown
 import asyncio
 from Niludetsu.database.db import Database

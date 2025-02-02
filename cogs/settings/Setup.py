@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 import yaml
 
 class Setup(commands.GroupCog, name="setup"):
@@ -39,7 +39,7 @@ class Setup(commands.GroupCog, name="setup"):
         
         progress_msg = await interaction.followup.send(
             embed=Embed(
-                title=f"{EMOJIS['LOADING']} Настройка сервера",
+                title=f"{Emojis.LOADING} Настройка сервера",
                 description="Настройка ролей модерации...",
                 color="BLUE"
             )
@@ -140,20 +140,20 @@ class Setup(commands.GroupCog, name="setup"):
                 await channel.set_permissions(muted_role, overwrite=overwrites)
 
         # Формируем отчет
-        description = f"{EMOJIS['SUCCESS']} Настройка завершена!\n\n"
+        description = f"{Emojis.SUCCESS} Настройка завершена!\n\n"
         
         if roles_created:
-            description += f"{EMOJIS['ROLES']} **Созданные роли:**\n"
+            description += f"{Emojis.ROLES} **Созданные роли:**\n"
             for role in roles_created:
-                description += f"{EMOJIS['ROLE']} {role.mention}\n"
+                description += f"{Emojis.ROLE} {role.mention}\n"
         
         if roles_updated:
-            description += f"\n{EMOJIS['ROLES']} **Обновленные роли:**\n"
+            description += f"\n{Emojis.ROLES} **Обновленные роли:**\n"
             for role in roles_updated:
-                description += f"{EMOJIS['ROLE']} {role.mention}\n"
+                description += f"{Emojis.ROLE} {role.mention}\n"
         
         await progress_msg.edit(embed=Embed(
-            title=f"{EMOJIS['SETTINGS']} Настройка сервера",
+            title=f"{Emojis.SETTINGS} Настройка сервера",
             description=description,
             color="GREEN"
         ))
@@ -205,8 +205,8 @@ class Setup(commands.GroupCog, name="setup"):
 
         # Отправляем сообщение верификации
         embed=Embed(
-            title=f"{EMOJIS['VERIFY']} Верификация",
-            description=f"{EMOJIS['WELCOME']} Добро пожаловать на сервер!\n{EMOJIS['INFO']} Нажмите на кнопку ниже, чтобы получить доступ.",
+            title=f"{Emojis.VERIFY} Верификация",
+            description=f"{Emojis.WELCOME} Добро пожаловать на сервер!\n{Emojis.INFO} Нажмите на кнопку ниже, чтобы получить доступ.",
             color="BLUE"
         )
         
@@ -223,10 +223,10 @@ class Setup(commands.GroupCog, name="setup"):
         
         await interaction.followup.send(
             embed=Embed(
-                title=f"{EMOJIS['SETTINGS']} Настройка верификации",
-                description=f"{EMOJIS['SUCCESS']} Настройка завершена!\n\n"
-                          f"{EMOJIS['CHANNEL']} Канал верификации: {channel.mention}\n"
-                          f"{EMOJIS['ROLE']} Роль верификации: {verified_role.mention}",
+                title=f"{Emojis.SETTINGS} Настройка верификации",
+                description=f"{Emojis.SUCCESS} Настройка завершена!\n\n"
+                          f"{Emojis.CHANNEL} Канал верификации: {channel.mention}\n"
+                          f"{Emojis.ROLE} Роль верификации: {verified_role.mention}",
                 color="GREEN"
             )
         )
@@ -239,7 +239,7 @@ class Setup(commands.GroupCog, name="setup"):
         
         progress_msg = await interaction.followup.send(
             embed=Embed(
-                title=f"{EMOJIS['LOADING']} Настройка каналов",
+                title=f"{Emojis.LOADING} Настройка каналов",
                 description="Создание и настройка каналов...",
                 color="BLUE"
             )
@@ -267,20 +267,20 @@ class Setup(commands.GroupCog, name="setup"):
                 channels_created.append(channel)
         
         # Формируем отчет
-        description = f"{EMOJIS['SUCCESS']} Настройка завершена!\n\n"
+        description = f"{Emojis.SUCCESS} Настройка завершена!\n\n"
         
         if channels_created:
-            description += f"{EMOJIS['CHANNELS']} **Созданные каналы:**\n"
+            description += f"{Emojis.CHANNELS} **Созданные каналы:**\n"
             for channel in channels_created:
-                description += f"{EMOJIS['CHANNEL']} {channel.mention}\n"
+                description += f"{Emojis.CHANNEL} {channel.mention}\n"
         
         if channels_updated:
-            description += f"\n{EMOJIS['CHANNELS']} **Обновленные каналы:**\n"
+            description += f"\n{Emojis.CHANNELS} **Обновленные каналы:**\n"
             for channel in channels_updated:
-                description += f"{EMOJIS['CHANNEL']} {channel.mention}\n"
+                description += f"{Emojis.CHANNEL} {channel.mention}\n"
         
         await progress_msg.edit(embed=Embed(
-            title=f"{EMOJIS['SETTINGS']} Настройка каналов",
+            title=f"{Emojis.SETTINGS} Настройка каналов",
             description=description,
             color="GREEN"
         ))

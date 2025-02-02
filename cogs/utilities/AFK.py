@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from Niludetsu.database import Database
 from datetime import datetime
 import asyncio
@@ -100,7 +100,7 @@ class AFK(commands.Cog):
                 if result:
                     await message.reply(
                         embed=Embed(
-                            title=f"{EMOJIS['INFO']} Пользователь AFK",
+                            title=f"{Emojis.INFO} Пользователь AFK",
                             description=f"{member.mention} сейчас AFK\nПричина: {result['reason']}\nУшел: <t:{result['unix_time']}:R>",
                             color="YELLOW"
                         )
@@ -135,7 +135,7 @@ class AFK(commands.Cog):
                 
                 await message.reply(
                     embed=Embed(
-                        title=f"{EMOJIS['SUCCESS']} С возвращением!",
+                        title=f"{Emojis.SUCCESS} С возвращением!",
                         description=f"Вы вернулись из AFK\nПричина была: {result['reason']}\nОтсутствовали: <t:{result['unix_time']}:R>",
                         color="GREEN"
                     )

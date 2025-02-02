@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 import qrcode
 import io
 

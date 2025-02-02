@@ -9,6 +9,7 @@ class Database:
     def __init__(self, db_path: str = "data/database.db"):
         self.db_path = db_path
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        self._connection = None
         
     async def _get_existing_tables(self) -> Set[str]:
         """Получить список существующих таблиц"""
@@ -202,3 +203,13 @@ class Database:
                 'roles': '[]'
             })
         return user_data
+
+    async def connect(self) -> None:
+        """Установить соединение с базой данных"""
+        await self.init()
+        
+    async def close(self) -> None:
+        """Закрыть соединение с базой данных"""
+        if self._connection:
+            await self._connection.close()
+            self._connection = None

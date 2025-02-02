@@ -6,7 +6,7 @@ import whois
 import requests
 from datetime import datetime
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class WhoIs(commands.Cog):
     def __init__(self, bot):

@@ -12,14 +12,14 @@ class CommandSync:
     def load_command_hashes(self) -> Dict[str, str]:
         """Загружает хеши команд из файла"""
         try:
-            with open('config/hash.yaml', 'r', encoding='utf-8') as f:
+            with open('data/hash/hash.yaml', 'r', encoding='utf-8') as f:
                 return yaml.safe_load(f) or {}
         except FileNotFoundError:
             return {}
 
     def save_command_hashes(self, hashes: Dict[str, str]) -> None:
         """Сохраняет хеши команд в файл"""
-        with open('config/hash.yaml', 'w', encoding='utf-8') as f:
+        with open('data/hash/hash.yaml', 'w', encoding='utf-8') as f:
             yaml.dump(hashes, f, default_flow_style=False, allow_unicode=True)
 
     def get_command_hash(self, command: discord.app_commands.Command) -> str:

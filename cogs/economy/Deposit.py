@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from Niludetsu.utils.embed import Embed
 from Niludetsu.database import Database
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class Deposit(commands.Cog):
     def __init__(self, bot):
@@ -34,7 +34,7 @@ class Deposit(commands.Cog):
             await interaction.response.send_message(
                 embed=Embed(
                     description=f"У вас недостаточно средств.\n"
-                              f"Ваш баланс: {user_data.get('balance', 0):,} {EMOJIS['MONEY']}",
+                              f"Ваш баланс: {user_data.get('balance', 0):,} {Emojis.MONEY}",
                     color="RED"
                 ),
                 ephemeral=True
@@ -58,9 +58,9 @@ class Deposit(commands.Cog):
         await interaction.response.send_message(
             embed=Embed(
                 title="Деньги внесены в банк",
-                description=f"Вы внесли {amount:,} {EMOJIS['MONEY']} в банк\n"
-                          f"Баланс в банке: {new_deposit:,} {EMOJIS['MONEY']}\n"
-                          f"Наличные: {new_balance:,} {EMOJIS['MONEY']}",
+                description=f"Вы внесли {amount:,} {Emojis.MONEY} в банк\n"
+                          f"Баланс в банке: {new_deposit:,} {Emojis.MONEY}\n"
+                          f"Наличные: {new_balance:,} {Emojis.MONEY}",
                 color="GREEN"
             )
         )

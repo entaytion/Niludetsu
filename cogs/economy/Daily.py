@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from Niludetsu.utils.embed import Embed
 from Niludetsu.database import Database
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from datetime import datetime, timedelta
 import random
 
@@ -55,8 +55,8 @@ class Daily(commands.Cog):
         await interaction.response.send_message(
             embed=Embed(
                 title="🎁 Ежедневная награда",
-                description=f"💰 Вы получили: **{reward:,}** {EMOJIS['MONEY']}\n"
-                          f"💳 Баланс: **{user_data['balance'] + reward:,}** {EMOJIS['MONEY']}",
+                description=f"💰 Вы получили: **{reward:,}** {Emojis.MONEY}\n"
+                          f"💳 Баланс: **{user_data['balance'] + reward:,}** {Emojis.MONEY}",
                 color="GREEN"
             )
         )

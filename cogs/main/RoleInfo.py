@@ -4,7 +4,7 @@ from discord import app_commands
 from datetime import datetime
 from typing import Optional
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class RoleInfo(commands.Cog):
     def __init__(self, bot):
@@ -22,15 +22,15 @@ class RoleInfo(commands.Cog):
         # Базовая информация
         embed.add_field(
             name="📋 Основная информация",
-            value=f"{EMOJIS['DOT']} **Название:** {role.name}\n"
-                  f"{EMOJIS['DOT']} **ID:** {role.id}\n"
-                  f"{EMOJIS['DOT']} **Цвет:** {str(role.color)}\n"
-                  f"{EMOJIS['DOT']} **Позиция:** {role.position} из {len(interaction.guild.roles)}\n"
-                  f"{EMOJIS['DOT']} **Создана:** <t:{int(role.created_at.timestamp())}:R>\n"
-                  f"{EMOJIS['DOT']} **Отображается отдельно:** {':white_check_mark:' if role.hoist else ':x:'}\n"
-                  f"{EMOJIS['DOT']} **Управляется ботом:** {':white_check_mark:' if role.is_bot_managed() else ':x:'}\n"
-                  f"{EMOJIS['DOT']} **Интеграция:** {':white_check_mark:' if role.is_integration() else ':x:'}\n"
-                  f"{EMOJIS['DOT']} **Премиум роль:** {':white_check_mark:' if role.is_premium_subscriber() else ':x:'}",
+            value=f"{Emojis.DOT} **Название:** {role.name}\n"
+                  f"{Emojis.DOT} **ID:** {role.id}\n"
+                  f"{Emojis.DOT} **Цвет:** {str(role.color)}\n"
+                  f"{Emojis.DOT} **Позиция:** {role.position} из {len(interaction.guild.roles)}\n"
+                  f"{Emojis.DOT} **Создана:** <t:{int(role.created_at.timestamp())}:R>\n"
+                  f"{Emojis.DOT} **Отображается отдельно:** {':white_check_mark:' if role.hoist else ':x:'}\n"
+                  f"{Emojis.DOT} **Управляется ботом:** {':white_check_mark:' if role.is_bot_managed() else ':x:'}\n"
+                  f"{Emojis.DOT} **Интеграция:** {':white_check_mark:' if role.is_integration() else ':x:'}\n"
+                  f"{Emojis.DOT} **Премиум роль:** {':white_check_mark:' if role.is_premium_subscriber() else ':x:'}",
             inline=False
         )
 
@@ -40,9 +40,9 @@ class RoleInfo(commands.Cog):
         
         embed.add_field(
             name="👥 Участники",
-            value=f"{EMOJIS['DOT']} **Всего:** {members_with_role}\n"
-                  f"{EMOJIS['DOT']} **Онлайн:** {online_members}\n"
-                  f"{EMOJIS['DOT']} **Процент от сервера:** {round((members_with_role / len(interaction.guild.members)) * 100, 2)}%",
+            value=f"{Emojis.DOT} **Всего:** {members_with_role}\n"
+                  f"{Emojis.DOT} **Онлайн:** {online_members}\n"
+                  f"{Emojis.DOT} **Процент от сервера:** {round((members_with_role / len(interaction.guild.members)) * 100, 2)}%",
             inline=False
         )
 
@@ -51,7 +51,7 @@ class RoleInfo(commands.Cog):
         for perm, value in role.permissions:
             if value:
                 formatted_perm = perm.replace('_', ' ').title()
-                permissions.append(f"{EMOJIS['SUCCESS']} {formatted_perm}")
+                permissions.append(f"{Emojis.SUCCESS} {formatted_perm}")
         
         # Разделяем разрешения на группы по 15
         perm_chunks = [permissions[i:i + 15] for i in range(0, len(permissions), 15)]
@@ -66,8 +66,8 @@ class RoleInfo(commands.Cog):
         # Упоминание и тег
         embed.add_field(
             name="💬 Упоминание",
-            value=f"{EMOJIS['DOT']} **Можно упоминать:** {':white_check_mark:' if role.mentionable else ':x:'}\n"
-                  f"{EMOJIS['DOT']} **Упоминание:** {role.mention}",
+            value=f"{Emojis.DOT} **Можно упоминать:** {':white_check_mark:' if role.mentionable else ':x:'}\n"
+                  f"{Emojis.DOT} **Упоминание:** {role.mention}",
             inline=False
         )
 

@@ -4,13 +4,13 @@ from discord import app_commands
 import sqlite3
 from datetime import datetime
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from Niludetsu.utils.decorators import has_mod_role
 
 class Warns(commands.GroupCog, group_name="warns"):
     def __init__(self, bot):
         self.bot = bot
-        self.db = sqlite3.connect('config/database.db')
+        self.db = sqlite3.connect('data/database.db')
 
     @app_commands.command(name="list", description="Показать список предупреждений пользователя")
     @app_commands.describe(user="Пользователь для просмотра предупреждений")
@@ -37,8 +37,8 @@ class Warns(commands.GroupCog, group_name="warns"):
 
         if not warnings:
             embed=Embed(
-                title=f"{EMOJIS['INFO']} Информация о предупреждениях",
-                description=f"{EMOJIS['SUCCESS']} У {'вас' if user == interaction.user else user.mention} нет активных предупреждений!",
+                title=f"{Emojis.INFO} Информация о предупреждениях",
+                description=f"{Emojis.SUCCESS} У {'вас' if user == interaction.user else user.mention} нет активных предупреждений!",
                 color="GREEN"
             )
             embed.set_thumbnail(url=user.display_avatar.url)
@@ -57,20 +57,20 @@ class Warns(commands.GroupCog, group_name="warns"):
             
             warnings_list.append(
                 f"**Предупреждение #{idx}** (ID: {warning_id})\n"
-                f"{EMOJIS['SHIELD']} **Модератор:** {mod_name}\n"
-                f"{EMOJIS['REASON']} **Причина:** `{reason}`\n"
-                f"{EMOJIS['TIME']} **Дата:** `{time_str}`\n"
+                f"{Emojis.SHIELD} **Модератор:** {mod_name}\n"
+                f"{Emojis.REASON} **Причина:** `{reason}`\n"
+                f"{Emojis.TIME} **Дата:** `{time_str}`\n"
             )
 
         embed=Embed(
-            title=f"{EMOJIS['WARN']} Предупреждения пользователя {user.name}",
+            title=f"{Emojis.WARN} Предупреждения пользователя {user.name}",
             description="\n".join(warnings_list),
             color="YELLOW"
         )
         
         embed.set_thumbnail(url=user.display_avatar.url)
         embed.add_field(
-            name=f"{EMOJIS['STATS']} Статистика",
+            name=f"{Emojis.STATS} Статистика",
             value=f"**Всего предупреждений:** {len(warnings)}",
             inline=False
         )
@@ -115,7 +115,7 @@ class Warns(commands.GroupCog, group_name="warns"):
         if not warning:
             return await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="Предупреждение с указанным ID не найдено!",
                     color="RED"
                 )
@@ -132,7 +132,7 @@ class Warns(commands.GroupCog, group_name="warns"):
             time_str = "Неизвестное время"
             
         embed=Embed(
-            title=f"{EMOJIS['INFO']} Информация о предупреждении #{warning_id}",
+            title=f"{Emojis.INFO} Информация о предупреждении #{warning_id}",
             color="BLUE"
         )
         
@@ -140,22 +140,22 @@ class Warns(commands.GroupCog, group_name="warns"):
             embed.set_thumbnail(url=warned_user.display_avatar.url)
         
         embed.add_field(
-            name=f"{EMOJIS['USER']} Пользователь",
+            name=f"{Emojis.USER} Пользователь",
             value=warned_user.mention if warned_user else "Пользователь покинул сервер",
             inline=False
         )
         embed.add_field(
-            name=f"{EMOJIS['SHIELD']} Модератор",
+            name=f"{Emojis.SHIELD} Модератор",
             value=mod.mention if mod else "Неизвестный модератор",
             inline=False
         )
         embed.add_field(
-            name=f"{EMOJIS['REASON']} Причина",
+            name=f"{Emojis.REASON} Причина",
             value=f"```{reason}```",
             inline=False
         )
         embed.add_field(
-            name=f"{EMOJIS['TIME']} Дата выдачи",
+            name=f"{Emojis.TIME} Дата выдачи",
             value=f"`{time_str}`",
             inline=False
         )

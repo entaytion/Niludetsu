@@ -1,4 +1,7 @@
 default_config = {
+    'cooldowns': {
+        'default': 1800
+    },
     'forms': {
         'channel': '',
         'message': ''

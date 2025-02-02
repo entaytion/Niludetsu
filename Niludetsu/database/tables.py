@@ -22,16 +22,6 @@ class Tables:
             "updated_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
         },
         
-        # Таблица профилей пользователей
-        "user_profiles": {
-            "user_id": "TEXT PRIMARY KEY",
-            "name": "TEXT",
-            "age": "INTEGER",
-            "country": "TEXT",
-            "bio": "TEXT",
-            "timestamp": "DATETIME DEFAULT CURRENT_TIMESTAMP"
-        },
-        
         # Таблица AFK статусов
         "afk": {
             "user_id": "TEXT",
@@ -46,6 +36,7 @@ class Tables:
             "user_id": "TEXT PRIMARY KEY",
             "reputation": "INTEGER DEFAULT 0",
             "balance": "INTEGER DEFAULT 0",
+            "premium_balance": "INTEGER DEFAULT 0",
             "deposit": "INTEGER DEFAULT 0",
             "xp": "INTEGER DEFAULT 0",
             "level": "INTEGER DEFAULT 1",
@@ -56,7 +47,12 @@ class Tables:
             "last_daily": "DATETIME",
             "last_work": "DATETIME",
             "last_voice_update": "DATETIME",
-            "roles": "TEXT DEFAULT '[]'"
+            "roles": "TEXT DEFAULT '[]'",
+            "name": "TEXT",
+            "birthday": "TEXT",
+            "country": "TEXT",
+            "bio": "TEXT",
+            "timestamp": "DATETIME DEFAULT CURRENT_TIMESTAMP"
         },
         
         # Таблица временных каналов
@@ -99,18 +95,16 @@ class Tables:
     ROLES = "roles"
     WARNINGS = "warnings"
     AFK = "afk"
-    USER_PROFILES = "user_profiles"
     GIVEAWAYS = "giveaways"
     SHOP_ROLES = "shop_roles"
     
     # Колонки таблиц для удобного доступа
     COLUMNS = {
         TEMP_ROOMS: ["channel_id", "guild_id", "owner_id", "created_at", "name", "type", "parent_id", "limit_users", "is_locked", "allowed_users"],
-        USERS: ["user_id", "balance", "deposit", "last_daily", "last_work", "last_rob", "xp", "level", "spouse", "marriage_date", "roles", "reputation", "messages_count", "voice_time", "voice_joins", "last_voice_join", "warnings", "is_banned", "ban_reason", "ban_time", "mute_time", "mute_reason", "notes", "created_at"],
+        USERS: ["user_id", "reputation", "balance", "premium_balance", "deposit", "xp", "level", "voice_time", "voice_joins", "last_voice_join", "messages_count", "last_daily", "last_work", "last_voice_update", "roles", "name", "birthday", "country", "bio", "timestamp"],
         ROLES: ["role_id", "name", "balance", "description", "discord_role_id"],
         WARNINGS: ["id", "user_id", "guild_id", "moderator_id", "reason", "timestamp", "active"],
         AFK: ["user_id", "guild_id", "reason", "timestamp"],
-        USER_PROFILES: ["user_id", "name", "age", "country", "bio", "timestamp"],
         GIVEAWAYS: ["giveaway_id", "channel_id", "message_id", "guild_id", "host_id", "prize", "winners_count", "end_time", "is_ended", "participants"],
         SHOP_ROLES: ["role_id", "price", "description", "purchases", "created_at"]
     }

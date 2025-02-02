@@ -1,5 +1,5 @@
 from ..utils.logging import BaseLogger
-from ..utils.emojis import EMOJIS
+from ..utils.constants import Emojis
 import discord
 from typing import Optional, List, Union
 from discord.ext import commands
@@ -13,26 +13,26 @@ class MessageLogger(BaseLogger):
             return
             
         fields = [
-            {"name": f"{EMOJIS['DOT']} Автор", "value": message.author.mention, "inline": True},
+            {"name": f"{Emojis.DOT} Автор", "value": message.author.mention, "inline": True},
         ]
         
         # Добавляем информацию о канале в зависимости от его типа
         if isinstance(message.channel, discord.DMChannel):
-            fields.append({"name": f"{EMOJIS['DOT']} Канал", "value": f"Личные сообщения с {message.channel.recipient}", "inline": True})
+            fields.append({"name": f"{Emojis.DOT} Канал", "value": f"Личные сообщения с {message.channel.recipient}", "inline": True})
         else:
-            fields.append({"name": f"{EMOJIS['DOT']} Канал", "value": message.channel.mention, "inline": True})
+            fields.append({"name": f"{Emojis.DOT} Канал", "value": message.channel.mention, "inline": True})
             
-        fields.append({"name": f"{EMOJIS['DOT']} ID сообщения", "value": str(message.id), "inline": True})
+        fields.append({"name": f"{Emojis.DOT} ID сообщения", "value": str(message.id), "inline": True})
         
         if message.content:
-            fields.append({"name": f"{EMOJIS['DOT']} Содержание", "value": message.content[:1024], "inline": False})
+            fields.append({"name": f"{Emojis.DOT} Содержание", "value": message.content[:1024], "inline": False})
             
         if message.attachments:
             attachments = "\n".join([f"[{a.filename}]({a.url})" for a in message.attachments])
-            fields.append({"name": f"{EMOJIS['DOT']} Вложения", "value": attachments, "inline": False})
+            fields.append({"name": f"{Emojis.DOT} Вложения", "value": attachments, "inline": False})
             
         await self.log_event(
-            title=f"{EMOJIS['ERROR']} Сообщение удалено",
+            title=f"{Emojis.ERROR} Сообщение удалено",
             description=f"Удалено сообщение {'в личных сообщениях' if isinstance(message.channel, discord.DMChannel) else f'в канале {message.channel.mention}'}",
             color='RED',
             fields=fields
@@ -41,8 +41,8 @@ class MessageLogger(BaseLogger):
     async def log_message_bulk_delete(self, messages: List[discord.Message], channel: discord.TextChannel):
         """Логирование массового удаления сообщений"""
         fields = [
-            {"name": f"{EMOJIS['DOT']} Канал", "value": channel.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Количество", "value": str(len(messages)), "inline": True}
+            {"name": f"{Emojis.DOT} Канал", "value": channel.mention, "inline": True},
+            {"name": f"{Emojis.DOT} Количество", "value": str(len(messages)), "inline": True}
         ]
         
         # Создаем текстовый файл с удаленными сообщениями
@@ -63,10 +63,10 @@ class MessageLogger(BaseLogger):
             file_content.append("-" * 50)
             
         if content:
-            fields.append({"name": f"{EMOJIS['DOT']} Последние сообщения", "value": "\n".join(content), "inline": False})
+            fields.append({"name": f"{Emojis.DOT} Последние сообщения", "value": "\n".join(content), "inline": False})
             
         if len(messages) > 10:
-            fields.append({"name": f"{EMOJIS['DOT']} Примечание", "value": "Показаны только последние 10 сообщений. Полный список в прикрепленном файле.", "inline": False})
+            fields.append({"name": f"{Emojis.DOT} Примечание", "value": "Показаны только последние 10 сообщений. Полный список в прикрепленном файле.", "inline": False})
             
         # Создаем временный файл
         import tempfile
@@ -79,7 +79,7 @@ class MessageLogger(BaseLogger):
         file = discord.File(temp_file.name, filename=f"deleted_messages_{channel.name}_{len(messages)}.txt")
         
         await self.log_event(
-            title=f"{EMOJIS['ERROR']} Массовое удаление сообщений",
+            title=f"{Emojis.ERROR} Массовое удаление сообщений",
             description=f"Удалено {len(messages)} сообщений в канале {channel.mention}",
             color='RED',
             fields=fields,
@@ -96,24 +96,24 @@ class MessageLogger(BaseLogger):
             
         # Базовые поля
         fields = [
-            {"name": f"{EMOJIS['DOT']} Автор", "value": after.author.mention, "inline": True},
+            {"name": f"{Emojis.DOT} Автор", "value": after.author.mention, "inline": True},
         ]
         
         # Добавляем информацию о канале в зависимости от его типа
         if isinstance(after.channel, discord.DMChannel):
-            fields.append({"name": f"{EMOJIS['DOT']} Канал", "value": f"Личные сообщения с {after.channel.recipient}", "inline": True})
+            fields.append({"name": f"{Emojis.DOT} Канал", "value": f"Личные сообщения с {after.channel.recipient}", "inline": True})
         else:
-            fields.append({"name": f"{EMOJIS['DOT']} Канал", "value": after.channel.mention, "inline": True})
+            fields.append({"name": f"{Emojis.DOT} Канал", "value": after.channel.mention, "inline": True})
             
         # Добавляем остальные поля
         fields.extend([
-            {"name": f"{EMOJIS['DOT']} Ссылка", "value": f"[Перейти]({after.jump_url})", "inline": True},
-            {"name": f"{EMOJIS['DOT']} Старое содержание", "value": before.content[:1024] or "Пусто", "inline": False},
-            {"name": f"{EMOJIS['DOT']} Новое содержание", "value": after.content[:1024] or "Пусто", "inline": False}
+            {"name": f"{Emojis.DOT} Ссылка", "value": f"[Перейти]({after.jump_url})", "inline": True},
+            {"name": f"{Emojis.DOT} Старое содержание", "value": before.content[:1024] or "Пусто", "inline": False},
+            {"name": f"{Emojis.DOT} Новое содержание", "value": after.content[:1024] or "Пусто", "inline": False}
         ])
         
         await self.log_event(
-            title=f"{EMOJIS['INFO']} Сообщение отредактировано",
+            title=f"{Emojis.INFO} Сообщение отредактировано",
             description=f"Отредактировано сообщение {'в личных сообщениях' if isinstance(after.channel, discord.DMChannel) else f'в канале {after.channel.mention}'}",
             color='BLUE',
             fields=fields
@@ -122,20 +122,20 @@ class MessageLogger(BaseLogger):
     async def log_message_publish(self, message: discord.Message):
         """Логирование публикации сообщения в новостном канале"""
         fields = [
-            {"name": f"{EMOJIS['DOT']} Автор", "value": message.author.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Канал", "value": message.channel.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Ссылка", "value": f"[Перейти]({message.jump_url})", "inline": True}
+            {"name": f"{Emojis.DOT} Автор", "value": message.author.mention, "inline": True},
+            {"name": f"{Emojis.DOT} Канал", "value": message.channel.mention, "inline": True},
+            {"name": f"{Emojis.DOT} Ссылка", "value": f"[Перейти]({message.jump_url})", "inline": True}
         ]
         
         if message.content:
-            fields.append({"name": f"{EMOJIS['DOT']} Содержание", "value": message.content[:1024], "inline": False})
+            fields.append({"name": f"{Emojis.DOT} Содержание", "value": message.content[:1024], "inline": False})
             
         if message.attachments:
             attachments = "\n".join([f"[{a.filename}]({a.url})" for a in message.attachments])
-            fields.append({"name": f"{EMOJIS['DOT']} Вложения", "value": attachments, "inline": False})
+            fields.append({"name": f"{Emojis.DOT} Вложения", "value": attachments, "inline": False})
             
         await self.log_event(
-            title=f"{EMOJIS['SUCCESS']} Сообщение опубликовано",
+            title=f"{Emojis.SUCCESS} Сообщение опубликовано",
             description=f"Опубликовано сообщение из канала {message.channel.mention}",
             color='GREEN',
             fields=fields
@@ -153,13 +153,13 @@ class MessageLogger(BaseLogger):
             command = ctx.message.content
             
         fields = [
-            {"name": f"{EMOJIS['DOT']} Пользователь", "value": user.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Канал", "value": channel.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Команда", "value": f"`{command}`", "inline": True}
+            {"name": f"{Emojis.DOT} Пользователь", "value": user.mention, "inline": True},
+            {"name": f"{Emojis.DOT} Канал", "value": channel.mention, "inline": True},
+            {"name": f"{Emojis.DOT} Команда", "value": f"`{command}`", "inline": True}
         ]
         
         await self.log_event(
-            title=f"{EMOJIS['INFO']} Использована команда",
+            title=f"{Emojis.INFO} Использована команда",
             description=f"Пользователь использовал команду в канале {channel.mention}",
             color='BLUE',
             fields=fields
@@ -188,7 +188,7 @@ class MessageLogger(BaseLogger):
                 message_list.append(f"... и еще {deleted_count - 15} сообщений")
 
             await self.log_event(
-                title="🗑️ Массовое удаление сообщений",
+                title=f"{Emojis.ERROR} Массовое удаление сообщений",
                 description=f"**Канал:** {channel.mention}\n"
                           f"**Количество удаленных сообщений:** {deleted_count}\n\n"
                           f"**Удаленные сообщения:**\n" + "\n".join(message_list),

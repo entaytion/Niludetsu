@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 import yaml
 
@@ -23,7 +23,7 @@ class Unmute(commands.Cog):
         if not interaction.guild.me.guild_permissions.moderate_members:
             return await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка прав",
+                    title=f"{Emojis.ERROR} Ошибка прав",
                     description="У меня нет прав на размут участников!",
                     color="RED"
                 )
@@ -33,7 +33,7 @@ class Unmute(commands.Cog):
         if not mute_role_id:
             return await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка конфигурации",
+                    title=f"{Emojis.ERROR} Ошибка конфигурации",
                     description="Роль мута не настроена в конфигурации!",
                     color="RED"
                 )
@@ -43,7 +43,7 @@ class Unmute(commands.Cog):
         if not mute_role:
             return await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="Роль мута не найдена на сервере!",
                     color="RED"
                 )
@@ -55,7 +55,7 @@ class Unmute(commands.Cog):
         if not has_mute_role and not is_timed_out:
             return await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description=f"{member.mention} не находится в муте!",
                     color="RED"
                 )
@@ -69,23 +69,23 @@ class Unmute(commands.Cog):
                 await member.timeout(None, reason=reason)
             
             unmute_embed=Embed(
-                title=f"{EMOJIS['UNMUTE']} Размут участника",
+                title=f"{Emojis.UNMUTE} Размут участника",
                 color="GREEN"
             )
             
             unmute_embed.set_thumbnail(url=member.display_avatar.url)
             unmute_embed.add_field(
-                name=f"{EMOJIS['USER']} Участник",
+                name=f"{Emojis.USER} Участник",
                 value=member.mention,
                 inline=True
             )
             unmute_embed.add_field(
-                name=f"{EMOJIS['SHIELD']} Модератор",
+                name=f"{Emojis.SHIELD} Модератор",
                 value=interaction.user.mention,
                 inline=True
             )
             unmute_embed.add_field(
-                name=f"{EMOJIS['REASON']} Причина",
+                name=f"{Emojis.REASON} Причина",
                 value=f"```{reason}```",
                 inline=False
             )
@@ -95,21 +95,21 @@ class Unmute(commands.Cog):
             
             try:
                 dm_embed=Embed(
-                    title=f"{EMOJIS['UNMUTE']} Вы были размучены",
+                    title=f"{Emojis.UNMUTE} Вы были размучены",
                     color="GREEN"
                 )
                 dm_embed.add_field(
-                    name=f"{EMOJIS['SERVER']} Сервер",
+                    name=f"{Emojis.SERVER} Сервер",
                     value=interaction.guild.name,
                     inline=True
                 )
                 dm_embed.add_field(
-                    name=f"{EMOJIS['SHIELD']} Модератор",
+                    name=f"{Emojis.SHIELD} Модератор",
                     value=str(interaction.user),
                     inline=True
                 )
                 dm_embed.add_field(
-                    name=f"{EMOJIS['REASON']} Причина",
+                    name=f"{Emojis.REASON} Причина",
                     value=f"```{reason}```",
                     inline=False
                 )
@@ -120,7 +120,7 @@ class Unmute(commands.Cog):
         except discord.Forbidden:
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка прав",
+                    title=f"{Emojis.ERROR} Ошибка прав",
                     description=f"У меня недостаточно прав для размута {member.mention}!",
                     color="RED"
                 )

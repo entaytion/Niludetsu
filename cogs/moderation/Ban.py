@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from Niludetsu.utils.decorators import command_cooldown, has_admin_role
 import yaml
 
@@ -20,7 +20,7 @@ class UnbanButton(discord.ui.Button):
         if not await has_admin_role()(interaction):
             return await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка прав",
+                    title=f"{Emojis.ERROR} Ошибка прав",
                     description="У вас недостаточно прав для разбана пользователей!",
                     color="RED"
                 ),
@@ -32,18 +32,18 @@ class UnbanButton(discord.ui.Button):
             await interaction.guild.unban(user, reason=f"Разбан от {interaction.user}")
             
             unban_embed=Embed(
-                title=f"{EMOJIS['UNBAN']} Пользователь разбанен",
+                title=f"{Emojis.UNBAN} Пользователь разбанен",
                 color="GREEN"
             )
             
             unban_embed.set_thumbnail(url=user.display_avatar.url)
             unban_embed.add_field(
-                name=f"{EMOJIS['USER']} Пользователь",
+                name=f"{Emojis.USER} Пользователь",
                 value=f"{user.mention} ({user})",
                 inline=True
             )
             unban_embed.add_field(
-                name=f"{EMOJIS['SHIELD']} Модератор",
+                name=f"{Emojis.SHIELD} Модератор",
                 value=interaction.user.mention,
                 inline=True
             )
@@ -53,16 +53,16 @@ class UnbanButton(discord.ui.Button):
             
             try:
                 dm_embed=Embed(
-                    title=f"{EMOJIS['UNBAN']} Вы были разбанены",
+                    title=f"{Emojis.UNBAN} Вы были разбанены",
                     color="GREEN"
                 )
                 dm_embed.add_field(
-                    name=f"{EMOJIS['SERVER']} Сервер",
+                    name=f"{Emojis.SERVER} Сервер",
                     value=interaction.guild.name,
                     inline=True
                 )
                 dm_embed.add_field(
-                    name=f"{EMOJIS['SHIELD']} Модератор",
+                    name=f"{Emojis.SHIELD} Модератор",
                     value=str(interaction.user),
                     inline=True
                 )
@@ -73,7 +73,7 @@ class UnbanButton(discord.ui.Button):
         except discord.NotFound:
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="Пользователь не найден!",
                     color="RED"
                 ),
@@ -82,7 +82,7 @@ class UnbanButton(discord.ui.Button):
         except discord.Forbidden:
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка прав",
+                    title=f"{Emojis.ERROR} Ошибка прав",
                     description="У меня недостаточно прав для разбана пользователей!",
                     color="RED"
                 ),
@@ -116,7 +116,7 @@ class Ban(commands.Cog):
         if user.id == interaction.user.id:
             return await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="Вы не можете забанить самого себя!",
                     color="RED"
                 ),
@@ -126,7 +126,7 @@ class Ban(commands.Cog):
         if user.id == self.bot.user.id:
             return await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="Я не могу забанить самого себя!",
                     color="RED"
                 ),
@@ -136,7 +136,7 @@ class Ban(commands.Cog):
         if user.top_role >= interaction.user.top_role:
             return await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="Вы не можете забанить участника с ролью выше или равной вашей!",
                     color="RED"
                 ),
@@ -145,29 +145,29 @@ class Ban(commands.Cog):
 
         try:
             ban_embed=Embed(
-                title=f"{EMOJIS['BAN']} Бан пользователя",
+                title=f"{Emojis.BAN} Бан пользователя",
                 color="RED"
             )
             
             ban_embed.set_thumbnail(url=user.display_avatar.url)
             ban_embed.add_field(
-                name=f"{EMOJIS['USER']} Пользователь",
+                name=f"{Emojis.USER} Пользователь",
                 value=f"{user.mention} ({user})",
                 inline=True
             )
             ban_embed.add_field(
-                name=f"{EMOJIS['SHIELD']} Модератор",
+                name=f"{Emojis.SHIELD} Модератор",
                 value=interaction.user.mention,
                 inline=True
             )
             ban_embed.add_field(
-                name=f"{EMOJIS['REASON']} Причина",
+                name=f"{Emojis.REASON} Причина",
                 value=f"```{reason}```",
                 inline=False
             )
             if delete_days > 0:
                 ban_embed.add_field(
-                    name=f"{EMOJIS['TIME']} Удаление сообщений",
+                    name=f"{Emojis.TIME} Удаление сообщений",
                     value=f"За последние `{delete_days}` дней",
                     inline=False
                 )
@@ -175,21 +175,21 @@ class Ban(commands.Cog):
             
             try:
                 dm_embed=Embed(
-                    title=f"{EMOJIS['BAN']} Вы были забанены",
+                    title=f"{Emojis.BAN} Вы были забанены",
                     color="RED"
                 )
                 dm_embed.add_field(
-                    name=f"{EMOJIS['SERVER']} Сервер",
+                    name=f"{Emojis.SERVER} Сервер",
                     value=interaction.guild.name,
                     inline=True
                 )
                 dm_embed.add_field(
-                    name=f"{EMOJIS['SHIELD']} Модератор",
+                    name=f"{Emojis.SHIELD} Модератор",
                     value=str(interaction.user),
                     inline=True
                 )
                 dm_embed.add_field(
-                    name=f"{EMOJIS['REASON']} Причина",
+                    name=f"{Emojis.REASON} Причина",
                     value=f"```{reason}```",
                     inline=False
                 )
@@ -203,7 +203,7 @@ class Ban(commands.Cog):
         except discord.Forbidden:
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка прав",
+                    title=f"{Emojis.ERROR} Ошибка прав",
                     description=f"У меня недостаточно прав для бана {user.mention}!",
                     color="RED"
                 )

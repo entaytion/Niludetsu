@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import random
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class Rand(commands.Cog):
     def __init__(self, bot):

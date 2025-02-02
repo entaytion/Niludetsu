@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from Niludetsu.utils.embed import Embed
 from Niludetsu.database import Database
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from datetime import datetime, timedelta
 import random
 
@@ -100,8 +100,8 @@ class Rob(commands.Cog):
             await interaction.response.send_message(
                 embed=Embed(
                     title="Успешное ограбление!",
-                    description=f"Вы украли {stolen:,} {EMOJIS['MONEY']} у {user.mention}\n"
-                              f"Ваш текущий баланс: {new_robber_balance:,} {EMOJIS['MONEY']}",
+                    description=f"Вы украли {stolen:,} {Emojis.MONEY} у {user.mention}\n"
+                              f"Ваш текущий баланс: {new_robber_balance:,} {Emojis.MONEY}",
                     color="GREEN"
                 )
             )
@@ -122,8 +122,8 @@ class Rob(commands.Cog):
             await interaction.response.send_message(
                 embed=Embed(
                     title="Неудачное ограбление!",
-                    description=f"Вас поймала полиция и оштрафовала на {fine:,} {EMOJIS['MONEY']}\n"
-                              f"Ваш текущий баланс: {new_robber_balance:,} {EMOJIS['MONEY']}",
+                    description=f"Вас поймала полиция и оштрафовала на {fine:,} {Emojis.MONEY}\n"
+                              f"Ваш текущий баланс: {new_robber_balance:,} {Emojis.MONEY}",
                     color="RED"
                 )
             )

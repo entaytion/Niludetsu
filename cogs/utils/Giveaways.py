@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import random
 from typing import List, Optional
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from Niludetsu.database import Database
 import asyncio
 
@@ -304,7 +304,7 @@ class Giveaways(commands.Cog):
         except ValueError:
             await ctx.response.send_message(
                 embed=Embed(
-                    description=f"{EMOJIS['ERROR']} Неверный формат длительности! Используйте: 1d, 12h, 30m, 10s",
+                    description=f"{Emojis.ERROR} Неверный формат длительности! Используйте: 1d, 12h, 30m, 10s",
                     color="RED"
                 ),
                 ephemeral=True
@@ -349,7 +349,7 @@ class Giveaways(commands.Cog):
         
         await ctx.response.send_message(
             embed=Embed(
-                description=f"{EMOJIS['SUCCESS']} Розыгрыш успешно создан в {channel.mention}!"
+                description=f"{Emojis.SUCCESS} Розыгрыш успешно создан в {channel.mention}!"
             ),
             ephemeral=True
         )
@@ -387,7 +387,7 @@ class Giveaways(commands.Cog):
             if not giveaway:
                 await interaction.response.send_message(
                     embed=Embed(
-                        description=f"{EMOJIS['ERROR']} Розыгрыш не найден!",
+                        description=f"{Emojis.ERROR} Розыгрыш не найден!",
                         color="RED"
                     ),
                     ephemeral=True
@@ -397,7 +397,7 @@ class Giveaways(commands.Cog):
             if giveaway['is_ended']:
                 await interaction.response.send_message(
                     embed=Embed(
-                        description=f"{EMOJIS['ERROR']} Этот розыгрыш уже завершен!",
+                        description=f"{Emojis.ERROR} Этот розыгрыш уже завершен!",
                         color="RED"
                     ),
                     ephemeral=True
@@ -408,7 +408,7 @@ class Giveaways(commands.Cog):
             if not channel:
                 await interaction.response.send_message(
                     embed=Embed(
-                        description=f"{EMOJIS['ERROR']} Канал розыгрыша не найден!",
+                        description=f"{Emojis.ERROR} Канал розыгрыша не найден!",
                         color="RED"
                     ),
                     ephemeral=True
@@ -419,7 +419,7 @@ class Giveaways(commands.Cog):
             if not message:
                 await interaction.response.send_message(
                     embed=Embed(
-                        description=f"{EMOJIS['ERROR']} Сообщение розыгрыша не найдено!",
+                        description=f"{Emojis.ERROR} Сообщение розыгрыша не найдено!",
                         color="RED"
                     ),
                     ephemeral=True
@@ -430,7 +430,7 @@ class Giveaways(commands.Cog):
             
             await interaction.response.send_message(
                 embed=Embed(
-                    description=f"{EMOJIS['SUCCESS']} Розыгрыш успешно завершен!",
+                    description=f"{Emojis.SUCCESS} Розыгрыш успешно завершен!",
                     color="GREEN"
                 ),
                 ephemeral=True
@@ -439,7 +439,7 @@ class Giveaways(commands.Cog):
         except ValueError:
             await interaction.response.send_message(
                 embed=Embed(
-                    description=f"{EMOJIS['ERROR']} Неверный формат ID сообщения!",
+                    description=f"{Emojis.ERROR} Неверный формат ID сообщения!",
                     color="RED"
                 ),
                 ephemeral=True
@@ -447,7 +447,7 @@ class Giveaways(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(
                 embed=Embed(
-                    description=f"{EMOJIS['ERROR']} Произошла ошибка: {e}",
+                    description=f"{Emojis.ERROR} Произошла ошибка: {e}",
                     color="RED"
                 ),
                 ephemeral=True
@@ -464,7 +464,7 @@ class Giveaways(commands.Cog):
             if not giveaway:
                 await interaction.response.send_message(
                     embed=Embed(
-                        description=f"{EMOJIS['ERROR']} Розыгрыш не найден!",
+                        description=f"{Emojis.ERROR} Розыгрыш не найден!",
                         color="RED"
                     ),
                     ephemeral=True
@@ -474,7 +474,7 @@ class Giveaways(commands.Cog):
             if not giveaway['is_ended']:
                 await interaction.response.send_message(
                     embed=Embed(
-                        description=f"{EMOJIS['ERROR']} Этот розыгрыш еще не завершен!",
+                        description=f"{Emojis.ERROR} Этот розыгрыш еще не завершен!",
                         color="RED"
                     ),
                     ephemeral=True
@@ -485,7 +485,7 @@ class Giveaways(commands.Cog):
             if not channel:
                 await interaction.response.send_message(
                     embed=Embed(
-                        description=f"{EMOJIS['ERROR']} Канал розыгрыша не найден!",
+                        description=f"{Emojis.ERROR} Канал розыгрыша не найден!",
                         color="RED"
                     ),
                     ephemeral=True
@@ -496,7 +496,7 @@ class Giveaways(commands.Cog):
             if not message:
                 await interaction.response.send_message(
                     embed=Embed(
-                        description=f"{EMOJIS['ERROR']} Сообщение розыгрыша не найдено!",
+                        description=f"{Emojis.ERROR} Сообщение розыгрыша не найдено!",
                         color="RED"
                     ),
                     ephemeral=True
@@ -507,7 +507,7 @@ class Giveaways(commands.Cog):
             if not participants:
                 await interaction.response.send_message(
                     embed=Embed(
-                        description=f"{EMOJIS['ERROR']} В розыгрыше не было участников!",
+                        description=f"{Emojis.ERROR} В розыгрыше не было участников!",
                         color="RED"
                     ),
                     ephemeral=True
@@ -549,7 +549,7 @@ class Giveaways(commands.Cog):
                 
                 await interaction.response.send_message(
                     embed=Embed(
-                        description=f"{EMOJIS['SUCCESS']} Перерозыгрыш успешно проведен!",
+                        description=f"{Emojis.SUCCESS} Перерозыгрыш успешно проведен!",
                         color="GREEN"
                     ),
                     ephemeral=True
@@ -557,7 +557,7 @@ class Giveaways(commands.Cog):
             else:
                 await interaction.response.send_message(
                     embed=Embed(
-                        description=f"{EMOJIS['ERROR']} Не удалось определить победителей!",
+                        description=f"{Emojis.ERROR} Не удалось определить победителей!",
                         color="RED"
                     ),
                     ephemeral=True
@@ -566,7 +566,7 @@ class Giveaways(commands.Cog):
         except ValueError:
             await interaction.response.send_message(
                 embed=Embed(
-                    description=f"{EMOJIS['ERROR']} Неверный формат ID сообщения!",
+                    description=f"{Emojis.ERROR} Неверный формат ID сообщения!",
                     color="RED"
                 ),
                 ephemeral=True
@@ -574,7 +574,7 @@ class Giveaways(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(
                 embed=Embed(
-                    description=f"{EMOJIS['ERROR']} Произошла ошибка: {e}",
+                    description=f"{Emojis.ERROR} Произошла ошибка: {e}",
                     color="RED"
                 ),
                 ephemeral=True

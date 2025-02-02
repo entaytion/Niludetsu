@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 
 class Massrole(commands.Cog):
@@ -28,7 +28,7 @@ class Massrole(commands.Cog):
             if not interaction.user.guild_permissions.manage_roles:
                 return await interaction.response.send_message(
                     embed=Embed(
-                        title=f"{EMOJIS['ERROR']} Ошибка прав",
+                        title=f"{Emojis.ERROR} Ошибка прав",
                         description="У вас нет прав на управление ролями!",
                         color="RED"
                     ),
@@ -38,7 +38,7 @@ class Massrole(commands.Cog):
             if role >= interaction.guild.me.top_role:
                 return await interaction.response.send_message(
                     embed=Embed(
-                        title=f"{EMOJIS['ERROR']} Ошибка прав",
+                        title=f"{Emojis.ERROR} Ошибка прав",
                         description="Я не могу управлять этой ролью, так как она выше или равна моей высшей роли!",
                         color="RED"
                     ),
@@ -48,7 +48,7 @@ class Massrole(commands.Cog):
             if action.lower() not in ['add', 'remove']:
                 return await interaction.response.send_message(
                     embed=Embed(
-                        title=f"{EMOJIS['ERROR']} Ошибка параметра",
+                        title=f"{Emojis.ERROR} Ошибка параметра",
                         description="Действие должно быть 'add' или 'remove'!",
                         color="RED"
                     ),
@@ -57,7 +57,7 @@ class Massrole(commands.Cog):
 
             # Отправляем начальное сообщение о процессе
             progress_embed=Embed(
-                title=f"{EMOJIS['LOADING']} Обработка ролей",
+                title=f"{Emojis.LOADING} Обработка ролей",
                 description=f"{'Выдаю' if action.lower() == 'add' else 'Удаляю'} роль {role.mention} всем участникам...",
                 color="YELLOW"
             )
@@ -90,39 +90,39 @@ class Massrole(commands.Cog):
 
             # Создаем эмбед с результатами
             result_embed=Embed(
-                title=f"{EMOJIS['SUCCESS']} Обработка ролей завершена",
+                title=f"{Emojis.SUCCESS} Обработка ролей завершена",
                 color="GREEN"
             )
 
             result_embed.add_field(
-                name=f"{EMOJIS['ROLE']} Роль",
+                name=f"{Emojis.ROLE} Роль",
                 value=role.mention,
                 inline=True
             )
             result_embed.add_field(
-                name=f"{EMOJIS['SHIELD']} Модератор",
+                name=f"{Emojis.SHIELD} Модератор",
                 value=interaction.user.mention,
                 inline=True
             )
             result_embed.add_field(
-                name=f"{EMOJIS['SETTINGS']} Действие",
+                name=f"{Emojis.SETTINGS} Действие",
                 value=f"{'Выдача' if action.lower() == 'add' else 'Удаление'}",
                 inline=True
             )
             result_embed.add_field(
-                name=f"{EMOJIS['SUCCESS']} Успешно обработано",
+                name=f"{Emojis.SUCCESS} Успешно обработано",
                 value=f"`{success_count}` участников",
                 inline=True
             )
             if failed_count > 0:
                 result_embed.add_field(
-                    name=f"{EMOJIS['ERROR']} Ошибки",
+                    name=f"{Emojis.ERROR} Ошибки",
                     value=f"`{failed_count}` участников",
                     inline=True
                 )
             if skipped_count > 0:
                 result_embed.add_field(
-                    name=f"{EMOJIS['INFO']} Пропущено",
+                    name=f"{Emojis.INFO} Пропущено",
                     value=f"`{skipped_count}` участников",
                     inline=True
                 )
@@ -132,7 +132,7 @@ class Massrole(commands.Cog):
 
         except discord.Forbidden:
             error_embed=Embed(
-                title=f"{EMOJIS['ERROR']} Ошибка прав",
+                title=f"{Emojis.ERROR} Ошибка прав",
                 description="У меня недостаточно прав для управления ролями!",
                 color="RED"
             )

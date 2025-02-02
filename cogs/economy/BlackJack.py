@@ -3,7 +3,7 @@ from discord.ext import commands
 import random
 from Niludetsu.database import Database
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class BlackJack(commands.Cog):
     def __init__(self, bot):
@@ -64,7 +64,7 @@ class BlackJack(commands.Cog):
             await interaction.response.send_message(
                 embed=Embed(
                     description=f"У вас недостаточно средств для такой ставки!\n"
-                              f"Ваш баланс: {user_data['balance']:,} {EMOJIS['MONEY']}",
+                              f"Ваш баланс: {user_data['balance']:,} {Emojis.MONEY}",
                     color="RED"
                 ),
                 ephemeral=True
@@ -89,10 +89,10 @@ class BlackJack(commands.Cog):
         }
 
         embed=Embed(
-            title=f"🎰 Блекджек | Ставка: {bet:,} {EMOJIS['MONEY']}",
+            title=f"🎰 Блекджек | Ставка: {bet:,} {Emojis.MONEY}",
             description=(
-                f"{EMOJIS['DOT']} **Ваши карты:** {' '.join(player_hand)} `{self.calculate_hand(player_hand)}`\n"
-                f"{EMOJIS['DOT']} **Карты дилера:** {dealer_hand[0]} ? `?`\n\n"
+                f"{Emojis.DOT} **Ваши карты:** {' '.join(player_hand)} `{self.calculate_hand(player_hand)}`\n"
+                f"{Emojis.DOT} **Карты дилера:** {dealer_hand[0]} ? `?`\n\n"
                 f"**Выберите действие:**\n"
                 f"🎯 `Взять карту` - получить еще одну карту\n"
                 f"⏹️ `Достаточно` - закончить набор карт"
@@ -117,10 +117,10 @@ class BlackJack(commands.Cog):
                 await self.end_game(interaction, "bust")
             else:
                 embed=Embed(
-                    title=f"🎰 Блекджек | Ставка: {game['bet']:,} {EMOJIS['MONEY']}",
+                    title=f"🎰 Блекджек | Ставка: {game['bet']:,} {Emojis.MONEY}",
                     description=(
-                        f"{EMOJIS['DOT']} **Ваши карты:** {' '.join(game['player_hand'])} `{player_value}`\n"
-                        f"{EMOJIS['DOT']} **Карты дилера:** {game['dealer_hand'][0]} ? `?`\n\n"
+                        f"{Emojis.DOT} **Ваши карты:** {' '.join(game['player_hand'])} `{player_value}`\n"
+                        f"{Emojis.DOT} **Карты дилера:** {game['dealer_hand'][0]} ? `?`\n\n"
                         f"**Выберите действие:**\n"
                         f"🎯 `Взять карту` - получить еще одну карту\n"
                         f"⏹️ `Достаточно` - закончить набор карт"
@@ -174,8 +174,8 @@ class BlackJack(commands.Cog):
             color = "YELLOW"
 
         description = (
-            f"{EMOJIS['DOT']} **Ваши карты:** {' '.join(game['player_hand'])} `{player_value}`\n"
-            f"{EMOJIS['DOT']} **Карты дилера:** {' '.join(game['dealer_hand'])} `{dealer_value}`\n\n"
+            f"{Emojis.DOT} **Ваши карты:** {' '.join(game['player_hand'])} `{player_value}`\n"
+            f"{Emojis.DOT} **Карты дилера:** {' '.join(game['dealer_hand'])} `{dealer_value}`\n\n"
         )
 
         description += result + "\n"
@@ -201,7 +201,7 @@ class BlackJack(commands.Cog):
             )
 
         if winnings > 0:
-            description += f"\n💰 **Выигрыш:** {winnings:,} {EMOJIS['MONEY']}"
+            description += f"\n💰 **Выигрыш:** {winnings:,} {Emojis.MONEY}"
 
         embed=Embed(
             title="🎰 Результаты игры в Блекджек",

@@ -1,5 +1,5 @@
 from ..utils.logging import BaseLogger
-from ..utils.emojis import EMOJIS
+from ..utils.constants import Emojis
 import discord
 from discord.ext import commands
 from typing import Optional, Union
@@ -26,14 +26,14 @@ class ErrorLogger(BaseLogger):
             await self.log_channel.send(f"<@{self.owner_id}>, произошла ошибка!")
             
         fields = [
-            {"name": f"{EMOJIS['DOT']} Команда", "value": f"`{command_name}`", "inline": True},
-            {"name": f"{EMOJIS['DOT']} Автор", "value": f"{author.mention} (`{author.id}`)", "inline": True},
-            {"name": f"{EMOJIS['DOT']} Канал", "value": channel.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Ошибка", "value": f"```py\n{error_trace[:1900]}```", "inline": False}
+            {"name": f"{Emojis.DOT} Команда", "value": f"`{command_name}`", "inline": True},
+            {"name": f"{Emojis.DOT} Автор", "value": f"{author.mention} (`{author.id}`)", "inline": True},
+            {"name": f"{Emojis.DOT} Канал", "value": channel.mention, "inline": True},
+            {"name": f"{Emojis.DOT} Ошибка", "value": f"```py\n{error_trace[:1900]}```", "inline": False}
         ]
         
         await self.log_event(
-            title=f"{EMOJIS['ERROR']} Ошибка команды",
+            title=f"{Emojis.ERROR} Ошибка команды",
             description="",
             color='RED',
             fields=fields,
@@ -45,12 +45,12 @@ class ErrorLogger(BaseLogger):
         error_trace = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
         
         fields = [
-            {"name": f"{EMOJIS['DOT']} Контекст", "value": context or "Общая ошибка", "inline": False},
-            {"name": f"{EMOJIS['DOT']} Ошибка", "value": f"```py\n{error_trace[:1900]}```", "inline": False}
+            {"name": f"{Emojis.DOT} Контекст", "value": context or "Общая ошибка", "inline": False},
+            {"name": f"{Emojis.DOT} Ошибка", "value": f"```py\n{error_trace[:1900]}```", "inline": False}
         ]
         
         await self.log_event(
-            title=f"{EMOJIS['WARNING']} Общая ошибка",
+            title=f"{Emojis.WARNING} Общая ошибка",
             description="",
             color='RED',
             fields=fields,
@@ -62,13 +62,13 @@ class ErrorLogger(BaseLogger):
         error_trace = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
         
         fields = [
-            {"name": f"{EMOJIS['DOT']} Метод", "value": method, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Эндпоинт", "value": endpoint, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Ошибка", "value": f"```py\n{error_trace[:1900]}```", "inline": False}
+            {"name": f"{Emojis.DOT} Метод", "value": method, "inline": True},
+            {"name": f"{Emojis.DOT} Эндпоинт", "value": endpoint, "inline": True},
+            {"name": f"{Emojis.DOT} Ошибка", "value": f"```py\n{error_trace[:1900]}```", "inline": False}
         ]
         
         await self.log_event(
-            title=f"{EMOJIS['ERROR']} Ошибка API",
+            title=f"{Emojis.ERROR} Ошибка API",
             description="",
             color='RED',
             fields=fields,

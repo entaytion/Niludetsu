@@ -1,5 +1,5 @@
 from ..utils.logging import BaseLogger
-from ..utils.emojis import EMOJIS
+from ..utils.constants import Emojis
 import discord
 from typing import Optional
 
@@ -14,9 +14,9 @@ class WebhookLogger(BaseLogger):
             
             # Создаем эмбед
             fields = [
-                {"name": f"{EMOJIS['DOT']} Канал", "value": channel.mention, "inline": True},
-                {"name": f"{EMOJIS['DOT']} ID канала", "value": str(channel.id), "inline": True},
-                {"name": f"{EMOJIS['DOT']} Количество вебхуков", "value": str(len(current_webhooks)), "inline": True}
+                {"name": f"{Emojis.DOT} Канал", "value": channel.mention, "inline": True},
+                {"name": f"{Emojis.DOT} ID канала", "value": str(channel.id), "inline": True},
+                {"name": f"{Emojis.DOT} Количество вебхуков", "value": str(len(current_webhooks)), "inline": True}
             ]
             
             # Добавляем список вебхуков
@@ -24,10 +24,10 @@ class WebhookLogger(BaseLogger):
                 webhook_list = "\n".join([f"• {webhook.name} (ID: {webhook.id})" for webhook in current_webhooks])
                 if len(webhook_list) > 1024:  # Ограничение Discord для поля
                     webhook_list = webhook_list[:1021] + "..."
-                fields.append({"name": f"{EMOJIS['DOT']} Активные вебхуки", "value": webhook_list, "inline": False})
+                fields.append({"name": f"{Emojis.DOT} Активные вебхуки", "value": webhook_list, "inline": False})
             
             await self.log_event(
-                title=f"{EMOJIS['INFO']} Обновление вебхуков",
+                title=f"{Emojis.INFO} Обновление вебхуков",
                 description=f"Обнаружено обновление вебхуков в канале {channel.mention}",
                 color='BLUE',
                 fields=fields,
@@ -40,14 +40,14 @@ class WebhookLogger(BaseLogger):
     async def log_webhook_create(self, webhook: discord.Webhook, creator: Optional[discord.Member] = None):
         """Логирование создания вебхука"""
         fields = [
-            {"name": f"{EMOJIS['DOT']} Название", "value": webhook.name, "inline": True},
-            {"name": f"{EMOJIS['DOT']} ID", "value": str(webhook.id), "inline": True},
-            {"name": f"{EMOJIS['DOT']} Канал", "value": webhook.channel.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Создатель", "value": creator.mention if creator else "Неизвестно", "inline": True}
+            {"name": f"{Emojis.DOT} Название", "value": webhook.name, "inline": True},
+            {"name": f"{Emojis.DOT} ID", "value": str(webhook.id), "inline": True},
+            {"name": f"{Emojis.DOT} Канал", "value": webhook.channel.mention, "inline": True},
+            {"name": f"{Emojis.DOT} Создатель", "value": creator.mention if creator else "Неизвестно", "inline": True}
         ]
         
         await self.log_event(
-            title=f"{EMOJIS['SUCCESS']} Создан новый вебхук",
+            title=f"{Emojis.SUCCESS} Создан новый вебхук",
             description=f"В канале {webhook.channel.mention} создан новый вебхук",
             color='GREEN',
             fields=fields,
@@ -57,13 +57,13 @@ class WebhookLogger(BaseLogger):
     async def log_webhook_avatar_update(self, before: discord.Webhook, after: discord.Webhook):
         """Логирование изменения аватара вебхука"""
         fields = [
-            {"name": f"{EMOJIS['DOT']} Название", "value": after.name, "inline": True},
-            {"name": f"{EMOJIS['DOT']} ID", "value": str(after.id), "inline": True},
-            {"name": f"{EMOJIS['DOT']} Канал", "value": after.channel.mention, "inline": True}
+            {"name": f"{Emojis.DOT} Название", "value": after.name, "inline": True},
+            {"name": f"{Emojis.DOT} ID", "value": str(after.id), "inline": True},
+            {"name": f"{Emojis.DOT} Канал", "value": after.channel.mention, "inline": True}
         ]
         
         await self.log_event(
-            title=f"{EMOJIS['INFO']} Изменен аватар вебхука",
+            title=f"{Emojis.INFO} Изменен аватар вебхука",
             description=f"Обновлен аватар вебхука в канале {after.channel.mention}",
             color='BLUE',
             fields=fields,
@@ -74,14 +74,14 @@ class WebhookLogger(BaseLogger):
     async def log_webhook_name_update(self, before: discord.Webhook, after: discord.Webhook):
         """Логирование изменения названия вебхука"""
         fields = [
-            {"name": f"{EMOJIS['DOT']} ID", "value": str(after.id), "inline": True},
-            {"name": f"{EMOJIS['DOT']} Старое название", "value": before.name, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Новое название", "value": after.name, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Канал", "value": after.channel.mention, "inline": True}
+            {"name": f"{Emojis.DOT} ID", "value": str(after.id), "inline": True},
+            {"name": f"{Emojis.DOT} Старое название", "value": before.name, "inline": True},
+            {"name": f"{Emojis.DOT} Новое название", "value": after.name, "inline": True},
+            {"name": f"{Emojis.DOT} Канал", "value": after.channel.mention, "inline": True}
         ]
         
         await self.log_event(
-            title=f"{EMOJIS['INFO']} Изменено название вебхука",
+            title=f"{Emojis.INFO} Изменено название вебхука",
             description=f"Обновлено название вебхука в канале {after.channel.mention}",
             color='BLUE',
             fields=fields,
@@ -91,14 +91,14 @@ class WebhookLogger(BaseLogger):
     async def log_webhook_channel_update(self, before: discord.Webhook, after: discord.Webhook):
         """Логирование изменения канала вебхука"""
         fields = [
-            {"name": f"{EMOJIS['DOT']} Название", "value": after.name, "inline": True},
-            {"name": f"{EMOJIS['DOT']} ID", "value": str(after.id), "inline": True},
-            {"name": f"{EMOJIS['DOT']} Старый канал", "value": before.channel.mention, "inline": True},
-            {"name": f"{EMOJIS['DOT']} Новый канал", "value": after.channel.mention, "inline": True}
+            {"name": f"{Emojis.DOT} Название", "value": after.name, "inline": True},
+            {"name": f"{Emojis.DOT} ID", "value": str(after.id), "inline": True},
+            {"name": f"{Emojis.DOT} Старый канал", "value": before.channel.mention, "inline": True},
+            {"name": f"{Emojis.DOT} Новый канал", "value": after.channel.mention, "inline": True}
         ]
         
         await self.log_event(
-            title=f"{EMOJIS['INFO']} Изменен канал вебхука",
+            title=f"{Emojis.INFO} Изменен канал вебхука",
             description=f"Вебхук перемещен в другой канал",
             color='BLUE',
             fields=fields,
@@ -108,13 +108,13 @@ class WebhookLogger(BaseLogger):
     async def log_webhook_delete(self, webhook: discord.Webhook):
         """Логирование удаления вебхука"""
         fields = [
-            {"name": f"{EMOJIS['DOT']} Название", "value": webhook.name, "inline": True},
-            {"name": f"{EMOJIS['DOT']} ID", "value": str(webhook.id), "inline": True},
-            {"name": f"{EMOJIS['DOT']} Канал", "value": webhook.channel.mention, "inline": True}
+            {"name": f"{Emojis.DOT} Название", "value": webhook.name, "inline": True},
+            {"name": f"{Emojis.DOT} ID", "value": str(webhook.id), "inline": True},
+            {"name": f"{Emojis.DOT} Канал", "value": webhook.channel.mention, "inline": True}
         ]
         
         await self.log_event(
-            title=f"{EMOJIS['ERROR']} Вебхук удален",
+            title=f"{Emojis.ERROR} Вебхук удален",
             description=f"Удален вебхук из канала {webhook.channel.mention}",
             color='RED',
             fields=fields,

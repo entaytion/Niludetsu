@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from datetime import datetime
 from typing import Optional
 
@@ -73,13 +73,13 @@ class ServerInfo(commands.Cog):
         embed.add_field(
             name="📊 Основная информация",
             value=f"""
-{EMOJIS['DOT']} **ID сервера**: `{guild.id}`
-{EMOJIS['DOT']} **Владелец**: {guild.owner.mention} (`{guild.owner.id}`)
-{EMOJIS['DOT']} **Создан**: <t:{int(guild.created_at.timestamp())}:F>
-{EMOJIS['DOT']} **Уровень буста**: `{guild.premium_tier} уровень`
-{EMOJIS['DOT']} **Бустов**: `{guild.premium_subscription_count}`
-{EMOJIS['DOT']} **Уровень проверки**: `{get_server_level(guild.verification_level)}`
-{EMOJIS['DOT']} **Регион**: `{str(guild.preferred_locale)}`
+{Emojis.DOT} **ID сервера**: `{guild.id}`
+{Emojis.DOT} **Владелец**: {guild.owner.mention} (`{guild.owner.id}`)
+{Emojis.DOT} **Создан**: <t:{int(guild.created_at.timestamp())}:F>
+{Emojis.DOT} **Уровень буста**: `{guild.premium_tier} уровень`
+{Emojis.DOT} **Бустов**: `{guild.premium_subscription_count}`
+{Emojis.DOT} **Уровень проверки**: `{get_server_level(guild.verification_level)}`
+{Emojis.DOT} **Регион**: `{str(guild.preferred_locale)}`
             """,
             inline=False
         )
@@ -91,13 +91,13 @@ class ServerInfo(commands.Cog):
         embed.add_field(
             name="👥 Участники",
             value=f"""
-{EMOJIS['DOT']} **Всего**: `{guild.member_count}`
-{EMOJIS['DOT']} **Людей**: `{humans}`
-{EMOJIS['DOT']} **Ботов**: `{bots}`
-{EMOJIS['DOT']} **Онлайн**: `{member_status['online']}`
-{EMOJIS['DOT']} **Не активны**: `{member_status['idle']}`
-{EMOJIS['DOT']} **Не беспокоить**: `{member_status['dnd']}`
-{EMOJIS['DOT']} **Оффлайн**: `{member_status['offline']}`
+{Emojis.DOT} **Всего**: `{guild.member_count}`
+{Emojis.DOT} **Людей**: `{humans}`
+{Emojis.DOT} **Ботов**: `{bots}`
+{Emojis.DOT} **Онлайн**: `{member_status['online']}`
+{Emojis.DOT} **Не активны**: `{member_status['idle']}`
+{Emojis.DOT} **Не беспокоить**: `{member_status['dnd']}`
+{Emojis.DOT} **Оффлайн**: `{member_status['offline']}`
             """,
             inline=True
         )
@@ -106,13 +106,13 @@ class ServerInfo(commands.Cog):
         embed.add_field(
             name="📝 Каналы",
             value=f"""
-{EMOJIS['DOT']} **Всего**: `{channels['total']}`
-{EMOJIS['DOT']} **Текстовых**: `{channels['text']}`
-{EMOJIS['DOT']} **Голосовых**: `{channels['voice']}`
-{EMOJIS['DOT']} **Категорий**: `{channels['categories']}`
-{EMOJIS['DOT']} **Трибун**: `{channels['stage']}`
-{EMOJIS['DOT']} **Форумов**: `{channels['forum']}`
-{EMOJIS['DOT']} **Новостных**: `{channels['news']}`
+{Emojis.DOT} **Всего**: `{channels['total']}`
+{Emojis.DOT} **Текстовых**: `{channels['text']}`
+{Emojis.DOT} **Голосовых**: `{channels['voice']}`
+{Emojis.DOT} **Категорий**: `{channels['categories']}`
+{Emojis.DOT} **Трибун**: `{channels['stage']}`
+{Emojis.DOT} **Форумов**: `{channels['forum']}`
+{Emojis.DOT} **Новостных**: `{channels['news']}`
             """,
             inline=True
         )
@@ -126,9 +126,9 @@ class ServerInfo(commands.Cog):
         )
 
         # Эмодзи и стикеры
-        emoji_stats = f"{EMOJIS['DOT']} **Обычные**: `{len([e for e in guild.emojis if not e.animated])}/{guild.emoji_limit}`\n"
-        emoji_stats += f"{EMOJIS['DOT']} **Анимированные**: `{len([e for e in guild.emojis if e.animated])}/{guild.emoji_limit}`\n"
-        emoji_stats += f"{EMOJIS['DOT']} **Стикеры**: `{len(guild.stickers)}/{guild.sticker_limit}`"
+        emoji_stats = f"{Emojis.DOT} **Обычные**: `{len([e for e in guild.emojis if not e.animated])}/{guild.emoji_limit}`\n"
+        emoji_stats += f"{Emojis.DOT} **Анимированные**: `{len([e for e in guild.emojis if e.animated])}/{guild.emoji_limit}`\n"
+        emoji_stats += f"{Emojis.DOT} **Стикеры**: `{len(guild.stickers)}/{guild.sticker_limit}`"
         
         embed.add_field(
             name="😀 Эмодзи и стикеры",

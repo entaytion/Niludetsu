@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 from typing import Optional
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 
 class Lock(commands.Cog):
@@ -29,7 +29,7 @@ class Lock(commands.Cog):
             if not interaction.user.guild_permissions.manage_channels:
                 return await interaction.response.send_message(
                     embed=Embed(
-                        title=f"{EMOJIS['ERROR']} Ошибка прав",
+                        title=f"{Emojis.ERROR} Ошибка прав",
                         description="У вас нет прав на управление каналами!",
                         color="RED"
                     ),
@@ -42,7 +42,7 @@ class Lock(commands.Cog):
                 failed_channels = []
                 
                 progress_embed=Embed(
-                    title=f"{EMOJIS['LOADING']} Блокировка каналов",
+                    title=f"{Emojis.LOADING} Блокировка каналов",
                     description="Идет процесс блокировки всех каналов...",
                     color="YELLOW"
                 )
@@ -64,19 +64,19 @@ class Lock(commands.Cog):
                         failed_channels.append(ch.mention)
                 
                 result_embed=Embed(
-                    title=f"{EMOJIS['LOCK']} Массовая блокировка завершена",
+                    title=f"{Emojis.LOCK} Массовая блокировка завершена",
                     color="RED"
                 )
                 
                 result_embed.add_field(
-                    name=f"{EMOJIS['SUCCESS']} Успешно заблокировано",
+                    name=f"{Emojis.SUCCESS} Успешно заблокировано",
                     value=f"`{success_count}` каналов",
                     inline=True
                 )
                 
                 if failed_count > 0:
                     result_embed.add_field(
-                        name=f"{EMOJIS['ERROR']} Не удалось заблокировать",
+                        name=f"{Emojis.ERROR} Не удалось заблокировать",
                         value=f"`{failed_count}` каналов",
                         inline=True
                     )
@@ -89,7 +89,7 @@ class Lock(commands.Cog):
                 
                 if reason:
                     result_embed.add_field(
-                        name=f"{EMOJIS['REASON']} Причина",
+                        name=f"{Emojis.REASON} Причина",
                         value=f"```{reason}```",
                         inline=False
                     )
@@ -111,24 +111,24 @@ class Lock(commands.Cog):
                 )
                 
                 lock_embed=Embed(
-                    title=f"{EMOJIS['LOCK']} Канал заблокирован",
+                    title=f"{Emojis.LOCK} Канал заблокирован",
                     color="RED"
                 )
                 
                 lock_embed.add_field(
-                    name=f"{EMOJIS['CHANNEL']} Канал",
+                    name=f"{Emojis.CHANNEL} Канал",
                     value=target_channel.mention,
                     inline=True
                 )
                 lock_embed.add_field(
-                    name=f"{EMOJIS['SHIELD']} Модератор",
+                    name=f"{Emojis.SHIELD} Модератор",
                     value=interaction.user.mention,
                     inline=True
                 )
                 
                 if reason:
                     lock_embed.add_field(
-                        name=f"{EMOJIS['REASON']} Причина",
+                        name=f"{Emojis.REASON} Причина",
                         value=f"```{reason}```",
                         inline=False
                     )
@@ -140,7 +140,7 @@ class Lock(commands.Cog):
                 try:
                     await target_channel.send(
                         embed=Embed(
-                            title=f"{EMOJIS['LOCK']} Канал заблокирован",
+                            title=f"{Emojis.LOCK} Канал заблокирован",
                             description=f"Модератор: {interaction.user.mention}\n"
                                       f"Причина: {f'```{reason}```' if reason else '`Не указана`'}",
                             color="RED"
@@ -151,7 +151,7 @@ class Lock(commands.Cog):
 
         except discord.Forbidden:
             error_embed=Embed(
-                title=f"{EMOJIS['ERROR']} Ошибка прав",
+                title=f"{Emojis.ERROR} Ошибка прав",
                 description=f"У меня недостаточно прав для блокировки {'каналов' if all_channels else target_channel.mention}!",
                 color="RED"
             )

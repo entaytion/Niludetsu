@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class NowPlaying(commands.Cog):
     def __init__(self, bot):
@@ -22,7 +22,7 @@ class NowPlaying(commands.Cog):
         if not player.playing:
             await interaction.followup.send(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="Сейчас ничего не играет!",
                     color="RED"
                 ),
@@ -34,7 +34,7 @@ class NowPlaying(commands.Cog):
         if not song:
             await interaction.followup.send(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="Не удалось получить информацию о треке!",
                     color="RED"
                 ),
@@ -46,7 +46,7 @@ class NowPlaying(commands.Cog):
         position = player.position
         
         if song.is_stream:
-            progress = f"{EMOJIS['LIVE']} LIVE"
+            progress = f"{Emojis.LIVE} LIVE"
         else:
             current_min = position // 60000
             current_sec = (position % 60000) // 1000
@@ -56,18 +56,18 @@ class NowPlaying(commands.Cog):
 
         # Создаем эмбед с информацией о треке
         embed=Embed(
-            title=f"{EMOJIS['MUSIC']} Сейчас играет",
-            description=f"**[{song.title}]({song.uri})**\n{EMOJIS['ARTIST']} **Автор:** {song.author}",
+            title=f"{Emojis.MUSIC} Сейчас играет",
+            description=f"**[{song.title}]({song.uri})**\n{Emojis.ARTIST} **Автор:** {song.author}",
             color="BLUE"
         )
 
         embed.add_field(
-            name=f"{EMOJIS['TIME']} Прогресс",
+            name=f"{Emojis.TIME} Прогресс",
             value=progress,
             inline=True
         )
         embed.add_field(
-            name=f"{EMOJIS['USER']} Запросил",
+            name=f"{Emojis.USER} Запросил",
             value=song.requester.mention if song.requester else "Неизвестно",
             inline=True
         )

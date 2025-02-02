@@ -6,7 +6,7 @@ import os
 from datetime import datetime
 import typing
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 def format_permission(perm_name: str) -> str:
     """Форматирует название права для красивого отображения"""

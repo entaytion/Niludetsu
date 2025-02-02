@@ -5,7 +5,7 @@ import yaml
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, List, Tuple
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class AccountType:
     NORMAL = "Обычный"
@@ -121,45 +121,7 @@ class InviteTracker:
 
     def get_log_channel(self, guild_id: int) -> Optional[int]:
         """Получает ID канала для логов"""
-        return self.settings.get('log_channels', {}).get(str(guild_id))
-
-    def set_log_channel(self, guild_id: int, channel_id: int):
-        """Устанавливает канал для логов"""
-        if 'log_channels' not in self.settings:
-            self.settings['log_channels'] = {}
-        self.settings['log_channels'][str(guild_id)] = channel_id
-        self.save_settings()
-
-    def set_welcome_message(self, guild_id: int, message: str):
-        """Устанавливает приветственное сообщение"""
-        if 'welcome_messages' not in self.settings:
-            self.settings['welcome_messages'] = {}
-        self.settings['welcome_messages'][str(guild_id)] = message
-        self.save_settings()
-
-    def set_leave_message(self, guild_id: int, message: str):
-        """Устанавливает сообщение при выходе"""
-        if 'leave_messages' not in self.settings:
-            self.settings['leave_messages'] = {}
-        self.settings['leave_messages'][str(guild_id)] = message
-        self.save_settings()
-
-    def get_welcome_message(self, guild_id: int) -> str:
-        """Получает приветственное сообщение"""
-        return self.settings.get('welcome_messages', {}).get(
-            str(guild_id),
-            "👋 {member.mention} присоединился к серверу!\n" +
-            "📨 Приглашение от: {inviter.mention}\n" +
-            "📊 Использований: {invite.uses}"
-        )
-
-    def get_leave_message(self, guild_id: int) -> str:
-        """Получает сообщение при выходе"""
-        return self.settings.get('leave_messages', {}).get(
-            str(guild_id),
-            "👋 {member} покинул сервер\n" +
-            "⏱️ Пробыл на сервере: {time_on_server}"
-        )
+        return self.settings.get('channel')
 
     def get_account_type(self, member: discord.Member) -> Tuple[str, str]:
         """Определяет тип аккаунта участника"""
@@ -376,6 +338,12 @@ class InviteTracker:
 
     async def setup(self):
         """Инициализация трекера"""
+        # Проверяем и кэшируем канал для логов
+        if not self.settings.get('channel'):
+            print("❌ Канал для логов инвайтов не настроен")
+            return
+            
+        # Кэшируем текущие инвайты
         await self.cache_invites()
 
 class InvitesCog(commands.Cog):
@@ -393,226 +361,6 @@ class InvitesCog(commands.Cog):
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
         await self.invite_tracker.on_member_remove(member)
-        
-    invites = app_commands.Group(name="invites", description="Управление системой инвайтов")
-    
-    @invites.command(name="channel", description="Установить канал для логов инвайтов")
-    @app_commands.describe(channel="Канал для логов")
-    @commands.has_permissions(administrator=True)
-    async def set_log_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        self.invite_tracker.set_log_channel(interaction.guild_id, channel.id)
-        await interaction.response.send_message(
-            embed=Embed(
-                description=f"{EMOJIS['SUCCESS']} Канал для логов инвайтов установлен: {channel.mention}"
-            ),
-            ephemeral=True
-        )
-        
-    @invites.command(name="welcome", description="Установить приветственное сообщение")
-    @app_commands.describe(message="Текст сообщения")
-    @commands.has_permissions(administrator=True)
-    async def set_welcome_message(self, interaction: discord.Interaction, *, message: str):
-        self.invite_tracker.set_welcome_message(interaction.guild_id, message)
-        await interaction.response.send_message(
-            embed=Embed(
-                description=f"{EMOJIS['SUCCESS']} Приветственное сообщение установлено!"
-            ),
-            ephemeral=True
-        )
-        
-    @invites.command(name="leave", description="Установить сообщение при выходе")
-    @app_commands.describe(message="Текст сообщения")
-    @commands.has_permissions(administrator=True)
-    async def set_leave_message(self, interaction: discord.Interaction, *, message: str):
-        self.invite_tracker.set_leave_message(interaction.guild_id, message)
-        await interaction.response.send_message(
-            embed=Embed(
-                description=f"{EMOJIS['SUCCESS']} Сообщение при выходе установлено!"
-            ),
-            ephemeral=True
-        )
-        
-    @invites.command(name="test", description="Протестировать сообщения")
-    @app_commands.describe(type="Тип сообщения для теста")
-    @app_commands.choices(type=[
-        app_commands.Choice(name="Приветственное", value="welcome"),
-        app_commands.Choice(name="При выходе", value="leave")
-    ])
-    @commands.has_permissions(administrator=True)
-    async def test_messages(self, interaction: discord.Interaction, type: app_commands.Choice[str]):
-        await interaction.response.defer(ephemeral=True)
-        
-        if type.value == "welcome":
-            invite = None
-            try:
-                invites = await interaction.guild.invites()
-                if invites:
-                    invite = invites[0]
-            except discord.Forbidden:
-                pass
-                
-            embed = await self.invite_tracker.format_join_message(interaction.user, invite)
-            await interaction.followup.send(
-                content="Тест приветственного сообщения:",
-                embed=embed
-            )
-        else:
-            embed = await self.invite_tracker.format_leave_message(interaction.user)
-            await interaction.followup.send(
-                content="Тест сообщения при выходе:",
-                embed=embed
-            )
-            
-    @invites.command(name="info", description="Получить информацию о приглашении")
-    @app_commands.describe(code="Код приглашения")
-    async def invite_info(self, interaction: discord.Interaction, code: str):
-        try:
-            # Очищаем код от лишнего
-            code = code.replace('https://discord.gg/', '').replace('discord.gg/', '')
-            
-            # Получаем информацию о приглашении через клиент бота
-            invite = await self.bot.fetch_invite(code)
-            
-            embed=Embed(
-                title="📨 Информация о приглашении",
-                color="BLUE"
-            )
-            
-            # Добавляем информацию о сервере
-            embed.add_field(
-                name="🏠 Сервер",
-                value=f"**Название:** {invite.guild.name}\n"
-                      f"**ID:** {invite.guild.id}",
-                inline=False
-            )
-            
-            # Добавляем информацию о создателе
-            if invite.inviter:
-                embed.add_field(
-                    name="👤 Создатель",
-                    value=f"**Имя:** {invite.inviter.name}\n"
-                          f"**ID:** {invite.inviter.id}",
-                    inline=False
-                )
-            
-            # Добавляем информацию о канале
-            if invite.channel:
-                embed.add_field(
-                    name="📝 Канал",
-                    value=f"**Название:** {invite.channel.name}\n"
-                          f"**ID:** {invite.channel.id}",
-                    inline=False
-                )
-            
-            # Добавляем дополнительную информацию
-            if invite.expires_at:
-                embed.add_field(
-                    name="⏰ Истекает",
-                    value=f"<t:{int(invite.expires_at.timestamp())}:R>",
-                    inline=True
-                )
-            
-            if invite.max_uses:
-                embed.add_field(
-                    name="👥 Максимум использований",
-                    value=str(invite.max_uses),
-                    inline=True
-                )
-            
-            if invite.uses is not None:
-                embed.add_field(
-                    name="📊 Использований",
-                    value=str(invite.uses),
-                    inline=True
-                )
-            
-            # Добавляем превью сервера, если доступно
-            if invite.guild.icon:
-                embed.set_thumbnail(url=invite.guild.icon.url)
-            
-            await interaction.response.send_message(embed=embed)
-            
-        except discord.NotFound:
-            await interaction.response.send_message(
-                embed=Embed(
-                    description="❌ Приглашение не найдено",
-                    color="RED"
-                ),
-                ephemeral=True
-            )
-        except discord.Forbidden:
-            await interaction.response.send_message(
-                embed=Embed(
-                    description="❌ У меня нет прав для просмотра информации об этом приглашении",
-                    color="RED"
-                ),
-                ephemeral=True
-            )
 
-    @invites.command(name="list", description="Список активных приглашений")
-    @commands.has_permissions(administrator=True)
-    async def list_invites(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        
-        try:
-            guild_invites = await interaction.guild.invites()
-            
-            if not guild_invites:
-                await interaction.followup.send(
-                    embed=Embed(
-                        description=f"{EMOJIS['INFO']} На сервере нет активных приглашений!",
-                        color=0xe74c3c
-                    ),
-                    ephemeral=True
-                )
-                return
-                
-            embeds = []
-            current_embed=Embed(
-                title="Активные приглашения",
-                timestamp=datetime.utcnow()
-            )
-            
-            for i, invite in enumerate(guild_invites):
-                # Каждые 25 полей создаем новый эмбед
-                if i > 0 and i % 25 == 0:
-                    embeds.append(current_embed)
-                    current_embed=Embed(
-                        title="Активные приглашения (продолжение)",
-                        timestamp=datetime.utcnow()
-                    )
-                
-                inviter = invite.inviter
-                channel = invite.channel
-                value = (
-                    f"👥 {inviter.mention if inviter else 'Неизвестно'}\n"
-                    f"📝 {channel.mention if channel else 'Неизвестно'}\n"
-                    f"📊 {invite.uses}/{invite.max_uses if invite.max_uses else '∞'}\n"
-                    f"⏱️ Создано: <t:{int(invite.created_at.timestamp())}:R>"
-                )
-                
-                if invite.expires_at:
-                    value += f"\n⌛ Истекает: <t:{int(invite.expires_at.timestamp())}:R>"
-                    
-                current_embed.add_field(
-                    name=f"🔗 discord.gg/{invite.code}",
-                    value=value,
-                    inline=True
-                )
-            
-            embeds.append(current_embed)
-            
-            for embed in embeds:
-                await interaction.followup.send(embed=embed, ephemeral=True)
-                
-        except discord.Forbidden:
-            await interaction.followup.send(
-                embed=Embed(
-                    description=f"{EMOJIS['ERROR']} У меня нет прав для просмотра приглашений!",
-                    color=0xe74c3c
-                ),
-                ephemeral=True
-            )
-            
 async def setup(bot):
     await bot.add_cog(InvitesCog(bot)) 

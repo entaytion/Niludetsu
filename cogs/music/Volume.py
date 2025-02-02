@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class Volume(commands.Cog):
     def __init__(self, bot):
@@ -21,7 +21,7 @@ class Volume(commands.Cog):
         if not player.playing:
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="Сейчас ничего не играет!",
                     color="RED"
                 ),
@@ -35,13 +35,13 @@ class Volume(commands.Cog):
 
         # Определяем эмодзи громкости
         if volume == 0:
-            volume_emoji = EMOJIS['VOLUME_MUTE']
+            volume_emoji = Emojis.VOLUME_MUTE
         elif volume < 50:
-            volume_emoji = EMOJIS['VOLUME_LOW']
+            volume_emoji = Emojis.VOLUME_LOW
         elif volume < 100:
-            volume_emoji = EMOJIS['VOLUME_MEDIUM']
+            volume_emoji = Emojis.VOLUME_MEDIUM
         else:
-            volume_emoji = EMOJIS['VOLUME_HIGH']
+            volume_emoji = Emojis.VOLUME_HIGH
 
         embed=Embed(
             title=f"{volume_emoji} Громкость изменена",
@@ -51,7 +51,7 @@ class Volume(commands.Cog):
 
         if song:
             embed.add_field(
-                name=f"{EMOJIS['MUSIC']} Текущий трек",
+                name=f"{Emojis.MUSIC} Текущий трек",
                 value=f"**[{song.title}]({song.uri})**",
                 inline=False
             )

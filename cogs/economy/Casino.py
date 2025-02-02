@@ -4,7 +4,7 @@ import random
 import asyncio
 from Niludetsu.database import Database
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class BetView(discord.ui.View):
     def __init__(self):
@@ -66,7 +66,7 @@ class Casino(commands.Cog):
             await interaction.response.send_message(
                 embed=Embed(
                     description=f"❌ У вас недостаточно средств для такой ставки!\n"
-                              f"Ваш баланс: {user_data['balance']:,} {EMOJIS['MONEY']}",
+                              f"Ваш баланс: {user_data['balance']:,} {Emojis.MONEY}",
                     color="RED"
                 ),
                 ephemeral=True
@@ -78,7 +78,7 @@ class Casino(commands.Cog):
         embed=Embed(
             title="🎰 Рулетка | Выбор ставки",
             description=(
-                f"**Ваша ставка:** {bet:,} {EMOJIS['MONEY']}\n\n"
+                f"**Ваша ставка:** {bet:,} {Emojis.MONEY}\n\n"
                 "**Выберите тип ставки:**\n"
                 "🟥 `Красное` - x2\n"
                 "⬛ `Черное` - x2\n"
@@ -114,7 +114,7 @@ class Casino(commands.Cog):
         embed=Embed(
             title="🎰 Рулетка | Запуск",
             description="🎲 Рулетка запущена...\n\n" +
-                       f"**Ставка:** {bet:,} {EMOJIS['MONEY']}\n" +
+                       f"**Ставка:** {bet:,} {Emojis.MONEY}\n" +
                        f"**Тип ставки:** {bet_type}",
             color="BLUE",
             footer={"text": f"Игрок: {interaction.user.name}", "icon_url": interaction.user.display_avatar.url}
@@ -132,7 +132,7 @@ class Casino(commands.Cog):
                 f"🎲 Рулетка крутится...\n"
                 f"{' ' * 10}{arrows[arrow_pos]}\n"
                 f"{animation}\n\n"
-                f"**Ставка:** {bet:,} {EMOJIS['MONEY']}\n"
+                f"**Ставка:** {bet:,} {Emojis.MONEY}\n"
                 f"**Тип ставки:** {bet_type}"
             )
             await interaction.edit_original_response(embed=embed)
@@ -150,7 +150,7 @@ class Casino(commands.Cog):
                 f"🎲 Рулетка останавливается...\n"
                 f"{' ' * 10}{frame}\n"
                 f"{' '.join(animation)}\n\n"
-                f"**Ставка:** {bet:,} {EMOJIS['MONEY']}\n"
+                f"**Ставка:** {bet:,} {Emojis.MONEY}\n"
                 f"**Тип ставки:** {bet_type}"
             )
             await interaction.edit_original_response(embed=embed)
@@ -189,10 +189,10 @@ class Casino(commands.Cog):
                 f"**Выпало число:** {number} {result['color']}\n"
                 f"{' ' * 11}⬇️\n"
                 f"{result['color'] * 5}\n\n"
-                f"**Ваша ставка:** {bet:,} {EMOJIS['MONEY']}\n"
+                f"**Ваша ставка:** {bet:,} {Emojis.MONEY}\n"
                 f"**Тип ставки:** {bet_type}\n\n"
                 f"{result_text}\n" +
-                (f"💰 **Выигрыш:** {winnings:,} {EMOJIS['MONEY']}" if winnings > 0 else "")
+                (f"💰 **Выигрыш:** {winnings:,} {Emojis.MONEY}" if winnings > 0 else "")
             ),
             color=color,
             footer={"text": f"Игрок: {interaction.user.name}", "icon_url": interaction.user.display_avatar.url}

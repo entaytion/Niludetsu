@@ -4,7 +4,7 @@ import asyncio
 from datetime import datetime, timedelta
 import re
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class Reminder(commands.GroupCog, group_name="reminder"):
     def __init__(self, bot):

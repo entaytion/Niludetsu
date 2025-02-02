@@ -4,7 +4,7 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 import aiohttp
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 import textwrap
 import os
 

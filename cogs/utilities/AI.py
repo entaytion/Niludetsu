@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 import g4f
 import asyncio
 from typing import Optional, List, Dict
@@ -296,7 +296,7 @@ class AI(commands.Cog):
             await interaction.followup.send(embed=embed)
         else:
             error_embed=Embed(
-                title=f"{EMOJIS['ERROR']} Ошибка",
+                title=f"{Emojis.ERROR} Ошибка",
                 description="Не удалось получить ответ от ИИ. Все доступные провайдеры временно недоступны. Попробуйте позже.",
                 color=0xe74c3c
             )
@@ -410,7 +410,7 @@ class AI(commands.Cog):
         if not found_provider:
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description=f"Провайдер '{provider}' не найден",
                     color=0xe74c3c
                 ),

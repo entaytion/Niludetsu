@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class Nightcore(commands.Cog):
     def __init__(self, bot):
@@ -29,7 +29,7 @@ class Nightcore(commands.Cog):
         if not player.playing:
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="Сейчас ничего не играет!",
                     color="RED"
                 ),
@@ -53,22 +53,22 @@ class Nightcore(commands.Cog):
         song = self.music.get_current_song(guild_id)
 
         embed=Embed(
-            title=f"{EMOJIS['EFFECT']} Эффект Nightcore",
+            title=f"{Emojis.EFFECT} Эффект Nightcore",
             description=f"Эффект Nightcore **{'включен' if enabled else 'выключен'}**",
             color="GREEN" if enabled else "RED"
         )
 
         if song:
             embed.add_field(
-                name=f"{EMOJIS['MUSIC']} Текущий трек",
+                name=f"{Emojis.MUSIC} Текущий трек",
                 value=f"**[{song.title}]({song.uri})**\n"
-                      f"{EMOJIS['TIME']} Длительность: `{song.format_duration()}`",
+                      f"{Emojis.TIME} Длительность: `{song.format_duration()}`",
                 inline=False
             )
 
         if enabled:
             embed.add_field(
-                name=f"{EMOJIS['SETTINGS']} Настройки эффекта",
+                name=f"{Emojis.SETTINGS} Настройки эффекта",
                 value=(
                     f"**Скорость:** `120%`\n"
                     f"**Тональность:** `120%`\n"

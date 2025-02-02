@@ -4,7 +4,7 @@ from discord import Interaction, ButtonStyle
 from discord.ui import Button, View
 from Niludetsu.database import Database
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from typing import Literal
 
 class ReputationView(View):
@@ -27,8 +27,8 @@ class ReputationView(View):
 
     async def show_reputation_embed(self, interaction: Interaction, sorted_users, rep_type):
         embed=Embed(
-            title=f"{EMOJIS['LEADERBOARD']} Рейтинг по {rep_type} репутации",
-            description=f"{EMOJIS['INFO']} Показаны топ-10 пользователей",
+            title=f"{Emojis.LEADERBOARD} Рейтинг по {rep_type} репутации",
+            description=f"{Emojis.INFO} Показаны топ-10 пользователей",
             color="BLUE",
             footer={
                 "text": f"Вы на {next((i + 1 for i, (member_id, _) in enumerate(sorted_users) if member_id == interaction.user.id), 'не найдено')}-м месте.",
@@ -39,7 +39,7 @@ class ReputationView(View):
         for i, (member_id, user_data) in enumerate(sorted_users[:10], start=1):
             member_name = await self.cog.get_member_mention(member_id, interaction.guild.id)
             rep = user_data.get('reputation', 0)
-            emoji = f"{EMOJIS['UP']}" if rep >= 0 else f"{EMOJIS['DOWN']}"
+            emoji = f"{Emojis.UP}" if rep >= 0 else f"{Emojis.DOWN}"
             embed.add_field(
                 name=f"#{i}. {member_name}",
                 value=f"Репутация: **{rep}** {emoji}",
@@ -56,7 +56,7 @@ class ReputationView(View):
         if not result:
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="В базе данных нет записей о репутации пользователей.",
                     color="RED"
                 ),
@@ -74,7 +74,7 @@ class ReputationView(View):
         if not result:
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="В базе данных нет записей о репутации пользователей.",
                     color="RED"
                 ),
@@ -101,7 +101,7 @@ class Leaderboard(commands.Cog):
             if not result:
                 await interaction.followup.send(
                     embed=Embed(
-                        title=f"{EMOJIS['ERROR']} Ошибка",
+                        title=f"{Emojis.ERROR} Ошибка",
                         description="В базе данных нет записей об уровнях пользователей.",
                         color="RED"
                     ),
@@ -109,7 +109,7 @@ class Leaderboard(commands.Cog):
                 )
                 return
             sorted_users = [(int(row['user_id']), {'level': row['level'], 'xp': row['xp']}) for row in result]
-            value_title = f"{EMOJIS['LEVEL']} уровню"
+            value_title = f"{Emojis.LEVEL} уровню"
         elif category == "money":
             result = await self.db.fetch_all(
                 "SELECT user_id, balance, deposit FROM users ORDER BY (balance + deposit) DESC"
@@ -117,7 +117,7 @@ class Leaderboard(commands.Cog):
             if not result:
                 await interaction.followup.send(
                     embed=Embed(
-                        title=f"{EMOJIS['ERROR']} Ошибка",
+                        title=f"{Emojis.ERROR} Ошибка",
                         description="В базе данных нет записей о балансе пользователей.",
                         color="RED"
                     ),
@@ -125,7 +125,7 @@ class Leaderboard(commands.Cog):
                 )
                 return
             sorted_users = [(int(row['user_id']), {'balance': row['balance'], 'deposit': row['deposit']}) for row in result]
-            value_title = f"{EMOJIS['MONEY']} деньгам"
+            value_title = f"{Emojis.MONEY} деньгам"
         elif category == "reputation":
             result = await self.db.fetch_all(
                 "SELECT user_id, reputation FROM users ORDER BY reputation DESC"
@@ -133,7 +133,7 @@ class Leaderboard(commands.Cog):
             if not result:
                 await interaction.followup.send(
                     embed=Embed(
-                        title=f"{EMOJIS['ERROR']} Ошибка",
+                        title=f"{Emojis.ERROR} Ошибка",
                         description="В базе данных нет записей о репутации пользователей.",
                         color="RED"
                     ),
@@ -141,7 +141,7 @@ class Leaderboard(commands.Cog):
                 )
                 return
             sorted_users = [(int(row['user_id']), {'reputation': row['reputation']}) for row in result]
-            value_title = f"{EMOJIS['REPUTATION']} репутации"
+            value_title = f"{Emojis.REPUTATION} репутации"
             view = ReputationView(self, sorted_users, interaction)
             await interaction.followup.send(
                 embed=await self.create_leaderboard_embed(interaction, sorted_users, value_title),
@@ -155,8 +155,8 @@ class Leaderboard(commands.Cog):
 
     async def create_leaderboard_embed(self, interaction: Interaction, sorted_users, value_title):
         embed = Embed(
-            title=f"{EMOJIS['LEADERBOARD']} Топ по {value_title}",
-            description=f"{EMOJIS['INFO']} Показаны топ-10 пользователей",
+            title=f"{Emojis.LEADERBOARD} Топ по {value_title}",
+            description=f"{Emojis.INFO} Показаны топ-10 пользователей",
             color="BLUE"
         )
 
@@ -176,7 +176,7 @@ class Leaderboard(commands.Cog):
                 value = f"Всего: **{total:,}**\n(Баланс: {user_data['balance']:,}, Депозит: {user_data['deposit']:,})"
             else:
                 rep = user_data['reputation']
-                emoji = f"{EMOJIS['UP']}" if rep >= 0 else f"{EMOJIS['DOWN']}"
+                emoji = f"{Emojis.UP}" if rep >= 0 else f"{Emojis.DOWN}"
                 value = f"Репутация: **{rep}** {emoji}"
 
             embed.add_field(

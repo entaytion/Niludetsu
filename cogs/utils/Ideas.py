@@ -4,7 +4,7 @@ from discord import app_commands
 from discord.ui import Modal, TextInput, View, Button
 import yaml
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class ReasonModal(Modal):
     def __init__(self, title: str, callback):
@@ -180,8 +180,8 @@ class Ideas(commands.Cog):
         embed=Embed(
             title=f"💡 Новая идея: {title}",
             description=(
-                f"{EMOJIS['DOT']} **От:** {interaction.user.mention} (`{interaction.user.id}`)\n\n"
-                f"{EMOJIS['DOT']} **Описание:**\n```\n{description}```"
+                f"{Emojis.DOT} **От:** {interaction.user.mention} (`{interaction.user.id}`)\n\n"
+                f"{Emojis.DOT} **Описание:**\n```\n{description}```"
             ),
             footer={"text": f"ID пользователя: {interaction.user.id}"},
         )

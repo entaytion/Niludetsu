@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from Niludetsu.api.Currency import CurrencyAPI
 
 class Currency(commands.Cog):
@@ -40,7 +40,7 @@ class Currency(commands.Cog):
         for currency, name in self.currency_api.currencies.items():
             if currency != base_currency:
                 rate = rates[currency]
-                description += f"{EMOJIS['DOT']} **{name}:** `{rate:.2f}`\n"
+                description += f"{Emojis.DOT} **{name}:** `{rate:.2f}`\n"
 
         embed=Embed(
             title=f"💱 Курсы валют",

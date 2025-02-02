@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 from typing import Optional
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 
 class Slowmode(commands.Cog):
@@ -28,7 +28,7 @@ class Slowmode(commands.Cog):
         if not interaction.user.guild_permissions.manage_channels:
             return await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка прав",
+                    title=f"{Emojis.ERROR} Ошибка прав",
                     description="У вас нет прав на управление каналами!",
                     color="RED"
                 ),
@@ -39,7 +39,7 @@ class Slowmode(commands.Cog):
 
         # Отправляем начальное сообщение
         progress_embed=Embed(
-            title=f"{EMOJIS['LOADING']} Изменение медленного режима",
+            title=f"{Emojis.LOADING} Изменение медленного режима",
             description=f"Устанавливаю задержку в канале {target_channel.mention}...",
             color="YELLOW"
         )
@@ -71,29 +71,29 @@ class Slowmode(commands.Cog):
 
             # Создаем эмбед с результатами
             result_embed=Embed(
-                title=f"{EMOJIS['SUCCESS']} Медленный режим изменен",
+                title=f"{Emojis.SUCCESS} Медленный режим изменен",
                 color="GREEN"
             )
 
             result_embed.add_field(
-                name=f"{EMOJIS['CHANNEL']} Канал",
+                name=f"{Emojis.CHANNEL} Канал",
                 value=target_channel.mention,
                 inline=True
             )
             result_embed.add_field(
-                name=f"{EMOJIS['SHIELD']} Модератор",
+                name=f"{Emojis.SHIELD} Модератор",
                 value=interaction.user.mention,
                 inline=True
             )
             result_embed.add_field(
-                name=f"{EMOJIS['TIME']} Задержка",
+                name=f"{Emojis.TIME} Задержка",
                 value=time_str,
                 inline=True
             )
 
             if reason:
                 result_embed.add_field(
-                    name=f"{EMOJIS['REASON']} Причина",
+                    name=f"{Emojis.REASON} Причина",
                     value=f"```{reason}```",
                     inline=False
                 )
@@ -105,7 +105,7 @@ class Slowmode(commands.Cog):
             try:
                 await target_channel.send(
                     embed=Embed(
-                        title=f"{EMOJIS['INFO']} Медленный режим изменен",
+                        title=f"{Emojis.INFO} Медленный режим изменен",
                         description=(
                             f"**Модератор:** {interaction.user.mention}\n"
                             f"**Новая задержка:** {time_str}\n"
@@ -120,7 +120,7 @@ class Slowmode(commands.Cog):
         except discord.Forbidden:
             await interaction.edit_original_response(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка прав",
+                    title=f"{Emojis.ERROR} Ошибка прав",
                     description=f"У меня недостаточно прав для изменения настроек канала {target_channel.mention}!",
                     color="RED"
                 )

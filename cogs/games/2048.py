@@ -5,7 +5,7 @@ from discord.ui import View, Button
 import random
 import json
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class Game2048:
     def __init__(self):
@@ -93,18 +93,18 @@ class Game2048:
     def get_board_str(self):
         # Создаем строковое представление доски с эмодзи
         number_emojis = {
-            0: "⬛",
-            2: EMOJIS['2048_2'],
-            4: EMOJIS['2048_4'],
-            8: EMOJIS['2048_8'],
-            16: EMOJIS['2048_16'],
-            32: EMOJIS['2048_32'],
-            64: EMOJIS['2048_64'],
-            128: EMOJIS['2048_128'],
-            256: EMOJIS['2048_256'],
-            512: EMOJIS['2048_512'],
-            1024: EMOJIS['2048_1024'],
-            2048: EMOJIS['2048_2048']
+            0: Emojis.TILE_0,
+            2: Emojis.TILE_2,
+            4: Emojis.TILE_4,
+            8: Emojis.TILE_8,
+            16: Emojis.TILE_16,
+            32: Emojis.TILE_32,
+            64: Emojis.TILE_64,
+            128: Emojis.TILE_128,
+            256: Emojis.TILE_256,
+            512: Emojis.TILE_512,
+            1024: Emojis.TILE_1024,
+            2048: Emojis.TILE_2048
         }
         
         return "\n".join(

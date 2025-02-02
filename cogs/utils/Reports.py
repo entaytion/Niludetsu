@@ -4,7 +4,7 @@ from discord import app_commands
 from discord.ui import Modal, TextInput, View, Button
 import yaml
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 import asyncio
 
 class ReasonModal(Modal):

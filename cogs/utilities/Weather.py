@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from Niludetsu.api.Weather import WeatherAPI
 
 class Weather(commands.Cog):
@@ -29,14 +29,14 @@ class Weather(commands.Cog):
         
         description = (
             f"{formatted_data['icon']} **{formatted_data['description'].capitalize()}**\n\n"
-            f"{EMOJIS['DOT']} Температура: `{formatted_data['temp']}°C`\n"
-            f"{EMOJIS['DOT']} Ощущается как: `{formatted_data['feels_like']}°C`\n"
-            f"{EMOJIS['DOT']} Влажность: `{formatted_data['humidity']}%`\n"
-            f"{EMOJIS['DOT']} Ветер: `{formatted_data['wind_speed']} м/с`\n"
-            f"{EMOJIS['DOT']} Давление: `{formatted_data['pressure']} мм рт.ст.`\n"
-            f"{EMOJIS['DOT']} Видимость: `{formatted_data['visibility']} км`\n"
-            f"{EMOJIS['DOT']} Восход: `{formatted_data['sunrise']}`\n"
-            f"{EMOJIS['DOT']} Закат: `{formatted_data['sunset']}`"
+            f"{Emojis.DOT} Температура: `{formatted_data['temp']}°C`\n"
+            f"{Emojis.DOT} Ощущается как: `{formatted_data['feels_like']}°C`\n"
+            f"{Emojis.DOT} Влажность: `{formatted_data['humidity']}%`\n"
+            f"{Emojis.DOT} Ветер: `{formatted_data['wind_speed']} м/с`\n"
+            f"{Emojis.DOT} Давление: `{formatted_data['pressure']} мм рт.ст.`\n"
+            f"{Emojis.DOT} Видимость: `{formatted_data['visibility']} км`\n"
+            f"{Emojis.DOT} Восход: `{formatted_data['sunrise']}`\n"
+            f"{Emojis.DOT} Закат: `{formatted_data['sunset']}`"
         )
 
         embed=Embed(

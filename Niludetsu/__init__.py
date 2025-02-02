@@ -9,7 +9,7 @@ from . import logging
 from . import music
 from . import api
 
-__version__ = "beta-7"
+__version__ = "beta-8"
 __author__ = "Entaytion"
 __license__ = "GNU General Public License v3.0"
 

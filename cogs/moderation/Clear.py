@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 import asyncio
 
@@ -33,7 +33,7 @@ class Clear(commands.Cog):
             if not interaction.guild.me.guild_permissions.manage_messages:
                 return await interaction.response.send_message(
                     embed=Embed(
-                        title=f"{EMOJIS['ERROR']} Ошибка прав",
+                        title=f"{Emojis.ERROR} Ошибка прав",
                         description="У меня нет прав на управление сообщениями!",
                         color="RED"
                     ),
@@ -42,7 +42,7 @@ class Clear(commands.Cog):
 
             # Отправляем начальное сообщение о процессе
             progress_embed=Embed(
-                title=f"{EMOJIS['LOADING']} Очистка сообщений",
+                title=f"{Emojis.LOADING} Очистка сообщений",
                 description="Идет процесс удаления сообщений...",
                 color="YELLOW"
             )
@@ -63,35 +63,35 @@ class Clear(commands.Cog):
 
             # Создаем эмбед с результатами
             result_embed=Embed(
-                title=f"{EMOJIS['SUCCESS']} Очистка завершена",
+                title=f"{Emojis.SUCCESS} Очистка завершена",
                 color="GREEN"
             )
             
             result_embed.add_field(
-                name=f"{EMOJIS['CHANNEL']} Канал",
+                name=f"{Emojis.CHANNEL} Канал",
                 value=target_channel.mention,
                 inline=True
             )
             result_embed.add_field(
-                name=f"{EMOJIS['SHIELD']} Модератор",
+                name=f"{Emojis.SHIELD} Модератор",
                 value=interaction.user.mention,
                 inline=True
             )
             result_embed.add_field(
-                name=f"{EMOJIS['STATS']} Удалено сообщений",
+                name=f"{Emojis.STATS} Удалено сообщений",
                 value=f"`{len(deleted)}`",
                 inline=True
             )
 
             if user:
                 result_embed.add_field(
-                    name=f"{EMOJIS['USER']} Фильтр по пользователю",
+                    name=f"{Emojis.USER} Фильтр по пользователю",
                     value=user.mention,
                     inline=True
                 )
             if contains:
                 result_embed.add_field(
-                    name=f"{EMOJIS['SEARCH']} Фильтр по содержимому",
+                    name=f"{Emojis.SEARCH} Фильтр по содержимому",
                     value=f"```{contains}```",
                     inline=True
                 )
@@ -102,7 +102,7 @@ class Clear(commands.Cog):
             # Отправляем временное уведомление в канал
             notification = await target_channel.send(
                 embed=Embed(
-                    description=f"{EMOJIS['SUCCESS']} Удалено `{len(deleted)}` сообщений",
+                    description=f"{Emojis.SUCCESS} Удалено `{len(deleted)}` сообщений",
                     color="GREEN"
                 )
             )
@@ -115,7 +115,7 @@ class Clear(commands.Cog):
         except discord.Forbidden:
             await interaction.edit_original_response(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка прав",
+                    title=f"{Emojis.ERROR} Ошибка прав",
                     description=f"У меня недостаточно прав для очистки сообщений в {target_channel.mention}!",
                     color="RED"
                 )

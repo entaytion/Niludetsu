@@ -3,7 +3,7 @@ from discord import Interaction
 from discord.ext import commands
 from Niludetsu.database import Database
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from discord.ext import commands
 from discord import app_commands
 from typing import Optional, List
@@ -16,8 +16,8 @@ class RoleSelect(discord.ui.Select):
         self.guild = guild
         options = [
             discord.SelectOption(
-                label=f"{role['price']}💰 {guild.get_role(int(role['role_id'])).name}",
-                value=role['role_id'],
+                label=f"{role['price']}₴ {guild.get_role(int(role['role_id'])).name}",
+                value=role['role_id'], 
                 description=role['description'][:100] if role['description'] else None
             ) for role in roles if guild.get_role(int(role['role_id']))
         ]
@@ -45,7 +45,7 @@ class RoleSelect(discord.ui.Select):
             if user_data['balance'] < role_data['price']:
                 await btn_interaction.response.send_message(
                     embed=Embed(
-                        description=f"❌ У вас недостаточно средств в балансе! Необходимо: {role_data['price']}💰\nВаш баланс: {user_data['balance']}💰",
+                        description=f"❌ У вас недостаточно средств в балансе! Необходимо: {role_data['price']}{Emojis.MONEY}\nВаш баланс: {user_data['balance']}{Emojis.MONEY}",
                         color="RED"
                     ),
                     ephemeral=True
@@ -82,7 +82,7 @@ class RoleSelect(discord.ui.Select):
             
             await btn_interaction.response.send_message(
                 embed=Embed(
-                    description=f"✅ Вы успешно приобрели роль {role.mention} за {role_data['price']}💰\nОстаток баланса: {new_balance}💰",
+                    description=f"✅ Вы успешно приобрели роль {role.mention} за {role_data['price']}{Emojis.MONEY}\nОстаток баланса: {new_balance}{Emojis.MONEY}",
                     color="GREEN"
                 ),
                 ephemeral=True
@@ -108,7 +108,7 @@ class RoleSelect(discord.ui.Select):
         await interaction.response.send_message(
             embed=Embed(
                 title="🛒 Подтверждение покупки",
-                description=f"Вы собираетесь купить роль {role.mention} за {role_data['price']}💰\n\n"
+                description=f"Вы собираетесь купить роль {role.mention} за {role_data['price']}{Emojis.MONEY}\n\n"
                           f"Описание: {role_data['description']}\n"
                           f"Куплено раз: {role_data['purchases']}",
                 color="BLUE"

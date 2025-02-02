@@ -5,7 +5,7 @@ import asyncio
 import yaml
 import os
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from Niludetsu.database import Database
 from Niludetsu.logging.voice import VoiceLogger
 import traceback
@@ -156,7 +156,7 @@ class VoiceChannelView(ui.View):
             if not channel_data:
                 await interaction.response.send_message(
                     embed=Embed(
-                        title=f"{EMOJIS['ERROR']} Ошибка",
+                        title=f"{Emojis.ERROR} Ошибка",
                         description="У вас нет активного голосового канала!",
                         color="RED"
                     ),
@@ -169,7 +169,7 @@ class VoiceChannelView(ui.View):
                 await self.manager.delete_temp_room(str(channel_data['channel_id']))
                 await interaction.response.send_message(
                     embed=Embed(
-                        title=f"{EMOJIS['ERROR']} Ошибка",
+                        title=f"{Emojis.ERROR} Ошибка",
                         description="Канал не найден!",
                         color="RED"
                     ),
@@ -201,7 +201,7 @@ class VoiceChannelView(ui.View):
             traceback.print_exc()
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="Произошла ошибка при выполнении действия!",
                     color="RED"
                 ),
@@ -214,7 +214,7 @@ class VoiceChannelView(ui.View):
         if not members:
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="В канале нет участников для передачи прав!",
                     color="RED"
                 ),
@@ -261,7 +261,7 @@ class VoiceChannelView(ui.View):
 
             await select_interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['SUCCESS']} Успешно",
+                    title=f"{Emojis.SUCCESS} Успешно",
                     description=f"Права на канал переданы пользователю {new_owner.mention}",
                     color="GREEN"
                 ),
@@ -311,7 +311,7 @@ class VoiceChannelView(ui.View):
                 if not member:
                     await modal_interaction.response.send_message(
                         embed=Embed(
-                            title=f"{EMOJIS['ERROR']} Ошибка",
+                            title=f"{Emojis.ERROR} Ошибка",
                             description="Пользователь не найден!",
                             color="RED"
                         ),
@@ -322,7 +322,7 @@ class VoiceChannelView(ui.View):
                 if member.id == modal_interaction.user.id:
                     await modal_interaction.response.send_message(
                         embed=Embed(
-                            title=f"{EMOJIS['ERROR']} Ошибка",
+                            title=f"{Emojis.ERROR} Ошибка",
                             description="Вы не можете управлять своим доступом!",
                             color="RED"
                         ),
@@ -333,7 +333,7 @@ class VoiceChannelView(ui.View):
                 if member.bot:
                     await modal_interaction.response.send_message(
                         embed=Embed(
-                            title=f"{EMOJIS['ERROR']} Ошибка",
+                            title=f"{Emojis.ERROR} Ошибка",
                             description="Вы не можете управлять доступом ботов!",
                             color="RED"
                         ),
@@ -351,7 +351,7 @@ class VoiceChannelView(ui.View):
 
                 await modal_interaction.response.send_message(
                     embed=Embed(
-                        title=f"{EMOJIS['SUCCESS']} Успешно",
+                        title=f"{Emojis.SUCCESS} Успешно",
                         description=f"Доступ для {member.mention} {action}",
                         color="GREEN"
                     ),
@@ -360,7 +360,7 @@ class VoiceChannelView(ui.View):
             except Exception as e:
                 await modal_interaction.response.send_message(
                     embed=Embed(
-                        title=f"{EMOJIS['ERROR']} Ошибка",
+                        title=f"{Emojis.ERROR} Ошибка",
                         description=str(e),
                         color="RED"
                     ),
@@ -392,7 +392,7 @@ class VoiceChannelView(ui.View):
                 await channel.edit(user_limit=new_limit)
                 await modal_interaction.response.send_message(
                     embed=Embed(
-                        title=f"{EMOJIS['SUCCESS']} Успешно",
+                        title=f"{Emojis.SUCCESS} Успешно",
                         description=f"Установлен лимит: {new_limit if new_limit > 0 else 'без лимита'}",
                         color="GREEN"
                     ),
@@ -401,7 +401,7 @@ class VoiceChannelView(ui.View):
             except ValueError as e:
                 await modal_interaction.response.send_message(
                     embed=Embed(
-                        title=f"{EMOJIS['ERROR']} Ошибка",
+                        title=f"{Emojis.ERROR} Ошибка",
                         description=str(e),
                         color="RED"
                     ),
@@ -424,7 +424,7 @@ class VoiceChannelView(ui.View):
         status = "закрыт" if is_locked else "открыт"
         await interaction.response.send_message(
             embed=Embed(
-                title=f"{EMOJIS['SUCCESS']} Успешно",
+                title=f"{Emojis.SUCCESS} Успешно",
                 description=f"Канал {status}",
                 color="GREEN"
             ),
@@ -451,7 +451,7 @@ class VoiceChannelView(ui.View):
             
             await modal_interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['SUCCESS']} Успешно",
+                    title=f"{Emojis.SUCCESS} Успешно",
                     description=f"Канал переименован в: {new_name}",
                     color="GREEN"
                 ),
@@ -474,7 +474,7 @@ class VoiceChannelView(ui.View):
         status = "скрыт" if is_visible else "виден"
         await interaction.response.send_message(
             embed=Embed(
-                title=f"{EMOJIS['SUCCESS']} Успешно",
+                title=f"{Emojis.SUCCESS} Успешно",
                 description=f"Канал теперь {status}",
                 color="GREEN"
             ),
@@ -511,7 +511,7 @@ class VoiceChannelView(ui.View):
                 if not member:
                     await modal_interaction.response.send_message(
                         embed=Embed(
-                            title=f"{EMOJIS['ERROR']} Ошибка",
+                            title=f"{Emojis.ERROR} Ошибка",
                             description="Пользователь не найден!",
                             color="RED"
                         ),
@@ -522,7 +522,7 @@ class VoiceChannelView(ui.View):
                 if member.id == modal_interaction.user.id:
                     await modal_interaction.response.send_message(
                         embed=Embed(
-                            title=f"{EMOJIS['ERROR']} Ошибка",
+                            title=f"{Emojis.ERROR} Ошибка",
                             description="Вы не можете исключить себя!",
                             color="RED"
                         ),
@@ -533,7 +533,7 @@ class VoiceChannelView(ui.View):
                 if member.bot:
                     await modal_interaction.response.send_message(
                         embed=Embed(
-                            title=f"{EMOJIS['ERROR']} Ошибка",
+                            title=f"{Emojis.ERROR} Ошибка",
                             description="Вы не можете исключить бота!",
                             color="RED"
                         ),
@@ -544,7 +544,7 @@ class VoiceChannelView(ui.View):
                 if not member.voice or member.voice.channel != channel:
                     await modal_interaction.response.send_message(
                         embed=Embed(
-                            title=f"{EMOJIS['ERROR']} Ошибка",
+                            title=f"{Emojis.ERROR} Ошибка",
                             description="Пользователь не находится в вашем канале!",
                             color="RED"
                         ),
@@ -557,7 +557,7 @@ class VoiceChannelView(ui.View):
                 
                 await modal_interaction.response.send_message(
                     embed=Embed(
-                        title=f"{EMOJIS['SUCCESS']} Успешно",
+                        title=f"{Emojis.SUCCESS} Успешно",
                         description=f"Пользователь {member.mention} исключен из канала",
                         color="GREEN"
                     ),
@@ -566,7 +566,7 @@ class VoiceChannelView(ui.View):
             except Exception as e:
                 await modal_interaction.response.send_message(
                     embed=Embed(
-                        title=f"{EMOJIS['ERROR']} Ошибка",
+                        title=f"{Emojis.ERROR} Ошибка",
                         description=str(e),
                         color="RED"
                     ),
@@ -589,7 +589,7 @@ class VoiceChannelView(ui.View):
         status = "выключен" if is_muted else "включен"
         await interaction.response.send_message(
             embed=Embed(
-                title=f"{EMOJIS['SUCCESS']} Успешно",
+                title=f"{Emojis.SUCCESS} Успешно",
                 description=f"Голосовой чат {status} для всех пользователей",
                 color="GREEN"
             ),
@@ -618,7 +618,7 @@ class VoiceChannelView(ui.View):
                 await channel.edit(bitrate=new_bitrate * 1000)
                 await modal_interaction.response.send_message(
                     embed=Embed(
-                        title=f"{EMOJIS['SUCCESS']} Успешно",
+                        title=f"{Emojis.SUCCESS} Успешно",
                         description=f"Установлен битрейт: {new_bitrate} кбит/с",
                         color="GREEN"
                     ),
@@ -627,7 +627,7 @@ class VoiceChannelView(ui.View):
             except ValueError as e:
                 await modal_interaction.response.send_message(
                     embed=Embed(
-                        title=f"{EMOJIS['ERROR']} Ошибка",
+                        title=f"{Emojis.ERROR} Ошибка",
                         description=str(e),
                         color="RED"
                     ),

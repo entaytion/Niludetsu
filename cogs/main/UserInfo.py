@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from datetime import datetime
 import humanize
 import pytz
@@ -126,11 +126,11 @@ class UserInfo(commands.Cog):
         # Добавляем основную информацию
         embed.add_field(
             name="📋 Основная информация",
-            value=f"{EMOJIS['DOT']} **ID:** {member.id}\n"
-                  f"{EMOJIS['DOT']} **Имя:** {member.name}\n"
-                  f"{EMOJIS['DOT']} **Никнейм:** {member.display_name}\n"
-                  f"{EMOJIS['DOT']} **Бот:** {'Да' if member.bot else 'Нет'}\n"
-                  f"{EMOJIS['DOT']} **Создан:** <t:{created_at}:D> (<t:{created_at}:R>)",
+            value=f"{Emojis.DOT} **ID:** {member.id}\n"
+                  f"{Emojis.DOT} **Имя:** {member.name}\n"
+                  f"{Emojis.DOT} **Никнейм:** {member.display_name}\n"
+                  f"{Emojis.DOT} **Бот:** {'Да' if member.bot else 'Нет'}\n"
+                  f"{Emojis.DOT} **Создан:** <t:{created_at}:D> (<t:{created_at}:R>)",
             inline=False
         )
         
@@ -138,8 +138,8 @@ class UserInfo(commands.Cog):
         if joined_at:
             embed.add_field(
                 name="📥 Информация о присоединении",
-                value=f"{EMOJIS['DOT']} **Присоединился:** <t:{joined_at}:D> (<t:{joined_at}:R>)\n"
-                      f"{EMOJIS['DOT']} **Позиция присоединения:** #{sorted(interaction.guild.members, key=lambda m: m.joined_at or datetime.max).index(member) + 1}",
+                value=f"{Emojis.DOT} **Присоединился:** <t:{joined_at}:D> (<t:{joined_at}:R>)\n"
+                      f"{Emojis.DOT} **Позиция присоединения:** #{sorted(interaction.guild.members, key=lambda m: m.joined_at or datetime.max).index(member) + 1}",
                 inline=False
             )
         

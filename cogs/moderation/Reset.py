@@ -4,7 +4,7 @@ from discord import app_commands
 import yaml
 from typing import Optional
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from Niludetsu.utils.decorators import command_cooldown, has_admin_role
 from Niludetsu.database import Database
 
@@ -35,7 +35,7 @@ class Reset(commands.Cog):
         if not (mutes or warns):
             return await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка параметров",
+                    title=f"{Emojis.ERROR} Ошибка параметров",
                     description="Выберите хотя бы одно действие: сброс мутов или предупреждений!",
                     color="RED"
                 ),
@@ -45,7 +45,7 @@ class Reset(commands.Cog):
         if member.top_role >= interaction.user.top_role:
             return await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка прав",
+                    title=f"{Emojis.ERROR} Ошибка прав",
                     description="Вы не можете сбросить данные участника с ролью выше или равной вашей!",
                     color="RED"
                 ),
@@ -54,7 +54,7 @@ class Reset(commands.Cog):
 
         # Отправляем начальное сообщение
         progress_embed = Embed(
-            title=f"{EMOJIS['LOADING']} Сброс данных",
+            title=f"{Emojis.LOADING} Сброс данных",
             description=f"Сбрасываю данные участника {member.mention}...",
             color="YELLOW"
         )
@@ -104,7 +104,7 @@ class Reset(commands.Cog):
             description = f"Не удалось сбросить: {', '.join(failed_actions)}"
 
         result_embed = Embed(
-            title=f"{EMOJIS['SUCCESS'] if success_actions else EMOJIS['ERROR']} Результат сброса данных",
+            title=f"{Emojis.SUCCESS if success_actions else Emojis.ERROR} Результат сброса данных",
             description=description,
             color="GREEN" if success_actions else "RED"
         )

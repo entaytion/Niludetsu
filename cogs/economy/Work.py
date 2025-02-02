@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from Niludetsu.utils.embed import Embed
 from Niludetsu.database import Database
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from datetime import datetime, timedelta
 import random
 
@@ -82,13 +82,13 @@ class Work(commands.Cog):
 
         # Формируем сообщение
         description = [
-            f"Вы поработали **{job['name']}** и заработали {reward:,} {EMOJIS['MONEY']}",
+            f"Вы поработали **{job['name']}** и заработали {reward:,} {Emojis.MONEY}",
         ]
         
         if level_bonus > 0:
-            description.append(f"Бонус за уровень: +{level_bonus:,} {EMOJIS['MONEY']}")
+            description.append(f"Бонус за уровень: +{level_bonus:,} {Emojis.MONEY}")
             
-        description.append(f"\nВаш текущий баланс: {new_balance:,} {EMOJIS['MONEY']}")
+        description.append(f"\nВаш текущий баланс: {new_balance:,} {Emojis.MONEY}")
 
         await interaction.response.send_message(
             embed=Embed(

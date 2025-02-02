@@ -4,7 +4,7 @@ import random
 import asyncio
 from Niludetsu.database import Database
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class DuelView(discord.ui.View):
     def __init__(self):
@@ -93,7 +93,7 @@ class Duel(commands.Cog):
             await interaction.response.send_message(
                 embed=Embed(
                     description=f"❌ У вас недостаточно средств!\n"
-                              f"Ваш баланс: {challenger_data.get('balance', 0):,} {EMOJIS['MONEY']}",
+                              f"Ваш баланс: {challenger_data.get('balance', 0):,} {Emojis.MONEY}",
                     color="RED"
                 ),
                 ephemeral=True
@@ -104,7 +104,7 @@ class Duel(commands.Cog):
             await interaction.response.send_message(
                 embed=Embed(
                     description=f"❌ У {member.mention} недостаточно средств!\n"
-                              f"Баланс противника: {opponent_data.get('balance', 0):,} {EMOJIS['MONEY']}",
+                              f"Баланс противника: {opponent_data.get('balance', 0):,} {Emojis.MONEY}",
                     color="RED"
                 ),
                 ephemeral=True
@@ -116,7 +116,7 @@ class Duel(commands.Cog):
             title="⚔️ Вызов на дуэль!",
             description=(
                 f"{interaction.user.mention} вызывает {member.mention} на дуэль!\n\n"
-                f"💰 Ставка: **{bet:,}** {EMOJIS['MONEY']}\n"
+                f"💰 Ставка: **{bet:,}** {Emojis.MONEY}\n"
                 "⏰ Время на принятие: 30 секунд"
             ),
             color="BLUE"
@@ -164,7 +164,7 @@ class Duel(commands.Cog):
             title="⚔️ Дуэль началась!",
             description=(
                 f"**{interaction.user.name}** vs **{member.name}**\n"
-                f"💰 Ставка: **{bet:,}** {EMOJIS['MONEY']}\n\n"
+                f"💰 Ставка: **{bet:,}** {Emojis.MONEY}\n\n"
                 f"❤️ {interaction.user.name}: {challenger_hp} HP\n"
                 f"❤️ {member.name}: {opponent_hp} HP"
             ),
@@ -269,7 +269,7 @@ class Duel(commands.Cog):
                 f"{result_text}\n\n"
                 f"❤️ {interaction.user.name}: {max(0, challenger_hp)} HP\n"
                 f"❤️ {member.name}: {max(0, opponent_hp)} HP\n\n"
-                f"💰 Награда победителю: **{bet * 2:,}** {EMOJIS['MONEY']}"
+                f"💰 Награда победителю: **{bet * 2:,}** {Emojis.MONEY}"
             ),
             color=color
         )

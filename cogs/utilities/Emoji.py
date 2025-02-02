@@ -6,7 +6,7 @@ import io
 import zipfile
 from typing import Optional
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class Emoji(commands.Cog):
     def __init__(self, bot):
@@ -38,9 +38,9 @@ class Emoji(commands.Cog):
             
             embed=Embed(
                 title="📥 Скачивание эмодзи",
-                description=f"{EMOJIS['DOT']} **Статус:** Успешно\n"
-                          f"{EMOJIS['DOT']} **Количество:** `{len(interaction.guild.emojis)}`\n"
-                          f"{EMOJIS['DOT']} **Формат:** ZIP-архив"
+                description=f"{Emojis.DOT} **Статус:** Успешно\n"
+                          f"{Emojis.DOT} **Количество:** `{len(interaction.guild.emojis)}`\n"
+                          f"{Emojis.DOT} **Формат:** ZIP-архив"
             )
             await interaction.followup.send(embed=embed, file=file)
             return
@@ -63,9 +63,9 @@ class Emoji(commands.Cog):
                         
                         embed=Embed(
                             title="📥 Скачивание эмодзи",
-                            description=f"{EMOJIS['DOT']} **Статус:** Успешно\n"
-                                      f"{EMOJIS['DOT']} **Имя:** `{emoji_obj.name}`\n"
-                                      f"{EMOJIS['DOT']} **Формат:** `{extension[1:]}`"
+                            description=f"{Emojis.DOT} **Статус:** Успешно\n"
+                                      f"{Emojis.DOT} **Имя:** `{emoji_obj.name}`\n"
+                                      f"{Emojis.DOT} **Формат:** `{extension[1:]}`"
                         )
                         await interaction.followup.send(embed=embed, file=file)
                     else:
@@ -116,13 +116,13 @@ class Emoji(commands.Cog):
             file = discord.File(zip_buffer, filename="emoji_pack.zip")
             
             description = [
-                f"{EMOJIS['DOT']} **Статус:** {'Частично успешно' if failed_downloads else 'Успешно'}",
-                f"{EMOJIS['DOT']} **Скачано:** `{len(successful_downloads)}`",
-                f"{EMOJIS['DOT']} **Успешно:** {', '.join(f'`{name}`' for name in successful_downloads)}"
+                f"{Emojis.DOT} **Статус:** {'Частично успешно' if failed_downloads else 'Успешно'}",
+                f"{Emojis.DOT} **Скачано:** `{len(successful_downloads)}`",
+                f"{Emojis.DOT} **Успешно:** {', '.join(f'`{name}`' for name in successful_downloads)}"
             ]
             
             if failed_downloads:
-                description.append(f"{EMOJIS['DOT']} **Не удалось:** {', '.join(f'`{name}`' for name in failed_downloads)}")
+                description.append(f"{Emojis.DOT} **Не удалось:** {', '.join(f'`{name}`' for name in failed_downloads)}")
             
             embed=Embed(
                 title="📥 Скачивание эмодзи",
@@ -158,9 +158,9 @@ class Emoji(commands.Cog):
         
         embed=Embed(
             title="📥 Скачивание эмодзи",
-            description=f"{EMOJIS['DOT']} **Статус:** Успешно\n"
-                      f"{EMOJIS['DOT']} **Количество:** `{len(interaction.guild.emojis)}`\n"
-                      f"{EMOJIS['DOT']} **Формат:** ZIP-архив"
+            description=f"{Emojis.DOT} **Статус:** Успешно\n"
+                      f"{Emojis.DOT} **Количество:** `{len(interaction.guild.emojis)}`\n"
+                      f"{Emojis.DOT} **Формат:** ZIP-архив"
         )
         await interaction.followup.send(embed=embed, file=file)
 

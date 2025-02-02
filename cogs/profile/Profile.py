@@ -5,36 +5,13 @@ from typing import Optional, List, Dict, Any
 from easy_pil import Canvas, Editor, Font, load_image_async
 from Niludetsu.database import Database
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
+from Niludetsu.profile import ProfileManager, ProfileImage
 import aiohttp
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import os
-import io
-import json
-import asyncio
-
-def calculate_next_level_xp(level: int) -> int:
-    """
-    Рассчитывает количество опыта, необходимое для следующего уровня
-    Args:
-        level (int): Текущий уровень
-    Returns:
-        int: Количество опыта для следующего уровня
-    """
-    return 5 * (level ** 2) + 50 * level + 100
-
-def format_voice_time(seconds: int) -> str:
-    """
-    Форматирует время в голосовых каналах в читаемый вид
-    Args:
-        seconds (int): Количество секунд
-    Returns:
-        str: Отформатированное время
-    """
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
-    return f"{hours}ч {minutes}м"
+from discord.ext import tasks
 
 class SellRoleButton(discord.ui.Button):
     def __init__(self, role_id: int, role_name: str, price: int):
@@ -130,8 +107,8 @@ class SellRoleButton(discord.ui.Button):
         sell_embed=Embed(
             title="✅ Роль продана",
             description=(
-                f"Вы продали роль **{role.name}** за {sell_price:,} {EMOJIS['MONEY']}\n"
-                f"Ваш новый баланс: {user_data['balance'] + sell_price:,} {EMOJIS['MONEY']}\n"
+                f"Вы продали роль **{role.name}** за {sell_price:,} {Emojis.MONEY}\n"
+                f"Ваш новый баланс: {user_data['balance'] + sell_price:,} {Emojis.MONEY}\n"
                 f"С продажи роли, 30% отправляется в **казну сервера**"
             ),
             color="GREEN"
@@ -251,201 +228,192 @@ class ProfileView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(InventoryButton(user_id, user_name))
 
-class Profile(commands.Cog):
-    def __init__(self, client):
-        self.client = client
+class Profile(commands.GroupCog, group_name="profile"):
+    def __init__(self, bot):
+        self.bot = bot
         self.db = Database()
+        self.profile_manager = ProfileManager(self.db)
+        self.profile_image = ProfileImage()
         self.font_path_regular = os.path.join('config', 'fonts', 'TTNormsPro-Regular.ttf')
         self.font_path_bold = os.path.join('config', 'fonts', 'TTNormsPro-Bold.ttf')
-        self.money_icon_path = os.path.join('config', 'images', 'profile', 'money.png')
 
-    async def load_image_async(self, url: str) -> Image:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                if response.status != 200:
-                    raise Exception(f"Failed to fetch image: {response.status}")
-                data = await response.read()
-                return Image.open(BytesIO(data))
+    async def check_birthdays(self) -> None:
+        """Проверить у кого сегодня день рождения"""
+        try:
+            birthday_users = await self.profile_manager.check_birthdays()
+            
+            if not birthday_users:
+                return
+                
+            for profile in birthday_users:
+                user = await self.bot.fetch_user(int(profile.user_id))
+                if user:
+                    age = profile.age
+                    age_text = f", исполнилось {age} лет" if age else ""
+                    
+                    # Отправляем поздравление в личные сообщения
+                    try:
+                        await user.send(
+                            embed=Embed(
+                                title="🎂 С Днем Рождения!",
+                                description=f"Поздравляем с днем рождения{age_text}! Желаем счастья, здоровья и всего самого наилучшего!",
+                                color="YELLOW"
+                            )
+                        )
+                    except discord.Forbidden:
+                        pass  # Пользователь запретил личные сообщения
+                        
+        except Exception as e:
+            print(f"Ошибка при проверке дней рождения: {e}")
 
-    def format_time(self, seconds):
-        """Форматирует время в формат ЧЧ:ММ:СС"""
-        if seconds is None:
-            return "00:00:00"
-        hours = seconds // 3600
-        minutes = (seconds % 3600) // 60
-        seconds = seconds % 60
-        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    @tasks.loop(hours=24)
+    async def birthday_check(self):
+        """Ежедневная проверка дней рождения"""
+        await self.check_birthdays()
 
-    def rounded_rectangle(self, draw, x1, y1, x2, y2, radius, fill=None, outline=None):
-        """Draws a rounded rectangle"""
-        diameter = radius * 2
-        x1, x2 = min(x1, x2), max(x1, x2)
-        y1, y2 = min(y1, y2), max(y1, y2)
+    async def cog_load(self) -> None:
+        """Инициализация при загрузке кога"""
+        await self.db.connect()
+        self.birthday_check.start()
 
-        if diameter <= (x2 - x1) and diameter <= (y2 - y1): 
-            draw.ellipse((x1, y1, x1 + diameter, y1 + diameter), fill=fill, outline=outline)
-            draw.ellipse((x2 - diameter, y1, x2, y1 + diameter), fill=fill, outline=outline)
-            draw.ellipse((x1, y2 - diameter, x1 + diameter, y2), fill=fill, outline=outline)
-            draw.ellipse((x2 - diameter, y2 - diameter, x2, y2), fill=fill, outline=outline)
-            draw.rectangle((x1 + radius, y1, x2 - radius, y2), fill=fill, outline=outline)
-            draw.rectangle((x1, y1 + radius, x2, y2 - radius), fill=fill, outline=outline)
-        else:
-            draw.rectangle((x1, y1, x2, y2), fill=fill, outline=outline)
+    async def cog_unload(self) -> None:
+        """Очистка при выгрузке кога"""
+        self.birthday_check.cancel()
+        await self.db.close()
 
-    @discord.app_commands.command(name="profile", description="Показать профиль пользователя")
-    @discord.app_commands.describe(user="Пользователь, чей профиль показать")
-    async def profile(self, interaction: discord.Interaction, user: discord.User = None):
+    @app_commands.command(name="view", description="Показать профиль пользователя")
+    @app_commands.describe(user="Пользователь, чей профиль показать")
+    async def profile_view(self, interaction: discord.Interaction, user: discord.User = None):
         user = user or interaction.user
         
         if user.bot:
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="Вы не можете просмотреть профиль бота.",
                     color="RED"
                 )
             )
             return
 
-        user_id = str(user.id)
-        user_data = await self.db.get_row("users", user_id=user_id)
-
-        if not user_data:
-            user_data = await self.db.insert("users", {
-                'user_id': user_id,
-                'balance': 0,
-                'deposit': 0,
-                'xp': 0,
-                'level': 1,
-                'roles': '[]'
-            })
-
-        # Создаем новый Canvas
-        background = Editor(Image.new('RGBA', (800, 600), color=(20, 20, 30, 255)))
+        # Получаем данные профиля через ProfileManager
+        profile_data = await self.profile_manager.get_profile(str(user.id))
         
-        # Создаем градиентный фон
-        gradient = Image.new('RGBA', (800, 600))
-        draw = ImageDraw.Draw(gradient)
-        for y in range(600):
-            r = int(30 * (1 - y/600))
-            g = int(30 * (1 - y/600))
-            b = int(40 * (1 - y/600))
-            draw.line([(0, y), (800, y)], fill=(r, g, b, 255))
-        
-        background.image = Image.alpha_composite(background.image, gradient)
-        
-        # Добавляем декоративные элементы
-        # Верхняя панель
-        self.rounded_rectangle(ImageDraw.Draw(background.image), 20, 20, 780, 200, 20, fill=(40, 40, 55, 255))
-        # Нижняя панель для статистики
-        self.rounded_rectangle(ImageDraw.Draw(background.image), 20, 220, 780, 580, 20, fill=(40, 40, 55, 255))
-
-        # Загружаем и добавляем аватар с обводкой
-        profile_image = await self.load_image_async(str(user.display_avatar.url))
-        profile_image = Editor(profile_image).resize((140, 140)).circle_image()
-        
-        # Создаем обводку для аватара
-        circle_border = Image.new('RGBA', (150, 150), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(circle_border)
-        draw.ellipse((0, 0, 149, 149), outline=(255, 255, 255, 255), width=3)
-        circle_border = Editor(circle_border)
-        
-        # Накладываем аватар и обводку
-        background.paste(profile_image, (40, 40))
-        background.paste(circle_border, (35, 35))
-
-        # Загружаем шрифты
-        font_regular = Font(self.font_path_regular, size=30)
-        font_small = Font(self.font_path_regular, size=25)
-        font_smaller = Font(self.font_path_regular, size=20)
-        font_bold = Font(self.font_path_bold, size=40)
-
-        # Добавляем имя пользователя
-        background.text((210, 50), user.name, font=font_bold, color="white")
-
-        # Добавляем уровень и опыт с прогресс-баром
-        level = user_data.get('level', 1)
-        xp = user_data.get('xp', 0)
-        next_level_xp = calculate_next_level_xp(level)
-        xp_percentage = min(xp / next_level_xp * 100, 100)
-
-        # Рисуем прогресс-бар
-        bar_width = 300
-        bar_height = 20
-        bar_x = 210
-        bar_y = 100
-        
-        # Фон прогресс-бара
-        self.rounded_rectangle(
-            ImageDraw.Draw(background.image),
-            bar_x, bar_y,
-            bar_x + bar_width, bar_y + bar_height,
-            10, fill=(30, 30, 40, 255)
+        # Создаем изображение профиля
+        image_bytes = await self.profile_image.create_profile_image(
+            profile_data,
+            user.global_name or user.name,
+            str(user.display_avatar.url)
         )
-        
-        # Заполненная часть прогресс-бара
-        filled_width = int(bar_width * (xp_percentage / 100))
-        if filled_width > 0:
-            self.rounded_rectangle(
-                ImageDraw.Draw(background.image),
-                bar_x, bar_y,
-                bar_x + filled_width, bar_y + bar_height,
-                10, fill=(70, 130, 180, 255)
-            )
-
-        # Текст уровня и опыта
-        background.text((210, 130), f"Уровень {level}", font=font_regular, color="white")
-        background.text((400, 130), f"XP: {xp:,}/{next_level_xp:,}", font=font_small, color="#cccccc")
-
-        # Добавляем баланс с иконками
-        balance = user_data.get('balance', 0)
-        deposit = user_data.get('deposit', 0)
-        total = balance + deposit
-
-        # Рисуем секции для денег
-        money_section_y = 250
-        self.rounded_rectangle(ImageDraw.Draw(background.image), 40, money_section_y, 380, money_section_y + 100, 15, fill=(50, 50, 65, 255))
-        
-        # Иконка денег и баланс
-        money_icon = Editor(self.money_icon_path).resize((25, 25))
-        background.paste(money_icon, (60, money_section_y + 20))
-        background.text((95, money_section_y + 15), f"Баланс: {balance:,}", font=font_regular, color="white")
-        background.text((95, money_section_y + 55), f"В банке: {deposit:,}", font=font_small, color="#cccccc")
-
-        # Статистика справа
-        stats_x = 420
-        stats_y = 250
-        self.rounded_rectangle(ImageDraw.Draw(background.image), stats_x, stats_y, 760, stats_y + 300, 15, fill=(50, 50, 65, 255))
-        
-        # Заголовок статистики
-        background.text((stats_x + 20, stats_y + 20), "Статистика", font=font_regular, color="white")
-        
-        # Статистика с иконками
-        stats_start_y = stats_y + 70
-        line_height = 45
-        
-        # Время в войсе
-        voice_time = user_data.get('voice_time', 0)
-        formatted_voice_time = format_voice_time(voice_time)
-        background.text((stats_x + 20, stats_start_y), f"🎤 Время в войсе: {formatted_voice_time}", font=font_small, color="#cccccc")
-        
-        # Подключения
-        voice_joins = user_data.get('voice_joins', 0)
-        background.text((stats_x + 20, stats_start_y + line_height), f"🔌 Подключений: {voice_joins:,}", font=font_small, color="#cccccc")
-        
-        # Сообщения
-        messages_count = user_data.get('messages_count', 0)
-        background.text((stats_x + 20, stats_start_y + line_height * 2), f"💬 Сообщений: {messages_count:,}", font=font_small, color="#cccccc")
-
-        # Конвертируем изображение в файл
-        file = discord.File(fp=background.image_bytes, filename="profile.png")
 
         # Создаем view с кнопкой инвентаря
-        view = ProfileView(user_id, user.global_name or user.name)
+        view = ProfileView(str(user.id), user.global_name or user.name)
         view.cog = self
 
         # Отправляем сообщение с изображением и кнопкой
+        file = discord.File(fp=image_bytes, filename="profile.png")
         await interaction.response.send_message(file=file, view=view)
 
-async def setup(client):
-    await client.add_cog(Profile(client)) 
+    @app_commands.command(name="set", description="Установить информацию в профиле")
+    @app_commands.describe(
+        name="Ваше имя",
+        country="Страна проживания",
+        bio="О себе",
+        birthday="Дата рождения (например: 01.01.2000)"
+    )
+    async def profile_set(
+        self, 
+        interaction: discord.Interaction, 
+        name: str = None,
+        country: str = None,
+        bio: str = None,
+        birthday: str = None
+    ):
+        if not any([name, country, bio, birthday]):
+            await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.ERROR} Ошибка",
+                    description="Укажите хотя бы одно поле для обновления!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+            return
+
+        # Проверяем длину биографии
+        if bio and len(bio) > 1024:
+            await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.ERROR} Ошибка",
+                    description="Биография не может быть длиннее 1024 символов!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+            return
+
+        # Проверяем формат даты рождения
+        if birthday:
+            try:
+                day, month, year = map(int, birthday.split('.'))
+                if not (1 <= day <= 31 and 1 <= month <= 12 and 1900 <= year <= 2024):
+                    raise ValueError
+            except ValueError:
+                await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Неверный формат даты рождения. Используйте формат ДД.ММ.ГГГГ (например: 01.01.2000)",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                return
+
+        # Обновляем профиль через ProfileManager
+        update_data = {}
+        if name is not None:
+            update_data["name"] = name
+        if country is not None:
+            update_data["country"] = country
+        if bio is not None:
+            update_data["bio"] = bio
+        if birthday is not None:
+            update_data["birthday"] = birthday
+
+        await self.profile_manager.update_profile(str(interaction.user.id), **update_data)
+
+        # Формируем сообщение об обновлении
+        updated_fields = []
+        if name is not None:
+            updated_fields.append(f"Имя: {name}")
+        if country is not None:
+            updated_fields.append(f"Страна: {country}")
+        if bio is not None:
+            updated_fields.append(f"О себе: {bio}")
+        if birthday is not None:
+            updated_fields.append(f"День рождения: {birthday}")
+
+        await interaction.response.send_message(
+            embed=Embed(
+                title=f"{Emojis.SUCCESS} Профиль обновлен",
+                description="\n".join(updated_fields),
+                color="GREEN"
+            ),
+            ephemeral=True
+        )
+
+    @app_commands.command(name="clear", description="Очистить свой профиль")
+    async def profile_clear(self, interaction: discord.Interaction):
+        # Очищаем профиль через ProfileManager
+        await self.profile_manager.clear_profile(str(interaction.user.id))
+            
+        await interaction.response.send_message(
+            embed=Embed(
+                title=f"{Emojis.SUCCESS} Профиль очищен",
+                description="Вся информация из вашего профиля была удалена!",
+                color="GREEN"
+            )
+        )
+
+async def setup(bot):
+    await bot.add_cog(Profile(bot)) 

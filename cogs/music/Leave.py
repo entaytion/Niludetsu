@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class Leave(commands.Cog):
     def __init__(self, bot):
@@ -21,7 +21,7 @@ class Leave(commands.Cog):
         if not state:
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="Бот не подключен к голосовому каналу!",
                     color="RED"
                 ),
@@ -33,7 +33,7 @@ class Leave(commands.Cog):
         await state.stop()
 
         embed=Embed(
-            title=f"{EMOJIS['LEAVE']} Отключение",
+            title=f"{Emojis.LEAVE} Отключение",
             description=f"Бот отключен от канала {channel.mention}",
             color="BLUE"
         )

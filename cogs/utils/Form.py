@@ -5,7 +5,7 @@ from discord.ui import Modal, TextInput, View, Button, Select
 import yaml
 import datetime
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class PositionSelect(Select):
     def __init__(self):
@@ -326,12 +326,12 @@ class Forms(commands.Cog):
         embed=Embed(
             title=f"📝 Новая заявка на должность {position}",
             description=(
-                f"{EMOJIS['DOT']} **От:** {interaction.user.mention} (`{interaction.user.id}`)\n\n"
-                f"{EMOJIS['DOT']} **Личная информация:**\n```\n{application_data['personal_info']}```\n"
-                f"{EMOJIS['DOT']} **Мотивация:**\n```\n{application_data['motivation']}```\n"
-                f"{EMOJIS['DOT']} **Доступность:**\n```\n{application_data['availability']}```\n"
-                f"{EMOJIS['DOT']} **Опыт работы в команде:**\n```\n{application_data['team_experience']}```\n"
-                f"{EMOJIS['DOT']} **Профессиональный опыт:**\n```\n{application_data['position_experience']}```"
+                f"{Emojis.DOT} **От:** {interaction.user.mention} (`{interaction.user.id}`)\n\n"
+                f"{Emojis.DOT} **Личная информация:**\n```\n{application_data['personal_info']}```\n"
+                f"{Emojis.DOT} **Мотивация:**\n```\n{application_data['motivation']}```\n"
+                f"{Emojis.DOT} **Доступность:**\n```\n{application_data['availability']}```\n"
+                f"{Emojis.DOT} **Опыт работы в команде:**\n```\n{application_data['team_experience']}```\n"
+                f"{Emojis.DOT} **Профессиональный опыт:**\n```\n{application_data['position_experience']}```"
             ),
             footer={"text": f"ID пользователя: {interaction.user.id}"}
         )

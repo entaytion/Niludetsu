@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 from Niludetsu.music import Music
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 import random
 
 class Shuffle(commands.Cog):
@@ -21,7 +21,7 @@ class Shuffle(commands.Cog):
         if not player.playing:
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="Сейчас ничего не играет!",
                     color="RED"
                 ),
@@ -33,7 +33,7 @@ class Shuffle(commands.Cog):
         if not state:
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="Не удалось получить информацию об очереди!",
                     color="RED"
                 ),
@@ -44,7 +44,7 @@ class Shuffle(commands.Cog):
         if state.songs.empty():
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="В очереди нет треков для перемешивания!",
                     color="RED"
                 ),
@@ -60,7 +60,7 @@ class Shuffle(commands.Cog):
             await state.songs.put(song)
 
         embed=Embed(
-            title=f"{EMOJIS['SHUFFLE']} Очередь перемешана",
+            title=f"{Emojis.SHUFFLE} Очередь перемешана",
             description=f"Перемешано `{len(queue_list)}` треков",
             color="BLUE"
         )
@@ -71,14 +71,14 @@ class Shuffle(commands.Cog):
             for i, song in enumerate(queue_list[:5], 1):
                 tracks_list.append(
                     f"`{i}.` **[{song.title}]({song.uri})**\n"
-                    f"{EMOJIS['USER']} {song.requester.mention if song.requester else 'Неизвестно'}"
+                    f"{Emojis.USER} {song.requester.mention if song.requester else 'Неизвестно'}"
                 )
             
             if len(queue_list) > 5:
-                tracks_list.append(f"\n{EMOJIS['INFO']} И еще {len(queue_list) - 5} треков...")
+                tracks_list.append(f"\n{Emojis.INFO} И еще {len(queue_list) - 5} треков...")
 
             embed.add_field(
-                name=f"{EMOJIS['PLAYLIST']} Новая очередь",
+                name=f"{Emojis.PLAYLIST} Новая очередь",
                 value="\n".join(tracks_list),
                 inline=False
             )

@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 from typing import Optional
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 
 class Unlock(commands.Cog):
@@ -28,7 +28,7 @@ class Unlock(commands.Cog):
         if not interaction.user.guild_permissions.manage_channels:
             return await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{EMOJIS['ERROR']} Ошибка прав",
+                    title=f"{Emojis.ERROR} Ошибка прав",
                     description="У вас нет прав на управление каналами!",
                     color="RED"
                 )
@@ -40,7 +40,7 @@ class Unlock(commands.Cog):
             failed_channels = []
             
             progress_embed=Embed(
-                title=f"{EMOJIS['LOADING']} Разблокировка каналов",
+                title=f"{Emojis.LOADING} Разблокировка каналов",
                 description="Идет процесс разблокировки всех каналов...",
                 color="YELLOW"
             )
@@ -58,19 +58,19 @@ class Unlock(commands.Cog):
                     failed_channels.append(ch.mention)
             
             result_embed=Embed(
-                title=f"{EMOJIS['UNLOCK']} Массовая разблокировка завершена",
+                title=f"{Emojis.UNLOCK} Массовая разблокировка завершена",
                 color="GREEN"
             )
             
             result_embed.add_field(
-                name=f"{EMOJIS['SUCCESS']} Успешно разблокировано",
+                name=f"{Emojis.SUCCESS} Успешно разблокировано",
                 value=f"`{success_count}` каналов",
                 inline=True
             )
             
             if failed_count > 0:
                 result_embed.add_field(
-                    name=f"{EMOJIS['ERROR']} Не удалось разблокировать",
+                    name=f"{Emojis.ERROR} Не удалось разблокировать",
                     value=f"`{failed_count}` каналов",
                     inline=True
                 )
@@ -91,24 +91,24 @@ class Unlock(commands.Cog):
             await target_channel.set_permissions(interaction.guild.default_role, overwrite=overwrites)
             
             unlock_embed=Embed(
-                title=f"{EMOJIS['UNLOCK']} Канал разблокирован",
+                title=f"{Emojis.UNLOCK} Канал разблокирован",
                 color="GREEN"
             )
             
             unlock_embed.add_field(
-                name=f"{EMOJIS['CHANNEL']} Канал",
+                name=f"{Emojis.CHANNEL} Канал",
                 value=target_channel.mention,
                 inline=True
             )
             unlock_embed.add_field(
-                name=f"{EMOJIS['SHIELD']} Модератор",
+                name=f"{Emojis.SHIELD} Модератор",
                 value=interaction.user.mention,
                 inline=True
             )
             
             if reason:
                 unlock_embed.add_field(
-                    name=f"{EMOJIS['REASON']} Причина",
+                    name=f"{Emojis.REASON} Причина",
                     value=f"```{reason}```",
                     inline=False
                 )

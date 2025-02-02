@@ -35,7 +35,7 @@ ENV/
 # Project specific
 .env
 data/
-config/
+config/images/
 *.db
 *.log
 logs/

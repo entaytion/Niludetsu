@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class CategorySelect(discord.ui.Select):
     def __init__(self, categories):
@@ -144,17 +144,17 @@ class Help(commands.Cog):
                 "commands": [cmd for cmd in ["/blackjack", "/casino", "/daily", "/deposit", "/duel", "/pay", "/rob", "/shop", "/slots", "/withdraw", "/work"]
                            if self.is_command_available(cmd.strip('/'), "economy")],
                 "description": "\n".join([
-                    f"{EMOJIS['DOT']} `/blackjack [bet]` — играть в блекджек.",
-                    f"{EMOJIS['DOT']} `/casino [bet] [amount]` — играть в казино.",
-                    f"{EMOJIS['DOT']} `/daily` — получить дневную награду (кулдаун: `24 часа`).",
-                    f"{EMOJIS['DOT']} `/deposit [amount]` — перевести деньги в банк.",
-                    f"{EMOJIS['DOT']} `/duel [user] [bet]` — позвать кого-то на дуэль.",
-                    f"{EMOJIS['DOT']} `/pay [user] [amount]` — перевести деньги.",
-                    f"{EMOJIS['DOT']} `/rob [user]` — украсть деньги с кошелька (кулдаун: `5 минут`).",
-                    f"{EMOJIS['DOT']} `/shop [id_role]` — просмотреть магазин.",
-                    f"{EMOJIS['DOT']} `/slots [amount]` — играть в слот-машину.",
-                    f"{EMOJIS['DOT']} `/withdraw [amount]` — снять деньги из банка.",
-                    f"{EMOJIS['DOT']} `/work` — пойти на работу (кулдаун: `1 час`)."
+                    f"{Emojis.DOT} `/blackjack [bet]` — играть в блекджек.",
+                    f"{Emojis.DOT} `/casino [bet] [amount]` — играть в казино.",
+                    f"{Emojis.DOT} `/daily` — получить дневную награду (кулдаун: `24 часа`).",
+                    f"{Emojis.DOT} `/deposit [amount]` — перевести деньги в банк.",
+                    f"{Emojis.DOT} `/duel [user] [bet]` — позвать кого-то на дуэль.",
+                    f"{Emojis.DOT} `/pay [user] [amount]` — перевести деньги.",
+                    f"{Emojis.Dot} `/rob [user]` — украсть деньги с кошелька (кулдаун: `5 минут`).",
+                    f"{Emojis.Dot} `/shop [id_role]` — просмотреть магазин.",
+                    f"{Emojis.Dot} `/slots [amount]` — играть в слот-машину.",
+                    f"{Emojis.Dot} `/withdraw [amount]` — снять деньги из банка.",
+                    f"{Emojis.Dot} `/work` — пойти на работу (кулдаун: `1 час`)."
                 ]),
                 "footer": "Справочник по командам из раздела \"Экономика\""
             },
@@ -165,20 +165,20 @@ class Help(commands.Cog):
                 "commands": [cmd for cmd in ["/8ball", "/bite", "/coin", "/cry", "/demotivator", "/divorce", "/hug", "/kiss", "/lgbt", "/marry", "/mcserver", "/pat", "/sex", "/slap"]
                            if self.is_command_available(cmd.strip('/'), "fun")],
                 "description": "\n".join([
-                    f"{EMOJIS['DOT']} `/8ball [question]` — магический шар ответит на твой вопрос.",
-                    f"{EMOJIS['DOT']} `/bite [user]` — укусить кого-то.",
-                    f"{EMOJIS['DOT']} `/coin [guess]` — орёл или решка.",
-                    f"{EMOJIS['DOT']} `/cry [user]` — заплакать.",
-                    f"{EMOJIS['DOT']} `/demotivator [title] <subtitle> <image>` — демотиватор.",
-                    f"{EMOJIS['DOT']} `/divorce` — развестись с кем-то.",
-                    f"{EMOJIS['DOT']} `/hug [user]` — обнять кого-то.",
-                    f"{EMOJIS['DOT']} `/kiss [user]` — поцеловать кого-то.",
-                    f"{EMOJIS['DOT']} `/lgbt [user]` — аватар пользователя в стиле ЛГБТ.",
-                    f"{EMOJIS['DOT']} `/marry [user]` — жениться на кого-то.",
-                    f"{EMOJIS['DOT']} `/mcserver [address]` — информация о сервере Minecraft.",
-                    f"{EMOJIS['DOT']} `/pat [user]` — погладить кого-то.",
-                    f"{EMOJIS['DOT']} `/sex [user]` — логично.",
-                    f"{EMOJIS['DOT']} `/slap [user]` — ударить кого-то."
+                    f"{Emojis.Dot} `/8ball [question]` — магический шар ответит на твой вопрос.",
+                    f"{Emojis.Dot} `/bite [user]` — укусить кого-то.",
+                    f"{Emojis.Dot} `/coin [guess]` — орёл или решка.",
+                    f"{Emojis.Dot} `/cry [user]` — заплакать.",
+                    f"{Emojis.Dot} `/demotivator [title] <subtitle> <image>` — демотиватор.",
+                    f"{Emojis.Dot} `/divorce` — развестись с кем-то.",
+                    f"{Emojis.Dot} `/hug [user]` — обнять кого-то.",
+                    f"{Emojis.Dot} `/kiss [user]` — поцеловать кого-то.",
+                    f"{Emojis.Dot} `/lgbt [user]` — аватар пользователя в стиле ЛГБТ.",
+                    f"{Emojis.Dot} `/marry [user]` — жениться на кого-то.",
+                    f"{Emojis.Dot} `/mcserver [address]` — информация о сервере Minecraft.",
+                    f"{Emojis.Dot} `/pat [user]` — погладить кого-то.",
+                    f"{Emojis.Dot} `/sex [user]` — логично.",
+                    f"{Emojis.Dot} `/slap [user]` — ударить кого-то."
                 ]),
                 "footer": "Справочник по командам для развлечений"
             },
@@ -189,14 +189,14 @@ class Help(commands.Cog):
                 "commands": [cmd for cmd in ["/2048", "/akinator", "/capitals", "/country", "/minesweeper", "/rps", "/tictactoe", "/wordle"]
                            if self.is_command_available(cmd.strip('/'), "games")],
                 "description": "\n".join([
-                    f"{EMOJIS['DOT']} `/2048` — играть в 2048.",
-                    f"{EMOJIS['DOT']} `/akinator` — играть в Акинатор.",
-                    f"{EMOJIS['DOT']} `/capitals` — играть в угадай столицу.",
-                    f"{EMOJIS['DOT']} `/country` — играть в угадай страну.",
-                    f"{EMOJIS['DOT']} `/minesweeper` — играть в сапёр.",
-                    f"{EMOJIS['DOT']} `/rps <user>` — играть в камень, ножницы, бумага.",
-                    f"{EMOJIS['DOT']} `/tictactoe <user>` — играть в крестики-нолики.",
-                    f"{EMOJIS['DOT']} `/wordle` — играть в слова."
+                    f"{Emojis.Dot} `/2048` — играть в 2048.",
+                    f"{Emojis.Dot} `/akinator` — играть в Акинатор.",
+                    f"{Emojis.Dot} `/capitals` — играть в угадай столицу.",
+                    f"{Emojis.Dot} `/country` — играть в угадай страну.",
+                    f"{Emojis.Dot} `/minesweeper` — играть в сапёр.",
+                    f"{Emojis.Dot} `/rps <user>` — играть в камень, ножницы, бумага.",
+                    f"{Emojis.Dot} `/tictactoe <user>` — играть в крестики-нолики.",
+                    f"{Emojis.Dot} `/wordle` — играть в слова."
                 ]),
                 "footer": "Справочник по командам из раздела \"Игры\""
             },
@@ -207,15 +207,15 @@ class Help(commands.Cog):
                 "commands": [cmd for cmd in ["/analytics", "/backup", "/crash", "/help", "/invites", "/logs", "/roleinfo", "/serverinfo", "/userinfo"]
                            if self.is_command_available(cmd.strip('/'), "main")],
                 "description": "\n".join([
-                    f"{EMOJIS['DOT']} `/analytics [bot/channels/roles/server]` — аналитика сервера.",
-                    f"{EMOJIS['DOT']} `/backup [create/info/restore]` — бэкап сервера.",
-                    f"{EMOJIS['DOT']} `/crash` — выключить бота.",
-                    f"{EMOJIS['DOT']} `/help` — вызвать помощь.",
-                    f"{EMOJIS['DOT']} `/invites [channel/welcome/leave/test/info/list]` — инвайты сервера.",
-                    f"{EMOJIS['DOT']} `/logs` — логи сервера.",
-                    f"{EMOJIS['DOT']} `/roleinfo [role]` — роль сервера.",
-                    f"{EMOJIS['DOT']} `/serverinfo` — сервер информация.",
-                    f"{EMOJIS['DOT']} `/userinfo <user>` — участник сервера."
+                    f"{Emojis.Dot} `/analytics [bot/channels/roles/server]` — аналитика сервера.",
+                    f"{Emojis.Dot} `/backup [create/info/restore]` — бэкап сервера.",
+                    f"{Emojis.Dot} `/crash` — выключить бота.",
+                    f"{Emojis.Dot} `/help` — вызвать помощь.",
+                    f"{Emojis.Dot} `/invites [channel/welcome/leave/test/info/list]` — инвайты сервера.",
+                    f"{Emojis.Dot} `/logs` — логи сервера.",
+                    f"{Emojis.Dot} `/roleinfo [role]` — роль сервера.",
+                    f"{Emojis.Dot} `/serverinfo` — сервер информация.",
+                    f"{Emojis.Dot} `/userinfo <user>` — участник сервера."
                 ]),
                 "footer": "Справочник по командам из раздела \"Основное\""
             },
@@ -226,43 +226,42 @@ class Help(commands.Cog):
                 "commands": [cmd for cmd in ["/ban", "/clear", "/kick", "/lock", "/massrole", "/mute", "/mutes", "/reset", "/slowmode", "/unban", "/unlock", "/unmute", "/warn", "/warns"]
                            if self.is_command_available(cmd.strip('/'), "moderation")],
                 "description": "\n".join([
-                    f"{EMOJIS['DOT']} `/ban [user] [reason] <delete_days>` — забанить кого-то.",
-                    f"{EMOJIS['DOT']} `/clear [amount]` — очистить сообщения.",
-                    f"{EMOJIS['DOT']} `/kick [user] [reason]` — кикнуть кого-то.",
-                    f"{EMOJIS['DOT']} `/lock [channel/all_channels]` — заблокировать канал/ы.",
-                    f"{EMOJIS['DOT']} `/massrole [add/remove] [role] [filter]` — массовая выдача/удаление роли.",
-                    f"{EMOJIS['DOT']} `/mute [user] <reason> <duration>` — замутить кого-то.",
-                    f"{EMOJIS['DOT']} `/mutes` — список мутов.",
-                    f"{EMOJIS['DOT']} `/reset [mutes/warns]` — сбросить муты/варны.",
-                    f"{EMOJIS['DOT']} `/slowmode [set/info/off] [channel/all_channels] [duration] <reason>` — установить задержку в чате.",
-                    f"{EMOJIS['DOT']} `/unban [user] <reason>` — разбанить кого-то.",
-                    f"{EMOJIS['DOT']} `/unlock [channel/all_channels]` — разблокировать канал/ы.",
-                    f"{EMOJIS['DOT']} `/unmute [user] <reason>` — размутить кого-то.",
-                    f"{EMOJIS['DOT']} `/warn [add/remove/clear] [user] <reason>` — предупредить кого-то.",
-                    f"{EMOJIS['DOT']} `/warns <user>` — посмотреть предупреждения."
+                    f"{Emojis.Dot} `/ban [user] [reason] <delete_days>` — забанить кого-то.",
+                    f"{Emojis.Dot} `/clear [amount]` — очистить сообщения.",
+                    f"{Emojis.Dot} `/kick [user] [reason]` — кикнуть кого-то.",
+                    f"{Emojis.Dot} `/lock [channel/all_channels]` — заблокировать канал/ы.",
+                    f"{Emojis.Dot} `/massrole [add/remove] [role] [filter]` — массовая выдача/удаление роли.",
+                    f"{Emojis.Dot} `/mute [user] <reason> <duration>` — замутить кого-то.",
+                    f"{Emojis.Dot} `/mutes` — список мутов.",
+                    f"{Emojis.Dot} `/reset [mutes/warns]` — сбросить муты/варны.",
+                    f"{Emojis.Dot} `/slowmode [set/info/off] [channel/all_channels] [duration] <reason>` — установить задержку в чате.",
+                    f"{Emojis.Dot} `/unban [user] <reason>` — разбанить кого-то.",
+                    f"{Emojis.Dot} `/unlock [channel/all_channels]` — разблокировать канал/ы.",
+                    f"{Emojis.Dot} `/unmute [user] <reason>` — размутить кого-то.",
+                    f"{Emojis.Dot} `/warn [add/remove/clear] [user] <reason>` — предупредить кого-то.",
+                    f"{Emojis.Dot} `/warns <user>` — посмотреть предупреждения."
                 ]),
                 "footer": "Справочник по командам для модерации"
             },
             "music": {
                 "title": "Команды для управления музыкой",
                 "emoji": "🎵",
-                "original_commands": ["/karaoke", "/leave", "/nightcore", "/np", "/pause", "/play", "/queue", "/repeat", "/resume", "/shuffle", "/skip", "/stop", "/volume"],
-                "commands": [cmd for cmd in ["/karaoke", "/leave", "/nightcore", "/np", "/pause", "/play", "/queue", "/repeat", "/resume", "/shuffle", "/skip", "/stop", "/volume"]
+                "original_commands": ["/leave", "/nightcore", "/np", "/pause", "/play", "/queue", "/repeat", "/resume", "/shuffle", "/skip", "/stop", "/volume"],
+                "commands": [cmd for cmd in ["/leave", "/nightcore", "/np", "/pause", "/play", "/queue", "/repeat", "/resume", "/shuffle", "/skip", "/stop", "/volume"]
                            if self.is_command_available(cmd.strip('/'), "music")],
                 "description": "\n".join([
-                    f"{EMOJIS['DOT']} `/karaoke` — включить режим караоке.",
-                    f"{EMOJIS['DOT']} `/leave` — отключить бота от голосового канала.",
-                    f"{EMOJIS['DOT']} `/nightcore` — включить эффект Nightcore.",
-                    f"{EMOJIS['DOT']} `/np` — показать текущий трек и прогресс.",
-                    f"{EMOJIS['DOT']} `/pause` — приостановить воспроизведение.",
-                    f"{EMOJIS['DOT']} `/play [query]` — воспроизвести песню или добавить в очередь.",
-                    f"{EMOJIS['DOT']} `/queue` — показать текущую очередь воспроизведения.",
-                    f"{EMOJIS['DOT']} `/repeat` — повторить текущую песню.",
-                    f"{EMOJIS['DOT']} `/resume` — возобновить воспроизведение.",
-                    f"{EMOJIS['DOT']} `/shuffle` — перемешать песни.",
-                    f"{EMOJIS['DOT']} `/skip` — пропустить текущую песню.",
-                    f"{EMOJIS['DOT']} `/stop` — остановить воспроизведение и очистить очередь.",
-                    f"{EMOJIS['DOT']} `/volume [value]` — изменить громкость музыки."
+                    f"{Emojis.Dot} `/leave` — отключить бота от голосового канала.",
+                    f"{Emojis.Dot} `/nightcore` — включить эффект Nightcore.",
+                    f"{Emojis.Dot} `/np` — показать текущий трек и прогресс.",
+                    f"{Emojis.Dot} `/pause` — приостановить воспроизведение.",
+                    f"{Emojis.Dot} `/play [query]` — воспроизвести песню или добавить в очередь.",
+                    f"{Emojis.Dot} `/queue` — показать текущую очередь воспроизведения.",
+                    f"{Emojis.Dot} `/repeat` — повторить текущую песню.",
+                    f"{Emojis.Dot} `/resume` — возобновить воспроизведение.",
+                    f"{Emojis.Dot} `/shuffle` — перемешать песни.",
+                    f"{Emojis.Dot} `/skip` — пропустить текущую песню.",
+                    f"{Emojis.Dot} `/stop` — остановить воспроизведение и очистить очередь.",
+                    f"{Emojis.Dot} `/volume [value]` — изменить громкость музыки."
                 ]),
                 "footer": "Справочник по командам управления музыкой"
             },
@@ -273,10 +272,10 @@ class Help(commands.Cog):
                 "commands": [cmd for cmd in ["/avatar", "/bio", "/leaderboard", "/profile"]
                            if self.is_command_available(cmd.strip('/'), "profile")],
                 "description": "\n".join([
-                    f"{EMOJIS['DOT']} `/avatar <user>` — просмотреть аватар пользователя.",
-                    f"{EMOJIS['DOT']} `/bio [set/view/clear]` — просмотреть профиль.",
-                    f"{EMOJIS['DOT']} `/leaderboard [money/level/reputation]` — просмотреть лидеров.",
-                    f"{EMOJIS['DOT']} `/profile <user>` — проверить уровень.",
+                    f"{Emojis.Dot} `/avatar <user>` — просмотреть аватар пользователя.",
+                    f"{Emojis.Dot} `/bio [set/view/clear]` — просмотреть профиль.",
+                    f"{Emojis.Dot} `/leaderboard [money/level/reputation]` — просмотреть лидеров.",
+                    f"{Emojis.Dot} `/profile <user>` — проверить уровень.",
                 ]),
                 "footer": "Справочник по командам из раздела \"Профиль\""
             },
@@ -287,22 +286,22 @@ class Help(commands.Cog):
                 "commands": [cmd for cmd in ["/afk", "/ai", "/currency", "/exchange", "/emoji", "/k", "/math", "/poll", "/qr", "/quote", "/rand", "/reminder", "/t", "/translate", "/weather", "/whois"]
                            if self.is_command_available(cmd.strip('/'), "utilities")],
                 "description": "\n".join([
-                    f"{EMOJIS['DOT']} `/afk <reason>` — установить статус AFK.",
-                    f"{EMOJIS['DOT']} `/ai [ask/info/providers]` — спросить что-то у ИИ.",
-                    f"{EMOJIS['DOT']} `/currency` — показать текущий курс валют.",
-                    f"{EMOJIS['DOT']} `/emoji [download/pack/all]` — скачать эмодзи.",
-                    f"{EMOJIS['DOT']} `/exchange [amount] [from_currency] [to_currency]` — конвертировать сумму из одной валюты в другую.",
-                    f"{EMOJIS['DOT']} `/k [text]` — исправление раскладки.",
-                    f"{EMOJIS['DOT']} `/math [expression]` — решить математическую задачу.",
-                    f"{EMOJIS['DOT']} `/poll [question] [options]` — создать опрос.",
-                    f"{EMOJIS['DOT']} `/qr [text]` — создать QR-код.",
-                    f"{EMOJIS['DOT']} `/quote [message_id]` — сделать цитату.",
-                    f"{EMOJIS['DOT']} `/rand [min] [max]` — рандомный выбор.",
-                    f"{EMOJIS['DOT']} `/reminder [create/list/delete]` — напоминания.",
-                    f"{EMOJIS['DOT']} `/t [text]` — транслитерация слов.",
-                    f"{EMOJIS['DOT']} `/translate [text] [lang]` — перевести текст.",
-                    f"{EMOJIS['DOT']} `/weather [city]` — узнать погоду.",
-                    f"{EMOJIS['DOT']} `/whois [domain]` — информация о домене."
+                    f"{Emojis.Dot} `/afk <reason>` — установить статус AFK.",
+                    f"{Emojis.Dot} `/ai [ask/info/providers]` — спросить что-то у ИИ.",
+                    f"{Emojis.Dot} `/currency` — показать текущий курс валют.",
+                    f"{Emojis.Dot} `/emoji [download/pack/all]` — скачать эмодзи.",
+                    f"{Emojis.Dot} `/exchange [amount] [from_currency] [to_currency]` — конвертировать сумму из одной валюты в другую.",
+                    f"{Emojis.Dot} `/k [text]` — исправление раскладки.",
+                    f"{Emojis.Dot} `/math [expression]` — решить математическую задачу.",
+                    f"{Emojis.Dot} `/poll [question] [options]` — создать опрос.",
+                    f"{Emojis.Dot} `/qr [text]` — создать QR-код.",
+                    f"{Emojis.Dot} `/quote [message_id]` — сделать цитату.",
+                    f"{Emojis.Dot} `/rand [min] [max]` — рандомный выбор.",
+                    f"{Emojis.Dot} `/reminder [create/list/delete]` — напоминания.",
+                    f"{Emojis.Dot} `/t [text]` — транслитерация слов.",
+                    f"{Emojis.Dot} `/translate [text] [lang]` — перевести текст.",
+                    f"{Emojis.Dot} `/weather [city]` — узнать погоду.",
+                    f"{Emojis.Dot} `/whois [domain]` — информация о домене."
                 ]),
                 "footer": "Справочник по командам для утилит"
             },
@@ -313,13 +312,13 @@ class Help(commands.Cog):
                 "commands": [cmd for cmd in ["/form", "/giveaway", "/ideas", "/logs", "/reports", "/setup", "/tickets"]
                            if self.is_command_available(cmd.strip('/'), "admin")],
                 "description": "\n".join([
-                    f"{EMOJIS['DOT']} `/form [setup/edit]` — конфигурация заявок.",
-                    f"{EMOJIS['DOT']} `/giveaway [create/end/reroll]` — конфигурация розыгрышей.",
-                    f"{EMOJIS['DOT']} `/ideas [setup/edit]` — конфигурация идей.",
-                    f"{EMOJIS['DOT']} `/logs [enable/disable/set/status/test]` — конфигурация логирования.",
-                    f"{EMOJIS['DOT']} `/reports [setup/edit]` — конфигурация жалоб.",
-                    f"{EMOJIS['DOT']} `/setup` — конфигурация сервера.",
-                    f"{EMOJIS['DOT']} `/tickets [setup/stats]` — конфигурация тикетов."
+                    f"{Emojis.Dot} `/form [setup/edit]` — конфигурация заявок.",
+                    f"{Emojis.Dot} `/giveaway [create/end/reroll]` — конфигурация розыгрышей.",
+                    f"{Emojis.Dot} `/ideas [setup/edit]` — конфигурация идей.",
+                    f"{Emojis.Dot} `/logs [enable/disable/set/status/test]` — конфигурация логирования.",
+                    f"{Emojis.Dot} `/reports [setup/edit]` — конфигурация жалоб.",
+                    f"{Emojis.Dot} `/setup` — конфигурация сервера.",
+                    f"{Emojis.Dot} `/tickets [setup/stats]` — конфигурация тикетов."
                 ]),
                 "footer": "Справочник по командам из раздела \"Администратор\""
             },

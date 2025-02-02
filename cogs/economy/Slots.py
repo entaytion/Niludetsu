@@ -5,7 +5,7 @@ import random
 import asyncio
 from Niludetsu.database import Database
 from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.emojis import EMOJIS
+from Niludetsu.utils.constants import Emojis
 
 class SpinAgainButton(discord.ui.Button):
     def __init__(self, slots_instance, bet):
@@ -63,7 +63,7 @@ class Slots(commands.Cog):
             description = (
                 f"🎲 **Слоты крутятся...**\n"
                 f"[ {slots_display} ]\n\n"
-                f"💰 **Ставка:** {bet:,} {EMOJIS['MONEY']}"
+                f"💰 **Ставка:** {bet:,} {Emojis.MONEY}"
             )
             
             embed=Embed(
@@ -83,7 +83,7 @@ class Slots(commands.Cog):
         if user_data['balance'] < bet:
             embed=Embed(
                 description=f"❌ У вас недостаточно средств!\n"
-                          f"💰 Ваш баланс: {user_data['balance']:,} {EMOJIS['MONEY']}",
+                          f"💰 Ваш баланс: {user_data['balance']:,} {Emojis.MONEY}",
                 color="RED"
             )
             if message:
@@ -139,15 +139,15 @@ class Slots(commands.Cog):
             description.extend([
                 f"🎉 **Поздравляем! Вы выиграли!**",
                 f"✨ **Множитель:** x{self.multipliers[max_count][winning_symbol]}",
-                f"💰 **Выигрыш:** {winnings:,} {EMOJIS['MONEY']}",
-                f"💳 **Баланс:** {new_balance:,} {EMOJIS['MONEY']}"
+                f"💰 **Выигрыш:** {winnings:,} {Emojis.MONEY}",
+                f"💳 **Баланс:** {new_balance:,} {Emojis.MONEY}"
             ])
             color = "GREEN"
         else:
             description.extend([
                 f"❌ **Вы проиграли!**",
-                f"💰 **Ставка:** {bet:,} {EMOJIS['MONEY']}",
-                f"💳 **Баланс:** {user_data['balance'] - bet:,} {EMOJIS['MONEY']}"
+                f"💰 **Ставка:** {bet:,} {Emojis.MONEY}",
+                f"💳 **Баланс:** {user_data['balance'] - bet:,} {Emojis.MONEY}"
             ])
             color = "RED"
 
