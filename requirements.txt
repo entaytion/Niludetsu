@@ -1,6 +1,6 @@
 aiohttp==3.11.11
-aiosqlite==0.20.0
-beautifulsoup4==4.12.3
+aiosqlite==0.21.0
+beautifulsoup4==4.13.1
 deep_translator==1.11.4
 discord.py==2.4.0
 easy_pil==0.4.0
@@ -8,7 +8,7 @@ g4f==0.4.3.3
 humanize==4.11.0
 matplotlib==3.5.3
 mcstatus==11.1.1
-Pillow==11.1.0
+Pillow==10.1.0
 psutil==6.1.1
 python-dotenv==1.0.1
 python_whois==0.9.5

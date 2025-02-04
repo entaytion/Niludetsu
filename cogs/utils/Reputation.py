@@ -75,15 +75,15 @@ class Reputation(commands.Cog):
             if is_positive:
                 await self.db.execute(
                     "UPDATE users SET reputation = reputation + 1 WHERE user_id = ?",
-                    (target_user_id,)
+                    str(target_user_id)
                 )
                 await message.add_reaction('⬆️')
                 
-                result = await self.db.execute(
+                result = await self.db.fetch_one(
                     "SELECT reputation FROM users WHERE user_id = ?", 
-                    (target_user_id,)
+                    str(target_user_id)
                 )
-                new_rep = result[0][0] if result else 0
+                new_rep = result['reputation'] if result else 0
                 
                 embed=Embed(
                     description=f"{message.author.mention} повысил репутацию {referenced_message.author.mention}\nРепутация: {new_rep}",
@@ -92,15 +92,15 @@ class Reputation(commands.Cog):
             elif is_negative:
                 await self.db.execute(
                     "UPDATE users SET reputation = reputation - 1 WHERE user_id = ?",
-                    (target_user_id,)
+                    str(target_user_id)
                 )
                 await message.add_reaction('⬇️')
                 
-                result = await self.db.execute(
+                result = await self.db.fetch_one(
                     "SELECT reputation FROM users WHERE user_id = ?",
-                    (target_user_id,)
+                    str(target_user_id)
                 )
-                new_rep = result[0][0] if result else 0
+                new_rep = result['reputation'] if result else 0
                 
                 embed=Embed(
                     description=f"{message.author.mention} понизил репутацию {referenced_message.author.mention}\nРепутация: {new_rep}",

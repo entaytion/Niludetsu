@@ -20,6 +20,7 @@ wheels/
 .installed.cfg
 *.egg
 backups/
+niludetsu.zip
 
 # Virtual Environment
 venv/

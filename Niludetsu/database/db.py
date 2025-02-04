@@ -105,11 +105,13 @@ class Database:
         """Инициализация базы данных"""
         await self.verify_database()
     
-    async def execute(self, query: str, *args) -> None:
+    async def execute(self, query: str, *args) -> Optional[List[tuple]]:
         """Выполнить SQL запрос"""
         async with aiosqlite.connect(self.db_path) as db:
-            await db.execute(query, args)
+            cursor = await db.execute(query, args)
+            result = await cursor.fetchall()
             await db.commit()
+            return result
     
     async def fetch_one(self, query: str, *args) -> Optional[Dict[str, Any]]:
         """Получить одну запись"""
