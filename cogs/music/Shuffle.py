@@ -41,7 +41,13 @@ class Shuffle(commands.Cog):
             )
             return
 
-        if state.songs.empty():
+        # Получаем все треки из очереди
+        queue_list = []
+        while not player.queue.is_empty:
+            track = await player.queue.get_wait()
+            queue_list.append(track)
+
+        if not queue_list:
             await interaction.response.send_message(
                 embed=Embed(
                     title=f"{Emojis.ERROR} Ошибка",
@@ -53,11 +59,11 @@ class Shuffle(commands.Cog):
             return
 
         # Перемешиваем очередь
-        queue_list = list(state.songs._queue)
         random.shuffle(queue_list)
-        state.songs._queue.clear()
-        for song in queue_list:
-            await state.songs.put(song)
+        
+        # Добавляем перемешанные треки обратно в очередь
+        for track in queue_list:
+            await player.queue.put_wait(track)
 
         embed=Embed(
             title=f"{Emojis.SHUFFLE} Очередь перемешана",
@@ -68,10 +74,9 @@ class Shuffle(commands.Cog):
         # Показываем первые 5 треков новой очереди
         if queue_list:
             tracks_list = []
-            for i, song in enumerate(queue_list[:5], 1):
+            for i, track in enumerate(queue_list[:5], 1):
                 tracks_list.append(
-                    f"`{i}.` **[{song.title}]({song.uri})**\n"
-                    f"{Emojis.USER} {song.requester.mention if song.requester else 'Неизвестно'}"
+                    f"`{i}.` **[{track.title}]({track.uri})**"
                 )
             
             if len(queue_list) > 5:

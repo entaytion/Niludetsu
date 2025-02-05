@@ -2,6 +2,7 @@ import os
 import aiosqlite
 from typing import Optional, Dict, Any, List, Union, Set
 from datetime import datetime
+import asyncio
 
 from .tables import Tables
 
@@ -10,7 +11,36 @@ class Database:
         self.db_path = db_path
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         self._connection = None
+        self.pool = None
+        self._pool_lock = asyncio.Lock()
+        self._max_connections = 10
         
+    async def create_pool(self):
+        """Создает пул подключений к базе данных"""
+        if self.pool is None:
+            async with self._pool_lock:
+                if self.pool is None:  # Двойная проверка для избежания race condition
+                    self.pool = []
+                    for _ in range(self._max_connections):
+                        conn = await aiosqlite.connect(self.db_path)
+                        conn.row_factory = aiosqlite.Row
+                        self.pool.append(conn)
+                        
+    async def acquire(self):
+        """Получает соединение из пула"""
+        if not self.pool:
+            await self.create_pool()
+            
+        async with self._pool_lock:
+            while len(self.pool) == 0:
+                await asyncio.sleep(0.1)
+            return self.pool.pop()
+            
+    async def release(self, conn):
+        """Возвращает соединение в пул"""
+        async with self._pool_lock:
+            self.pool.append(conn)
+    
     async def _get_existing_tables(self) -> Set[str]:
         """Получить список существующих таблиц"""
         async with aiosqlite.connect(self.db_path) as db:
@@ -104,31 +134,39 @@ class Database:
     async def init(self):
         """Инициализация базы данных"""
         await self.verify_database()
+        await self.create_pool()
     
     async def execute(self, query: str, *args) -> Optional[List[tuple]]:
         """Выполнить SQL запрос"""
-        async with aiosqlite.connect(self.db_path) as db:
-            cursor = await db.execute(query, args[0] if len(args) == 1 and isinstance(args[0], (tuple, list)) else args)
+        conn = await self.acquire()
+        try:
+            cursor = await conn.execute(query, args[0] if len(args) == 1 and isinstance(args[0], (tuple, list)) else args)
             result = await cursor.fetchall()
-            await db.commit()
+            await conn.commit()
             return result
+        finally:
+            await self.release(conn)
     
     async def fetch_one(self, query: str, *args) -> Optional[Dict[str, Any]]:
         """Получить одну запись"""
-        async with aiosqlite.connect(self.db_path) as db:
-            db.row_factory = aiosqlite.Row
-            async with db.execute(query, args) as cursor:
+        conn = await self.acquire()
+        try:
+            async with conn.execute(query, args) as cursor:
                 if row := await cursor.fetchone():
                     return dict(row)
                 return None
+        finally:
+            await self.release(conn)
     
     async def fetch_all(self, query: str, *args) -> List[Dict[str, Any]]:
         """Получить все записи"""
-        async with aiosqlite.connect(self.db_path) as db:
-            db.row_factory = aiosqlite.Row
-            async with db.execute(query, args) as cursor:
+        conn = await self.acquire()
+        try:
+            async with conn.execute(query, args) as cursor:
                 rows = await cursor.fetchall()
                 return [dict(row) for row in rows]
+        finally:
+            await self.release(conn)
     
     async def get_row(self, table: str, **where) -> Optional[Dict[str, Any]]:
         """Получить запись по условиям"""
@@ -210,8 +248,10 @@ class Database:
         """Установить соединение с базой данных"""
         await self.init()
         
-    async def close(self) -> None:
-        """Закрыть соединение с базой данных"""
-        if self._connection:
-            await self._connection.close()
-            self._connection = None
+    async def close(self):
+        """Закрывает все соединения в пуле"""
+        if self.pool:
+            async with self._pool_lock:
+                for conn in self.pool:
+                    await conn.close()
+                self.pool = None

@@ -142,6 +142,7 @@ class Emojis:
     VOLUME_HIGH = '🔊'
     VOLUME_MUTE = '🔇'
     KARAOKE = '🎤'
+    MICROPHONE = '🎤'
     # --- BAN ---
     UNBAN = '🔓'
     BAN = '🔒'

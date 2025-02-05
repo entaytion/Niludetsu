@@ -20,7 +20,7 @@ class Skip(commands.Cog):
         if not player.playing:
             await interaction.response.send_message(
                 embed=Embed(
-                    title=f"{Emojis.ERROR   } Ошибка",
+                    title=f"{Emojis.ERROR} Ошибка",
                     description="Сейчас ничего не играет!",
                     color="RED"
                 ),
@@ -53,23 +53,49 @@ class Skip(commands.Cog):
             return
 
         # Пропускаем текущий трек
-        await player.stop()
+        try:
+            # Сохраняем информацию о текущем треке перед пропуском
+            skipped_track = current
+            
+            # Останавливаем текущий трек
+            await player.stop()
+            
+        except Exception as e:
+            await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.ERROR} Ошибка",
+                    description=f"Произошла ошибка при пропуске трека: {str(e)}",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+            return
 
-        embed=Embed(
+        embed = Embed(
             title=f"{Emojis.SKIP} Трек пропущен",
-            description=f"**[{current.title}]({current.uri})** пропущен",
+            description=f"**[{skipped_track.title}]({skipped_track.uri})** пропущен",
             color="BLUE"
         )
-        
-        # Если есть следующий трек в очереди
-        if not state.songs.empty():
-            next_song = state.songs._queue[0]
-            embed.add_field(
-                name=f"{Emojis.NEXT} Следующий трек",
-                value=f"**[{next_song.title}]({next_song.uri})**\n"
-                      f"{Emojis.USER} Запросил: {next_song.requester.mention if next_song.requester else 'Неизвестно'}",
-                inline=False
-            )
+
+        # Показываем следующий трек, если он есть в очереди
+        if not player.queue.is_empty:
+            # Получаем все треки из очереди
+            queue_tracks = []
+            while not player.queue.is_empty:
+                track = await player.queue.get_wait()
+                queue_tracks.append(track)
+            
+            # Возвращаем все треки обратно в том же порядке
+            for track in queue_tracks:
+                await player.queue.put_wait(track)
+            
+            # Показываем первый трек
+            if queue_tracks:
+                embed.add_field(
+                    name=f"{Emojis.NEXT} Следующий трек",
+                    value=f"**[{queue_tracks[0].title}]({queue_tracks[0].uri})**",
+                    inline=False
+                )
 
         embed.set_footer(text=f"Пропустил: {interaction.user}")
         await interaction.response.send_message(embed=embed)

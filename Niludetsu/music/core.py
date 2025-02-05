@@ -40,29 +40,9 @@ class VoiceState:
         self.guild = guild
         self.current: Optional[Song] = None
         self.voice: Optional[wavelink.Player] = None
-        self.next = asyncio.Event()
-        self.songs = asyncio.Queue()
-        self.exists = True
         self._loop = False
         self._volume = 100
         self.skip_votes = set()
-        self.audio_player = bot.loop.create_task(self.audio_player_task())
-
-    async def audio_player_task(self):
-        """Задача для воспроизведения музыки"""
-        while self.exists:
-            self.next.clear()
-            if not self._loop:
-                try:
-                    async with asyncio.timeout(180):  # 3 минуты
-                        self.current = await self.songs.get()
-                except asyncio.TimeoutError:
-                    await self.stop()
-                    self.exists = False
-                    return
-
-            self.voice.play(self.current.track)
-            await self.next.wait()
 
     @property
     def loop(self):
@@ -92,9 +72,14 @@ class VoiceState:
         if self.voice:
             await self.voice.disconnect()
             self.voice = None
-        self.exists = False
         self.current = None
-        self.songs = asyncio.Queue()
+
+    @property
+    def queue(self):
+        """Получить очередь треков"""
+        if self.voice:
+            return self.voice.queue
+        return None
 
 class Music:
     """Основной класс для работы с музыкой"""
@@ -157,7 +142,7 @@ class Music:
     def get_voice_state(self, guild: discord.Guild) -> VoiceState:
         """Получение состояния голосового подключения для сервера"""
         state = self.voice_states.get(guild.id)
-        if not state or not state.exists:
+        if not state:
             state = VoiceState(self.bot, guild)
             self.voice_states[guild.id] = state
         return state
@@ -331,7 +316,6 @@ class Music:
         if player.playing:
             # Добавляем в очередь
             await player.queue.put_wait(track)
-            await state.songs.put(song)  # Синхронизируем с нашей очередью
             await interaction.followup.send(
                 embed=Embed(
                     title="🎵 Добавлено в очередь",
@@ -398,7 +382,6 @@ class Music:
             return
             
         state = self.get_voice_state(payload.player.guild)
-        
         if not state:
             return
             
@@ -407,27 +390,31 @@ class Music:
         self.set_current_song(guild_id, None)
         
         # Если есть следующий трек в очереди
-        if not state.songs.empty():
-            next_song = await state.songs.get()
-            await payload.player.play(next_song.track)
-            state.current = next_song
-            self.set_current_song(guild_id, next_song)
+        if not payload.player.queue.is_empty:
+            next_track = await payload.player.queue.get_wait()
+            await payload.player.play(next_track)
+            state.current = Song(next_track, None)
+            self.set_current_song(guild_id, state.current)
             
-            await text_channel.send(
-                embed=Embed(
-                    title="🎵 Сейчас играет",
-                    description=f"**{next_song.title}**\nДлительность: {next_song.format_duration()}",
-                    color="BLUE"
+            # Отправляем сообщение только если трек закончился естественным путем
+            if payload.reason == "finished":
+                await text_channel.send(
+                    embed=Embed(
+                        title="🎵 Сейчас играет",
+                        description=f"**{next_track.title}**\nДлительность: {state.current.format_duration()}",
+                        color="BLUE"
+                    )
                 )
-            )
         else:
-            await text_channel.send(
-                embed=Embed(
-                    title="🎵 Очередь завершена",
-                    description="Все треки воспроизведены",
-                    color="BLUE"
+            # Отправляем сообщение только если трек закончился естественным путем
+            if payload.reason == "finished":
+                await text_channel.send(
+                    embed=Embed(
+                        title="🎵 Очередь завершена",
+                        description="Все треки воспроизведены",
+                        color="BLUE"
+                    )
                 )
-            )
 
     async def on_wavelink_track_exception(self, payload: wavelink.TrackExceptionEventPayload):
         """Обработчик ошибок трека"""
