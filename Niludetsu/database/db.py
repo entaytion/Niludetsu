@@ -108,7 +108,7 @@ class Database:
     async def execute(self, query: str, *args) -> Optional[List[tuple]]:
         """Выполнить SQL запрос"""
         async with aiosqlite.connect(self.db_path) as db:
-            cursor = await db.execute(query, args)
+            cursor = await db.execute(query, args[0] if len(args) == 1 and isinstance(args[0], (tuple, list)) else args)
             result = await cursor.fetchall()
             await db.commit()
             return result

@@ -47,11 +47,19 @@ class Reputation(commands.Cog):
                 await message.channel.send("Ботам нельзя повышать репутацию!")
                 return
 
-            content = message.content.lower()
+            content = message.content.lower().strip()
+            words = content.split()
             
-            # Проверка на + или -
-            is_positive = any(trigger in content for trigger in POSITIVE_TRIGGERS) or content.strip('+').strip() == ''
-            is_negative = any(trigger in content for trigger in NEGATIVE_TRIGGERS) or content.strip('-').strip() == ''
+            # Проверяем, является ли сообщение одиночным словом-триггером
+            is_positive = (len(words) == 1 and (
+                words[0] in POSITIVE_TRIGGERS or 
+                words[0].strip('+') == ''
+            ))
+            
+            is_negative = (len(words) == 1 and (
+                words[0] in NEGATIVE_TRIGGERS or 
+                words[0].strip('-') == ''
+            ))
 
             if not is_positive and not is_negative:
                 return

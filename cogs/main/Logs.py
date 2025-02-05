@@ -312,16 +312,19 @@ class Logs(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_delete(self, message):
+        """Обработчик удаления сообщений"""
         if self.logging_enabled and self.log_channel:
             await self.loggers['message'].log_message_delete(message)
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
+        """Обработчик редактирования сообщений"""
         if self.logging_enabled and self.log_channel:
             await self.loggers['message'].log_message_edit(before, after)
 
     @commands.Cog.listener()
     async def on_bulk_message_delete(self, messages):
+        """Обработчик массового удаления сообщений"""
         if self.logging_enabled and self.log_channel:
             await self.loggers['message'].log_bulk_message_delete(messages)
 

@@ -16,22 +16,28 @@ def load_config():
         return yaml.safe_load(f)
 
 class VoiceChannelManager:
-    def __init__(self):
+    def __init__(self, bot):
         self.config = load_config()
         self.db = Database()
+        self.bot = bot
     
-    async def add_channel(self, user_id: str, channel_id: int, guild_id: str, name: str):
-        """Добавляет канал в базу данных"""
+    async def add_channel(self, channel_id: str, user_id: str, guild_id: str, name: str):
+        """Добавляет временный канал в базу данных"""
         try:
-            await self.db.insert("temp_rooms", {
-                'channel_id': str(channel_id),
-                'guild_id': str(guild_id),
-                'owner_id': str(user_id),
-                'name': name,
-                'channel_type': 2  # 2 - voice channel
-            })
+            params = (channel_id, guild_id, user_id, name, 2, "[]", "[]")
+            await self.db.execute(
+                """
+                INSERT INTO temp_rooms (channel_id, guild_id, owner_id, name, channel_type, trusted_users, banned_users)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                params
+            )
+            # Проверяем, что канал добавлен
+            room = await self.get_temp_room(channel_id)
+            
         except Exception as e:
-            print(f"❌ Ошибка при добавлении канала: {e}")
+            print(f"❌ Ошибка при добавлении канала в базу данных: {e}")
+            traceback.print_exc()
     
     async def delete_temp_room(self, channel_id: str):
         """Удаляет канал из базы данных"""
@@ -47,12 +53,8 @@ class VoiceChannelManager:
                     "DELETE FROM temp_rooms WHERE channel_id = ?",
                     channel_id
                 )
-                print(f"✅ Канал {channel_id} успешно удален из базы данных")
-            else:
-                print(f"⚠️ Канал {channel_id} не найден в базе данных")
                 
         except Exception as e:
-            print(f"❌ Ошибка при удалении канала из базы данных: {e}")
             traceback.print_exc()
     
     async def get_channel(self, user_id: str) -> Optional[Dict[str, Any]]:
@@ -90,93 +92,262 @@ class VoiceChannelManager:
     async def update_temp_room(self, channel_id: str, **kwargs):
         """Обновляет данные временного канала"""
         try:
-            await self.db.update(
-                "temp_rooms",
-                where={"channel_id": str(channel_id)},
-                values=kwargs
-            )
+            await self.db.update("temp_rooms", {"channel_id": channel_id}, kwargs)
         except Exception as e:
             print(f"❌ Ошибка при обновлении канала: {e}")
+
+    async def get_temp_room(self, channel_id: str) -> Optional[Dict[str, Any]]:
+        """Получает данные временного канала"""
+        try:
+            result = await self.db.fetch_one(
+                "SELECT * FROM temp_rooms WHERE channel_id = ?",
+                str(channel_id)
+            )
+            return result
+        except Exception as e:
+            print(f"❌ Ошибка при получении данных канала: {e}")
+            return None
+    
+    async def add_trusted_user(self, channel_id: str, user_id: str):
+        """Добавляет пользователя в список доверенных"""
+        try:
+            room = await self.get_temp_room(channel_id)
+            if room:
+                trusted_users = eval(room['trusted_users'])
+                if user_id not in trusted_users:
+                    trusted_users.append(user_id)
+                    await self.update_temp_room(channel_id, trusted_users=str(trusted_users))
+        except Exception as e:
+            print(f"❌ Ошибка при добавлении доверенного пользователя: {e}")
+    
+    async def remove_trusted_user(self, channel_id: str, user_id: str):
+        """Удаляет пользователя из списка доверенных"""
+        try:
+            room = await self.get_temp_room(channel_id)
+            if room:
+                trusted_users = eval(room['trusted_users'])
+                if user_id in trusted_users:
+                    trusted_users.remove(user_id)
+                    await self.update_temp_room(channel_id, trusted_users=str(trusted_users))
+        except Exception as e:
+            print(f"❌ Ошибка при удалении доверенного пользователя: {e}")
+    
+    async def add_banned_user(self, channel_id: str, user_id: str):
+        """Добавляет пользователя в список забаненных"""
+        try:
+            room = await self.get_temp_room(channel_id)
+            if room:
+                banned_users = eval(room['banned_users'])
+                if user_id not in banned_users:
+                    banned_users.append(user_id)
+                    await self.update_temp_room(channel_id, banned_users=str(banned_users))
+        except Exception as e:
+            print(f"❌ Ошибка при добавлении забаненного пользователя: {e}")
+    
+    async def remove_banned_user(self, channel_id: str, user_id: str):
+        """Удаляет пользователя из списка забаненных"""
+        try:
+            room = await self.get_temp_room(channel_id)
+            if room:
+                banned_users = eval(room['banned_users'])
+                if user_id in banned_users:
+                    banned_users.remove(user_id)
+                    await self.update_temp_room(channel_id, banned_users=str(banned_users))
+        except Exception as e:
+            print(f"❌ Ошибка при удалении забаненного пользователя: {e}")
+    
+    async def is_trusted(self, channel_id: str, user_id: str) -> bool:
+        """Проверяет, является ли пользователь доверенным"""
+        try:
+            room = await self.get_temp_room(channel_id)
+            if room:
+                trusted_users = eval(room['trusted_users'])
+                return user_id in trusted_users
+            return False
+        except Exception as e:
+            return False
+    
+    async def is_banned(self, channel_id: str, user_id: str) -> bool:
+        """Проверяет, является ли пользователь забаненным"""
+        try:
+            room = await self.get_temp_room(channel_id)
+            if room:
+                banned_users = eval(room['banned_users'])
+                return user_id in banned_users
+            return False
+        except Exception as e:
+            return False
+
+    async def is_globally_banned(self, user_id: str, owner_id: str) -> bool:
+        """Проверяет, находится ли пользователь в глобальном бан-листе владельца"""
+        try:
+            result = await self.db.fetch_one(
+                """
+                SELECT * FROM global_bans 
+                WHERE banned_user_id = ? AND owner_id = ?
+                """,
+                str(user_id), str(owner_id)
+            )
+            return bool(result)
+        except Exception as e:
+            traceback.print_exc()
+            return False
+
+    async def add_to_global_banlist(self, user_id: str, owner_id: str):
+        """Добавляет пользователя в глобальный бан-лист"""
+        try:
+            await self.db.execute(
+                """
+                INSERT OR IGNORE INTO global_bans (banned_user_id, owner_id)
+                VALUES (?, ?)
+                """,
+                (str(user_id), str(owner_id))
+            )
+        except Exception as e:
+            traceback.print_exc()
+
+    async def remove_from_global_banlist(self, user_id: str, owner_id: str):
+        """Удаляет пользователя из глобального бан-листа"""
+        try:
+            await self.db.execute(
+                """
+                DELETE FROM global_bans 
+                WHERE banned_user_id = ? AND owner_id = ?
+                """,
+                (str(user_id), str(owner_id))
+            )
+        except Exception as e:
+            traceback.print_exc()
 
 class VoiceChannelView(ui.View):
     def __init__(self, manager):
         super().__init__(timeout=None)
         self.manager = manager
+        self.bot = manager.bot
 
-    @discord.ui.button(emoji=discord.PartialEmoji(name="VoiceCrown", id="1332417411370057781"), style=discord.ButtonStyle.gray, row=0)
+    @discord.ui.button(emoji=Emojis.VOICE_OWNER, style=discord.ButtonStyle.gray, row=0)
     async def transfer_ownership(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Передача прав владельца"""
         await self._handle_voice_action(interaction, "transfer")
 
-    @discord.ui.button(emoji=discord.PartialEmoji(name="VoiceUsers", id="1332418260435603476"), style=discord.ButtonStyle.gray, row=0)
+    @discord.ui.button(emoji=Emojis.VOICE_ACCESS, style=discord.ButtonStyle.gray, row=0)
     async def manage_access(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Управление доступом"""
         await self._handle_voice_action(interaction, "access")
 
-    @discord.ui.button(emoji=discord.PartialEmoji(name="VoiceNumbers", id="1332418493915725854"), style=discord.ButtonStyle.gray, row=0)
+    @discord.ui.button(emoji=Emojis.VOICE_LIMIT, style=discord.ButtonStyle.gray, row=0)
     async def change_limit(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Изменение лимита пользователей"""
         await self._handle_voice_action(interaction, "limit")
 
-    @discord.ui.button(emoji=discord.PartialEmoji(name="VoiceLock", id="1332418712304615495"), style=discord.ButtonStyle.gray, row=0)
+    @discord.ui.button(emoji=Emojis.VOICE_LOCK, style=discord.ButtonStyle.gray, row=0)
     async def lock_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Закрытие/открытие канала"""
         await self._handle_voice_action(interaction, "lock")
 
-    @discord.ui.button(emoji=discord.PartialEmoji(name="VoicePencil", id="1332418910242471967"), style=discord.ButtonStyle.gray, row=0)
+    @discord.ui.button(emoji=Emojis.VOICE_EDIT, style=discord.ButtonStyle.gray, row=0)
     async def rename_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Переименование канала"""
         await self._handle_voice_action(interaction, "rename")
 
-    @discord.ui.button(emoji=discord.PartialEmoji(name="VoiceVisible", id="1332419077184163920"), style=discord.ButtonStyle.gray, row=1)
-    async def toggle_visibility(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Переключение видимости канала"""
-        await self._handle_voice_action(interaction, "visibility")
+    @discord.ui.button(emoji=Emojis.VOICE_TRUST, style=discord.ButtonStyle.gray, row=1)
+    async def trust_user(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Доверить пользователя"""
+        await self._handle_voice_action(interaction, "trust")
 
-    @discord.ui.button(emoji=discord.PartialEmoji(name="VoiceKick", id="1332419383003447427"), style=discord.ButtonStyle.gray, row=1)
-    async def kick_user(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Выгнать пользователя"""
-        await self._handle_voice_action(interaction, "kick")
+    @discord.ui.button(emoji=Emojis.VOICE_UNTRUST, style=discord.ButtonStyle.gray, row=1)
+    async def untrust_user(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Убрать доверие у пользователя"""
+        await self._handle_voice_action(interaction, "untrust")
 
-    @discord.ui.button(emoji=discord.PartialEmoji(name="VoiceMute", id="1332419509830553601"), style=discord.ButtonStyle.gray, row=1)
-    async def toggle_mute(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Включить/выключить мут для всех"""
-        await self._handle_voice_action(interaction, "mute")
+    @discord.ui.button(emoji=Emojis.VOICE_INVITE, style=discord.ButtonStyle.gray, row=1)
+    async def create_invite(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Создать приглашение"""
+        await self._handle_voice_action(interaction, "invite")
 
-    @discord.ui.button(emoji=discord.PartialEmoji(name="VoiceBitrate", id="1332419630672904294"), style=discord.ButtonStyle.gray, row=1)
-    async def change_bitrate(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Изменить битрейт канала"""
-        await self._handle_voice_action(interaction, "bitrate")
+    @discord.ui.button(emoji=Emojis.VOICE_BAN, style=discord.ButtonStyle.gray, row=1)
+    async def ban_user(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Забанить пользователя"""
+        await self._handle_voice_action(interaction, "ban")
+
+    @discord.ui.button(emoji=Emojis.VOICE_UNBAN, style=discord.ButtonStyle.gray, row=1)
+    async def unban_user(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Разбанить пользователя"""
+        await self._handle_voice_action(interaction, "unban")
+
+    @discord.ui.button(emoji=Emojis.VOICE_REVOKE, style=discord.ButtonStyle.gray, row=2)
+    async def revoke_access(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Забрать права"""
+        await self._handle_voice_action(interaction, "revoke")
+
+    @discord.ui.button(emoji=Emojis.VOICE_THREAD, style=discord.ButtonStyle.gray, row=2)
+    async def create_thread(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Создать ветку обсуждения"""
+        await self._handle_voice_action(interaction, "thread")
+
+    @discord.ui.button(emoji=Emojis.VOICE_REGION, style=discord.ButtonStyle.gray, row=2)
+    async def change_region(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Изменить регион"""
+        await self._handle_voice_action(interaction, "region")
+
+    @discord.ui.button(emoji=Emojis.VOICE_DELETE, style=discord.ButtonStyle.gray, row=2)
+    async def delete_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Удалить канал"""
+        await self._handle_voice_action(interaction, "delete")
 
     async def _handle_voice_action(self, interaction: discord.Interaction, action: str):
-        """Обработчик действий с каналом"""
+        """Обработчик действий с голосовым каналом"""
         try:
-            # Проверяем, является ли пользователь владельцем какого-либо канала
-            channel_data = await self.manager.get_channel(str(interaction.user.id))
-            if not channel_data:
+            # Получаем голосовой канал пользователя
+            if not interaction.user.voice:
                 await interaction.response.send_message(
                     embed=Embed(
                         title=f"{Emojis.ERROR} Ошибка",
-                        description="У вас нет активного голосового канала!",
+                        description="Вы должны находиться в голосовом канале!",
                         color="RED"
                     ),
                     ephemeral=True
                 )
                 return
-
-            channel = interaction.guild.get_channel(int(channel_data['channel_id']))
+                
+            channel = interaction.user.voice.channel
             if not channel:
-                await self.manager.delete_temp_room(str(channel_data['channel_id']))
                 await interaction.response.send_message(
                     embed=Embed(
                         title=f"{Emojis.ERROR} Ошибка",
-                        description="Канал не найден!",
+                        description="Вы должны находиться в голосовом канале!",
                         color="RED"
                     ),
                     ephemeral=True
                 )
                 return
 
+            # Проверяем, является ли пользователь владельцем канала
+            room = await self.manager.get_temp_room(str(channel.id))
+            
+            if not room:
+                await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Ваш текущий канал не является временным!",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                return
+                
+            if str(interaction.user.id) != room['owner_id']:
+                await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Вы не являетесь владельцем этого канала!",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                return
+
+            # Обрабатываем действие
             if action == "transfer":
                 await self._transfer_ownership(interaction, channel)
             elif action == "access":
@@ -187,17 +358,26 @@ class VoiceChannelView(ui.View):
                 await self._toggle_lock(interaction, channel)
             elif action == "rename":
                 await self._rename_channel(interaction, channel)
-            elif action == "visibility":
-                await self._toggle_visibility(interaction, channel)
-            elif action == "kick":
-                await self._kick_user(interaction, channel)
-            elif action == "mute":
-                await self._toggle_mute(interaction, channel)
-            elif action == "bitrate":
-                await self._change_bitrate(interaction, channel)
+            elif action == "trust":
+                await self._trust_user(interaction, channel)
+            elif action == "untrust":
+                await self._untrust_user(interaction, channel)
+            elif action == "invite":
+                await self._create_invite(interaction, channel)
+            elif action == "ban":
+                await self._ban_user(interaction, channel)
+            elif action == "unban":
+                await self._unban_user(interaction, channel)
+            elif action == "revoke":
+                await self._revoke_access(interaction, channel)
+            elif action == "thread":
+                await self._create_thread(interaction, channel)
+            elif action == "region":
+                await self._change_region(interaction, channel)
+            elif action == "delete":
+                await self._delete_channel(interaction, channel)
 
         except Exception as e:
-            print(f"❌ Ошибка при обработке действия с каналом: {e}")
             traceback.print_exc()
             await interaction.response.send_message(
                 embed=Embed(
@@ -296,12 +476,10 @@ class VoiceChannelView(ui.View):
 
         async def modal_callback(modal_interaction: discord.Interaction):
             try:
-                # Пытаемся найти пользователя по ID
                 user_id = ''.join(filter(str.isdigit, user_input.value))
                 if user_id:
                     member = modal_interaction.guild.get_member(int(user_id))
                 else:
-                    # Если ID не найден, ищем по никнейму
                     member = discord.utils.find(
                         lambda m: user_input.value.lower() in m.display_name.lower() or 
                                 user_input.value.lower() in m.name.lower(),
@@ -313,28 +491,6 @@ class VoiceChannelView(ui.View):
                         embed=Embed(
                             title=f"{Emojis.ERROR} Ошибка",
                             description="Пользователь не найден!",
-                            color="RED"
-                        ),
-                        ephemeral=True
-                    )
-                    return
-
-                if member.id == modal_interaction.user.id:
-                    await modal_interaction.response.send_message(
-                        embed=Embed(
-                            title=f"{Emojis.ERROR} Ошибка",
-                            description="Вы не можете управлять своим доступом!",
-                            color="RED"
-                        ),
-                        ephemeral=True
-                    )
-                    return
-
-                if member.bot:
-                    await modal_interaction.response.send_message(
-                        embed=Embed(
-                            title=f"{Emojis.ERROR} Ошибка",
-                            description="Вы не можете управлять доступом ботов!",
                             color="RED"
                         ),
                         ephemeral=True
@@ -390,6 +546,8 @@ class VoiceChannelView(ui.View):
                     raise ValueError("Лимит должен быть от 0 до 99")
                 
                 await channel.edit(user_limit=new_limit)
+                await self.manager.update_temp_room(str(channel.id), user_limit=new_limit)
+                
                 await modal_interaction.response.send_message(
                     embed=Embed(
                         title=f"{Emojis.SUCCESS} Успешно",
@@ -413,13 +571,15 @@ class VoiceChannelView(ui.View):
 
     async def _toggle_lock(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
         """Закрытие/открытие канала"""
-        current_perms = channel.overwrites_for(interaction.guild.default_role)
-        is_locked = not current_perms.connect if current_perms.connect is not None else True
+        room = await self.manager.get_temp_room(str(channel.id))
+        is_locked = not room.get('is_locked', False)
         
         await channel.set_permissions(
             interaction.guild.default_role,
             connect=not is_locked
         )
+        
+        await self.manager.update_temp_room(str(channel.id), is_locked=is_locked)
         
         status = "закрыт" if is_locked else "открыт"
         await interaction.response.send_message(
@@ -461,29 +621,9 @@ class VoiceChannelView(ui.View):
         modal.on_submit = modal_callback
         await interaction.response.send_modal(modal)
 
-    async def _toggle_visibility(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
-        """Переключение видимости канала"""
-        current_perms = channel.overwrites_for(interaction.guild.default_role)
-        is_visible = not current_perms.view_channel if current_perms.view_channel is not None else True
-        
-        await channel.set_permissions(
-            interaction.guild.default_role,
-            view_channel=not is_visible
-        )
-        
-        status = "скрыт" if is_visible else "виден"
-        await interaction.response.send_message(
-            embed=Embed(
-                title=f"{Emojis.SUCCESS} Успешно",
-                description=f"Канал теперь {status}",
-                color="GREEN"
-            ),
-            ephemeral=True
-        )
-
-    async def _kick_user(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
-        """Выгнать пользователя из канала"""
-        modal = ui.Modal(title="Исключение пользователя")
+    async def _trust_user(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
+        """Доверить пользователя"""
+        modal = ui.Modal(title="Доверить пользователя")
         
         user_input = ui.TextInput(
             label="ID или никнейм пользователя",
@@ -496,12 +636,10 @@ class VoiceChannelView(ui.View):
 
         async def modal_callback(modal_interaction: discord.Interaction):
             try:
-                # Пытаемся найти пользователя по ID
                 user_id = ''.join(filter(str.isdigit, user_input.value))
                 if user_id:
                     member = modal_interaction.guild.get_member(int(user_id))
                 else:
-                    # Если ID не найден, ищем по никнейму
                     member = discord.utils.find(
                         lambda m: user_input.value.lower() in m.display_name.lower() or 
                                 user_input.value.lower() in m.name.lower(),
@@ -519,46 +657,12 @@ class VoiceChannelView(ui.View):
                     )
                     return
 
-                if member.id == modal_interaction.user.id:
-                    await modal_interaction.response.send_message(
-                        embed=Embed(
-                            title=f"{Emojis.ERROR} Ошибка",
-                            description="Вы не можете исключить себя!",
-                            color="RED"
-                        ),
-                        ephemeral=True
-                    )
-                    return
-
-                if member.bot:
-                    await modal_interaction.response.send_message(
-                        embed=Embed(
-                            title=f"{Emojis.ERROR} Ошибка",
-                            description="Вы не можете исключить бота!",
-                            color="RED"
-                        ),
-                        ephemeral=True
-                    )
-                    return
-
-                if not member.voice or member.voice.channel != channel:
-                    await modal_interaction.response.send_message(
-                        embed=Embed(
-                            title=f"{Emojis.ERROR} Ошибка",
-                            description="Пользователь не находится в вашем канале!",
-                            color="RED"
-                        ),
-                        ephemeral=True
-                    )
-                    return
-
-                await member.move_to(None)
-                await channel.set_permissions(member, connect=False)
+                await self.manager.add_trusted_user(str(channel.id), str(member.id))
                 
                 await modal_interaction.response.send_message(
                     embed=Embed(
                         title=f"{Emojis.SUCCESS} Успешно",
-                        description=f"Пользователь {member.mention} исключен из канала",
+                        description=f"Пользователь {member.mention} добавлен в доверенные",
                         color="GREEN"
                     ),
                     ephemeral=True
@@ -576,55 +680,53 @@ class VoiceChannelView(ui.View):
         modal.on_submit = modal_callback
         await interaction.response.send_modal(modal)
 
-    async def _toggle_mute(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
-        """Включить/выключить мут для всех"""
-        current_perms = channel.overwrites_for(interaction.guild.default_role)
-        is_muted = not current_perms.speak if current_perms.speak is not None else True
+    async def _untrust_user(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
+        """Убрать доверие у пользователя"""
+        modal = ui.Modal(title="Убрать доверие у пользователя")
         
-        await channel.set_permissions(
-            interaction.guild.default_role,
-            speak=not is_muted
-        )
-        
-        status = "выключен" if is_muted else "включен"
-        await interaction.response.send_message(
-            embed=Embed(
-                title=f"{Emojis.SUCCESS} Успешно",
-                description=f"Голосовой чат {status} для всех пользователей",
-                color="GREEN"
-            ),
-            ephemeral=True
-        )
-
-    async def _change_bitrate(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
-        """Изменение битрейта канала"""
-        modal = ui.Modal(title="Изменение битрейта")
-        
-        bitrate_input = ui.TextInput(
-            label="Новый битрейт (8-96 кбит/с)",
-            placeholder="Введите число от 8 до 96",
+        user_input = ui.TextInput(
+            label="ID или никнейм пользователя",
+            placeholder="Введите ID или никнейм пользователя",
             required=True,
             min_length=1,
-            max_length=2
+            max_length=100
         )
-        modal.add_item(bitrate_input)
+        modal.add_item(user_input)
 
         async def modal_callback(modal_interaction: discord.Interaction):
             try:
-                new_bitrate = int(bitrate_input.value)
-                if new_bitrate < 8 or new_bitrate > 96:
-                    raise ValueError("Битрейт должен быть от 8 до 96 кбит/с")
+                user_id = ''.join(filter(str.isdigit, user_input.value))
+                if user_id:
+                    member = modal_interaction.guild.get_member(int(user_id))
+                else:
+                    member = discord.utils.find(
+                        lambda m: user_input.value.lower() in m.display_name.lower() or 
+                                user_input.value.lower() in m.name.lower(),
+                        modal_interaction.guild.members
+                    )
+
+                if not member:
+                    await modal_interaction.response.send_message(
+                        embed=Embed(
+                            title=f"{Emojis.ERROR} Ошибка",
+                            description="Пользователь не найден!",
+                            color="RED"
+                        ),
+                        ephemeral=True
+                    )
+                    return
+
+                await self.manager.remove_trusted_user(str(channel.id), str(member.id))
                 
-                await channel.edit(bitrate=new_bitrate * 1000)
                 await modal_interaction.response.send_message(
                     embed=Embed(
                         title=f"{Emojis.SUCCESS} Успешно",
-                        description=f"Установлен битрейт: {new_bitrate} кбит/с",
+                        description=f"Пользователь {member.mention} удален из доверенных",
                         color="GREEN"
                     ),
                     ephemeral=True
                 )
-            except ValueError as e:
+            except Exception as e:
                 await modal_interaction.response.send_message(
                     embed=Embed(
                         title=f"{Emojis.ERROR} Ошибка",
@@ -637,10 +739,402 @@ class VoiceChannelView(ui.View):
         modal.on_submit = modal_callback
         await interaction.response.send_modal(modal)
 
+    async def _create_invite(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
+        """Создать приглашение"""
+        modal = ui.Modal(title="Создать приглашение")
+        
+        user_input = ui.TextInput(
+            label="Никнейм пользователя",
+            placeholder="Введите никнейм пользователя",
+            required=True,
+            min_length=1,
+            max_length=100
+        )
+        modal.add_item(user_input)
+
+        async def modal_callback(modal_interaction: discord.Interaction):
+            try:
+                # Ищем пользователя по никнейму
+                member = discord.utils.find(
+                    lambda m: user_input.value.lower() in m.display_name.lower() or 
+                            user_input.value.lower() in m.name.lower(),
+                    modal_interaction.guild.members
+                )
+
+                if not member:
+                    await modal_interaction.response.send_message(
+                        embed=Embed(
+                            title=f"{Emojis.ERROR} Ошибка",
+                            description="Пользователь не найден!",
+                            color="RED"
+                        ),
+                        ephemeral=True
+                    )
+                    return
+                
+                # Создаем приглашение на 24 часа
+                invite = await channel.create_invite(max_age=86400)
+                
+                try:
+                    # Создаем кнопку для приглашения
+                    class InviteView(discord.ui.View):
+                        def __init__(self):
+                            super().__init__(timeout=None)
+                            self.add_item(discord.ui.Button(
+                                label="Присоединиться", 
+                                url=str(invite),
+                                style=discord.ButtonStyle.link
+                            ))
+
+                    # Отправляем приглашение в личные сообщения
+                    await member.send(
+                        embed=Embed( 
+                            title="🎮 Приглашение в голосовой канал",
+                            description=f"Вас приглашают в голосовой канал **{channel.name}**",
+                            color="BLUE"
+                        ),
+                        view=InviteView()
+                    )
+                    
+                    await modal_interaction.response.send_message(
+                        embed=Embed(
+                            title=f"{Emojis.SUCCESS} Успешно",
+                            description=f"Приглашение отправлено пользователю {member.mention}",
+                            color="GREEN"
+                        ),
+                        ephemeral=True
+                    )
+                except discord.Forbidden:
+                    # Создаем view с кнопкой для владельца канала
+                    view = InviteView()
+                    await modal_interaction.response.send_message(
+                        content=f"❌ Не удалось отправить приглашение пользователю {member.mention}.\nВозможно, у него закрыты личные сообщения.",
+                        view=view,
+                        ephemeral=True
+                    )
+            except Exception as e:
+                await modal_interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description=str(e),
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+
+        modal.on_submit = modal_callback
+        await interaction.response.send_modal(modal)
+
+    async def _ban_user(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
+        """Забанить пользователя"""
+        modal = ui.Modal(title="Забанить пользователя")
+        
+        user_input = ui.TextInput(
+            label="ID или никнейм пользователя",
+            placeholder="Введите ID или никнейм пользователя",
+            required=True,
+            min_length=1,
+            max_length=100
+        )
+        modal.add_item(user_input)
+
+        async def modal_callback(modal_interaction: discord.Interaction):
+            try:
+                user_id = ''.join(filter(str.isdigit, user_input.value))
+                if user_id:
+                    member = modal_interaction.guild.get_member(int(user_id))
+                else:
+                    member = discord.utils.find(
+                        lambda m: user_input.value.lower() in m.display_name.lower() or 
+                                user_input.value.lower() in m.name.lower(),
+                        modal_interaction.guild.members
+                    )
+
+                if not member:
+                    await modal_interaction.response.send_message(
+                        embed=Embed(
+                            title=f"{Emojis.ERROR} Ошибка",
+                            description="Пользователь не найден!",
+                            color="RED"
+                        ),
+                        ephemeral=True
+                    )
+                    return
+
+                # Добавляем в глобальный бан-лист
+                await self.manager.add_to_global_banlist(str(member.id), str(modal_interaction.user.id))
+                
+                # Добавляем также в локальный бан текущего канала
+                await self.manager.add_banned_user(str(channel.id), str(member.id))
+                
+                # Кикаем пользователя если он в канале
+                if member.voice and member.voice.channel == channel:
+                    await member.move_to(None)
+                
+                await modal_interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.SUCCESS} Успешно",
+                        description=f"Пользователь {member.mention} добавлен в черный список.\nТеперь он не сможет присоединяться к вашим каналам.",
+                        color="GREEN"
+                    ),
+                    ephemeral=True
+                )
+            except Exception as e:
+                await modal_interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description=str(e),
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+
+        modal.on_submit = modal_callback
+        await interaction.response.send_modal(modal)
+
+    async def _unban_user(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
+        """Разбанить пользователя"""
+        modal = ui.Modal(title="Разбанить пользователя")
+        
+        user_input = ui.TextInput(
+            label="ID или никнейм пользователя",
+            placeholder="Введите ID или никнейм пользователя",
+            required=True,
+            min_length=1,
+            max_length=100
+        )
+        modal.add_item(user_input)
+
+        async def modal_callback(modal_interaction: discord.Interaction):
+            try:
+                user_id = ''.join(filter(str.isdigit, user_input.value))
+                if user_id:
+                    member = modal_interaction.guild.get_member(int(user_id))
+                else:
+                    member = discord.utils.find(
+                        lambda m: user_input.value.lower() in m.display_name.lower() or 
+                                user_input.value.lower() in m.name.lower(),
+                        modal_interaction.guild.members
+                    )
+
+                if not member:
+                    await modal_interaction.response.send_message(
+                        embed=Embed(
+                            title=f"{Emojis.ERROR} Ошибка",
+                            description="Пользователь не найден!",
+                            color="RED"
+                        ),
+                        ephemeral=True
+                    )
+                    return
+
+                # Удаляем из глобального бан-листа
+                await self.manager.remove_from_global_banlist(str(member.id), str(modal_interaction.user.id))
+                
+                # Удаляем также из локального бана текущего канала
+                await self.manager.remove_banned_user(str(channel.id), str(member.id))
+                
+                await modal_interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.SUCCESS} Успешно",
+                        description=f"Пользователь {member.mention} удален из черного списка.\nТеперь он может присоединяться к вашим каналам.",
+                        color="GREEN"
+                    ),
+                    ephemeral=True
+                )
+            except Exception as e:
+                await modal_interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description=str(e),
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+
+        modal.on_submit = modal_callback
+        await interaction.response.send_modal(modal)
+
+    async def _revoke_access(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
+        """Забрать права"""
+        modal = ui.Modal(title="Забрать права")
+        
+        user_input = ui.TextInput(
+            label="ID или никнейм пользователя",
+            placeholder="Введите ID или никнейм пользователя",
+            required=True,
+            min_length=1,
+            max_length=100
+        )
+        modal.add_item(user_input)
+
+        async def modal_callback(modal_interaction: discord.Interaction):
+            try:
+                user_id = ''.join(filter(str.isdigit, user_input.value))
+                if user_id:
+                    member = modal_interaction.guild.get_member(int(user_id))
+                else:
+                    member = discord.utils.find(
+                        lambda m: user_input.value.lower() in m.display_name.lower() or 
+                                user_input.value.lower() in m.name.lower(),
+                        modal_interaction.guild.members
+                    )
+
+                if not member:
+                    await modal_interaction.response.send_message(
+                        embed=Embed(
+                            title=f"{Emojis.ERROR} Ошибка",
+                            description="Пользователь не найден!",
+                            color="RED"
+                        ),
+                        ephemeral=True
+                    )
+                    return
+
+                await member.move_to(None)
+                await channel.set_permissions(member, connect=False)
+                
+                await modal_interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.SUCCESS} Успешно",
+                        description=f"Права пользователя {member.mention} забраты",
+                        color="GREEN"
+                    ),
+                    ephemeral=True
+                )
+            except Exception as e:
+                await modal_interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description=str(e),
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+
+        modal.on_submit = modal_callback
+        await interaction.response.send_modal(modal)
+
+    async def _create_thread(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
+        """Создать ветку обсуждения"""
+        modal = ui.Modal(title="Создать ветку обсуждения")
+        
+        name_input = ui.TextInput(
+            label="Название ветки",
+            placeholder="Введите название ветки",
+            required=True,
+            min_length=1,
+            max_length=100
+        )
+        modal.add_item(name_input)
+
+        async def modal_callback(modal_interaction: discord.Interaction):
+            try:
+                name = name_input.value
+                config = load_config()
+                if 'temp_rooms' not in config or 'channel' not in config['temp_rooms']:
+                    raise ValueError("Канал управления не настроен")
+
+                control_channel_id = config['temp_rooms']['channel']
+                control_channel = self.bot.get_channel(int(control_channel_id))
+                
+                if not control_channel:
+                    raise ValueError("Канал управления не найден")
+
+                # Создаем приватный тред
+                thread = await control_channel.create_thread(
+                    name=name,
+                    type=discord.ChannelType.private_thread,
+                    invitable=False
+                )
+                
+                # Добавляем владельца канала в тред
+                await thread.add_user(modal_interaction.user)
+                
+                # Обновляем информацию о треде в базе данных
+                await self.manager.update_temp_room(str(channel.id), thread_id=str(thread.id))
+                
+                # Отправляем сообщение о создании
+                await thread.send("!")
+
+                await modal_interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.SUCCESS} Успешно",
+                        description=f"Ветка создана: {thread.mention}",
+                        color="GREEN"
+                    ),
+                    ephemeral=True
+                )
+            except Exception as e:
+                await modal_interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description=str(e),
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+
+        modal.on_submit = modal_callback
+        await interaction.response.send_modal(modal)
+
+    async def _change_region(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
+        """Изменить регион"""
+        modal = ui.Modal(title="Изменить регион")
+        
+        region_input = ui.TextInput(
+            label="Новый регион",
+            placeholder="Введите новый регион",
+            required=True,
+            min_length=1,
+            max_length=100
+        )
+        modal.add_item(region_input)
+
+        async def modal_callback(modal_interaction: discord.Interaction):
+            try:
+                new_region = region_input.value
+                await channel.edit(rtc_region=new_region)
+                await self.manager.update_temp_room(str(channel.id), region=new_region)
+                
+                await modal_interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.SUCCESS} Успешно",
+                        description=f"Регион канала изменен на: {new_region}",
+                        color="GREEN"
+                    ),
+                    ephemeral=True
+                )
+            except Exception as e:
+                await modal_interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description=str(e),
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+
+        modal.on_submit = modal_callback
+        await interaction.response.send_modal(modal)
+
+    async def _delete_channel(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
+        """Удалить канал"""
+        await channel.delete()
+        await self.manager.delete_temp_room(str(channel.id))
+        await interaction.response.send_message(
+            embed=Embed(
+                title=f"{Emojis.SUCCESS} Успешно",
+                description=f"Канал {channel.name} успешно удален",
+                color="GREEN"
+            ),
+            ephemeral=True
+        )
+
 class VoiceChannelCog(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, manager):
         self.bot = bot
-        self.manager = VoiceChannelManager()
+        self.manager = manager
         self.voice_logger = VoiceLogger(bot)
         asyncio.create_task(self._initialize())
         
@@ -706,18 +1200,23 @@ class VoiceChannelCog(commands.Cog):
                             title="🎮 Управление временным каналом",
                             description=(
                                 "Используйте кнопки ниже для управления вашим временным каналом:\n\n"
-                                "👑 - Передать права владельца\n"
-                                "👥 - Управление доступом\n"
-                                "🔢 - Изменить лимит пользователей\n"
-                                "🔒 - Закрыть/открыть канал\n"
-                                "✏️ - Переименовать канал\n"
-                                "👁️ - Переключить видимость канала\n"
-                                "👢 - Выгнать пользователя\n"
-                                "🔇 - Включить/выключить мут для всех\n"
-                                "🔉 - Изменить битрейт канала"
+                                f"{Emojis.VOICE_OWNER} - Передать права владельца\n"
+                                f"{Emojis.VOICE_ACCESS} - Управление доступом\n"
+                                f"{Emojis.VOICE_LIMIT} - Изменить лимит пользователей\n"
+                                f"{Emojis.VOICE_LOCK} - Закрыть/открыть канал\n"
+                                f"{Emojis.VOICE_EDIT} - Переименовать канал\n"
+                                f"{Emojis.VOICE_TRUST} - Доверять пользователю\n"
+                                f"{Emojis.VOICE_UNTRUST} - Не доверять пользователю\n"
+                                f"{Emojis.VOICE_INVITE} - Создать приглашение\n"
+                                f"{Emojis.VOICE_BAN} - Забанить пользователя\n"
+                                f"{Emojis.VOICE_UNBAN} - Разбанить пользователя\n"
+                                f"{Emojis.VOICE_REVOKE} - Забрать права\n"
+                                f"{Emojis.VOICE_THREAD} - Создать ветку обсуждения\n"
+                                f"{Emojis.VOICE_REGION} - Изменить регион\n"
+                                f"{Emojis.VOICE_DELETE} - Удалить канал"
                             ),
                             color="BLUE"
-                        )
+                        ).set_image(url="https://media.discordapp.net/attachments/1332296613988794450/1336455114126262422/voice.png?ex=67a3de51&is=67a28cd1&hm=61524318fecfadefce607fff7625d11d3ce2f0eae45a52d5228bc1ee0e3082e2&=&format=webp&quality=lossless&width=1920&height=640")  # Замените URL на свой
                         await message.edit(embed=embed, view=self.create_panel_view())
                         return
                 except discord.NotFound:
@@ -731,81 +1230,170 @@ class VoiceChannelCog(commands.Cog):
             
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-        """Обработчик изменений голосового состояния"""
+        """Обработчик изменения голосового состояния"""
         try:
             config = load_config()
             if 'temp_rooms' not in config or 'voice' not in config['temp_rooms']:
                 return
                 
             voice_channel_id = config['temp_rooms']['voice']
-            category_id = config['temp_rooms']['category']
             
             # Если пользователь зашел в канал создания
             if after.channel and str(after.channel.id) == str(voice_channel_id):
-                category = member.guild.get_channel(int(category_id))
-                if not category:
-                    print(f"❌ Категория {category_id} не найдена")
-                    return
+                await self.create_temp_channel(member)
+                return
+                
+            # Если пользователь покинул канал
+            if before.channel:
+                # Проверяем, является ли канал временным
+                room = await self.manager.get_temp_room(str(before.channel.id))
+                if room:
+                    # Если есть тред, удаляем пользователя из него
+                    if 'thread_id' in room and room['thread_id']:
+                        try:
+                            thread = self.bot.get_channel(int(room['thread_id']))
+                            if thread:
+                                await thread.remove_user(member)
+                        except Exception as e:
+                            traceback.print_exc()
 
-                # Создаем права доступа для канала
-                overwrites = {
-                    member: discord.PermissionOverwrite(
-                        manage_channels=True,
-                        move_members=True,
-                        view_channel=True,
-                        connect=True,
-                        speak=True
-                    ),
-                    member.guild.default_role: discord.PermissionOverwrite(
-                        view_channel=True,
-                        connect=True,
-                        speak=True
-                    )
-                }
-                
-                # Создаем новый канал
-                new_channel = await member.guild.create_voice_channel(
-                    f"Канал {member.display_name}",
-                    category=category,
-                    overwrites=overwrites
-                )
-                
-                # Сохраняем в базу данных
-                await self.manager.db.execute(
-                    """
-                    INSERT INTO temp_rooms (channel_id, guild_id, owner_id, name, channel_type)
-                    VALUES (?, ?, ?, ?, ?)
-                    """,
-                    str(new_channel.id), str(member.guild.id), str(member.id), new_channel.name, 2
-                )
-                
-                # Перемещаем пользователя в новый канал
-                await member.move_to(new_channel)
-                print(f"✅ Создан временный канал {new_channel.id} для {member.name}")
-                    
-            # Если пользователь вышел из временного канала
-            elif before.channel:
-                result = await self.manager.db.fetch_one(
-                    """
-                    SELECT owner_id 
-                    FROM temp_rooms 
-                    WHERE channel_id = ?
-                    """,
-                    str(before.channel.id)
-                )
-                
-                if result and not before.channel.members:
-                    try:
+                    # Если канал пустой, удаляем его и связанный тред
+                    if len(before.channel.members) == 0:
+                        if 'thread_id' in room and room['thread_id']:
+                            try:
+                                thread = self.bot.get_channel(int(room['thread_id']))
+                                if thread:
+                                    await thread.delete()
+                            except Exception as e:
+                                traceback.print_exc()
+                        
                         await before.channel.delete()
                         await self.manager.delete_temp_room(str(before.channel.id))
-                        print(f"✅ Удален пустой временный канал {before.channel.name}")
-                    except Exception as e:
-                        print(f"❌ Ошибка при удалении канала: {e}")
-                        traceback.print_exc()
-                    
+                        
+            # Если пользователь присоединился к каналу
+            if after.channel:
+                # Проверяем, является ли канал временным
+                room = await self.manager.get_temp_room(str(after.channel.id))
+                if room:
+                    # Проверяем глобальный бан
+                    if await self.manager.is_globally_banned(str(member.id), str(room['owner_id'])):
+                        await member.move_to(None)
+                        await member.send(
+                            embed=Embed(
+                                title=f"{Emojis.ERROR} Ошибка",
+                                description="Вы находитесь в черном списке владельца канала!",
+                                color="RED"
+                            )
+                        )
+                        return
+
+                    # Проверяем, не забанен ли пользователь в этом канале
+                    if await self.manager.is_banned(str(after.channel.id), str(member.id)):
+                        await member.move_to(None)
+                        await member.send(
+                            embed=Embed(
+                                title=f"{Emojis.ERROR} Ошибка",
+                                description="Вы забанены в этом канале!",
+                                color="RED"
+                            )
+                        )
+                        return
+                        
+                    # Проверяем, не заблокирован ли канал
+                    if room.get('is_locked', False) and not await self.manager.is_trusted(str(after.channel.id), str(member.id)):
+                        await member.move_to(None)
+                        await member.send(
+                            embed=Embed(
+                                title=f"{Emojis.ERROR} Ошибка",
+                                description="Этот канал заблокирован!",
+                                color="RED"
+                            )
+                        )
+                        return
+                        
+                    # Проверяем лимит пользователей
+                    if room.get('user_limit', 0) > 0 and len(after.channel.members) > room['user_limit']:
+                        await member.move_to(None)
+                        await member.send(
+                            embed=Embed(
+                                title=f"{Emojis.ERROR} Ошибка",
+                                description="В канале достигнут лимит пользователей!",
+                                color="RED"
+                            )
+                        )
+                        return
+
+                    # Если есть тред, добавляем пользователя
+                    if 'thread_id' in room and room['thread_id']:
+                        try:
+                            thread = self.bot.get_channel(int(room['thread_id']))
+                            if thread:
+                                await thread.add_user(member)
+                        except Exception as e:
+                            traceback.print_exc()
+                        
         except Exception as e:
-            print(f"❌ Ошибка при обработке голосового события: {e}")
             traceback.print_exc()
 
+    async def create_temp_channel(self, member: discord.Member) -> Optional[discord.VoiceChannel]:
+        """Создает временный голосовой канал"""
+        try:
+            config = load_config()
+            if 'temp_rooms' not in config or 'voice' not in config['temp_rooms']:
+                return None
+                
+            category_id = config['temp_rooms']['category']
+            category = member.guild.get_channel(int(category_id))
+            if not category:
+                return None
+                
+            # Создаем права доступа для канала
+            overwrites = {
+                member: discord.PermissionOverwrite(
+                    manage_channels=True,
+                    move_members=True,
+                    view_channel=True,
+                    connect=True,
+                    speak=True,
+                    stream=True,
+                    use_voice_activation=True
+                ),
+                member.guild.default_role: discord.PermissionOverwrite(
+                    view_channel=True,
+                    connect=True,
+                    speak=True,
+                    stream=True,
+                    use_voice_activation=True
+                )
+            }
+            
+            # Создаем новый канал
+            new_channel = await member.guild.create_voice_channel(
+                f"Канал {member.display_name}",
+                category=category,
+                overwrites=overwrites,
+                bitrate=64000,
+                user_limit=0
+            )
+            
+            # Добавляем канал в базу данных
+            await self.manager.add_channel(
+                channel_id=str(new_channel.id),
+                user_id=str(member.id),
+                guild_id=str(member.guild.id),
+                name=new_channel.name
+            )
+            
+            # Перемещаем пользователя в новый канал
+            await member.move_to(new_channel)
+            return new_channel
+            
+        except Exception as e:
+            traceback.print_exc()
+            return None
+
 async def setup(bot):
-    await bot.add_cog(VoiceChannelCog(bot)) 
+    """Регистрация компонентов"""
+    manager = VoiceChannelManager(bot)
+    await manager.db.init()
+    await bot.add_cog(VoiceChannelCog(bot, manager)) 

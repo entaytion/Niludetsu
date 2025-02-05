@@ -208,3 +208,36 @@ class UserLogger(BaseLogger):
             fields=fields,
             thumbnail_url=member.display_avatar.url
         ) 
+
+    async def log_user_update(self, before: discord.User, after: discord.User):
+        """Логирование изменений пользователя"""
+        changes = []
+
+        # Проверяем изменение имени
+        if before.name != after.name:
+            changes.append(f"**Имя:** {before.name} ➜ {after.name}")
+
+        # Проверяем изменение дискриминатора
+        if before.discriminator != after.discriminator:
+            changes.append(f"**Дискриминатор:** #{before.discriminator} ➜ #{after.discriminator}")
+
+        # Проверяем изменение аватара
+        if before.avatar != after.avatar:
+            changes.append("**Аватар изменен**")
+
+        # Проверяем изменение баннера
+        if before.banner != after.banner:
+            changes.append("**Баннер изменен**")
+
+        # Если есть изменения, отправляем лог
+        if changes:
+            await self.log_event(
+                title=f"{Emojis.INFO} Обновление пользователя",
+                description="\n".join(changes),
+                color="BLUE",
+                fields=[
+                    {"name": "Пользователь", "value": after.mention, "inline": True},
+                    {"name": "ID", "value": str(after.id), "inline": True}
+                ],
+                thumbnail_url=after.display_avatar.url
+            ) 

@@ -4,10 +4,12 @@ from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 import io
 import os
+from Niludetsu.database import Database
 
 class Birthday(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.db = Database()
         self.check_birthdays.start()
         self.font_path = "assets/fonts/Montserrat-Bold.ttf"  # Путь к шрифту
         self.template_path = "assets/images/birthday.png"  # Путь к шаблону картинки
@@ -53,11 +55,10 @@ class Birthday(commands.Cog):
             current_date = datetime.now().strftime("%d.%M")
             
             # Получаем всех пользователей, у которых сегодня день рождения
-            async with self.bot.pool.acquire() as conn:
-                users = await conn.fetch(
-                    "SELECT user_id, name FROM users WHERE birthday = $1",
-                    current_date
-                )
+            users = await self.db.fetch_all(
+                "SELECT user_id, name FROM users WHERE birthday = $1",
+                current_date
+            )
                 
             if not users:
                 return
@@ -92,13 +93,12 @@ class Birthday(commands.Cog):
                 )
                 
                 # Выдаем подарок
-                async with self.bot.pool.acquire() as conn:
-                    await conn.execute(
-                        "UPDATE users SET balance = balance + $1 WHERE user_id = $2",
-                        1000,
-                        str(member.id)
-                    )
-                    
+                await self.db.execute(
+                    "UPDATE users SET balance = balance + $1 WHERE user_id = $2",
+                    1000,
+                    str(member.id)
+                )
+                
         except Exception as e:
             print(f"Ошибка при проверке дней рождения: {e}")
             

@@ -167,6 +167,12 @@ async def setup_hook():
     try:
         global server_checker, level_system
         bot_state.reset()
+        
+        # Инициализируем базу данных и создаем пул подключений
+        db = Database()
+        await db.init()
+        bot.pool = db.pool
+        
         await load_cogs()
         
         # Инициализируем системные компоненты

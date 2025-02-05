@@ -58,11 +58,19 @@ class Tables:
         # Таблица временных каналов
         "temp_rooms": {
             "channel_id": "TEXT PRIMARY KEY",
-            "guild_id": "TEXT",
-            "owner_id": "TEXT",
-            "name": "TEXT",
-            "channel_type": "INTEGER",
-            "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+            "guild_id": "TEXT NOT NULL",
+            "owner_id": "TEXT NOT NULL",
+            "name": "TEXT NOT NULL",
+            "channel_type": "INTEGER DEFAULT 2",
+            "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
+            "trusted_users": "TEXT DEFAULT '[]'",
+            "banned_users": "TEXT DEFAULT '[]'",
+            "region": "TEXT",
+            "bitrate": "INTEGER DEFAULT 64000",
+            "user_limit": "INTEGER DEFAULT 0",
+            "is_locked": "BOOLEAN DEFAULT FALSE",
+            "is_hidden": "BOOLEAN DEFAULT FALSE",
+            "thread_id": "TEXT"
         },
         
         # Таблица розыгрышей
@@ -86,6 +94,15 @@ class Tables:
             "description": "TEXT",
             "purchases": "INTEGER DEFAULT 0",
             "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+        },
+        
+        # Таблица глобальных банов
+        "global_bans": {
+            "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+            "banned_user_id": "TEXT NOT NULL",
+            "owner_id": "TEXT NOT NULL",
+            "timestamp": "DATETIME DEFAULT CURRENT_TIMESTAMP",
+            "UNIQUE": "(banned_user_id, owner_id)"
         }
     }
     

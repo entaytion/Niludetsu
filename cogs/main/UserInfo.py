@@ -17,13 +17,56 @@ def format_date(date):
     return f"<t:{int(date.timestamp())}:F> (<t:{int(date.timestamp())}:R>)"
 
 def get_member_status(member):
-    status_emoji = {
-        discord.Status.online: "🟢 В сети",
-        discord.Status.idle: "🟡 Неактивен",
-        discord.Status.dnd: "🔴 Не беспокоить",
-        discord.Status.offline: "⚫ Не в сети"
+    """Получает подробный статус пользователя"""
+    if not member:
+        return "❓ Неизвестно"
+
+    # Словарь статусов для каждой платформы
+    platform_status = {
+        "desktop": "💻",
+        "mobile": "📱",
+        "web": "🌐"
     }
-    return status_emoji.get(member.status, "❓ Неизвестно")
+
+    # Получаем статус для каждой платформы
+    statuses = []
+    
+    # Desktop статус
+    if member.desktop_status != discord.Status.offline:
+        emoji = {
+            discord.Status.online: "🟢",
+            discord.Status.idle: "🟡",
+            discord.Status.dnd: "🔴"
+        }.get(member.desktop_status, "")
+        if emoji:
+            statuses.append(f"{platform_status['desktop']} {emoji}")
+    
+    # Mobile статус
+    if member.mobile_status != discord.Status.offline:
+        emoji = {
+            discord.Status.online: "🟢",
+            discord.Status.idle: "🟡",
+            discord.Status.dnd: "🔴"
+        }.get(member.mobile_status, "")
+        if emoji:
+            statuses.append(f"{platform_status['mobile']} {emoji}")
+    
+    # Web статус
+    if member.web_status != discord.Status.offline:
+        emoji = {
+            discord.Status.online: "🟢",
+            discord.Status.idle: "🟡",
+            discord.Status.dnd: "🔴"
+        }.get(member.web_status, "")
+        if emoji:
+            statuses.append(f"{platform_status['web']} {emoji}")
+    
+    # Если нет активных статусов, значит пользователь оффлайн
+    if not statuses:
+        return "⚫ Не в сети"
+    
+    # Возвращаем все активные статусы
+    return "\n".join(statuses)
 
 def get_user_badges(user):
     badges = []

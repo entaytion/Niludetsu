@@ -1,5 +1,5 @@
 from typing import Dict, List, Union
-
+import discord
 # Цвета для эмбедов
 class Colors:
     PRIMARY = 0xf20c3c   # Стандартный цвет.
@@ -44,15 +44,20 @@ class Emojis:
     PLUS = "➕"
     MINUS = "➖"
     # --- TEMP VOICES ---
-    VoiceCrown = '<:VoiceCrown:1332417411370057781>'
-    VoiceUsers = '<:VoiceUsers:1332418260435603476>'
-    VoiceNumbers = '<:VoiceNumbers:1332418493915725854>'
-    VoiceLock = '<:VoiceLock:1332418712304615495>'
-    VoiceEdit = '<:VoiceEdit:1332418910242471967>'
-    VoiceVisible = '<:VoiceVisible:1332419077184163920>'
-    VoiceKick = '<:VoiceKick:1332419383003447427>'
-    VoiceMute = '<:VoiceMute:1332419509830553601>'
-    VoiceBitrate = '<:VoiceBitrate:1332419630672904294>'
+    VOICE_OWNER = discord.PartialEmoji(name="BotVoiceOwner", id=1336443766818607125)
+    VOICE_ACCESS = discord.PartialEmoji(name="BotVoiceAccess", id=1336444624952360960)
+    VOICE_LIMIT = discord.PartialEmoji(name="BotVoiceLimit", id=1336442691466039336)
+    VOICE_LOCK = discord.PartialEmoji(name="BotVoiceLock", id=1336445141145223178)
+    VOICE_EDIT = discord.PartialEmoji(name="BotVoiceEdit", id=1336440917179236516)
+    VOICE_TRUST = discord.PartialEmoji(name="BotVoiceTrust", id=1336448274718130176)
+    VOICE_UNTRUST = discord.PartialEmoji(name="BotVoiceUntrust", id=1336448623189168159)
+    VOICE_INVITE = discord.PartialEmoji(name="BotVoiceInvite", id=1336450141019836547)
+    VOICE_BAN = discord.PartialEmoji(name="BotVoiceBan", id=1336451916414058536)
+    VOICE_UNBAN = discord.PartialEmoji(name="BotVoiceUnban", id=1336452202453012583)
+    VOICE_REVOKE = discord.PartialEmoji(name="BotVoiceRevoke", id=1336453162588049418)
+    VOICE_THREAD = discord.PartialEmoji(name="BotVoiceThread", id=1336453454180122624)
+    VOICE_REGION = discord.PartialEmoji(name="BotVoiceRegion", id=1336453956796284979)
+    VOICE_DELETE = discord.PartialEmoji(name="BotVoiceDelete", id=1336454612999340225)
     # --- ANALYTICS ---
     STATS = '<:AnalyticsStats:1332731704015847455>'
     INFO = '<:AnalyticsInfo:1332731894491779164>'
