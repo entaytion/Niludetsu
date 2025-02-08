@@ -6,6 +6,14 @@ from Niludetsu.utils.constants import Emojis
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
 import asyncio
 
+def has_manage_messages():
+    async def predicate(interaction: discord.Interaction) -> bool:
+        if not interaction.user.guild_permissions.manage_messages:
+            await interaction.response.send_message("У вас недостаточно прав для использования этой команды! Требуется право: `Управление сообщениями`", ephemeral=True)
+            return False
+        return True
+    return app_commands.check(predicate)
+
 class Clear(commands.Cog):
     def __init__(self, bot):
         self.bot = bot

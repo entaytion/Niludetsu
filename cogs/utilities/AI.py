@@ -21,12 +21,6 @@ class AI(commands.Cog):
         self.AI_EMOJI = "🤖"
         # Словарь провайдеров с их характеристиками
         self.provider_info: Dict[g4f.Provider, Dict] = {
-            g4f.Provider.AIChatFree: {
-                "name": "AI Chat Free",
-                "auth": ProviderCategory.NO_AUTH,
-                "models": ["gemini-1.5-pro"],
-                "default_model": "gemini-1.5-pro"
-            },
             g4f.Provider.AIUncensored: {
                 "name": "AI Uncensored",
                 "auth": ProviderCategory.OPTIONAL_API,
@@ -216,7 +210,6 @@ class AI(commands.Cog):
         # Начинаем с последнего успешного провайдера, если он есть
         if self.last_used_provider and self.last_used_provider in self.providers:
             start_index = self.providers.index(self.last_used_provider)
-            # Переставляем список так, чтобы начать с последнего успешного
             providers_list = self.providers[start_index:] + self.providers[:start_index]
         else:
             providers_list = self.providers
@@ -231,38 +224,54 @@ class AI(commands.Cog):
             provider_info = self.provider_info[provider]
             model = provider_info["default_model"]
             
-            # Проверяем, поддерживает ли провайдер асинхронную работу
-            if hasattr(provider, 'create_async'):
-                response = await provider.create_async(
-                    model=model,
-                    messages=[{
-                        "role": "system",
-                        "content": "Ты - полезный ассистент, который отвечает на русском языке."
-                    }, {
-                        "role": "user",
-                        "content": prompt
-                    }]
-                )
-            else:
-                # Для синхронных провайдеров используем run_in_executor
-                response = await asyncio.get_event_loop().run_in_executor(
-                    None,
-                    lambda: g4f.ChatCompletion.create(
-                        model=model,
-                        messages=[{
-                            "role": "system",
-                            "content": "Ты - полезный ассистент, который отвечает на русском языке."
-                        }, {
-                            "role": "user",
-                            "content": prompt
-                        }],
-                        provider=provider
-                    )
-                )
+            try:
+                # Проверяем, поддерживает ли провайдер асинхронную работу
+                if hasattr(provider, 'create_async'):
+                    try:
+                        response = await asyncio.wait_for(
+                            provider.create_async(
+                                model=model,
+                                messages=[{
+                                    "role": "system",
+                                    "content": "Ты - полезный ассистент, который отвечает на русском языке."
+                                }, {
+                                    "role": "user",
+                                    "content": prompt
+                                }]
+                            ),
+                            timeout=30.0  # Таймаут 30 секунд
+                        )
+                    except asyncio.TimeoutError:
+                        continue
+                else:
+                    # Для синхронных провайдеров используем run_in_executor с таймаутом
+                    try:
+                        response = await asyncio.wait_for(
+                            asyncio.get_event_loop().run_in_executor(
+                                None,
+                                lambda: g4f.ChatCompletion.create(
+                                    model=model,
+                                    messages=[{
+                                        "role": "system",
+                                        "content": "Ты - полезный ассистент, который отвечает на русском языке."
+                                    }, {
+                                        "role": "user",
+                                        "content": prompt
+                                    }],
+                                    provider=provider
+                                )
+                            ),
+                            timeout=30.0  # Таймаут 30 секунд
+                        )
+                    except asyncio.TimeoutError:
+                        continue
 
-            if response and isinstance(response, str):
-                self.last_used_provider = provider
-                return response, provider_info["name"]
+                if response and isinstance(response, str):
+                    self.last_used_provider = provider
+                    return response, provider_info["name"]
+                    
+            except Exception as e:
+                continue
         
         # Если все провайдеры перепробованы и ни один не сработал
         return None, None
