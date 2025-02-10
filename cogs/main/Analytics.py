@@ -12,7 +12,7 @@ import io
 import time
 from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.constants import Emojis
-from Niludetsu.analytics import BotAnalytics, ServerAnalytics, RolesAnalytics, ChannelsAnalytics
+from Niludetsu.analytics import BotAnalytics, ServerAnalytics, RolesAnalytics, ChannelsAnalytics, MessageAnalytics
 
 # Добавляем кастомный шрифт
 plt.rcParams['font.family'] = 'sans-serif'
@@ -62,6 +62,7 @@ class Analytics(commands.Cog):
         self.server_analytics = ServerAnalytics(bot)
         self.roles_analytics = RolesAnalytics(bot)
         self.channels_analytics = ChannelsAnalytics(bot)
+        self.message_analytics = MessageAnalytics(bot)
         
     def get_bot_uptime(self):
         """Получить время работы бота"""
@@ -108,7 +109,7 @@ class Analytics(commands.Cog):
         ax.spines['right'].set_color(COLORS['grid'])
         
         # Настройка отступов
-        plt.tight_layout()
+        fig.tight_layout()
         
     analytics_group = app_commands.Group(name="analytics", description="Аналитика сервера и бота")
     
@@ -213,6 +214,33 @@ class Analytics(commands.Cog):
 
         guild = ctx.guild if not is_interaction else ctx.guild
         embed, file = await self.channels_analytics.generate_analytics(guild)
+        
+        if is_interaction:
+            await ctx.followup.send(embed=embed, file=file)
+        else:
+            await ctx.send(embed=embed, file=file)
+
+    # Команда с префиксом для message_analytics
+    @commands.command(name="amessages", description="Показать аналитику сообщений")
+    async def messages_prefix(self, ctx):
+        """Показывает аналитику сообщений сервера (команда с префиксом)"""
+        await self._show_message_analytics(ctx)
+
+    @analytics_group.command(name="messages", description="Показать аналитику сообщений")
+    async def messages_slash(self, interaction: discord.Interaction):
+        """Показывает аналитику сообщений сервера (слэш-команда)"""
+        await self._show_message_analytics(interaction)
+
+    async def _show_message_analytics(self, ctx):
+        """Общая логика для показа аналитики сообщений"""
+        is_interaction = isinstance(ctx, discord.Interaction)
+        if is_interaction:
+            await ctx.response.defer()
+        else:
+            await ctx.defer()
+
+        guild = ctx.guild if not is_interaction else ctx.guild
+        embed, file = await self.message_analytics.generate_analytics(guild)
         
         if is_interaction:
             await ctx.followup.send(embed=embed, file=file)

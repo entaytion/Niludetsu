@@ -49,7 +49,4 @@ class BaseAnalytics:
         ax.spines['bottom'].set_color(COLORS['grid'])
         ax.spines['top'].set_color(COLORS['grid'])
         ax.spines['left'].set_color(COLORS['grid'])
-        ax.spines['right'].set_color(COLORS['grid'])
-        
-        # Настройка отступов
-        plt.tight_layout() 
+        ax.spines['right'].set_color(COLORS['grid']) 

@@ -44,7 +44,8 @@ class ServerAnalytics(BaseAnalytics):
         boosters = len(guild.premium_subscribers)
         
         # Создаем график активности по дням недели
-        fig, ax = plt.subplots(figsize=(10, 5))
+        plt.figure(figsize=(10, 5))
+        ax = plt.gca()
         
         days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
         member_joins = [0] * 7
@@ -69,11 +70,14 @@ class ServerAnalytics(BaseAnalytics):
         ax.set_xlabel('День недели')
         ax.set_ylabel('Количество участников')
         
-        self.style_plot(fig, ax)
+        self.style_plot(plt.gcf(), ax)
+        
+        # Устанавливаем отступы вручную
+        plt.subplots_adjust(left=0.12, right=0.95, top=0.9, bottom=0.1)
         
         # Сохраняем график
         buffer = io.BytesIO()
-        plt.savefig(buffer, format='png', transparent=True, dpi=300, bbox_inches='tight')
+        plt.savefig(buffer, format='png', dpi=300)
         buffer.seek(0)
         plt.close()
         

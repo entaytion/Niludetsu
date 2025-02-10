@@ -6,7 +6,8 @@ discord.py==2.4.0
 easy_pil==0.4.0
 g4f==0.4.3.3
 humanize==4.11.0
-matplotlib==3.5.3
+numpy==1.24.3
+matplotlib==3.7.1
 mcstatus==11.1.1
 Pillow==10.1.0
 psutil==6.1.1

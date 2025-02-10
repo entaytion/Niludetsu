@@ -58,6 +58,13 @@ class AutoRoles(commands.Cog):
         if not self.config.get('autoroles'):
             return
             
+        if member.bot:
+            # Выдаем роль бота
+            bot_role = self.config['autoroles'].get('bot_role')
+            if bot_role:
+                await self.add_roles(member, [bot_role])
+            return
+            
         # Выдаем роль unverified
         unverified_role = self.config['autoroles'].get('unverified_role')
         if unverified_role:

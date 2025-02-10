@@ -13,6 +13,36 @@ class ChannelLogger(BaseLogger):
         try:
             changes = []
             
+            # Проверяем изменения прав доступа для всех типов каналов
+            before_overwrites = {(k.id, tuple(sorted(v))) for k, v in before.overwrites.items()}
+            after_overwrites = {(k.id, tuple(sorted(v))) for k, v in after.overwrites.items()}
+            
+            if before_overwrites != after_overwrites:
+                # Находим добавленные и удаленные права
+                removed = before_overwrites - after_overwrites
+                added = after_overwrites - before_overwrites
+                
+                for target_id, _ in removed:
+                    target = before.guild.get_role(target_id) or before.guild.get_member(target_id)
+                    if target:
+                        changes.append(f"Удалены права для {target.mention}")
+                        
+                for target_id, perms in added:
+                    target = after.guild.get_role(target_id) or after.guild.get_member(target_id)
+                    if target:
+                        changes.append(f"Добавлены права для {target.mention}")
+                        
+                # Находим измененные права
+                common_targets = before_overwrites.intersection(after_overwrites)
+                for target_id, before_perms in before_overwrites:
+                    if (target_id, before_perms) in common_targets:
+                        after_perms = next(p for t, p in after_overwrites if t == target_id)
+                        if before_perms != after_perms:
+                            target = after.guild.get_role(target_id) or after.guild.get_member(target_id)
+                            if target:
+                                changes.append(f"Изменены права для {target.mention}")
+            
+            # Остальные проверки для разных типов каналов
             if isinstance(before, discord.TextChannel) and isinstance(after, discord.TextChannel):
                 if before.name != after.name:
                     changes.append(f"Название: {before.name} ➜ {after.name}")
@@ -64,13 +94,6 @@ class ChannelLogger(BaseLogger):
                     changes.append(f"Название: {before.name} ➜ {after.name}")
                 if before.position != after.position:
                     changes.append(f"Позиция: {before.position} ➜ {after.position}")
-                
-                # Проверяем изменения прав доступа категории
-                before_overwrites = set((k.id, tuple(v)) for k, v in before.overwrites.items())
-                after_overwrites = set((k.id, tuple(v)) for k, v in after.overwrites.items())
-                
-                if before_overwrites != after_overwrites:
-                    changes.append("Изменены права доступа категории")
                     
             if changes:
                 channel_type = "Категория" if isinstance(after, discord.CategoryChannel) else "Канал"

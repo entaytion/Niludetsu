@@ -157,8 +157,8 @@ class InviteTracker:
     async def format_join_message(self, member: discord.Member, invite: Optional[discord.Invite]) -> discord.Embed:
         """Форматирует сообщение о входе участника"""
         embed=Embed(
-            title=f"👋 Новый участник #{len(member.guild.members)}",
-            color=0x2ecc71,
+            title=f"👋 Новый {'бот' if member.bot else 'участник'} #{len(member.guild.members)}",
+            color=0x2ecc71 if not member.bot else 0x3498db,
             timestamp=datetime.now(timezone.utc)
         )
         
@@ -172,7 +172,7 @@ class InviteTracker:
         
         # Основная информация об участнике
         embed.add_field(
-            name="👤 Участник",
+            name=f"{'🤖' if member.bot else '👤'} {'Бот' if member.bot else 'Участник'}",
             value=f"{member.mention}\n`{member.name}`\nID: `{member.id}`",
             inline=False
         )
@@ -181,7 +181,7 @@ class InviteTracker:
         created_timestamp = int(member.created_at.timestamp())
         embed.add_field(
             name="📅 Информация об аккаунте",
-            value=f"Создан: <t:{created_timestamp}:D> (<t:{created_timestamp}:R>)\n{account_info}",
+            value=f"Создан: <t:{created_timestamp}:D> (<t:{created_timestamp}:R>)\n{account_info if not member.bot else '🤖 Бот'}",
             inline=False
         )
         
@@ -190,7 +190,7 @@ class InviteTracker:
             inviter = invite.inviter
             invite_info = [
                 f"🔗 Код: `{invite.code}`",
-                f"👥 Пригласил: {inviter.mention if inviter else 'Неизвестно'}",
+                f"👥 Добавил: {inviter.mention if inviter else 'Неизвестно'}",
                 f"📊 Использований: `{invite.uses}`",
                 f"📨 Источник: {source_info}"
             ]
@@ -216,20 +216,21 @@ class InviteTracker:
                 inline=False
             )
             
-        # Добавляем предупреждение для подозрительных аккаунтов
-        if account_type == AccountType.SUSPICIOUS:
-            embed.description = "⚠️ **Внимание!** Этот аккаунт был создан совсем недавно и может быть подозрительным!"
-            embed.color = 0xe74c3c
-        elif account_type == AccountType.NEW:
-            embed.description = "ℹ️ Это новый аккаунт Discord"
-            embed.color = 0xf1c40f
+        # Добавляем предупреждение для подозрительных аккаунтов (только для обычных пользователей)
+        if not member.bot:
+            if account_type == AccountType.SUSPICIOUS:
+                embed.description = "⚠️ **Внимание!** Этот аккаунт был создан совсем недавно и может быть подозрительным!"
+                embed.color = 0xe74c3c
+            elif account_type == AccountType.NEW:
+                embed.description = "ℹ️ Это новый аккаунт Discord"
+                embed.color = 0xf1c40f
             
         return embed
 
     async def format_leave_message(self, member: discord.Member) -> discord.Embed:
         """Форматирует сообщение о выходе участника"""
         embed=Embed(
-            title=f"👋 Участник покинул сервер",
+            title=f"👋 {'Бот' if member.bot else 'Участник'} покинул сервер",
             color=0xe74c3c,
             timestamp=datetime.now(timezone.utc)
         )
@@ -238,7 +239,7 @@ class InviteTracker:
         
         # Основная информация об участнике
         embed.add_field(
-            name="👤 Участник",
+            name=f"{'🤖' if member.bot else '👤'} {'Бот' if member.bot else 'Участник'}",
             value=f"`{member.name}`\nID: `{member.id}`",
             inline=False
         )
@@ -295,9 +296,6 @@ class InviteTracker:
 
     async def on_member_join(self, member: discord.Member):
         """Обработчик события входа участника"""
-        if member.bot:
-            return
-            
         guild = member.guild
         log_channel_id = self.get_log_channel(guild.id)
         if not log_channel_id:
@@ -317,9 +315,6 @@ class InviteTracker:
 
     async def on_member_remove(self, member: discord.Member):
         """Обработчик события выхода участника"""
-        if member.bot:
-            return
-            
         guild = member.guild
         log_channel_id = self.get_log_channel(guild.id)
         if not log_channel_id:

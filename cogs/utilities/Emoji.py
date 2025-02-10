@@ -164,5 +164,92 @@ class Emoji(commands.Cog):
         )
         await interaction.followup.send(embed=embed, file=file)
 
+    @commands.command(
+        name="addemoji",
+        description="Добавить эмодзи на сервер",
+        aliases=['adde']
+    )
+    @commands.is_owner()
+    async def add_emoji(self, ctx, *, emoji_text: str):
+        """Добавить эмодзи на сервер из ссылки в тексте
+        
+        Параметры:
+        ---------------
+        emoji_text: Текст, содержащий название и ссылку на эмодзи в формате [name](url)
+        """
+        try:
+            # Извлекаем имя и URL из текста формата [name](url)
+            import re
+            match = re.match(r'\[(.+?)\]\((.+?)\)', emoji_text)
+            if not match:
+                raise ValueError("Неверный формат. Используйте: [name](url)")
+            
+            name, url = match.groups()
+            
+            # Очищаем имя от недопустимых символов
+            name = re.sub(r'[^a-zA-Z0-9_]', '', name)
+            
+            # Проверяем валидность имени
+            if not name:
+                raise ValueError("Имя эмодзи должно содержать буквы, цифры или подчеркивания")
+            if len(name) < 2:
+                raise ValueError("Имя эмодзи должно быть не менее 2 символов")
+            if len(name) > 32:
+                raise ValueError("Имя эмодзи должно быть не более 32 символов")
+            if name[0].isdigit():
+                name = f"emoji_{name}"  # Добавляем префикс, если имя начинается с цифры
+            
+            # Проверяем, является ли URL ссылкой на Discord CDN
+            if not url.startswith(('https://cdn.discordapp.com/', 'http://cdn.discordapp.com/')):
+                raise ValueError("Ссылка должна быть с cdn.discordapp.com")
+            
+            # Скачиваем эмодзи
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    if response.status != 200:
+                        raise ValueError("Не удалось скачать эмодзи")
+                    image_data = await response.read()
+            
+            # Определяем, анимированное ли эмодзи
+            is_animated = url.endswith('.gif')
+            
+            # Создаем эмодзи на сервере
+            emoji = await ctx.guild.create_custom_emoji(
+                name=name,
+                image=image_data,
+                reason=f"Добавлено {ctx.author}"
+            )
+            
+            embed = Embed(
+                title="✅ Эмодзи добавлено",
+                description=f"{Emojis.DOT} **Имя:** `{name}`\n"
+                          f"{Emojis.DOT} **Тип:** {'Анимированное' if is_animated else 'Статичное'}\n"
+                          f"{Emojis.DOT} **ID:** `{emoji.id}`\n"
+                          f"{Emojis.DOT} **Использование:** `<{'a' if is_animated else ''}:{name}:{emoji.id}>`"
+            )
+            await ctx.send(embed=embed)
+            
+        except ValueError as e:
+            embed = Embed(
+                title="❌ Ошибка",
+                description=str(e),
+                color=0xe74c3c
+            )
+            await ctx.send(embed=embed)
+        except discord.Forbidden:
+            embed = Embed(
+                title="❌ Ошибка",
+                description="У бота нет прав на добавление эмодзи",
+                color=0xe74c3c
+            )
+            await ctx.send(embed=embed)
+        except discord.HTTPException as e:
+            embed = Embed(
+                title="❌ Ошибка",
+                description=f"Не удалось добавить эмодзи: {str(e)}",
+                color=0xe74c3c
+            )
+            await ctx.send(embed=embed)
+
 async def setup(bot):
     await bot.add_cog(Emoji(bot))

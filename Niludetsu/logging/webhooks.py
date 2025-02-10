@@ -2,10 +2,15 @@ from ..utils.logging import BaseLogger
 from ..utils.constants import Emojis
 import discord
 from typing import Optional
+import yaml
+from discord import Embed
 
 class WebhookLogger(BaseLogger):
     """Логгер для вебхуков Discord."""
     
+    def __init__(self, bot):
+        self.bot = bot
+        
     async def log_webhook_update(self, channel: discord.TextChannel):
         """Логирование обновления вебхуков в канале"""
         try:
@@ -119,4 +124,35 @@ class WebhookLogger(BaseLogger):
             color='RED',
             fields=fields,
             thumbnail_url=webhook.avatar.url if webhook.avatar else None
-        ) 
+        )
+
+    async def log_webhooks_update(self, channel):
+        """Логирует обновление вебхуков в канале"""
+        try:
+            # Получаем текущие вебхуки канала
+            current_webhooks = await channel.webhooks()
+            
+            # Создаем список полей
+            fields = [
+                {"name": f"{Emojis.DOT} Канал", "value": channel.mention, "inline": True},
+                {"name": f"{Emojis.DOT} ID канала", "value": str(channel.id), "inline": True},
+                {"name": f"{Emojis.DOT} Количество вебхуков", "value": str(len(current_webhooks)), "inline": True}
+            ]
+            
+            # Добавляем список вебхуков
+            if current_webhooks:
+                webhook_list = "\n".join([f"• {webhook.name} (ID: {webhook.id})" for webhook in current_webhooks])
+                if len(webhook_list) > 1024:  # Ограничение Discord для поля
+                    webhook_list = webhook_list[:1021] + "..."
+                fields.append({"name": f"{Emojis.DOT} Активные вебхуки", "value": webhook_list, "inline": False})
+            
+            await self.log_event(
+                title=f"{Emojis.INFO} Обновление вебхуков",
+                description=f"Обнаружено обновление вебхуков в канале {channel.mention}",
+                color='BLUE',
+                fields=fields,
+                event_type="webhook_update"
+            )
+                    
+        except Exception as e:
+            print(f"Ошибка при логировании обновления вебхуков: {e}") 

@@ -277,8 +277,15 @@ class Logs(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before, after):
+        """Обработчик изменения канала"""
         if self.logging_enabled and self.log_channel:
             await self.loggers['channel'].log_channel_update(before, after)
+            
+    @commands.Cog.listener()
+    async def on_guild_channel_permissions_update(self, channel, target, before, after):
+        """Обработчик изменения прав канала"""
+        if self.logging_enabled and self.log_channel:
+            await self.loggers['channel'].log_channel_permissions_update(channel, target, before, after)
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
@@ -377,6 +384,38 @@ class Logs(commands.Cog):
     async def on_webhooks_update(self, channel):
         if self.logging_enabled and self.log_channel:
             await self.loggers['webhook'].log_webhooks_update(channel)
+
+    # Onboarding Events
+    @commands.Cog.listener()
+    async def on_guild_onboarding_channels_update(self, guild, before, after):
+        """Обработчик изменения каналов онбординга"""
+        if self.logging_enabled and self.log_channel:
+            await self.loggers['server'].log_onboarding_channels_update(before, after)
+
+    @commands.Cog.listener()
+    async def on_guild_onboarding_question_add(self, guild, question):
+        """Обработчик добавления вопроса онбординга"""
+        if self.logging_enabled and self.log_channel:
+            await self.loggers['server'].log_onboarding_question_add(question)
+
+    @commands.Cog.listener()
+    async def on_guild_onboarding_question_remove(self, guild, question):
+        """Обработчик удаления вопроса онбординга"""
+        if self.logging_enabled and self.log_channel:
+            await self.loggers['server'].log_onboarding_question_remove(question)
+
+    @commands.Cog.listener()
+    async def on_guild_onboarding_question_update(self, guild, before, after):
+        """Обработчик изменения вопроса онбординга"""
+        if self.logging_enabled and self.log_channel:
+            await self.loggers['server'].log_onboarding_question_update(before, after)
+
+    @commands.Cog.listener()
+    async def on_guild_onboarding_update(self, guild, before, after):
+        """Обработчик изменения настроек онбординга"""
+        if self.logging_enabled and self.log_channel:
+            if before.enabled != after.enabled:
+                await self.loggers['server'].log_onboarding_toggle(after.enabled)
 
     async def cog_load(self):
         """Инициализация при загрузке кога"""

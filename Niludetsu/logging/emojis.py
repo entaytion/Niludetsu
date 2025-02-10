@@ -73,9 +73,29 @@ class EmojiLogger(BaseLogger):
             thumbnail_url=emoji.url
         )
         
-    async def log_emoji_update(self, before: discord.Emoji, after: discord.Emoji):
+    async def log_emoji_update(self, before: tuple[discord.Emoji, ...], after: tuple[discord.Emoji, ...]):
         """Общий метод для логирования изменений эмодзи"""
-        if before.name != after.name:
-            await self.log_emoji_name_update(before, after)
-        if set(before.roles) != set(after.roles):
-            await self.log_emoji_roles_update(after, list(before.roles), list(after.roles)) 
+        # Создаем словари для быстрого поиска эмодзи по ID
+        before_emojis = {e.id: e for e in before}
+        after_emojis = {e.id: e for e in after}
+        
+        # Проверяем удаленные эмодзи
+        for emoji_id in before_emojis:
+            if emoji_id not in after_emojis:
+                await self.log_emoji_delete(before_emojis[emoji_id])
+        
+        # Проверяем новые эмодзи
+        for emoji_id in after_emojis:
+            if emoji_id not in before_emojis:
+                await self.log_emoji_create(after_emojis[emoji_id])
+        
+        # Проверяем измененные эмодзи
+        for emoji_id in after_emojis:
+            if emoji_id in before_emojis:
+                before_emoji = before_emojis[emoji_id]
+                after_emoji = after_emojis[emoji_id]
+                
+                if before_emoji.name != after_emoji.name:
+                    await self.log_emoji_name_update(before_emoji, after_emoji)
+                if set(before_emoji.roles) != set(after_emoji.roles):
+                    await self.log_emoji_roles_update(after_emoji, list(before_emoji.roles), list(after_emoji.roles)) 
