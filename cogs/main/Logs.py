@@ -267,17 +267,19 @@ class Logs(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel):
+        """Логирование создания каналов"""
         if self.logging_enabled and self.log_channel:
             await self.loggers['channel'].log_channel_create(channel)
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel):
+        """Логирование удаления каналов"""
         if self.logging_enabled and self.log_channel:
             await self.loggers['channel'].log_channel_delete(channel)
 
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before, after):
-        """Обработчик изменения канала"""
+        """Логирование изменений каналов"""
         if self.logging_enabled and self.log_channel:
             await self.loggers['channel'].log_channel_update(before, after)
             
@@ -319,19 +321,19 @@ class Logs(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_delete(self, message):
-        """Обработчик удаления сообщений"""
+        """Логирование удаления сообщений"""
         if self.logging_enabled and self.log_channel:
             await self.loggers['message'].log_message_delete(message)
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
-        """Обработчик редактирования сообщений"""
+        """Логирование изменения сообщений"""
         if self.logging_enabled and self.log_channel:
             await self.loggers['message'].log_message_edit(before, after)
 
     @commands.Cog.listener()
     async def on_bulk_message_delete(self, messages):
-        """Обработчик массового удаления сообщений"""
+        """Логирование массового удаления сообщений"""
         if self.logging_enabled and self.log_channel:
             await self.loggers['message'].log_bulk_message_delete(messages)
 

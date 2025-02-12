@@ -14,6 +14,9 @@ class Counter(commands.Cog):
         self.db = Database()
         self.counter_channels = set()
         self.last_number = {}  # {channel_id: last_number}
+        self.last_user = {}  # {channel_id: user_id}
+        self.forum_channel_id = 1338883900877049876  # ID форум-канала
+        self.counter_thread_id = 1338884903462375464  # ID ветки счетчика
         asyncio.create_task(self._initialize())
 
     async def _initialize(self):
@@ -21,6 +24,42 @@ class Counter(commands.Cog):
         await self.db.init()
         await self.load_channels()
         await self.load_numbers()
+        await self.ensure_counter_thread()
+
+    async def ensure_counter_thread(self):
+        """Проверка и создание ветки счетчика если необходимо"""
+        try:
+            forum = self.bot.get_channel(self.forum_channel_id)
+            if not forum:
+                print(f"❌ Форум-канал не найден: {self.forum_channel_id}")
+                return
+
+            thread = self.bot.get_channel(self.counter_thread_id)
+            if not thread:
+                # Создаем новую ветку и эмбед
+                embed = Embed(
+                    title="🔢 Счетчик",
+                    description="Начинаем считать с 1!\nТекущее число: 0",
+                    color="DEFAULT"
+                )
+                thread = await forum.create_thread(
+                    name="🔢 Счетчик",
+                    embed=embed,
+                    auto_archive_duration=4320  # 3 дня
+                )
+                self.counter_thread_id = thread.thread.id
+                print(f"✅ Создана новая ветка счетчика: {thread.thread.id}")
+                
+                # Добавляем канал в базу данных
+                await self.db.execute(
+                    "INSERT OR IGNORE INTO counter_channels (channel_id, last_number) VALUES (?, ?)",
+                    str(thread.thread.id), 0
+                )
+                self.counter_channels.add(thread.thread.id)
+                self.last_number[thread.thread.id] = 0
+
+        except Exception as e:
+            print(f"❌ Ошибка при проверке ветки счетчика: {e}")
 
     async def load_numbers(self):
         """Загрузка последних чисел из базы данных"""
@@ -35,7 +74,37 @@ class Counter(commands.Cog):
         except Exception as e:
             print(f"❌ Ошибка при загрузке счетчиков: {e}")
 
-    async def save_number(self, channel_id: int, number: int):
+    async def update_counter_embed(self, channel_id: int, number: int):
+        """Обновление эмбеда с текущим числом"""
+        try:
+            channel = self.bot.get_channel(channel_id)
+            if channel:
+                # Получаем историю сообщений
+                async for message in channel.history(limit=10):
+                    # Ищем сообщение от бота с эмбедом
+                    if message.author == self.bot.user and message.embeds:
+                        embed = message.embeds[0]
+                        if embed.title == "🔢 Счетчик":
+                            # Обновляем эмбед
+                            new_embed = Embed(
+                                title="🔢 Счетчик",
+                                description=f"Текущее число: {number}",
+                                color="DEFAULT"
+                            )
+                            await message.edit(embed=new_embed)
+                            return
+                
+                # Если эмбед не найден, создаем новый
+                embed = Embed(
+                    title="🔢 Счетчик",
+                    description=f"Текущее число: {number}",
+                    color="DEFAULT"
+                )
+                await channel.send(embed=embed)
+        except Exception as e:
+            print(f"❌ Ошибка при обновлении эмбеда: {e}")
+
+    async def save_number(self, channel_id: int, number: int, user_id: int):
         """Сохранение числа в базу данных"""
         try:
             # Обновляем только если канал существует
@@ -49,6 +118,10 @@ class Counter(commands.Cog):
                     number, str(channel_id)
                 )
                 self.last_number[channel_id] = number
+                self.last_user[channel_id] = user_id
+                
+                # Обновляем эмбед
+                await self.update_counter_embed(channel_id, number)
         except Exception as e:
             print(f"❌ Ошибка при сохранении счетчика: {e}")
 
@@ -63,14 +136,62 @@ class Counter(commands.Cog):
             print(f"❌ Ошибка при загрузке каналов счетчика: {e}")
 
     def evaluate_expression(self, expression: str) -> int:
-        """Проверка является ли строка числом"""
+        """Вычисление математического выражения"""
         try:
-            # Проверяем, является ли строка положительным целым числом
+            # Удаляем все пробелы
+            expression = expression.replace(" ", "")
+            
+            # Проверяем, является ли выражение просто числом
             if expression.isdigit():
                 return int(expression)
+                
+            # Проверяем на допустимые символы
+            if not re.match(r'^[0-9+\-*/()]+$', expression):
+                return None
+                
+            # Безопасное вычисление выражения
+            result = eval(expression, {"__builtins__": {}}, {})
+            
+            # Проверяем, что результат целое число
+            if isinstance(result, (int, float)) and float(result).is_integer():
+                return int(result)
             return None
         except:
             return None
+
+    @commands.command(name="aecounter")
+    @commands.has_permissions(administrator=True)
+    async def aecounter(self, ctx):
+        """Команда для установки счетчика"""
+        try:
+            # Проверяем/создаем ветку счетчика
+            await self.ensure_counter_thread()
+            thread = self.bot.get_channel(self.counter_thread_id)
+            
+            if thread:
+                await ctx.send(
+                    embed=Embed(
+                        title=f"{Emojis.SUCCESS} Счетчик активирован",
+                        description=f"Ветка счетчика: {thread.mention}\nТекущее значение: {self.last_number.get(thread.id, 0)}",
+                        color="GREEN"
+                    )
+                )
+            else:
+                await ctx.send(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Не удалось создать или найти ветку счетчика",
+                        color="RED"
+                    )
+                )
+        except Exception as e:
+            await ctx.send(
+                embed=Embed(
+                    title=f"{Emojis.ERROR} Ошибка",
+                    description=f"Произошла ошибка: {str(e)}",
+                    color="RED"
+                )
+            )
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -78,18 +199,22 @@ class Counter(commands.Cog):
         if message.author.bot or message.channel.id not in self.counter_channels:
             return
 
-        # Проверяем является ли сообщение числом
-        if not message.content.strip().isdigit():
+        # Проверяем, не тот же ли пользователь пытается написать снова
+        if message.channel.id in self.last_user and self.last_user[message.channel.id] == message.author.id:
             await message.delete()
             return
 
-        number = int(message.content.strip())
+        # Пытаемся вычислить значение выражения
+        result = self.evaluate_expression(message.content.strip())
+        if result is None:
+            await message.delete()
+            return
+
         expected_number = self.last_number.get(message.channel.id, 0) + 1
 
-        # Если число правильное - сохраняем и ставим реакцию
-        if number == expected_number:
-            self.last_number[message.channel.id] = number
-            await self.save_number(message.channel.id, number)
+        # Если результат правильный - сохраняем и ставим реакцию
+        if result == expected_number:
+            await self.save_number(message.channel.id, result, message.author.id)
             await message.add_reaction("✅")
             return
 

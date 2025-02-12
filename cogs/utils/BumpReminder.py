@@ -98,13 +98,19 @@ class BumpReminder(commands.Cog):
                 
         # Специальная обработка для SD.C Monitoring
         if bot_id == 464272403766444044:  # SD.C Monitoring
+            # Ищем время фиксации в тексте
+            if "Время фиксации апа:" in text.lower():
+                current_time = self.get_current_time()
+                next_bump = current_time + datetime.timedelta(hours=4)
+                print(f"[Bump Reminder] SD.C Monitoring: Зафиксирован ап, следующий через 4 часа в {next_bump}")
+                return next_bump
             # Ищем Discord timestamp
             timestamp_match = re.search(r'<t:(\d+):', text)
             if timestamp_match:
                 timestamp = int(timestamp_match.group(1))
-                # Преобразуем UTC timestamp в локальное время
+                # Преобразуем UTC timestamp в локальное время и добавляем 4 часа
                 utc_time = datetime.datetime.fromtimestamp(timestamp, tz=pytz.UTC)
-                next_bump = utc_time.astimezone(self.timezone)
+                next_bump = utc_time.astimezone(self.timezone) + datetime.timedelta(hours=4)
                 print(f"[Bump Reminder] SD.C Monitoring: Следующий бамп в {next_bump}")
                 return next_bump
             # Запасной вариант - если формат сообщения изменился

@@ -1,5 +1,4 @@
 import discord
-from discord import Embed, Colour
 from typing import Union, Optional, Dict, Any, List
 from datetime import datetime
 import yaml
@@ -81,12 +80,15 @@ class BaseLogger:
             if not LoggingState.initialized or not LoggingState.log_channel:
                 return
 
+            # Извлекаем timestamp из kwargs если он есть, иначе используем текущее время
+            timestamp = kwargs.pop('timestamp', discord.utils.utcnow())
+
             embed=Embed(
                 title=title,
                 description=description,
                 color=color,
                 fields=fields,
-                timestamp=kwargs.get('timestamp', discord.utils.utcnow()),
+                timestamp=timestamp,
                 **kwargs
             )
 

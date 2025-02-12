@@ -15,6 +15,26 @@ class Tables:
             "active": "BOOLEAN DEFAULT TRUE"
         },
         
+        # Таблица нарушений автомодерации
+        "automod_violations": {
+            "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+            "user_id": "TEXT NOT NULL",
+            "rule_name": "TEXT NOT NULL",
+            "violations_count": "INTEGER DEFAULT 1",
+            "last_violation": "DATETIME DEFAULT CURRENT_TIMESTAMP",
+            "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+        },
+        
+        # Таблица исключений автомодерации
+        "automod_exceptions": {
+            "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+            "channel_id": "TEXT NOT NULL",
+            "rule_name": "TEXT NOT NULL",
+            "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
+            "UNIQUE": "(channel_id, rule_name)"
+        },
+        
         # Таблица каналов-счетчиков
         "counter_channels": {
             "channel_id": "TEXT PRIMARY KEY",
@@ -103,6 +123,15 @@ class Tables:
             "owner_id": "TEXT NOT NULL",
             "timestamp": "DATETIME DEFAULT CURRENT_TIMESTAMP",
             "UNIQUE": "(banned_user_id, owner_id)"
+        },
+        
+        # Таблица каналов для игры в слова
+        "words_channels": {
+            "channel_id": "TEXT PRIMARY KEY",
+            "last_word": "TEXT DEFAULT ''",
+            "used_words": "TEXT DEFAULT ''", 
+            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
         }
     }
     
@@ -114,6 +143,9 @@ class Tables:
     AFK = "afk"
     GIVEAWAYS = "giveaways"
     SHOP_ROLES = "shop_roles"
+    WORDS_CHANNELS = "words_channels"
+    AUTOMOD_VIOLATIONS = "automod_violations"
+    AUTOMOD_EXCEPTIONS = "automod_exceptions"
     
     # Колонки таблиц для удобного доступа
     COLUMNS = {
@@ -123,5 +155,8 @@ class Tables:
         WARNINGS: ["id", "user_id", "guild_id", "moderator_id", "reason", "timestamp", "active"],
         AFK: ["user_id", "guild_id", "reason", "timestamp"],
         GIVEAWAYS: ["giveaway_id", "channel_id", "message_id", "guild_id", "host_id", "prize", "winners_count", "end_time", "is_ended", "participants"],
-        SHOP_ROLES: ["role_id", "price", "description", "purchases", "created_at"]
+        SHOP_ROLES: ["role_id", "price", "description", "purchases", "created_at"],
+        WORDS_CHANNELS: ["channel_id", "last_word", "used_words", "created_at", "updated_at"],
+        AUTOMOD_VIOLATIONS: ["id", "user_id", "rule_name", "violations_count", "last_violation", "created_at", "updated_at"],
+        AUTOMOD_EXCEPTIONS: ["id", "channel_id", "rule_name", "created_at"]
     }

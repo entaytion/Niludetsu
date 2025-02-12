@@ -3,32 +3,21 @@ from ..utils.constants import Emojis
 import discord
 from typing import Optional, List, Union
 from discord.ext import commands
+from datetime import datetime
 
 class MessageLogger(BaseLogger):
     """Логгер для сообщений Discord."""
     
     async def log_message_delete(self, message: discord.Message):
         """Логирование удаления сообщения"""
-        # Игнорируем сообщения от ботов
         if message.author.bot:
             return
             
-        # Игнорируем пустые сообщения без контента и вложений
-        if not message.content and not message.attachments:
-            return
-            
         fields = [
-            {"name": f"{Emojis.DOT} Автор", "value": f"{message.author} ({message.author.mention})", "inline": True},
-            {"name": f"{Emojis.DOT} ID автора", "value": str(message.author.id), "inline": True},
+            {"name": f"{Emojis.DOT} Автор", "value": f"{message.author.mention} (`{message.author.name}`)", "inline": True},
+            {"name": f"{Emojis.DOT} Канал", "value": message.channel.mention, "inline": True},
+            {"name": f"{Emojis.DOT} ID сообщения", "value": str(message.id), "inline": True}
         ]
-        
-        # Добавляем информацию о канале в зависимости от его типа
-        if isinstance(message.channel, discord.DMChannel):
-            fields.append({"name": f"{Emojis.DOT} Канал", "value": f"Личные сообщения с {message.channel.recipient}", "inline": True})
-        else:
-            fields.append({"name": f"{Emojis.DOT} Канал", "value": message.channel.mention, "inline": True})
-            
-        fields.append({"name": f"{Emojis.DOT} ID сообщения", "value": str(message.id), "inline": True})
         
         if message.content:
             fields.append({"name": f"{Emojis.DOT} Содержание", "value": message.content[:1024], "inline": False})
@@ -39,10 +28,10 @@ class MessageLogger(BaseLogger):
             
         await self.log_event(
             title=f"{Emojis.ERROR} Сообщение удалено",
-            description=f"Удалено сообщение {'в личных сообщениях' if isinstance(message.channel, discord.DMChannel) else f'в канале {message.channel.mention}'}",
+            description=f"Удалено сообщение в канале {message.channel.mention}",
             color='RED',
             fields=fields,
-            thumbnail_url=message.author.display_avatar.url
+            timestamp=message.created_at
         )
         
     async def log_message_bulk_delete(self, messages: List[discord.Message], channel: discord.TextChannel):
@@ -97,41 +86,24 @@ class MessageLogger(BaseLogger):
         os.unlink(temp_file.name)
         
     async def log_message_edit(self, before: discord.Message, after: discord.Message):
-        """Логирование редактирования сообщения"""
-        # Игнорируем сообщения от ботов
-        if before.author.bot:
+        """Логирование изменения сообщения"""
+        if before.author.bot or before.content == after.content:
             return
             
-        # Игнорируем если содержимое не изменилось
-        if before.content == after.content:
-            return
-            
-        # Базовые поля
         fields = [
-            {"name": f"{Emojis.DOT} Автор", "value": f"{after.author} ({after.author.mention})", "inline": True},
-            {"name": f"{Emojis.DOT} ID автора", "value": str(after.author.id), "inline": True},
+            {"name": f"{Emojis.DOT} Автор", "value": f"{before.author.mention} (`{before.author.name}`)", "inline": True},
+            {"name": f"{Emojis.DOT} Канал", "value": before.channel.mention, "inline": True},
+            {"name": f"{Emojis.DOT} ID сообщения", "value": str(before.id), "inline": True},
+            {"name": f"{Emojis.DOT} До", "value": before.content[:1024] if before.content else "*пусто*", "inline": False},
+            {"name": f"{Emojis.DOT} После", "value": after.content[:1024] if after.content else "*пусто*", "inline": False}
         ]
         
-        # Добавляем информацию о канале в зависимости от его типа
-        if isinstance(after.channel, discord.DMChannel):
-            fields.append({"name": f"{Emojis.DOT} Канал", "value": f"Личные сообщения с {after.channel.recipient}", "inline": True})
-        else:
-            fields.append({"name": f"{Emojis.DOT} Канал", "value": after.channel.mention, "inline": True})
-            
-        # Добавляем остальные поля
-        fields.extend([
-            {"name": f"{Emojis.DOT} ID сообщения", "value": str(after.id), "inline": True},
-            {"name": f"{Emojis.DOT} Ссылка", "value": f"[Перейти к сообщению]({after.jump_url})", "inline": True},
-            {"name": f"{Emojis.DOT} Старое содержание", "value": before.content[:1024] or "Пусто", "inline": False},
-            {"name": f"{Emojis.DOT} Новое содержание", "value": after.content[:1024] or "Пусто", "inline": False}
-        ])
-        
         await self.log_event(
-            title=f"{Emojis.INFO} Сообщение отредактировано",
-            description=f"Отредактировано сообщение {'в личных сообщениях' if isinstance(after.channel, discord.DMChannel) else f'в канале {after.channel.mention}'}",
+            title=f"{Emojis.INFO} Сообщение изменено",
+            description=f"Изменено сообщение в канале {before.channel.mention}",
             color='BLUE',
             fields=fields,
-            thumbnail_url=after.author.display_avatar.url
+            timestamp=after.edited_at or datetime.now()
         )
         
     async def log_message_publish(self, message: discord.Message):
@@ -182,54 +154,31 @@ class MessageLogger(BaseLogger):
 
     async def log_bulk_message_delete(self, messages: List[discord.Message]):
         """Логирование массового удаления сообщений"""
-        try:
-            if not messages:
-                return
-                
-            channel = messages[0].channel
-            deleted_count = len(messages)
+        if not messages:
+            return
             
-            # Фильтруем сообщения от ботов
-            user_messages = [msg for msg in messages if not msg.author.bot]
-            if not user_messages:
-                return
-                
-            # Создаем список удаленных сообщений
-            message_list = []
-            for msg in user_messages:
-                author = f"{msg.author} ({msg.author.id})"
-                content = msg.content if msg.content else "[Нет содержимого]"
-                attachments = ""
-                
-                if msg.attachments:
-                    attachments = f" | Вложения: {', '.join([a.filename for a in msg.attachments])}"
-                    
-                if len(content) > 50:
-                    content = content[:47] + "..."
-                    
-                timestamp = msg.created_at.strftime("%d.%m.%Y %H:%M:%S")
-                message_list.append(f"• [{timestamp}] {author}: {content}{attachments}")
-
-            # Ограничиваем количество отображаемых сообщений
-            displayed_messages = message_list[:15]
-            if len(message_list) > 15:
-                displayed_messages.append(f"... и еще {len(message_list) - 15} сообщений")
-
-            fields = [
-                {"name": f"{Emojis.DOT} Канал", "value": channel.mention, "inline": True},
-                {"name": f"{Emojis.DOT} Всего удалено", "value": str(deleted_count), "inline": True},
-                {"name": f"{Emojis.DOT} От пользователей", "value": str(len(user_messages)), "inline": True},
-                {"name": f"{Emojis.DOT} Удаленные сообщения", "value": "\n".join(displayed_messages), "inline": False}
-            ]
-
-            await self.log_event(
-                title=f"{Emojis.ERROR} Массовое удаление сообщений",
-                description=f"В канале {channel.mention} было массово удалено {deleted_count} сообщений",
-                color='RED',
-                fields=fields
-            )
-            
-        except Exception as e:
-            print(f"Ошибка при логировании массового удаления сообщений: {e}")
-            import traceback
-            traceback.print_exc() 
+        channel = messages[0].channel
+        count = len(messages)
+        
+        fields = [
+            {"name": f"{Emojis.DOT} Канал", "value": channel.mention, "inline": True},
+            {"name": f"{Emojis.DOT} Количество", "value": str(count), "inline": True}
+        ]
+        
+        # Добавляем информацию о последних 5 сообщениях
+        last_messages = sorted(messages, key=lambda m: m.created_at, reverse=True)[:5]
+        for msg in last_messages:
+            if not msg.author.bot:
+                content = msg.content[:100] + "..." if len(msg.content) > 100 else msg.content
+                fields.append({
+                    "name": f"{Emojis.DOT} Сообщение от {msg.author.name}",
+                    "value": content or "*пусто*",
+                    "inline": False
+                })
+        
+        await self.log_event(
+            title=f"{Emojis.ERROR} Массовое удаление сообщений",
+            description=f"Удалено {count} сообщений в канале {channel.mention}",
+            color='RED',
+            fields=fields
+        ) 

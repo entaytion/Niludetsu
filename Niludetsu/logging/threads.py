@@ -34,13 +34,19 @@ class ThreadLogger(BaseLogger):
         """Логирование удаления треда"""
         fields = [
             {"name": f"{Emojis.DOT} Название", "value": thread.name, "inline": True},
-            {"name": f"{Emojis.DOT} ID", "value": str(thread.id), "inline": True},
-            {"name": f"{Emojis.DOT} Родительский канал", "value": thread.parent.mention, "inline": True}
+            {"name": f"{Emojis.DOT} ID", "value": str(thread.id), "inline": True}
         ]
+        
+        if thread.parent:
+            fields.append({"name": f"{Emojis.DOT} Родительский канал", "value": thread.parent.mention, "inline": True})
+            description = f"Удален тред из канала {thread.parent.mention}"
+        else:
+            fields.append({"name": f"{Emojis.DOT} Родительский канал", "value": "Канал недоступен", "inline": True})
+            description = "Удален тред"
         
         await self.log_event(
             title=f"{Emojis.ERROR} Тред удален",
-            description=f"Удален тред из канала {thread.parent.mention}",
+            description=description,
             color='RED',
             fields=fields
         )
@@ -181,4 +187,47 @@ class ThreadLogger(BaseLogger):
             description=f"Тред был разблокирован для сообщений",
             color='GREEN',
             fields=fields
-        ) 
+        )
+        
+    async def log_thread_update(self, before: discord.Thread, after: discord.Thread):
+        """Логирование изменений в треде"""
+        changes = []
+        fields = [
+            {"name": f"{Emojis.DOT} Название", "value": after.name, "inline": True},
+            {"name": f"{Emojis.DOT} ID", "value": str(after.id), "inline": True}
+        ]
+        
+        # Проверяем изменения
+        if before.name != after.name:
+            changes.append(f"Название: {before.name} ➜ {after.name}")
+            
+        if before.slowmode_delay != after.slowmode_delay:
+            changes.append(f"Медленный режим: {before.slowmode_delay}с ➜ {after.slowmode_delay}с")
+            
+        if before.auto_archive_duration != after.auto_archive_duration:
+            changes.append(f"Автоархивация: {before.auto_archive_duration}м ➜ {after.auto_archive_duration}м")
+            
+        if before.archived != after.archived:
+            status = "Архивирован" if after.archived else "Разархивирован"
+            changes.append(f"Статус: {status}")
+            
+        if before.locked != after.locked:
+            status = "Заблокирован" if after.locked else "Разблокирован"
+            changes.append(f"Доступ: {status}")
+            
+        if changes:
+            fields.append({
+                "name": f"{Emojis.DOT} Изменения",
+                "value": "\n".join(changes),
+                "inline": False
+            })
+            
+            if after.parent:
+                fields.append({"name": f"{Emojis.DOT} Родительский канал", "value": after.parent.mention, "inline": True})
+            
+            await self.log_event(
+                title=f"{Emojis.INFO} Изменения в треде",
+                description=f"Обновлены настройки треда {after.mention}",
+                color='BLUE',
+                fields=fields
+            ) 

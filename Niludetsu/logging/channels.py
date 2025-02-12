@@ -1,155 +1,160 @@
 from ..utils.logging import BaseLogger
 from ..utils.constants import Emojis
 import discord
-from typing import Optional, Union
+from typing import Optional, List, Dict, Union
 from discord.channel import TextChannel, VoiceChannel, CategoryChannel, ForumChannel
+from datetime import datetime
 
 class ChannelLogger(BaseLogger):
-    """Логгер для событий, связанных с каналами Discord."""
+    """Логгер для каналов Discord."""
     
-    async def log_channel_update(self, before: Union[discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel], 
-                                after: Union[discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel]):
-        """Логирование изменений канала"""
-        try:
-            changes = []
-            
-            # Проверяем изменения прав доступа для всех типов каналов
-            before_overwrites = {(k.id, tuple(sorted(v))) for k, v in before.overwrites.items()}
-            after_overwrites = {(k.id, tuple(sorted(v))) for k, v in after.overwrites.items()}
-            
-            if before_overwrites != after_overwrites:
-                # Находим добавленные и удаленные права
-                removed = before_overwrites - after_overwrites
-                added = after_overwrites - before_overwrites
-                
-                for target_id, _ in removed:
-                    target = before.guild.get_role(target_id) or before.guild.get_member(target_id)
-                    if target:
-                        changes.append(f"Удалены права для {target.mention}")
-                        
-                for target_id, perms in added:
-                    target = after.guild.get_role(target_id) or after.guild.get_member(target_id)
-                    if target:
-                        changes.append(f"Добавлены права для {target.mention}")
-                        
-                # Находим измененные права
-                common_targets = before_overwrites.intersection(after_overwrites)
-                for target_id, before_perms in before_overwrites:
-                    if (target_id, before_perms) in common_targets:
-                        after_perms = next(p for t, p in after_overwrites if t == target_id)
-                        if before_perms != after_perms:
-                            target = after.guild.get_role(target_id) or after.guild.get_member(target_id)
-                            if target:
-                                changes.append(f"Изменены права для {target.mention}")
-            
-            # Остальные проверки для разных типов каналов
-            if isinstance(before, discord.TextChannel) and isinstance(after, discord.TextChannel):
-                if before.name != after.name:
-                    changes.append(f"Название: {before.name} ➜ {after.name}")
-                if before.topic != after.topic:
-                    changes.append(f"Описание: {before.topic} ➜ {after.topic}")
-                if before.nsfw != after.nsfw:
-                    changes.append(f"NSFW: {'Да' if before.nsfw else 'Нет'} ➜ {'Да' if after.nsfw else 'Нет'}")
-                if before.slowmode_delay != after.slowmode_delay:
-                    changes.append(f"Медленный режим: {before.slowmode_delay}с ➜ {after.slowmode_delay}с")
-                if before.category != after.category:
-                    before_category = before.category.name if before.category else "Нет"
-                    after_category = after.category.name if after.category else "Нет"
-                    changes.append(f"Категория: {before_category} ➜ {after_category}")
-                if before.position != after.position:
-                    changes.append(f"Позиция: {before.position} ➜ {after.position}")
-                    
-            elif isinstance(before, discord.VoiceChannel) and isinstance(after, discord.VoiceChannel):
-                if before.name != after.name:
-                    changes.append(f"Название: {before.name} ➜ {after.name}")
-                if before.bitrate != after.bitrate:
-                    changes.append(f"Битрейт: {before.bitrate//1000}kbps ➜ {after.bitrate//1000}kbps")
-                if before.user_limit != after.user_limit:
-                    changes.append(f"Лимит пользователей: {before.user_limit or 'Без лимита'} ➜ {after.user_limit or 'Без лимита'}")
-                if before.rtc_region != after.rtc_region:
-                    changes.append(f"Регион: {before.rtc_region or 'Авто'} ➜ {after.rtc_region or 'Авто'}")
-                if before.category != after.category:
-                    before_category = before.category.name if before.category else "Нет"
-                    after_category = after.category.name if after.category else "Нет"
-                    changes.append(f"Категория: {before_category} ➜ {after_category}")
-                if before.position != after.position:
-                    changes.append(f"Позиция: {before.position} ➜ {after.position}")
-                    
-            elif isinstance(before, discord.ForumChannel) and isinstance(after, discord.ForumChannel):
-                if before.name != after.name:
-                    changes.append(f"Название: {before.name} ➜ {after.name}")
-                if before.available_tags != after.available_tags:
-                    old_tags = ", ".join([tag.name for tag in before.available_tags]) or "Нет тегов"
-                    new_tags = ", ".join([tag.name for tag in after.available_tags]) or "Нет тегов"
-                    changes.append(f"Теги: {old_tags} ➜ {new_tags}")
-                if before.category != after.category:
-                    before_category = before.category.name if before.category else "Нет"
-                    after_category = after.category.name if after.category else "Нет"
-                    changes.append(f"Категория: {before_category} ➜ {after_category}")
-                if before.position != after.position:
-                    changes.append(f"Позиция: {before.position} ➜ {after.position}")
-
-            elif isinstance(before, discord.CategoryChannel) and isinstance(after, discord.CategoryChannel):
-                if before.name != after.name:
-                    changes.append(f"Название: {before.name} ➜ {after.name}")
-                if before.position != after.position:
-                    changes.append(f"Позиция: {before.position} ➜ {after.position}")
-                    
-            if changes:
-                channel_type = "Категория" if isinstance(after, discord.CategoryChannel) else "Канал"
-                mention = after.mention if hasattr(after, 'mention') else f"#{after.name}"
-                
-                await self.log_event(
-                    title=f"{Emojis.INFO} Изменен {channel_type.lower()}",
-                    description=f"{channel_type} {mention} был изменен\n" + "\n".join(changes),
-                    color='BLUE',
-                    event_type="channel_update",
-                    fields=[
-                        {"name": f"{Emojis.DOT} ID", "value": str(after.id), "inline": True},
-                        {"name": f"{Emojis.DOT} Тип", "value": str(after.type).replace('_', ' ').title(), "inline": True}
-                    ]
-                )
-                
-        except Exception as e:
-            print(f"Ошибка при логировании изменения канала: {e}")
+    def _get_permission_changes(self, before: Dict[discord.Role, discord.PermissionOverwrite],
+                              after: Dict[discord.Role, discord.PermissionOverwrite]) -> List[str]:
+        """Получает список изменений прав"""
+        changes = []
         
+        # Получаем все уникальные роли
+        all_roles = set(before.keys()) | set(after.keys())
+        
+        for role in all_roles:
+            before_perms = before.get(role)
+            after_perms = after.get(role)
+            
+            if not before_perms and after_perms:
+                # Добавлены новые права
+                allowed = [perm[0] for perm in after_perms if perm[1] is True]
+                denied = [perm[0] for perm in after_perms if perm[1] is False]
+                
+                if allowed:
+                    changes.append(f"✅ {role.mention}: Разрешено: {', '.join(allowed)}")
+                if denied:
+                    changes.append(f"❌ {role.mention}: Запрещено: {', '.join(denied)}")
+                    
+            elif before_perms and not after_perms:
+                # Удалены права
+                changes.append(f"🗑️ {role.mention}: Права удалены")
+                
+            elif before_perms and after_perms:
+                # Изменены существующие права
+                changed_perms = []
+                for perm, value in after_perms:
+                    before_value = dict(before_perms).get(perm)
+                    if before_value != value:
+                        status = "✅" if value else "❌"
+                        changed_perms.append(f"{status} {perm}")
+                        
+                if changed_perms:
+                    changes.append(f"📝 {role.mention}: {', '.join(changed_perms)}")
+        
+        return changes
+    
     async def log_channel_create(self, channel: discord.abc.GuildChannel):
         """Логирование создания канала"""
-        channel_type = str(channel.type).replace('_', ' ').title()
+        channel_type = {
+            discord.TextChannel: "текстовый канал",
+            discord.VoiceChannel: "голосовой канал",
+            discord.CategoryChannel: "категория",
+            discord.StageChannel: "трибуна",
+            discord.ForumChannel: "форум"
+        }.get(type(channel), "канал")
         
         fields = [
             {"name": f"{Emojis.DOT} Название", "value": channel.name, "inline": True},
             {"name": f"{Emojis.DOT} ID", "value": str(channel.id), "inline": True},
-            {"name": f"{Emojis.DOT} Тип", "value": channel_type, "inline": True},
-            {"name": f"{Emojis.DOT} Категория", "value": channel.category.name if channel.category else "Нет", "inline": True}
+            {"name": f"{Emojis.DOT} Тип", "value": channel_type, "inline": True}
         ]
+        
+        if isinstance(channel, discord.TextChannel):
+            fields.extend([
+                {"name": f"{Emojis.DOT} NSFW", "value": "Да" if channel.is_nsfw() else "Нет", "inline": True},
+                {"name": f"{Emojis.DOT} Медленный режим", "value": f"{channel.slowmode_delay} сек.", "inline": True}
+            ])
+            
+        if channel.category:
+            fields.append({"name": f"{Emojis.DOT} Категория", "value": channel.category.name, "inline": True})
         
         await self.log_event(
             title=f"{Emojis.SUCCESS} Создан новый канал",
-            description=f"Создан канал {channel.mention}",
+            description=f"Создан новый {channel_type} {channel.mention}",
             color='GREEN',
-            fields=fields,
-            event_type="channel_create"
+            fields=fields
         )
         
     async def log_channel_delete(self, channel: discord.abc.GuildChannel):
         """Логирование удаления канала"""
-        channel_type = str(channel.type).replace('_', ' ').title()
+        channel_type = {
+            discord.TextChannel: "текстовый канал",
+            discord.VoiceChannel: "голосовой канал",
+            discord.CategoryChannel: "категория",
+            discord.StageChannel: "трибуна",
+            discord.ForumChannel: "форум"
+        }.get(type(channel), "канал")
         
         fields = [
             {"name": f"{Emojis.DOT} Название", "value": channel.name, "inline": True},
             {"name": f"{Emojis.DOT} ID", "value": str(channel.id), "inline": True},
-            {"name": f"{Emojis.DOT} Тип", "value": channel_type, "inline": True},
-            {"name": f"{Emojis.DOT} Категория", "value": channel.category.name if channel.category else "Нет", "inline": True}
+            {"name": f"{Emojis.DOT} Тип", "value": channel_type, "inline": True}
         ]
+        
+        if channel.category:
+            fields.append({"name": f"{Emojis.DOT} Категория", "value": channel.category.name, "inline": True})
         
         await self.log_event(
             title=f"{Emojis.ERROR} Канал удален",
-            description=f"Удален канал #{channel.name}",
+            description=f"Удален {channel_type} {channel.name}",
             color='RED',
-            fields=fields,
-            event_type="channel_delete"
+            fields=fields
         )
+        
+    async def log_channel_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel):
+        """Логирование изменений канала"""
+        changes = []
+        fields = [
+            {"name": f"{Emojis.DOT} Канал", "value": after.mention, "inline": True},
+            {"name": f"{Emojis.DOT} ID", "value": str(after.id), "inline": True}
+        ]
+        
+        # Проверяем изменение названия
+        if before.name != after.name:
+            changes.append(f"Название: {before.name} ➜ {after.name}")
+            
+        # Проверяем изменение категории
+        if before.category != after.category:
+            old_category = before.category.name if before.category else "Нет"
+            new_category = after.category.name if after.category else "Нет"
+            changes.append(f"Категория: {old_category} ➜ {new_category}")
+            
+        # Проверяем изменения для текстового канала
+        if isinstance(after, discord.TextChannel):
+            if before.topic != after.topic:
+                changes.append(f"Описание: {before.topic or 'Нет'} ➜ {after.topic or 'Нет'}")
+            if before.slowmode_delay != after.slowmode_delay:
+                changes.append(f"Медленный режим: {before.slowmode_delay} сек. ➜ {after.slowmode_delay} сек.")
+            if before.nsfw != after.nsfw:
+                changes.append(f"NSFW: {'Да' if before.nsfw else 'Нет'} ➜ {'Да' if after.nsfw else 'Нет'}")
+                
+        # Проверяем изменения прав доступа
+        permission_changes = self._get_permission_changes(before.overwrites, after.overwrites)
+        if permission_changes:
+            fields.append({
+                "name": f"{Emojis.DOT} Изменения прав",
+                "value": "\n".join(permission_changes),
+                "inline": False
+            })
+            
+        if changes:
+            fields.append({
+                "name": f"{Emojis.DOT} Изменения",
+                "value": "\n".join(changes),
+                "inline": False
+            })
+            
+            await self.log_event(
+                title=f"{Emojis.INFO} Канал изменен",
+                description=f"Изменены настройки канала {after.mention}",
+                color='BLUE',
+                fields=fields
+            )
         
     async def log_channel_pins_update(self, channel: discord.TextChannel, last_pin):
         """Логирование обновления закрепленных сообщений"""

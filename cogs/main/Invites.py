@@ -88,33 +88,58 @@ class InviteTracker:
 
     async def cache_invites(self):
         """Кэширует все текущие инвайты для всех серверов"""
+        print("[Invites] Начало кэширования инвайтов...")
         for guild in self.bot.guilds:
             try:
                 guild_invites = await guild.invites()
                 self.invites[guild.id] = guild_invites
-                self.invite_uses[guild.id] = {invite.code: invite.uses for invite in guild_invites}
+                print(f"[Invites] Кэшировано {len(guild_invites)} инвайтов для {guild.name}")
             except discord.Forbidden:
+                print(f"[Invites] Нет прав для просмотра инвайтов на сервере {guild.name}")
                 continue
+            except Exception as e:
+                print(f"[Invites] Ошибка при кэшировании инвайтов для {guild.name}: {e}")
+                continue
+        print("[Invites] Кэширование инвайтов завершено")
 
     async def get_used_invite(self, guild: discord.Guild) -> Optional[discord.Invite]:
         """Определяет, какой инвайт был использован"""
         try:
             current_invites = await guild.invites()
             
-            # Получаем старые использования инвайтов
-            old_uses = self.invite_uses.get(guild.id, {})
-            
-            # Обновляем кэш текущих инвайтов
-            self.invites[guild.id] = current_invites
-            self.invite_uses[guild.id] = {invite.code: invite.uses for invite in current_invites}
+            # Получаем старые инвайты
+            old_invites = self.invites.get(guild.id, [])
             
             # Ищем инвайт, количество использований которого изменилось
             for invite in current_invites:
-                old_uses_count = old_uses.get(invite.code, 0)
-                if invite.uses > old_uses_count:
+                # Ищем соответствующий старый инвайт
+                old_invite = discord.utils.get(old_invites, code=invite.code)
+                
+                if old_invite is None:
+                    # Если это новый инвайт и он уже был использован
+                    if invite.uses > 0:
+                        # Обновляем кэш и возвращаем этот инвайт
+                        self.invites[guild.id] = current_invites
+                        return invite
+                elif invite.uses > old_invite.uses:
+                    # Если количество использований увеличилось
+                    self.invites[guild.id] = current_invites
                     return invite
+            
+            # Проверяем, не был ли использован временный инвайт, который уже удален
+            for old_invite in old_invites:
+                if not discord.utils.get(current_invites, code=old_invite.code):
+                    # Если старый инвайт больше не существует, возможно он был использован
+                    return old_invite
+                    
+            # Обновляем кэш в любом случае
+            self.invites[guild.id] = current_invites
                     
         except discord.Forbidden:
+            print(f"[Invites] Нет прав для просмотра инвайтов на сервере {guild.name}")
+            return None
+        except Exception as e:
+            print(f"[Invites] Ошибка при получении инвайтов: {e}")
             return None
             
         return None
@@ -356,6 +381,21 @@ class InvitesCog(commands.Cog):
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
         await self.invite_tracker.on_member_remove(member)
+
+    @commands.Cog.listener()
+    async def on_invite_create(self, invite: discord.Invite):
+        """Обработчик создания нового инвайта"""
+        if invite.guild.id in self.invite_tracker.invites:
+            self.invite_tracker.invites[invite.guild.id].append(invite)
+            print(f"[Invites] Новый инвайт {invite.code} добавлен в кэш для {invite.guild.name}")
+
+    @commands.Cog.listener()
+    async def on_invite_delete(self, invite: discord.Invite):
+        """Обработчик удаления инвайта"""
+        if invite.guild.id in self.invite_tracker.invites:
+            guild_invites = self.invite_tracker.invites[invite.guild.id]
+            self.invite_tracker.invites[invite.guild.id] = [i for i in guild_invites if i.code != invite.code]
+            print(f"[Invites] Инвайт {invite.code} удален из кэша для {invite.guild.name}")
 
 async def setup(bot):
     await bot.add_cog(InvitesCog(bot)) 
