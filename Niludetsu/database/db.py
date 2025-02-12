@@ -77,12 +77,20 @@ class Database:
                     try:
                         if table_name not in existing_tables:
                             # Создаём новую таблицу
-                            columns_sql = ", ".join(f"{col} {type_}" for col, type_ in columns.items())
-                            await db.execute(f"""
-                                CREATE TABLE {table_name} (
-                                    {columns_sql}
-                                )
-                            """)
+                            column_defs = []
+                            for col, type_ in columns.items():
+                                if col != "INDEXES":  # Пропускаем INDEXES
+                                    column_defs.append(f"{col} {type_}")
+                            
+                            columns_sql = ", ".join(column_defs)
+                            create_sql = f"CREATE TABLE {table_name} ({columns_sql})"
+                            await db.execute(create_sql)
+                            
+                            # Создаем индексы, если они определены
+                            if "INDEXES" in columns:
+                                for index_sql in columns["INDEXES"]:
+                                    await db.execute(index_sql)
+                                    
                         else:
                             # Проверяем структуру существующей таблицы
                             existing_columns = await self._get_table_columns(table_name)
@@ -90,6 +98,8 @@ class Database:
                             # Проверяем, нужно ли обновить структуру
                             needs_update = False
                             for col, type_ in columns.items():
+                                if col == "INDEXES":  # Пропускаем INDEXES
+                                    continue
                                 if col not in existing_columns:
                                     needs_update = True
                                     break
@@ -100,15 +110,17 @@ class Database:
                             if needs_update:
                                 # Создаём временную таблицу с новой структурой
                                 temp_table = f"temp_{table_name}"
-                                columns_sql = ", ".join(f"{col} {type_}" for col, type_ in columns.items())
-                                await db.execute(f"""
-                                    CREATE TABLE {temp_table} (
-                                        {columns_sql}
-                                    )
-                                """)
+                                column_defs = []
+                                for col, type_ in columns.items():
+                                    if col != "INDEXES":  # Пропускаем INDEXES
+                                        column_defs.append(f"{col} {type_}")
+                                
+                                columns_sql = ", ".join(column_defs)
+                                await db.execute(f"CREATE TABLE {temp_table} ({columns_sql})")
                                 
                                 # Копируем данные из существующих колонок
                                 common_columns = set(columns.keys()) & set(existing_columns.keys())
+                                common_columns.discard("INDEXES")  # Удаляем INDEXES из списка колонок
                                 if common_columns:
                                     columns_to_copy = ", ".join(common_columns)
                                     await db.execute(f"""
@@ -119,6 +131,11 @@ class Database:
                                 # Удаляем старую таблицу и переименовываем временную
                                 await db.execute(f"DROP TABLE {table_name}")
                                 await db.execute(f"ALTER TABLE {temp_table} RENAME TO {table_name}")
+                                
+                                # Пересоздаем индексы
+                                if "INDEXES" in columns:
+                                    for index_sql in columns["INDEXES"]:
+                                        await db.execute(index_sql)
                     except aiosqlite.OperationalError as e:
                         if "already exists" in str(e):
                             # Игнорируем ошибку, если таблица уже существует

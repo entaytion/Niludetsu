@@ -16,7 +16,7 @@ from Niludetsu.analytics import BotAnalytics, ServerAnalytics, RolesAnalytics, C
 
 # Добавляем кастомный шрифт
 plt.rcParams['font.family'] = 'sans-serif'
-custom_font = fm.FontProperties(fname='config/fonts/TTNormsPro-Bold.ttf')
+custom_font = fm.FontProperties(fname='data/fonts/TTNormsPro-Bold.ttf')
 
 # Настройка стиля для всех графиков
 plt.style.use('dark_background')

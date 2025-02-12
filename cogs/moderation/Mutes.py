@@ -5,86 +5,82 @@ from datetime import datetime
 from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.constants import Emojis
 from Niludetsu.utils.decorators import command_cooldown, has_mod_role
+from Niludetsu.database.db import Database
 
 class Mutes(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.db = Database()
 
-    @app_commands.command(name="mutes", description="Показать список замученных участников")
+    @app_commands.command(name="mutes", description="Показать список мутов")
+    @app_commands.describe(member="Участник для просмотра мутов")
     @has_mod_role()
-    @command_cooldown()
-    async def mutes(self, interaction: discord.Interaction):
-        if not interaction.user.guild_permissions.moderate_members:
-            return await interaction.response.send_message(
-                embed=Embed(
-                    title=f"{Emojis.ERROR} Ошибка прав",
-                    description="У вас нет прав на просмотр списка мутов!",
-                    color="RED"
-                ),
-                ephemeral=True
-            )
-
-        # Отправляем начальное сообщение
-        progress_embed=Embed(
-            title=f"{Emojis.LOADING} Загрузка списка мутов",
-            description="Собираю информацию о замученных участниках...",
-            color="YELLOW"
-        )
-        await interaction.response.send_message(embed=progress_embed)
-
-        muted_members = []
-        now = datetime.utcnow()
-
-        for member in interaction.guild.members:
-            if member.timed_out_until:
-                if member.timed_out_until > now:
-                    muted_members.append({
-                        'member': member,
-                        'until': member.timed_out_until
-                    })
-
-        if not muted_members:
-            no_mutes_embed=Embed(
-                title=f"{Emojis.INFO} Список мутов",
-                description="На сервере нет замученных участников",
+    async def mutes_slash(self, interaction: discord.Interaction, member: discord.Member = None):
+        await self._show_mutes(interaction, member)
+        
+    async def _show_mutes(self, ctx, member: discord.Member = None):
+        """Общая логика отображения мутов"""
+        # Формируем SQL запрос
+        if member:
+            query = """
+                SELECT user_id, moderator_id, reason, created_at, expires_at 
+                FROM moderation 
+                WHERE guild_id = ? AND type = 'mute' AND active = TRUE AND user_id = ?
+                ORDER BY created_at DESC
+            """
+            params = [str(ctx.guild.id), str(member.id)]
+        else:
+            query = """
+                SELECT user_id, moderator_id, reason, created_at, expires_at 
+                FROM moderation 
+                WHERE guild_id = ? AND type = 'mute' AND active = TRUE
+                ORDER BY created_at DESC
+            """
+            params = [str(ctx.guild.id)]
+            
+        # Получаем активные муты
+        mutes = await self.db.fetch_all(query, *params)
+        
+        if not mutes:
+            description = f"У {member.mention} нет активных мутов" if member else "На сервере нет замученных участников"
+            embed = Embed(
+                title=f"{Emojis.INFO} Активные муты",
+                description=description,
                 color="GREEN"
             )
-            return await interaction.edit_original_response(embed=no_mutes_embed)
-
-        # Сортируем по времени окончания мута
-        muted_members.sort(key=lambda x: x['until'])
-
-        # Создаем эмбед со списком
-        mutes_embed=Embed(
-            title=f"{Emojis.MUTE} Список замученных участников",
-            description=f"Всего замучено: `{len(muted_members)}` участников",
-            color="BLUE"
-        )
-
-        # Добавляем информацию о каждом замученном участнике
-        for i, mute_info in enumerate(muted_members, 1):
-            member = mute_info['member']
-            until = mute_info['until']
-            time_left = until - now
-            hours = time_left.total_seconds() // 3600
-            minutes = (time_left.total_seconds() % 3600) // 60
-
-            mutes_embed.add_field(
-                name=f"{i}. {member.name}",
-                value=(
-                    f"**ID:** `{member.id}`\n"
-                    f"**Осталось:** {int(hours)}ч {int(minutes)}м\n"
-                    f"**До:** {until.strftime('%d.%m.%Y %H:%M')} UTC"
-                ),
-                inline=True
+        else:
+            embed = Embed(
+                title=f"{Emojis.INFO} Активные муты",
+                description=f"Всего активных мутов: {len(mutes)}",
+                color="YELLOW"
             )
-
-            # Добавляем разделитель каждые 3 поля
-            if i % 3 == 0:
-                mutes_embed.add_field(name="\u200b", value="\u200b", inline=False)
-
-        mutes_embed.set_footer(text=f"Запросил: {interaction.user}")
-        await interaction.edit_original_response(embed=mutes_embed)
+            
+            for mute in mutes:
+                user = ctx.guild.get_member(int(mute[0]))
+                if not user:
+                    continue
+                    
+                moderator = ctx.guild.get_member(int(mute[1]))
+                moderator_mention = moderator.mention if moderator else f"ID: {mute[1]}"
+                
+                created_at = int(mute[3].timestamp())
+                expires_at = int(mute[4].timestamp())
+                
+                embed.add_field(
+                    name=f"Мут {user}",
+                    value=(
+                        f"{Emojis.DOT} **Модератор:** {moderator_mention}\n"
+                        f"{Emojis.DOT} **Причина:** {mute[2]}\n"
+                        f"{Emojis.DOT} **Выдан:** <t:{created_at}:R>\n"
+                        f"{Emojis.DOT} **Истекает:** <t:{expires_at}:R>"
+                    ),
+                    inline=False
+                )
+                
+        if isinstance(ctx, discord.Interaction):
+            await ctx.response.send_message(embed=embed)
+        else:
+            await ctx.send(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Mutes(bot)) 

@@ -8,8 +8,9 @@ from . import utils
 from . import logging
 from . import music
 from . import api
+from . import moderation
 
-__version__ = "beta-8"
+__version__ = "beta-9"
 __author__ = "Entaytion"
 __license__ = "GNU General Public License v3.0"
 
@@ -18,5 +19,6 @@ __all__ = [
     'utils',
     'logging',
     'music',
-    'api'
+    'api',
+    'moderation'
 ] 

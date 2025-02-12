@@ -10,75 +10,16 @@ from Niludetsu.moderation.punishments import Punishment
 from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.constants import Emojis
 from Niludetsu.database.db import Database
-
-class RuleButton(discord.ui.Button):
-    def __init__(self, rule_name: str, rule_obj, is_enabled: bool = True):
-        super().__init__(
-            style=discord.ButtonStyle.green if is_enabled else discord.ButtonStyle.red,
-            label=rule_obj.name,
-            custom_id=f"rule_{rule_name}"
-        )
-        self.rule_name = rule_name
-        self.rule_obj = rule_obj
-        
-    async def callback(self, interaction: discord.Interaction):
-        view: ConfigView = self.view
-        is_enabled = self.style == discord.ButtonStyle.green
-        
-        if is_enabled:
-            await view.automod.add_exception(interaction.channel.id, self.rule_name)
-            self.style = discord.ButtonStyle.red
-        else:
-            await view.automod.remove_exception(interaction.channel.id, self.rule_name)
-            self.style = discord.ButtonStyle.green
-            
-        await interaction.response.edit_message(view=self.view)
-
-class ChannelSelect(discord.ui.ChannelSelect):
-    def __init__(self):
-        super().__init__(
-            placeholder="Выберите канал для настройки",
-            channel_types=[discord.ChannelType.text]
-        )
-        
-    async def callback(self, interaction: discord.Interaction):
-        view: ConfigView = self.view
-        channel = self.values[0]
-        
-        # Обновляем состояние кнопок для выбранного канала
-        for child in view.children:
-            if isinstance(child, RuleButton):
-                is_enabled = not (channel.id in view.automod.exceptions and 
-                                child.rule_name in view.automod.exceptions[channel.id])
-                child.style = discord.ButtonStyle.green if is_enabled else discord.ButtonStyle.red
-        
-        embed = Embed(
-            title=f"{Emojis.SETTINGS} Настройки автомодерации",
-            description=f"Настройка правил для канала {channel.mention}\n\n"
-                       f"🟢 - Правило включено\n"
-                       f"🔴 - Правило отключено",
-            color="BLUE"
-        )
-        
-        await interaction.response.edit_message(embed=embed, view=view)
-
-class ConfigView(discord.ui.View):
-    def __init__(self, automod, timeout: float = 180):
-        super().__init__(timeout=timeout)
-        self.automod = automod
-        
-        # Добавляем селектор каналов
-        self.add_item(ChannelSelect())
-        
-        # Добавляем кнопки для каждого правила
-        for rule_name, rule_obj in automod.rules.items():
-            self.add_item(RuleButton(rule_name, rule_obj))
+import asyncio
+import json
+from datetime import datetime
 
 class AutoMod(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.db = Database()
         self.punishment_handler = Punishment(bot)
+        self.ready = False
         
         # Инициализация правил
         self.rules = {
@@ -95,20 +36,86 @@ class AutoMod(commands.Cog):
         self.violations = {}  # {user_id: {rule_name: count}}
         self.exceptions = {}  # {channel_id: [rule_names]}
         
+        # Запускаем инициализацию
+        asyncio.create_task(self._initialize())
+        
     async def _initialize(self):
-        """Инициализация базы данных"""
+        """Инициализация модуля автомодерации"""
+        await self.bot.wait_until_ready()
+        
         await self.db.init()
         await self.load_violations()
         await self.load_exceptions()
+        await self.load_rules()
         
         # Добавляем исключение для канала партнёрств
-        await self.add_exception(1125546967217471609, "links")
+        try:
+            if self.bot.guilds:
+                await self.add_exception(1125546967217471609, "links")
+            else:
+                print("❌ Бот не подключен ни к одному серверу")
+        except Exception as e:
+            print(f"❌ Ошибка при добавлении исключения для канала партнёрств: {e}")
+            
+        self.ready = True
+        print("✅ Автомодерация инициализирована")
         
+    async def load_rules(self):
+        """Загрузка настроек правил из базы данных"""
+        try:
+            for guild in self.bot.guilds:
+                results = await self.db.fetch_all(
+                    """
+                    SELECT rule_name, enabled, settings, last_update
+                    FROM automod_rules
+                    WHERE guild_id = ?
+                    """,
+                    str(guild.id)
+                )
+                
+                for row in results:
+                    rule_name = row['rule_name']
+                    if rule_name in self.rules:
+                        rule = self.rules[rule_name]
+                        rule.enabled = row['enabled']
+                        if row['settings']:
+                            settings = json.loads(row['settings'])
+                            rule.update_from_dict(settings)
+                            
+        except Exception as e:
+            print(f"❌ Ошибка при загрузке настроек правил: {e}")
+            
+    async def save_rule_settings(self, guild_id: str, rule_name: str):
+        """Сохранение настроек правила в базу данных"""
+        try:
+            if rule_name in self.rules:
+                rule = self.rules[rule_name]
+                settings = rule.to_dict()
+                
+                await self.db.execute(
+                    """
+                    INSERT INTO automod_rules (rule_name, guild_id, enabled, settings, last_update)
+                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(rule_name, guild_id) 
+                    DO UPDATE SET enabled = ?, settings = ?, last_update = CURRENT_TIMESTAMP
+                    """,
+                    rule_name, guild_id, rule.enabled, json.dumps(settings),
+                    rule.enabled, json.dumps(settings)
+                )
+                
+        except Exception as e:
+            print(f"❌ Ошибка при сохранении настроек правила: {e}")
+            
     async def load_violations(self):
         """Загрузка истории нарушений из базы данных"""
         try:
             results = await self.db.fetch_all(
-                "SELECT user_id, rule_name, violations_count FROM automod_violations"
+                """
+                SELECT user_id, rule_name, COUNT(*) as violations_count 
+                FROM moderation 
+                WHERE type = 'violation' AND active = TRUE 
+                GROUP BY user_id, rule_name
+                """
             )
             for row in results:
                 user_id = int(row['user_id'])
@@ -122,7 +129,11 @@ class AutoMod(commands.Cog):
         """Загрузка исключений из базы данных"""
         try:
             results = await self.db.fetch_all(
-                "SELECT channel_id, rule_name FROM automod_exceptions"
+                """
+                SELECT channel_id, rule_name 
+                FROM moderation 
+                WHERE type = 'exception' AND active = TRUE
+                """
             )
             for row in results:
                 channel_id = int(row['channel_id'])
@@ -142,31 +153,70 @@ class AutoMod(commands.Cog):
                 
             self.violations[user_id][rule_name] += 1
             
-            await self.db.execute(
-                """
-                INSERT OR REPLACE INTO automod_violations (user_id, rule_name, violations_count)
-                VALUES (?, ?, ?)
-                """,
-                str(user_id), rule_name, self.violations[user_id][rule_name]
-            )
+            # Получаем guild_id безопасно
+            guild_id = None
+            for guild in self.bot.guilds:
+                guild_id = str(guild.id)
+                break
+                
+            if guild_id:
+                await self.db.execute(
+                    """
+                    INSERT INTO moderation (
+                        user_id, guild_id, type, rule_name,
+                        created_at, active
+                    ) VALUES (?, ?, 'violation', ?, CURRENT_TIMESTAMP, TRUE)
+                    """,
+                    str(user_id), guild_id, rule_name
+                )
+            else:
+                print("❌ Не удалось получить guild_id для сохранения нарушения")
         except Exception as e:
             print(f"❌ Ошибка при сохранении нарушения: {e}")
             
     async def add_exception(self, channel_id: int, rule_name: str):
         """Добавить исключение для канала"""
         try:
-            await self.db.execute(
+            # Получаем guild_id безопасно
+            guild_id = None
+            for guild in self.bot.guilds:
+                guild_id = str(guild.id)
+                break
+                
+            if not guild_id:
+                print("❌ Не удалось получить guild_id для добавления исключения")
+                return
+
+            # Проверяем, существует ли уже такое исключение
+            existing = await self.db.fetch_all(
                 """
-                INSERT OR IGNORE INTO automod_exceptions (channel_id, rule_name)
-                VALUES (?, ?)
+                SELECT id FROM moderation 
+                WHERE channel_id = ? AND rule_name = ? 
+                AND type = 'exception' AND active = TRUE
                 """,
                 str(channel_id), rule_name
+            )
+            
+            if existing:
+                print(f"ℹ️ Исключение для канала {channel_id} и правила {rule_name} уже существует")
+                return
+                
+            # Если исключения нет, добавляем его
+            await self.db.execute(
+                """
+                INSERT INTO moderation (
+                    channel_id, guild_id, type, rule_name,
+                    created_at, active
+                ) VALUES (?, ?, 'exception', ?, CURRENT_TIMESTAMP, TRUE)
+                """,
+                str(channel_id), guild_id, rule_name
             )
             
             if channel_id not in self.exceptions:
                 self.exceptions[channel_id] = []
             if rule_name not in self.exceptions[channel_id]:
                 self.exceptions[channel_id].append(rule_name)
+                print(f"✅ Добавлено исключение для канала {channel_id} и правила {rule_name}")
                 
         except Exception as e:
             print(f"❌ Ошибка при добавлении исключения: {e}")
@@ -175,7 +225,12 @@ class AutoMod(commands.Cog):
         """Удалить исключение для канала"""
         try:
             await self.db.execute(
-                "DELETE FROM automod_exceptions WHERE channel_id = ? AND rule_name = ?",
+                """
+                UPDATE moderation 
+                SET active = FALSE 
+                WHERE channel_id = ? AND rule_name = ? 
+                AND type = 'exception' AND active = TRUE
+                """,
                 str(channel_id), rule_name
             )
             
@@ -187,7 +242,7 @@ class AutoMod(commands.Cog):
             
     async def check_message(self, message: discord.Message) -> Optional[str]:
         """Проверка сообщения на нарушения"""
-        if message.author.bot or message.author.guild_permissions.administrator:
+        if message.author.bot:
             return None
             
         for rule_name, rule in self.rules.items():
@@ -220,7 +275,9 @@ class AutoMod(commands.Cog):
             await self.punishment_handler.apply_punishment(
                 message.author,
                 punishment,
-                f"Нарушение правила: {rule.description}"
+                f"Нарушение правила: {rule.description}",
+                rule_name,
+                self.bot.user.id
             )
             
             # Создаем эмбед с информацией
@@ -245,12 +302,37 @@ class AutoMod(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         """Обработка новых сообщений"""
-        if not message.guild:
+        if not message.guild or not self.ready:
             return
             
-        rule_name = await self.check_message(message)
-        if rule_name:
-            await self.handle_violation(message, rule_name)
+        try:
+            rule_name = await self.check_message(message)
+            if rule_name:
+                await self.handle_violation(message, rule_name)
+        except Exception as e:
+            print(f"❌ Ошибка при обработке сообщения: {e}")
+            # Логируем ошибку в канал логов
+            try:
+                log_channel = discord.utils.get(message.guild.channels, name="mod-logs")
+                if log_channel:
+                    error_embed = Embed(
+                        title=f"{Emojis.ERROR} Ошибка автомодерации",
+                        description=f"```py\n{str(e)}\n```",
+                        color="RED"
+                    )
+                    error_embed.add_field(
+                        name="Канал",
+                        value=f"{message.channel.mention} (`{message.channel.id}`)",
+                        inline=True
+                    )
+                    error_embed.add_field(
+                        name="Пользователь",
+                        value=f"{message.author.mention} (`{message.author.id}`)",
+                        inline=True
+                    )
+                    await log_channel.send(embed=error_embed)
+            except:
+                pass
             
     @commands.Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
@@ -262,174 +344,68 @@ class AutoMod(commands.Cog):
         if rule_name:
             await self.handle_violation(after, rule_name)
             
-    automod_group = app_commands.Group(name="automod", description="Управление автомодерацией")
-    
-    @automod_group.command(name="status")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def automod_status(self, interaction: discord.Interaction):
-        """Показать статус автомодерации"""
+    @commands.command(name="automod", description="Управление автомодерацией")
+    async def automod_command(self, ctx):
+        """Команда для управления автомодерацией"""
+        # Создаем эмбед с информацией о правилах
         embed = Embed(
-            title=f"{Emojis.SHIELD} Статус автомодерации",
-            description="Текущие настройки и правила:",
+            title=f"{Emojis.SETTINGS} Настройки автомодерации",
+            description="Используйте `!automod <правило> <on/off>` для управления правилами\nНапример: `!automod spam off`",
             color="BLUE"
         )
         
         for rule_name, rule in self.rules.items():
-            violations = sum(1 for user_violations in self.violations.values()
-                           if rule_name in user_violations)
-            
             embed.add_field(
                 name=f"{Emojis.DOT} {rule.name}",
-                value=f"Нарушений: `{violations}`\nОписание: {rule.description}",
+                value=(
+                    f"**Статус:** {'🟢 Включено' if rule.enabled else '🔴 Выключено'}\n"
+                    f"**Описание:** {rule.description}\n"
+                    f"**Обновлено:** <t:{int(rule.last_update.timestamp())}:R>"
+                ),
                 inline=False
             )
             
-        await interaction.response.send_message(embed=embed)
-        
-    @automod_group.command(name="clear")
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.describe(user="Пользователь для очистки нарушений")
-    async def automod_clear(self, interaction: discord.Interaction, user: discord.Member):
-        """Очистить историю нарушений пользователя"""
-        try:
-            if user.id in self.violations:
-                del self.violations[user.id]
-                
-            await self.db.execute(
-                "DELETE FROM automod_violations WHERE user_id = ?",
-                str(user.id)
-            )
-            
-            embed = Embed(
-                title=f"{Emojis.SUCCESS} История очищена",
-                description=f"История нарушений для {user.mention} была очищена",
-                color="GREEN"
-            )
-            
-        except Exception as e:
-            embed = Embed(
-                title=f"{Emojis.ERROR} Ошибка",
-                description=f"Не удалось очистить историю: {str(e)}",
-                color="RED"
-            )
-            
-        await interaction.response.send_message(embed=embed)
-        
-    @automod_group.command(name="violations")
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.describe(user="Пользователь для просмотра нарушений")
-    async def automod_violations(self, interaction: discord.Interaction, user: discord.Member):
-        """Показать историю нарушений пользователя"""
-        if user.id not in self.violations or not self.violations[user.id]:
-            embed = Embed(
-                title=f"{Emojis.INFO} История нарушений",
-                description=f"У {user.mention} нет нарушений",
-                color="BLUE"
-            )
-        else:
-            embed = Embed(
-                title=f"{Emojis.INFO} История нарушений",
-                description=f"Нарушения {user.mention}:",
-                color="BLUE"
-            )
-            
-            for rule_name, count in self.violations[user.id].items():
-                rule = self.rules[rule_name]
-                embed.add_field(
-                    name=f"{Emojis.DOT} {rule.name}",
-                    value=f"Количество: `{count}`\nПоследнее наказание: `{rule.punishment.get(count, 'warn')}`",
-                    inline=False
-                )
-                
-        await interaction.response.send_message(embed=embed)
-        
-    @automod_group.command(name="exception")
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.describe(
-        channel="Канал для исключения",
-        rule="Правило для исключения",
-        action="Действие (add/remove)"
-    )
-    async def automod_exception(
-        self, 
-        interaction: discord.Interaction, 
-        channel: discord.TextChannel,
-        rule: str,
-        action: str
-    ):
-        """Управление исключениями автомодерации"""
-        if rule not in self.rules:
-            embed = Embed(
-                title=f"{Emojis.ERROR} Ошибка",
-                description=f"Правило `{rule}` не существует",
-                color="RED"
-            )
-            return await interaction.response.send_message(embed=embed)
-            
-        try:
-            if action.lower() == "add":
-                await self.add_exception(channel.id, rule)
-                action_text = "добавлено в"
-            else:
-                await self.remove_exception(channel.id, rule)
-                action_text = "удалено из"
-                
-            embed = Embed(
-                title=f"{Emojis.SUCCESS} Исключение обновлено",
-                description=f"Правило `{rule}` {action_text} исключений для канала {channel.mention}",
-                color="GREEN"
-            )
-            
-        except Exception as e:
-            embed = Embed(
-                title=f"{Emojis.ERROR} Ошибка",
-                description=f"Не удалось обновить исключение: {str(e)}",
-                color="RED"
-            )
-            
-        await interaction.response.send_message(embed=embed)
-
-    @commands.command(name="automod")
-    @commands.has_permissions(administrator=True)
-    async def automod_config(self, ctx):
-        """Настройка автомодерации"""
-        embed = Embed(
-            title=f"{Emojis.SETTINGS} Настройка автомодерации",
-            description="Выберите канал и настройте правила автомодерации\n\n"
-                       "🟢 - Правило включено\n"
-                       "🔴 - Правило отключено",
-            color="BLUE"
-        )
-        
-        view = ConfigView(self)
-        await ctx.send(embed=embed, view=view)
-        
-    @commands.command(name="violations")
-    @commands.has_permissions(administrator=True)
-    async def show_violations(self, ctx, user: discord.Member):
-        """Показать нарушения пользователя"""
-        if user.id not in self.violations or not self.violations[user.id]:
-            embed = Embed(
-                title=f"{Emojis.INFO} История нарушений",
-                description=f"У {user.mention} нет нарушений",
-                color="BLUE"
-            )
-        else:
-            embed = Embed(
-                title=f"{Emojis.INFO} История нарушений",
-                description=f"Нарушения {user.mention}:",
-                color="BLUE"
-            )
-            
-            for rule_name, count in self.violations[user.id].items():
-                rule = self.rules[rule_name]
-                embed.add_field(
-                    name=f"{Emojis.DOT} {rule.name}",
-                    value=f"Количество: `{count}`\nПоследнее наказание: `{rule.punishment.get(count, 'warn')}`",
-                    inline=False
-                )
-                
         await ctx.send(embed=embed)
+        
+    @commands.command(name="automod_toggle", aliases=["am"])
+    async def automod_toggle(self, ctx, rule_name: str = None, state: str = None):
+        """Включение/выключение правил автомодерации
+        
+        Параметры:
+        ---------------
+        rule_name: Название правила (spam/caps/links/bad_words/mention_spam/emote_spam/newline_spam)
+        state: on/off - включить/выключить
+        """
+        if not rule_name:
+            await ctx.send("❌ Укажите название правила!")
+            return
+            
+        if not state or state.lower() not in ['on', 'off']:
+            await ctx.send("❌ Укажите состояние (on/off)!")
+            return
+            
+        rule_name = rule_name.lower()
+        if rule_name not in self.rules:
+            await ctx.send("❌ Неверное название правила!")
+            return
+            
+        rule = self.rules[rule_name]
+        new_state = state.lower() == 'on'
+        
+        if rule.enabled == new_state:
+            await ctx.send(f"ℹ️ Правило {rule.name} уже {'включено' if new_state else 'выключено'}!")
+            return
+            
+        # Переключаем состояние правила
+        rule.enabled = new_state
+        rule.last_update = datetime.now()
+        
+        # Сохраняем изменения
+        await self.save_rule_settings(str(ctx.guild.id), rule_name)
+        
+        await ctx.send(
+            f"{'✅ Включено' if new_state else '❌ Отключено'} правило {rule.name}"
+        )
 
 async def setup(bot):
     await bot.add_cog(AutoMod(bot)) 

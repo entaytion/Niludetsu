@@ -15,7 +15,7 @@ class BaseAnalytics:
     def __init__(self):
         # Добавляем кастомный шрифт
         plt.rcParams['font.family'] = 'sans-serif'
-        self.custom_font = fm.FontProperties(fname='config/fonts/TTNormsPro-Bold.ttf')
+        self.custom_font = fm.FontProperties(fname='data/fonts/TTNormsPro-Bold.ttf')
         
         # Настройка стиля для всех графиков
         plt.style.use('dark_background')

@@ -290,29 +290,6 @@ class BumpReminder(commands.Cog):
                         self.update_bump_time(bot_id, None, bump_data['bot_name'])
                         break
 
-    @commands.command(name="nextbump")
-    async def next_bump(self, ctx):
-        """Показывает время следующего бампа для всех ботов в канале"""
-        channel_id = str(ctx.channel.id)
-        if channel_id in self.bump_times and self.bump_times[channel_id]:
-            response = "Запланированные бампы в этом канале:\n"
-            current_time = self.get_current_time()
-            
-            for bot_id, bump_data in self.bump_times[channel_id].items():
-                next_bump = self.localize_time(bump_data["next_bump"])
-                time_until = next_bump - current_time
-                minutes_until = int(time_until.total_seconds() / 60)
-                
-                response += (
-                    f"• {bump_data['bot_name']}: через "
-                    f"{minutes_until // 60} часов и {minutes_until % 60} минут "
-                    f"(в {next_bump.strftime('%H:%M')})\n"
-                )
-            
-            await ctx.send(response)
-        else:
-            await ctx.send("В этом канале нет запланированных бампов.")
-
     @commands.command(
         name="checkbump",
         description="Показывает информацию о следующем бампе",
@@ -360,17 +337,9 @@ class BumpReminder(commands.Cog):
                       f"⏳ **Осталось ждать:** `{time_str}`",
                 inline=False
             )
-        
+            
         if not has_bumps:
-            embed = discord.Embed(
-                title="❌ Нет запланированных бампов",
-                color=0xe74c3c,  # Красный цвет
-                timestamp=current_time
-            )
-        else:
-            # Добавляем футер с информацией
-            embed.set_footer(text=f"Запрошено {ctx.author.name}", icon_url=ctx.author.display_avatar.url)
-        
+            embed.description = "Нет запланированных бампов"
         await ctx.send(embed=embed)
 
 async def setup(bot):

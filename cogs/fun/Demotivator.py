@@ -9,7 +9,7 @@ import os
 class Demotivator(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.font_path = "config/fonts/Times New Roman.ttf"
+        self.font_path = "data/fonts/Times New Roman.ttf"
 
     async def download_image(self, url):
         async with aiohttp.ClientSession() as session:

@@ -241,3 +241,18 @@ class UserLogger(BaseLogger):
                 ],
                 thumbnail_url=after.display_avatar.url
             ) 
+
+    async def log_member_unban(self, guild: discord.Guild, user: discord.User):
+        """Логирование разбана пользователя"""
+        fields = [
+            {"name": f"{Emojis.DOT} Пользователь", "value": f"{user} ({user.mention})", "inline": True},
+            {"name": f"{Emojis.DOT} ID", "value": str(user.id), "inline": True}
+        ]
+        
+        await self.log_event(
+            title=f"{Emojis.SUCCESS} Пользователь разбанен",
+            description=f"С пользователя был снят бан на сервере",
+            color='GREEN',
+            fields=fields,
+            thumbnail_url=user.display_avatar.url
+        ) 

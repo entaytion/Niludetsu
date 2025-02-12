@@ -117,24 +117,9 @@ async def log_command_error(ctx_or_interaction: Union[commands.Context, discord.
 
 @bot.event
 async def on_command_error(ctx: commands.Context, error: commands.CommandError):
-    """Обработчик ошибок обычных команд"""
-    try:
-        # Отправляем сообщение пользователю
-        error_message = "Произошла ошибка при выполнении команды!"
-        
-        # Если это пользовательская ошибка, показываем её текст
-        if isinstance(error, commands.UserInputError):
-            error_message = str(error)
-        
-        error_embed = Embed.error(description=error_message)
-        await ctx.send(embed=error_embed, delete_after=10)
-        
-        # Логируем ошибку
-        await log_command_error(ctx, error)
-        
-    except Exception as e:
-        print(f"❌ Ошибка при обработке ошибки: {e}")
-        traceback.print_exc()
+    if isinstance(error, commands.CommandNotFound):
+        return  # Игнорируем ошибку отсутствующей команды
+    await log_command_error(ctx, error)
 
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: commands.CommandError):
@@ -207,5 +192,83 @@ async def on_message(message):
     except Exception as e:
         print(f"❌ Ошибка при обработке сообщения: {e}")
         traceback.print_exc()
+
+class HelpView(discord.ui.View):
+    def __init__(self, commands_list: list, per_page: int = 10):
+        super().__init__(timeout=60)
+        self.commands = commands_list
+        self.per_page = per_page
+        self.current_page = 0
+        self.total_pages = len(commands_list) // per_page + (1 if len(commands_list) % per_page else 0)
+
+    def get_current_page_content(self):
+        start = self.current_page * self.per_page
+        end = start + self.per_page
+        return self.commands[start:end]
+
+    @discord.ui.button(label="◀️", style=discord.ButtonStyle.gray)
+    async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_page > 0:
+            self.current_page -= 1
+            await self.update_message(interaction)
+
+    @discord.ui.button(label="▶️", style=discord.ButtonStyle.gray)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_page < self.total_pages - 1:
+            self.current_page += 1
+            await self.update_message(interaction)
+
+    async def update_message(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="Команды с префиксом",
+            description=f"Страница {self.current_page + 1}/{self.total_pages}",
+            color=discord.Color.blue()
+        )
+        
+        current_page = self.get_current_page_content()
+        commands_text = ""
+        for cmd, help_text in current_page:
+            commands_text += f"`!{cmd}` - {help_text}\n"
+        
+        embed.add_field(name="Команды", value=commands_text or "Нет доступных команд", inline=False)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+@bot.command(name="aehelp")
+@commands.is_owner()
+async def aehelp(ctx):
+    """Показывает все команды с префиксом для создателя бота"""
+    # Собираем только команды с префиксом (не слэш-команды)
+    prefix_commands = []
+    for cmd in bot.commands:
+        if not cmd.hidden:  # Пропускаем скрытые команды
+            help_text = cmd.help or 'Нет описания'
+            prefix_commands.append((cmd.name, help_text))
+    
+    prefix_commands.sort(key=lambda x: x[0])  # Сортируем по имени команды
+    
+    if not prefix_commands:
+        embed = discord.Embed(
+            title="Команды с префиксом",
+            description="Нет доступных команд",
+            color=discord.Color.blue()
+        )
+        await ctx.send(embed=embed)
+        return
+
+    view = HelpView(prefix_commands)
+    
+    embed = discord.Embed(
+        title="Команды с префиксом",
+        description=f"Страница 1/{view.total_pages}",
+        color=discord.Color.blue()
+    )
+    
+    current_page = view.get_current_page_content()
+    commands_text = ""
+    for cmd, help_text in current_page:
+        commands_text += f"`!{cmd}` - {help_text}\n"
+    
+    embed.add_field(name="Команды", value=commands_text, inline=False)
+    await ctx.send(embed=embed, view=view)
 
 bot.run(os.getenv('MAIN_TOKEN'))  # Используем токен из .env файла

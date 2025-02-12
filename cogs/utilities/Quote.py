@@ -11,7 +11,7 @@ import os
 class Quote(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.font_path = 'config/fonts/TTNormsPro-Regular.ttf'
+        self.font_path = 'data/fonts/TTNormsPro-Regular.ttf'
 
     async def download_avatar(self, avatar_url):
         """Завантаження та обробка аватарки"""
