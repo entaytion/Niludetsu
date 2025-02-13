@@ -1,4 +1,4 @@
-from ..utils.logging import BaseLogger, LoggingState
+from Niludetsu import BaseLogger, LoggingState
 import discord
 from discord.ext import commands
 from typing import Optional, Union
@@ -6,9 +6,16 @@ from typing import Optional, Union
 class Logger(BaseLogger):
     """Основной класс логгера."""
     
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: discord.Client):
         super().__init__(bot)
-        self.logging_enabled: bool = True
+        self.log_channel = None
+        bot.loop.create_task(self._initialize())
+    
+    async def _initialize(self):
+        """Инициализация логгера"""
+        await self.bot.wait_until_ready()
+        await self.initialize_logs()
+        self.log_channel = LoggingState.log_channel
 
     async def setup(self, webhook_url: str, log_channel_id: int) -> None:
         """Настройка логгера."""

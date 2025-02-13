@@ -1,15 +1,20 @@
-from ..utils.logging import BaseLogger
-from ..utils.constants import Emojis
+from Niludetsu import BaseLogger, Emojis, LoggingState
 import discord
 from typing import Optional
-import yaml
-from discord import Embed
 
 class WebhookLogger(BaseLogger):
     """Логгер для вебхуков Discord."""
     
-    def __init__(self, bot):
-        self.bot = bot
+    def __init__(self, bot: discord.Client):
+        super().__init__(bot)
+        self.log_channel = None
+        bot.loop.create_task(self._initialize())
+    
+    async def _initialize(self):
+        """Инициализация логгера"""
+        await self.bot.wait_until_ready()
+        await self.initialize_logs()
+        self.log_channel = LoggingState.log_channel
         
     async def log_webhook_update(self, channel: discord.TextChannel):
         """Логирование обновления вебхуков в канале"""

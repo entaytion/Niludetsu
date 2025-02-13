@@ -1,9 +1,8 @@
-from ..utils.logging import BaseLogger, LoggingState
-from ..utils.constants import Emojis
-from ..utils.embed import Embed
+from Niludetsu import BaseLogger, Emojis, LoggingState
 import discord
 from typing import Optional
 import traceback
+from datetime import datetime
 
 class VoiceLogger(BaseLogger):
     """Логгер для голосовых каналов Discord."""
@@ -11,123 +10,170 @@ class VoiceLogger(BaseLogger):
     def __init__(self, bot: discord.Client):
         super().__init__(bot)
         self.log_channel = None
-        bot.loop.create_task(self._initialize())
+        self._ready = False
+        self.bot.loop.create_task(self._initialize())
     
     async def _initialize(self):
         """Инициализация логгера"""
-        await self.bot.wait_until_ready()
-        await self.initialize_logs()
-        self.log_channel = LoggingState.log_channel
+        try:
+            await self.bot.wait_until_ready()
+            self.log_channel = LoggingState.log_channel
+            self._ready = True
+        except Exception as e:
+            print(f"❌ Ошибка инициализации логов: {e}")
+            traceback.print_exc()
     
     async def log_voice_channel_full(self, channel: discord.VoiceChannel):
         """Логирование заполнения голосового канала"""
-        fields = [
-            {"name": f"{Emojis.DOT} Канал", "value": channel.mention, "inline": True},
-            {"name": f"{Emojis.DOT} ID", "value": str(channel.id), "inline": True},
-            {"name": f"{Emojis.DOT} Лимит", "value": str(channel.user_limit), "inline": True},
-            {"name": f"{Emojis.DOT} Категория", "value": channel.category.name if channel.category else "Нет", "inline": True}
-        ]
-        
-        await self.log_event(
-            title=f"{Emojis.INFO} Голосовой канал заполнен",
-            description=f"Голосовой канал достиг максимального количества участников",
-            color='BLUE',
-            fields=fields
-        )
-        
+        if not self._ready or not self.log_channel:
+            return
+            
+        try:
+            fields = [
+                {"name": f"{Emojis.DOT} Канал", "value": channel.mention, "inline": True},
+                {"name": f"{Emojis.DOT} ID", "value": str(channel.id), "inline": True},
+                {"name": f"{Emojis.DOT} Лимит", "value": str(channel.user_limit), "inline": True},
+                {"name": f"{Emojis.DOT} Категория", "value": channel.category.name if channel.category else "Нет", "inline": True}
+            ]
+            
+            await self.log_event(
+                title=f"{Emojis.INFO} Голосовой канал заполнен",
+                description=f"Голосовой канал достиг максимального количества участников",
+                color='BLUE',
+                fields=fields
+            )
+        except Exception as e:
+            print(f"❌ Ошибка логирования заполнения канала: {e}")
+    
     async def log_voice_user_join(self, member: discord.Member, channel: discord.VoiceChannel):
         """Логирование присоединения пользователя к голосовому каналу"""
-        fields = [
-            {"name": f"{Emojis.DOT} Пользователь", "value": member.mention, "inline": True},
-            {"name": f"{Emojis.DOT} ID пользователя", "value": str(member.id), "inline": True},
-            {"name": f"{Emojis.DOT} Канал", "value": channel.mention, "inline": True},
-            {"name": f"{Emojis.DOT} Участников", "value": f"{len(channel.members)}/{channel.user_limit if channel.user_limit else '∞'}", "inline": True}
-        ]
-        
-        await self.log_event(
-            title=f"{Emojis.SUCCESS} Пользователь присоединился к голосовому каналу",
-            description=f"Пользователь подключился к голосовому каналу",
-            color='GREEN',
-            fields=fields,
-            thumbnail_url=member.display_avatar.url
-        )
-        
-    async def log_voice_user_switch(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState) -> None:
-        """Логирование перехода пользователя между каналами"""
-        fields = [
-            {"name": f"{Emojis.DOT} Предыдущий канал", "value": before.channel.mention if before.channel else "Нет", "inline": True},
-            {"name": f"{Emojis.DOT} Новый канал", "value": after.channel.mention if after.channel else "Нет", "inline": True}
-        ]
-        
-        await self.log_event(
-            title=f"{Emojis.INFO} Изменение голосового канала",
-            description=f"{member.mention} сменил канал",
-            color='BLUE',
-            fields=fields,
-            thumbnail_url=member.display_avatar.url
-        )
-        
+        if not self._ready or not self.log_channel:
+            return
+            
+        try:
+            fields = [
+                {"name": f"{Emojis.DOT} Пользователь", "value": member.mention, "inline": True},
+                {"name": f"{Emojis.DOT} ID пользователя", "value": str(member.id), "inline": True},
+                {"name": f"{Emojis.DOT} Канал", "value": channel.mention, "inline": True},
+                {"name": f"{Emojis.DOT} Участников", "value": f"{len(channel.members)}/{channel.user_limit if channel.user_limit else '∞'}", "inline": True}
+            ]
+            
+            await self.log_event(
+                title=f"{Emojis.SUCCESS} Вход в голосовой канал",
+                description=f"{member.mention} присоединился к каналу {channel.mention}",
+                color='GREEN',
+                fields=fields,
+                thumbnail_url=member.display_avatar.url
+            )
+        except Exception as e:
+            print(f"❌ Ошибка логирования входа в канал: {e}")
+    
     async def log_voice_user_leave(self, member: discord.Member, channel: discord.VoiceChannel):
         """Логирование выхода пользователя из голосового канала"""
-        fields = [
-            {"name": f"{Emojis.DOT} Пользователь", "value": member.mention, "inline": True},
-            {"name": f"{Emojis.DOT} ID пользователя", "value": str(member.id), "inline": True},
-            {"name": f"{Emojis.DOT} Канал", "value": channel.mention, "inline": True},
-            {"name": f"{Emojis.DOT} Участников", "value": f"{len(channel.members)}/{channel.user_limit if channel.user_limit else '∞'}", "inline": True}
-        ]
-        
-        await self.log_event(
-            title=f"{Emojis.ERROR} Пользователь покинул голосовой канал",
-            description=f"Пользователь отключился от голосового канала",
-            color='RED',
-            fields=fields,
-            thumbnail_url=member.display_avatar.url
-        )
-        
-    async def log_voice_user_move(self, member: discord.Member, executor: discord.Member, before: discord.VoiceChannel, after: discord.VoiceChannel):
-        """Логирование принудительного перемещения пользователя между голосовыми каналами"""
-        fields = [
-            {"name": f"{Emojis.DOT} Пользователь", "value": member.mention, "inline": True},
-            {"name": f"{Emojis.DOT} ID пользователя", "value": str(member.id), "inline": True},
-            {"name": f"{Emojis.DOT} Модератор", "value": executor.mention, "inline": True},
-            {"name": f"{Emojis.DOT} Предыдущий канал", "value": before.mention, "inline": True},
-            {"name": f"{Emojis.DOT} Новый канал", "value": after.mention, "inline": True}
-        ]
-        
-        await self.log_event(
-            title=f"{Emojis.INFO} Пользователь перемещен в другой канал",
-            description=f"Пользователь был принудительно перемещен в другой голосовой канал",
-            color='BLUE',
-            fields=fields,
-            thumbnail_url=member.display_avatar.url
-        )
-        
-    async def log_voice_user_kick(self, member: discord.Member, executor: discord.Member, channel: discord.VoiceChannel):
-        """Логирование принудительного отключения пользователя от голосового канала"""
-        fields = [
-            {"name": f"{Emojis.DOT} Пользователь", "value": member.mention, "inline": True},
-            {"name": f"{Emojis.DOT} ID пользователя", "value": str(member.id), "inline": True},
-            {"name": f"{Emojis.DOT} Модератор", "value": executor.mention, "inline": True},
-            {"name": f"{Emojis.DOT} Канал", "value": channel.mention, "inline": True}
-        ]
-        
-        await self.log_event(
-            title=f"{Emojis.ERROR} Пользователь отключен от голосового канала",
-            description=f"Пользователь был принудительно отключен от голосового канала",
-            color='RED',
-            fields=fields,
-            thumbnail_url=member.display_avatar.url
-        )
+        if not self._ready or not self.log_channel:
+            return
+            
+        try:
+            fields = [
+                {"name": f"{Emojis.DOT} Пользователь", "value": member.mention, "inline": True},
+                {"name": f"{Emojis.DOT} ID пользователя", "value": str(member.id), "inline": True},
+                {"name": f"{Emojis.DOT} Канал", "value": channel.mention, "inline": True},
+                {"name": f"{Emojis.DOT} Участников", "value": f"{len(channel.members)}/{channel.user_limit if channel.user_limit else '∞'}", "inline": True}
+            ]
+            
+            await self.log_event(
+                title=f"{Emojis.ERROR} Выход из голосового канала",
+                description=f"{member.mention} покинул канал {channel.mention}",
+                color='RED',
+                fields=fields,
+                thumbnail_url=member.display_avatar.url
+            )
+        except Exception as e:
+            print(f"❌ Ошибка логирования выхода из канала: {e}")
 
     async def log_voice_status_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-        """Логирование изменений статуса голосового канала"""
+        """Логирование изменений голосового состояния"""
+        if not self._ready or not self.log_channel:
+            return
+            
         try:
-            if not before.channel and after.channel:  # Пользователь присоединился
-                await self.log_voice_user_join(member, after.channel)
-            elif before.channel and not after.channel:  # Пользователь отключился
-                await self.log_voice_user_leave(member, before.channel)
-            elif before.channel and after.channel and before.channel != after.channel:  # Пользователь перешел в другой канал
-                await self.log_voice_user_switch(member, before, after)
+            # Подключение к каналу
+            if not before.channel and after.channel:
+                await self.log_event(
+                    title=f"{Emojis.SUCCESS} Вход в голосовой канал",
+                    description=f"{member.mention} присоединился к каналу {after.channel.mention}",
+                    color='GREEN',
+                    fields=[
+                        {"name": f"{Emojis.DOT} Пользователь", "value": member.mention, "inline": True},
+                        {"name": f"{Emojis.DOT} ID пользователя", "value": str(member.id), "inline": True},
+                        {"name": f"{Emojis.DOT} Канал", "value": after.channel.mention, "inline": True},
+                        {"name": f"{Emojis.DOT} Участников", "value": f"{len(after.channel.members)}/{after.channel.user_limit if after.channel.user_limit else '∞'}", "inline": True}
+                    ],
+                    thumbnail_url=member.display_avatar.url
+                )
+
+            # Отключение от канала
+            elif before.channel and not after.channel:
+                await self.log_event(
+                    title=f"{Emojis.ERROR} Выход из голосового канала",
+                    description=f"{member.mention} покинул канал {before.channel.mention}",
+                    color='RED',
+                    fields=[
+                        {"name": f"{Emojis.DOT} Пользователь", "value": member.mention, "inline": True},
+                        {"name": f"{Emojis.DOT} ID пользователя", "value": str(member.id), "inline": True},
+                        {"name": f"{Emojis.DOT} Канал", "value": before.channel.mention, "inline": True},
+                        {"name": f"{Emojis.DOT} Участников", "value": f"{len(before.channel.members)}/{before.channel.user_limit if before.channel.user_limit else '∞'}", "inline": True}
+                    ],
+                    thumbnail_url=member.display_avatar.url
+                )
+
+            # Переход между каналами
+            elif before.channel and after.channel and before.channel != after.channel:
+                await self.log_event(
+                    title=f"{Emojis.INFO} Смена голосового канала",
+                    description=f"{member.mention} перешел из канала {before.channel.mention} в канал {after.channel.mention}",
+                    color='BLUE',
+                    fields=[
+                        {"name": f"{Emojis.DOT} Пользователь", "value": member.mention, "inline": True},
+                        {"name": f"{Emojis.DOT} ID пользователя", "value": str(member.id), "inline": True},
+                        {"name": f"{Emojis.DOT} Предыдущий канал", "value": before.channel.mention, "inline": True},
+                        {"name": f"{Emojis.DOT} Новый канал", "value": after.channel.mention, "inline": True},
+                        {"name": f"{Emojis.DOT} Участников", "value": f"{len(after.channel.members)}/{after.channel.user_limit if after.channel.user_limit else '∞'}", "inline": True}
+                    ],
+                    thumbnail_url=member.display_avatar.url
+                )
+
+            # Изменение состояния микрофона
+            if before.self_mute != after.self_mute:
+                status = "включил" if not after.self_mute else "выключил"
+                await self.log_event(
+                    title=f"{Emojis.INFO} Изменение состояния микрофона",
+                    description=f"{member.mention} {status} микрофон в канале {after.channel.mention}",
+                    color='YELLOW',
+                    fields=[
+                        {"name": f"{Emojis.DOT} Пользователь", "value": member.mention, "inline": True},
+                        {"name": f"{Emojis.DOT} ID пользователя", "value": str(member.id), "inline": True},
+                        {"name": f"{Emojis.DOT} Канал", "value": after.channel.mention, "inline": True},
+                        {"name": f"{Emojis.DOT} Действие", "value": f"Микрофон {status}", "inline": True}
+                    ],
+                    thumbnail_url=member.display_avatar.url
+                )
+
+            # Изменение состояния наушников
+            if before.self_deaf != after.self_deaf:
+                status = "включил" if not after.self_deaf else "выключил"
+                await self.log_event(
+                    title=f"{Emojis.INFO} Изменение состояния наушников",
+                    description=f"{member.mention} {status} звук в канале {after.channel.mention}",
+                    color='YELLOW',
+                    fields=[
+                        {"name": f"{Emojis.DOT} Пользователь", "value": member.mention, "inline": True},
+                        {"name": f"{Emojis.DOT} ID пользователя", "value": str(member.id), "inline": True},
+                        {"name": f"{Emojis.DOT} Канал", "value": after.channel.mention, "inline": True},
+                        {"name": f"{Emojis.DOT} Действие", "value": f"Звук {status}", "inline": True}
+                    ],
+                    thumbnail_url=member.display_avatar.url
+                )
         except Exception as e:
             print(f"❌ Ошибка при логировании голосового события: {e}")
             traceback.print_exc() 

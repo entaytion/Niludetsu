@@ -1,16 +1,18 @@
-import platform
-import psutil
-import discord
-import time
+"""
+Аналитика бота
+"""
+import platform, psutil, discord, time
 from datetime import timedelta
-from .base import BaseAnalytics
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.utils.embed import Embed
+from ..utils.embed import Embed
+from ..utils.constants import Emojis
+from ..database import Database
 
-class BotAnalytics(BaseAnalytics):
+class BotAnalytics:
+    """Класс для сбора и анализа статистики бота"""
+    
     def __init__(self, bot):
-        super().__init__()
         self.bot = bot
+        self.db = Database()
         self.start_time = time.time()
         
     def get_system_info(self):

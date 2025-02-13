@@ -1,8 +1,6 @@
 import discord
 from discord.ext import commands
-from Niludetsu.utils.embed import Embed
-from Niludetsu.database import Database
-from Niludetsu.api.Gifs import GifsAPI
+from Niludetsu import Embed, Database, GifsAPI
 
 class Sex(commands.Cog):
     def __init__(self, bot):

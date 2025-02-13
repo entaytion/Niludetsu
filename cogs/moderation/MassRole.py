@@ -1,28 +1,31 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.utils.decorators import command_cooldown, has_mod_role
+from Niludetsu import (
+    Embed,
+    Emojis,
+    mod_only,
+    cooldown
+)
 
-class Massrole(commands.Cog):
+class MassRole(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
     @app_commands.command(name="massrole", description="Выдать/забрать роль у всех участников")
     @app_commands.describe(
+        action="Действие с ролью (add/remove)",
         role="Роль для выдачи/удаления",
-        action="Действие (add/remove)",
-        bots="Включать ботов (True/False)"
+        reason="Причина выдачи/удаления роли"
     )
-    @has_mod_role()
-    @command_cooldown()
+    @mod_only()
+    @cooldown(seconds=3)
     async def massrole(
         self,
         interaction: discord.Interaction,
-        role: discord.Role,
         action: str,
-        bots: bool = False
+        role: discord.Role,
+        reason: str = "Причина не указана"
     ):
         try:
             if not interaction.user.guild_permissions.manage_roles:
@@ -68,20 +71,20 @@ class Massrole(commands.Cog):
             skipped_count = 0
 
             for member in interaction.guild.members:
-                if member.bot and not bots:
+                if member.bot:
                     skipped_count += 1
                     continue
 
                 try:
                     if action.lower() == 'add':
                         if role not in member.roles:
-                            await member.add_roles(role, reason=f"Массовая выдача ролей от {interaction.user}")
+                            await member.add_roles(role, reason=f"Массовая выдача ролей от {interaction.user} по причине: {reason}")
                             success_count += 1
                         else:
                             skipped_count += 1
                     else:
                         if role in member.roles:
-                            await member.remove_roles(role, reason=f"Массовое удаление ролей от {interaction.user}")
+                            await member.remove_roles(role, reason=f"Массовое удаление ролей от {interaction.user} по причине: {reason}")
                             success_count += 1
                         else:
                             skipped_count += 1
@@ -142,4 +145,4 @@ class Massrole(commands.Cog):
                 await interaction.edit_original_response(embed=error_embed)
 
 async def setup(bot):
-    await bot.add_cog(Massrole(bot))
+    await bot.add_cog(MassRole(bot))

@@ -3,10 +3,13 @@ from discord.ext import commands
 from discord import app_commands
 import yaml
 from typing import Optional
-from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.utils.decorators import command_cooldown, has_admin_role
-from Niludetsu.database import Database
+from Niludetsu import (
+    Embed,
+    Emojis,
+    admin_only,
+    cooldown,
+    Database
+)
 
 class Reset(commands.Cog):
     def __init__(self, bot):
@@ -22,8 +25,8 @@ class Reset(commands.Cog):
         warns="Сбросить предупреждения",
         reason="Причина сброса"
     )
-    @has_admin_role()
-    @command_cooldown()
+    @admin_only()
+    @cooldown(seconds=3)
     async def reset(
         self,
         interaction: discord.Interaction,

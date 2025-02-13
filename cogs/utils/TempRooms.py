@@ -2,35 +2,28 @@ import discord
 from discord.ext import commands
 from discord import ui
 import asyncio
-import yaml
-import os
 from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.constants import Emojis
-from Niludetsu.database import Database
+from Niludetsu.database.db import Database
 from Niludetsu.logging.voice import VoiceLogger
 import traceback
 from typing import Optional, Dict, Any
 
-def load_config():
-    with open('data/config.yaml', 'r', encoding='utf-8') as f:
-        return yaml.safe_load(f)
-
 class VoiceChannelManager:
     def __init__(self, bot):
-        self.config = load_config()
-        self.db = Database()
         self.bot = bot
+        self.db = Database()
     
     async def add_channel(self, channel_id: str, user_id: str, guild_id: str, name: str):
         """Добавляет временный канал в базу данных"""
         try:
-            params = (channel_id, guild_id, user_id, name, 2, "[]", "[]")
+            values = [str(channel_id), str(guild_id), str(user_id), str(name), 2, "[]", "[]"]
             await self.db.execute(
                 """
                 INSERT INTO temp_rooms (channel_id, guild_id, owner_id, name, channel_type, trusted_users, banned_users)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                params
+                values
             )
             # Проверяем, что канал добавлен
             room = await self.get_temp_room(channel_id)
@@ -42,60 +35,14 @@ class VoiceChannelManager:
     async def delete_temp_room(self, channel_id: str):
         """Удаляет канал из базы данных"""
         try:
-            # Проверяем существование канала в базе
-            result = await self.db.fetch_one(
-                "SELECT channel_id FROM temp_rooms WHERE channel_id = ?",
+            await self.db.execute(
+                "DELETE FROM temp_rooms WHERE channel_id = ?",
                 channel_id
             )
-            
-            if result:
-                await self.db.execute(
-                    "DELETE FROM temp_rooms WHERE channel_id = ?",
-                    channel_id
-                )
-                
         except Exception as e:
+            print(f"❌ Ошибка при удалении канала: {e}")
             traceback.print_exc()
     
-    async def get_channel(self, user_id: str) -> Optional[Dict[str, Any]]:
-        """Получает данные канала пользователя"""
-        try:
-            result = await self.db.fetch_one(
-                """
-                SELECT * 
-                FROM temp_rooms 
-                WHERE owner_id = ? AND channel_type = 2
-                """,
-                str(user_id)
-            )
-            return result
-        except Exception as e:
-            print(f"❌ Ошибка при получении канала: {e}")
-            return None
-
-    async def is_temp_room_owner(self, user_id: str, channel_id: str) -> bool:
-        """Проверяет, является ли пользователь владельцем временного канала"""
-        try:
-            result = await self.db.fetch_one(
-                """
-                SELECT owner_id 
-                FROM temp_rooms 
-                WHERE channel_id = ? AND owner_id = ?
-                """,
-                str(channel_id), str(user_id)
-            )
-            return bool(result)
-        except Exception as e:
-            print(f"❌ Ошибка при проверке владельца канала: {e}")
-            return False
-
-    async def update_temp_room(self, channel_id: str, **kwargs):
-        """Обновляет данные временного канала"""
-        try:
-            await self.db.update("temp_rooms", {"channel_id": channel_id}, kwargs)
-        except Exception as e:
-            print(f"❌ Ошибка при обновлении канала: {e}")
-
     async def get_temp_room(self, channel_id: str) -> Optional[Dict[str, Any]]:
         """Получает данные временного канала"""
         try:
@@ -107,117 +54,61 @@ class VoiceChannelManager:
         except Exception as e:
             print(f"❌ Ошибка при получении данных канала: {e}")
             return None
-    
-    async def add_trusted_user(self, channel_id: str, user_id: str):
-        """Добавляет пользователя в список доверенных"""
+
+    async def update_temp_room(self, channel_id: str, **kwargs):
+        """Обновляет данные временного канала"""
         try:
-            room = await self.get_temp_room(channel_id)
-            if room:
-                trusted_users = eval(room['trusted_users'])
-                if user_id not in trusted_users:
-                    trusted_users.append(user_id)
-                    await self.update_temp_room(channel_id, trusted_users=str(trusted_users))
+            updates = []
+            values = []
+            for key, value in kwargs.items():
+                updates.append(f"{key} = ?")
+                values.append(value)
+            values.append(channel_id)
+            
+            query = f"""
+                UPDATE temp_rooms 
+                SET {', '.join(updates)}
+                WHERE channel_id = ?
+            """
+            await self.db.execute(query, values)
         except Exception as e:
-            print(f"❌ Ошибка при добавлении доверенного пользователя: {e}")
-    
-    async def remove_trusted_user(self, channel_id: str, user_id: str):
-        """Удаляет пользователя из списка доверенных"""
+            print(f"❌ Ошибка при обновлении данных канала: {e}")
+
+    async def is_globally_banned(self, user_id: str, owner_id: str) -> bool:
+        """Проверяет, находится ли пользователь в глобальном бане"""
         try:
-            room = await self.get_temp_room(channel_id)
-            if room:
-                trusted_users = eval(room['trusted_users'])
-                if user_id in trusted_users:
-                    trusted_users.remove(user_id)
-                    await self.update_temp_room(channel_id, trusted_users=str(trusted_users))
+            result = await self.db.fetch_one(
+                "SELECT id FROM global_bans WHERE banned_user_id = ? AND owner_id = ?",
+                user_id, owner_id
+            )
+            return bool(result)
         except Exception as e:
-            print(f"❌ Ошибка при удалении доверенного пользователя: {e}")
-    
-    async def add_banned_user(self, channel_id: str, user_id: str):
-        """Добавляет пользователя в список забаненных"""
-        try:
-            room = await self.get_temp_room(channel_id)
-            if room:
-                banned_users = eval(room['banned_users'])
-                if user_id not in banned_users:
-                    banned_users.append(user_id)
-                    await self.update_temp_room(channel_id, banned_users=str(banned_users))
-        except Exception as e:
-            print(f"❌ Ошибка при добавлении забаненного пользователя: {e}")
-    
-    async def remove_banned_user(self, channel_id: str, user_id: str):
-        """Удаляет пользователя из списка забаненных"""
-        try:
-            room = await self.get_temp_room(channel_id)
-            if room:
-                banned_users = eval(room['banned_users'])
-                if user_id in banned_users:
-                    banned_users.remove(user_id)
-                    await self.update_temp_room(channel_id, banned_users=str(banned_users))
-        except Exception as e:
-            print(f"❌ Ошибка при удалении забаненного пользователя: {e}")
-    
-    async def is_trusted(self, channel_id: str, user_id: str) -> bool:
-        """Проверяет, является ли пользователь доверенным"""
-        try:
-            room = await self.get_temp_room(channel_id)
-            if room:
-                trusted_users = eval(room['trusted_users'])
-                return user_id in trusted_users
+            print(f"❌ Ошибка при проверке глобального бана: {e}")
             return False
-        except Exception as e:
-            return False
-    
+
     async def is_banned(self, channel_id: str, user_id: str) -> bool:
-        """Проверяет, является ли пользователь забаненным"""
+        """Проверяет, забанен ли пользователь в канале"""
         try:
             room = await self.get_temp_room(channel_id)
-            if room:
+            if room and 'banned_users' in room:
                 banned_users = eval(room['banned_users'])
                 return user_id in banned_users
             return False
         except Exception as e:
+            print(f"❌ Ошибка при проверке бана: {e}")
             return False
 
-    async def is_globally_banned(self, user_id: str, owner_id: str) -> bool:
-        """Проверяет, находится ли пользователь в глобальном бан-листе владельца"""
+    async def is_trusted(self, channel_id: str, user_id: str) -> bool:
+        """Проверяет, является ли пользователь доверенным"""
         try:
-            result = await self.db.fetch_one(
-                """
-                SELECT * FROM global_bans 
-                WHERE banned_user_id = ? AND owner_id = ?
-                """,
-                str(user_id), str(owner_id)
-            )
-            return bool(result)
-        except Exception as e:
-            traceback.print_exc()
+            room = await self.get_temp_room(channel_id)
+            if room and 'trusted_users' in room:
+                trusted_users = eval(room['trusted_users'])
+                return user_id in trusted_users
             return False
-
-    async def add_to_global_banlist(self, user_id: str, owner_id: str):
-        """Добавляет пользователя в глобальный бан-лист"""
-        try:
-            await self.db.execute(
-                """
-                INSERT OR IGNORE INTO global_bans (banned_user_id, owner_id)
-                VALUES (?, ?)
-                """,
-                (str(user_id), str(owner_id))
-            )
         except Exception as e:
-            traceback.print_exc()
-
-    async def remove_from_global_banlist(self, user_id: str, owner_id: str):
-        """Удаляет пользователя из глобального бан-листа"""
-        try:
-            await self.db.execute(
-                """
-                DELETE FROM global_bans 
-                WHERE banned_user_id = ? AND owner_id = ?
-                """,
-                (str(user_id), str(owner_id))
-            )
-        except Exception as e:
-            traceback.print_exc()
+            print(f"❌ Ошибка при проверке доверенного пользователя: {e}")
+            return False
 
 class VoiceChannelView(ui.View):
     def __init__(self, manager):
@@ -1031,11 +922,14 @@ class VoiceChannelView(ui.View):
         async def modal_callback(modal_interaction: discord.Interaction):
             try:
                 name = name_input.value
-                config = load_config()
-                if 'temp_rooms' not in config or 'channel' not in config['temp_rooms']:
+                config = await self.manager.db.fetch(
+                    "SELECT value FROM settings WHERE category = 'temp_rooms' AND key = 'control_channel'"
+                )
+                
+                if not config:
                     raise ValueError("Канал управления не настроен")
 
-                control_channel_id = config['temp_rooms']['channel']
+                control_channel_id = config[0]['value']
                 control_channel = self.bot.get_channel(int(control_channel_id))
                 
                 if not control_channel:
@@ -1151,22 +1045,20 @@ class VoiceChannelCog(commands.Cog):
     async def setup_voice_channel(self):
         """Настройка системы временных каналов"""
         try:
-            config = load_config()
-            if 'temp_rooms' not in config:
-                print("❌ Конфигурация временных комнат не найдена")
+            # Получаем настройки из базы данных
+            settings = await self.manager.db.fetch_all(
+                "SELECT key, value FROM settings WHERE category = 'temp_rooms'"
+            )
+            
+            settings_dict = {row['key']: row['value'] for row in settings}
+            
+            voice_channel_id = settings_dict.get('voice')
+            message_channel_id = settings_dict.get('channel')
+            message_id = settings_dict.get('message')
+            
+            if not all([voice_channel_id, message_channel_id, message_id]):
+                print("❌ Не все настройки временных комнат найдены в базе данных")
                 return
-                
-            if 'voice' not in config['temp_rooms']:
-                print("❌ Не найден ID канала для создания временных каналов")
-                return
-                
-            if 'message' not in config['temp_rooms']:
-                print("❌ Не найден ID сообщения управления")
-                return
-                
-            voice_channel_id = config['temp_rooms']['voice']
-            message_channel_id = config['temp_rooms']['channel']
-            message_id = config['temp_rooms']['message']
             
             # Делаем несколько попыток получить каналы
             retries = 3
@@ -1184,7 +1076,6 @@ class VoiceChannelCog(commands.Cog):
             
             if not voice_channel:
                 print(f"⚠️ Предупреждение: Канал для создания временных каналов не найден: {voice_channel_id}")
-                # Не прерываем выполнение, так как канал может быть доступен позже
             
             if not message_channel:
                 print(f"❌ Канал для сообщения управления не найден: {message_channel_id}")
@@ -1216,7 +1107,7 @@ class VoiceChannelCog(commands.Cog):
                                 f"{Emojis.VOICE_DELETE} - Удалить канал"
                             ),
                             color="BLUE"
-                        ).set_image(url="https://media.discordapp.net/attachments/1332296613988794450/1336455114126262422/voice.png?ex=67a3de51&is=67a28cd1&hm=61524318fecfadefce607fff7625d11d3ce2f0eae45a52d5228bc1ee0e3082e2&=&format=webp&quality=lossless&width=1920&height=640")  # Замените URL на свой
+                        ).set_image(url="https://media.discordapp.net/attachments/1332296613988794450/1336455114126262422/voice.png?ex=67a3de51&is=67a28cd1&hm=61524318fecfadefce607fff7625d11d3ce2f0eae45a52d5228bc1ee0e3082e2&=&format=webp&quality=lossless&width=1920&height=640")
                         await message.edit(embed=embed, view=self.create_panel_view())
                         return
                 except discord.NotFound:
@@ -1232,17 +1123,19 @@ class VoiceChannelCog(commands.Cog):
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         """Обработчик изменения голосового состояния"""
         try:
-            config = load_config()
-            if 'temp_rooms' not in config or 'voice' not in config['temp_rooms']:
+            result = await self.manager.db.fetch_one(
+                "SELECT value FROM settings WHERE category = 'temp_rooms' AND key = 'voice'"
+            )
+            voice_channel_id = result['value'] if result else None
+            
+            if not voice_channel_id:
                 return
-                
-            voice_channel_id = config['temp_rooms']['voice']
             
             # Если пользователь зашел в канал создания
             if after.channel and str(after.channel.id) == str(voice_channel_id):
                 await self.create_temp_channel(member)
                 return
-                
+            
             # Если пользователь покинул канал
             if before.channel:
                 # Проверяем, является ли канал временным
@@ -1266,10 +1159,10 @@ class VoiceChannelCog(commands.Cog):
                                     await thread.delete()
                             except Exception as e:
                                 traceback.print_exc()
-                        
+                            
                         await before.channel.delete()
                         await self.manager.delete_temp_room(str(before.channel.id))
-                        
+            
             # Если пользователь присоединился к каналу
             if after.channel:
                 # Проверяем, является ли канал временным
@@ -1331,18 +1224,21 @@ class VoiceChannelCog(commands.Cog):
                                 await thread.add_user(member)
                         except Exception as e:
                             traceback.print_exc()
-                        
+                            
         except Exception as e:
             traceback.print_exc()
 
     async def create_temp_channel(self, member: discord.Member) -> Optional[discord.VoiceChannel]:
         """Создает временный голосовой канал"""
         try:
-            config = load_config()
-            if 'temp_rooms' not in config or 'voice' not in config['temp_rooms']:
+            result = await self.manager.db.fetch_one(
+                "SELECT value FROM settings WHERE category = 'temp_rooms' AND key = 'category'"
+            )
+            category_id = result['value'] if result else None
+            
+            if not category_id:
                 return None
                 
-            category_id = config['temp_rooms']['category']
             category = member.guild.get_channel(int(category_id))
             if not category:
                 return None
@@ -1387,7 +1283,7 @@ class VoiceChannelCog(commands.Cog):
             # Перемещаем пользователя в новый канал
             await member.move_to(new_channel)
             return new_channel
-            
+                
         except Exception as e:
             traceback.print_exc()
             return None

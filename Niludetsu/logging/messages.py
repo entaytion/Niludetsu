@@ -1,6 +1,5 @@
-from ..utils.logging import BaseLogger
-from ..utils.constants import Emojis
-import discord
+from Niludetsu import BaseLogger, Emojis, LoggingState
+import discord, tempfile, os
 from typing import Optional, List, Union
 from discord.ext import commands
 from datetime import datetime
@@ -8,6 +7,17 @@ from datetime import datetime
 class MessageLogger(BaseLogger):
     """Логгер для сообщений Discord."""
     
+    def __init__(self, bot: discord.Client):
+        super().__init__(bot)
+        self.log_channel = None
+        bot.loop.create_task(self._initialize())
+    
+    async def _initialize(self):
+        """Инициализация логгера"""
+        await self.bot.wait_until_ready()
+        await self.initialize_logs()
+        self.log_channel = LoggingState.log_channel
+        
     async def log_message_delete(self, message: discord.Message):
         """Логирование удаления сообщения"""
         if message.author.bot:
@@ -63,11 +73,7 @@ class MessageLogger(BaseLogger):
             
         if len(messages) > 10:
             fields.append({"name": f"{Emojis.DOT} Примечание", "value": "Показаны только последние 10 сообщений. Полный список в прикрепленном файле.", "inline": False})
-            
-        # Создаем временный файл
-        import tempfile
-        import os
-        
+                    
         temp_file = tempfile.NamedTemporaryFile(delete=False, mode='w', encoding='utf-8', suffix='.txt')
         temp_file.write("\n".join(file_content))
         temp_file.close()

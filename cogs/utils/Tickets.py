@@ -1,337 +1,492 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import yaml
-import asyncio
-from datetime import datetime
+from discord.ui import Modal, TextInput, View, Button
 from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.constants import Emojis
+from Niludetsu.database.db import Database
+import asyncio
+from typing import Optional
 
-class TicketView(discord.ui.View):
+class ReasonModal(Modal):
+    def __init__(self, title: str, callback):
+        super().__init__(title=title)
+        self.callback = callback
+        
+        self.reason_input = TextInput(
+            label="Причина",
+            placeholder="Опишите вашу проблему...",
+            style=discord.TextStyle.paragraph,
+            required=True,
+            max_length=1000
+        )
+        self.add_item(self.reason_input)
+        
+    async def on_submit(self, interaction: discord.Interaction):
+        await self.callback(interaction, self.reason_input.value)
+
+class TicketButton(View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="Создать тикет", style=discord.ButtonStyle.primary, emoji="📩", custom_id="create_ticket")
-    async def create_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Загружаем конфигурацию
-        with open('data/config.yaml', 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
+    @discord.ui.button(label="Создать тикет", style=discord.ButtonStyle.primary, emoji="🎫", custom_id="create_ticket")
+    async def create(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.send_modal(ReasonModal("Создание тикета", self.handle_ticket_create))
         
-        with open('config/tickets.yaml', 'r', encoding='utf-8') as f:
-            ticket_data = yaml.safe_load(f) or {
-                "ticket_counter": 0,
-                "active_tickets": {},
-                "closed_tickets": {},
-                "ratings": {}
-            }
+    async def handle_ticket_create(self, interaction: discord.Interaction, reason: str):
+        cog = interaction.client.get_cog("Tickets")
+        if cog:
+            await cog.handle_ticket_create(interaction, reason)
 
-        # Получаем необходимые ID
-        category_id = int(config['tickets']['category'])
-        support_role_id = int(config['tickets']['support_role'])
+class TicketView(View):
+    def __init__(self, user_id: int):
+        super().__init__(timeout=None)
+        self.user_id = user_id
         
-        # Проверяем, нет ли уже открытого тикета
-        category = interaction.guild.get_channel(category_id)
-        existing_ticket = discord.utils.get(category.text_channels, 
-                                          topic=f"User ID: {interaction.user.id}")
-        
-        if existing_ticket:
+    @discord.ui.button(label="Закрыть", style=discord.ButtonStyle.danger, emoji="🔒", custom_id="close_ticket")
+    async def close(self, interaction: discord.Interaction, button: Button):
+        if not interaction.user.guild_permissions.manage_channels and interaction.user.id != self.user_id:
             return await interaction.response.send_message(
                 embed=Embed(
-                    description="У вас уже есть открытый тикет!"
+                    title=f"{Emojis.ERROR} Ошибка",
+                    description="У вас нет прав на закрытие этого тикета",
+                    color="RED"
                 ),
                 ephemeral=True
             )
 
-        # Увеличиваем счетчик тикетов
-        ticket_data["ticket_counter"] += 1
-        ticket_number = ticket_data["ticket_counter"]
-
-        # Создаём канал тикета
-        overwrites = {
-            interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
-            interaction.user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
-            interaction.guild.get_role(support_role_id): discord.PermissionOverwrite(read_messages=True, send_messages=True)
-        }
-
-        channel = await interaction.guild.create_text_channel(
-            name=f"ticket-{ticket_number}",
-            category=category,
-            topic=f"User ID: {interaction.user.id}",
-            overwrites=overwrites
-        )
-
-        # Сохраняем информацию о тикете
-        ticket_info = {
-            "number": ticket_number,
-            "user_id": interaction.user.id,
-            "guild_id": interaction.guild.id,
-            "created_at": datetime.now().isoformat(),
-            "status": "open",
-            "last_activity": datetime.now().isoformat(),
-            "added_users": []
-        }
-        ticket_data["active_tickets"][str(channel.id)] = ticket_info
-
-        with open('config/tickets.yaml', 'w', encoding='utf-8') as f:
-            yaml.dump(ticket_data, f, default_flow_style=False, allow_unicode=True)
-
-        # Отправляем сообщение в канал тикета
-        embed=Embed(
-            title=f"Тикет #{ticket_number}",
-            description=f"Здравствуйте, {interaction.user.mention}!\nОпишите вашу проблему, и команда поддержки скоро вам поможет."
-        )
+        await interaction.response.send_modal(ReasonModal("Закрытие тикета", self.handle_ticket_close))
         
-        view = TicketControlView()
-        await channel.send(
-            content=f"{interaction.user.mention} {interaction.guild.get_role(support_role_id).mention}",
-            embed=embed,
-            view=view
-        )
+    async def handle_ticket_close(self, interaction: discord.Interaction, reason: str):
+        cog = interaction.client.get_cog("Tickets")
+        if cog:
+            await cog.handle_ticket_close(interaction, reason)
 
-        # Отправляем подтверждение создания тикета
-        await interaction.response.send_message(
-            embed=Embed(
-                description=f"Ваш тикет #{ticket_number} создан: {channel.mention}"
-            ),
-            ephemeral=True
-        )
-
-        # Логируем создание тикета
-        logs_channel = interaction.guild.get_channel(int(config['tickets']['logs_channel']))
-        if logs_channel:
-            log_embed=Embed(
-                title=f"Тикет #{ticket_number} создан",
-                description=f"**Пользователь:** {interaction.user.mention}\n**Канал:** {channel.mention}"
-            )
-            await logs_channel.send(embed=log_embed)
-
-class RatingView(discord.ui.View):
-    def __init__(self, ticket_id: int):
-        super().__init__(timeout=300)
-        self.ticket_id = ticket_id
-
-    @discord.ui.button(label="1", style=discord.ButtonStyle.red, custom_id="rate_1")
-    async def rate_1(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.rate(interaction, 1)
-
-    @discord.ui.button(label="2", style=discord.ButtonStyle.gray, custom_id="rate_2")
-    async def rate_2(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.rate(interaction, 2)
-
-    @discord.ui.button(label="3", style=discord.ButtonStyle.gray, custom_id="rate_3")
-    async def rate_3(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.rate(interaction, 3)
-
-    @discord.ui.button(label="4", style=discord.ButtonStyle.gray, custom_id="rate_4")
-    async def rate_4(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.rate(interaction, 4)
-
-    @discord.ui.button(label="5", style=discord.ButtonStyle.green, custom_id="rate_5")
-    async def rate_5(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.rate(interaction, 5)
-
-    async def rate(self, interaction: discord.Interaction, rating: int):
-        with open('config/tickets.yaml', 'r', encoding='utf-8') as f:
-            ticket_data = yaml.safe_load(f)
-        
-        ticket_data["ratings"][str(self.ticket_id)] = rating
-        
-        with open('config/tickets.yaml', 'w', encoding='utf-8') as f:
-            yaml.dump(ticket_data, f, default_flow_style=False, allow_unicode=True)
-
-        await interaction.response.send_message(
-            embed=Embed(
-                description=f"Спасибо за оценку! Вы поставили {rating} звезд."
-            ),
-            ephemeral=True
-        )
-        self.stop()
-
-class TicketControlView(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-
-    @discord.ui.button(label="Закрыть", style=discord.ButtonStyle.danger, emoji="🔒", custom_id="close_ticket")
-    async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
-        with open('data/config.yaml', 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
-        
-        with open('config/tickets.yaml', 'r', encoding='utf-8') as f:
-            ticket_data = yaml.safe_load(f)
-            
-            # Проверяем права на закрытие тикета
-            support_role_id = int(config['tickets']['support_role'])
-            if not interaction.user.get_role(support_role_id) and not interaction.user.guild_permissions.administrator:
-                return await interaction.response.send_message(
-                    embed=Embed(
-                        description="У вас нет прав на закрытие тикета!"
-                    ),
-                    ephemeral=True
-                )
-
-            # Перемещаем тикет в закрытые
-            ticket_id = str(interaction.channel.id)
-            if ticket_id in ticket_data["active_tickets"]:
-                ticket_info = ticket_data["active_tickets"].pop(ticket_id)
-                ticket_info["closed_at"] = datetime.now().isoformat()
-                ticket_info["closed_by"] = interaction.user.id
-                ticket_data["closed_tickets"][ticket_id] = ticket_info
-                
-                with open('config/tickets.yaml', 'w', encoding='utf-8') as f:
-                    yaml.dump(ticket_data, f, default_flow_style=False, allow_unicode=True)
-
-        await interaction.response.send_message(
-            embed=Embed(
-                description="Тикет будет закрыт через 5 секунд..."
-            )
-        )
-
-        # Отправляем форму оценки создателю тикета
-        user = interaction.guild.get_member(ticket_info["user_id"])
-        if user:
-            rating_embed=Embed(
-                title="Оцените качество поддержки",
-                description="Пожалуйста, оцените качество поддержки от 1 до 5"
-            )
-            try:
-                await user.send(embed=rating_embed, view=RatingView(interaction.channel.id))
-            except:
-                pass
-
-        # Логируем закрытие тикета
-        logs_channel = interaction.guild.get_channel(int(config['tickets']['logs_channel']))
-        if logs_channel:
-            log_embed=Embed(
-                title=f"Тикет #{ticket_info['number']} закрыт",
-                description=f"**Канал:** {interaction.channel.name}\n**Закрыт модератором:** {interaction.user.mention}"
-            )
-            await logs_channel.send(embed=log_embed)
-
-        await asyncio.sleep(5)
-        await interaction.channel.delete()
-
-    @discord.ui.button(label="Добавить участника", style=discord.ButtonStyle.green, emoji="👥", custom_id="add_member")
-    async def add_member(self, interaction: discord.Interaction, button: discord.ui.Button):
-        modal = AddMemberModal()
-        await interaction.response.send_modal(modal)
-
-class AddMemberModal(discord.ui.Modal, title="Добавить участника"):
-    user_id = discord.ui.TextInput(
-        label="ID пользователя",
-        placeholder="Введите ID пользователя...",
-        required=True
-    )
-
-    async def on_submit(self, interaction: discord.Interaction):
-        try:
-            user_id = int(self.user_id.value)
-            user = interaction.guild.get_member(user_id)
-            
-            if not user:
-                return await interaction.response.send_message(
-                    embed=Embed(
-                        description="Пользователь не найден!"
-                    ),
-                    ephemeral=True
-                )
-
-            # Обновляем права доступа
-            await interaction.channel.set_permissions(user, read_messages=True, send_messages=True)
-
-            # Обновляем данные тикета
-            with open('config/tickets.yaml', 'r', encoding='utf-8') as f:
-                ticket_data = yaml.safe_load(f)
-                
-            ticket_id = str(interaction.channel.id)
-            if ticket_id in ticket_data["active_tickets"]:
-                if user_id not in ticket_data["active_tickets"][ticket_id]["added_users"]:
-                    ticket_data["active_tickets"][ticket_id]["added_users"].append(user_id)
-                
-                with open('config/tickets.yaml', 'w', encoding='utf-8') as f:
-                    yaml.dump(ticket_data, f, default_flow_style=False, allow_unicode=True)
-
-            await interaction.response.send_message(
-                embed=Embed(
-                    description=f"Пользователь {user.mention} добавлен в тикет!"
-                )
-            )
-        except ValueError:
-            await interaction.response.send_message(
-                embed=Embed(
-                    description="Неверный формат ID!"
-                ),
-                ephemeral=True
-            )
-
-class Tickets(commands.GroupCog, name="tickets"):
+class Tickets(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        super().__init__()
+        self.db = Database()
+        asyncio.create_task(self._initialize())
+        
+    async def _initialize(self):
+        """Асинхронная инициализация"""
+        await self.bot.wait_until_ready()
+        await self.db.init()
+        await self.setup_tickets_view()
+        
+    async def setup_tickets_view(self):
+        """Настройка панели тикетов"""
+        try:
+            # Получаем настройки из базы данных
+            settings = await self.db.fetch_all(
+                "SELECT key, value FROM settings WHERE category = 'tickets'"
+            )
+            
+            settings_dict = {row['key']: row['value'] for row in settings}
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        self.bot.add_view(TicketView())
-        self.bot.add_view(TicketControlView())
+            channel_id = settings_dict.get('panel_channel')
+            message_id = settings_dict.get('panel_message')
+            
+            if not channel_id:
+                return
+                
+            channel = self.bot.get_channel(int(channel_id))
+            if not channel:
+                return
+                
+            # Создаем эмбед
+            embed = Embed(
+                title="🎫 Система тикетов",
+                description=(
+                    "Нажмите на кнопку ниже, чтобы создать тикет.\n\n"
+                    f"{Emojis.DOT} В тикете опишите вашу проблему\n"
+                    f"{Emojis.DOT} Дождитесь ответа модератора\n"
+                    f"{Emojis.DOT} Не создавайте несколько тикетов\n"
+                    f"{Emojis.DOT} Не спамьте в тикетах"
+                ),
+                color="BLUE"
+            )
+            
+            if message_id:
+                try:
+                    message = await channel.fetch_message(int(message_id))
+                    await message.edit(embed=embed, view=TicketButton())
+                    return
+                except Exception as e:
+                    print(f"Error editing message: {e}")
+                    pass
+                    
+            # Создаем новое сообщение
+            message = await channel.send(embed=embed, view=TicketButton())
+            
+            # Сохраняем ID сообщения
+            await self.db.execute(
+                """
+                INSERT OR REPLACE INTO settings (category, key, value)
+                VALUES ('tickets', 'panel_message', ?)
+                """,
+                str(message.id)
+            )
+            
+        except Exception as e:
+            print(f"❌ Ошибка при настройке панели тикетов: {e}")
+            
+    async def handle_ticket_create(self, interaction: discord.Interaction, reason: str):
+        """Обработка создания тикета"""
+        try:
+            # Проверяем, есть ли уже открытый тикет
+            existing_ticket = await self.db.fetch_one(
+                """
+                SELECT channel_id FROM tickets 
+                WHERE user_id = ? AND guild_id = ? AND status = 'open'
+                """,
+                str(interaction.user.id), str(interaction.guild.id)
+            )
+            
+            if existing_ticket:
+                channel = interaction.guild.get_channel(int(existing_ticket['channel_id']))
+                if channel:
+                    return await interaction.response.send_message(
+                        embed=Embed(
+                            title=f"{Emojis.ERROR} Ошибка",
+                            description=f"У вас уже есть открытый тикет: {channel.mention}",
+                            color="RED"
+                        ),
+                        ephemeral=True
+                    )
 
-    @app_commands.command(name="setup", description="Настроить панель тикетов")
-    @app_commands.default_permissions(administrator=True)
-    async def setup(self, interaction: discord.Interaction):
-        with open('data/config.yaml', 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
+            # Получаем категорию для тикетов
+            category_id = await self.db.fetch_one(
+                "SELECT value FROM settings WHERE category = 'tickets' AND key = 'category'"
+            )
+            
+            if not category_id:
+                return await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Категория для тикетов не настроена",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                
+            category = interaction.guild.get_channel(int(category_id['value']))
+            if not category:
+                return await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Категория для тикетов не найдена",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
 
-        channel_id = int(config['tickets']['panel']['channel'])
-        channel = interaction.guild.get_channel(channel_id)
-
-        if not channel:
-            return await interaction.response.send_message(
+            # Создаем канал
+            overwrites = {
+                interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
+                interaction.user: discord.PermissionOverwrite(
+                    read_messages=True,
+                    send_messages=True,
+                    attach_files=True,
+                    embed_links=True,
+                    read_message_history=True
+                )
+            }
+            
+            # Добавляем права для модераторов
+            mod_role_id = await self.db.fetch_one(
+                "SELECT value FROM settings WHERE category = 'tickets' AND key = 'mod_role'"
+            )
+            
+            if mod_role_id:
+                mod_role = interaction.guild.get_role(int(mod_role_id['value']))
+                if mod_role:
+                    overwrites[mod_role] = discord.PermissionOverwrite(
+                        read_messages=True,
+                        send_messages=True,
+                        attach_files=True,
+                        embed_links=True,
+                        read_message_history=True,
+                        manage_messages=True
+                    )
+                    
+            channel = await interaction.guild.create_text_channel(
+                name=f"ticket-{interaction.user.name}",
+                category=category,
+                overwrites=overwrites,
+                topic=f"Тикет создан пользователем {interaction.user}"
+            )
+            
+            # Сохраняем тикет в базу данных
+            await self.db.execute(
+                """
+                INSERT INTO tickets (channel_id, user_id, guild_id, reason, status)
+                VALUES (?, ?, ?, ?, 'open')
+                """,
+                str(channel.id), str(interaction.user.id), str(interaction.guild.id), reason
+            )
+            
+            # Отправляем сообщение в канал тикета
+            embed = Embed(
+                title="🎫 Новый тикет",
+                description=(
+                    f"{Emojis.DOT} **Пользователь:** {interaction.user.mention}\n"
+                    f"{Emojis.DOT} **Причина:** {reason}\n\n"
+                    "Модераторы скоро ответят на ваш тикет.\n"
+                    "Для закрытия тикета нажмите на кнопку ниже."
+                ),
+                color="BLUE"
+            )
+            
+            await channel.send(
+                content=f"{interaction.user.mention}",
+                embed=embed,
+                view=TicketView(interaction.user.id)
+            )
+            
+            # Отправляем подтверждение
+            await interaction.response.send_message(
                 embed=Embed(
-                    description="Канал для панели тикетов не найден!",
-                    color='RED'
+                    title=f"{Emojis.SUCCESS} Тикет создан",
+                    description=f"Ваш тикет: {channel.mention}",
+                    color="GREEN"
+                ),
+                ephemeral=True
+            )
+            
+        except Exception as e:
+            print(f"❌ Ошибка при создании тикета: {e}")
+            try:
+                await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Произошла ошибка при создании тикета",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+            except discord.HTTPException:
+                pass
+            
+    async def handle_ticket_close(self, interaction: discord.Interaction, reason: str):
+        """Обработка закрытия тикета"""
+        try:
+            # Получаем информацию о тикете
+            ticket = await self.db.fetch_one(
+                """
+                SELECT user_id FROM tickets 
+                WHERE channel_id = ? AND guild_id = ? AND status = 'open'
+                """,
+                str(interaction.channel.id), str(interaction.guild.id)
+            )
+            
+            if not ticket:
+                return await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Этот канал не является тикетом!",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                
+            # Обновляем статус тикета
+            await self.db.execute(
+                """
+                UPDATE tickets 
+                SET status = 'closed', closed_by = ?, closed_at = CURRENT_TIMESTAMP, close_reason = ?
+                WHERE channel_id = ? AND guild_id = ? AND status = 'open'
+                """,
+                str(interaction.user.id), reason, str(interaction.channel.id), str(interaction.guild.id)
+            )
+            
+            # Отправляем сообщение о закрытии
+            embed = Embed(
+                title="🔒 Тикет закрыт",
+                description=(
+                    f"{Emojis.DOT} **Модератор:** {interaction.user.mention}\n"
+                    f"{Emojis.DOT} **Причина:** {reason}\n\n"
+                    "Канал будет удален через 10 секунд."
+                ),
+                color="RED"
+            )
+            
+            await interaction.response.send_message(embed=embed)
+            
+            # Ждем 10 секунд и удаляем канал
+            await asyncio.sleep(10)
+            await interaction.channel.delete()
+            
+        except Exception as e:
+            print(f"❌ Ошибка при закрытии тикета: {e}")
+            try:
+                await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Произошла ошибка при закрытии тикета",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+            except discord.HTTPException:
+                pass
+            
+    @app_commands.command(name="tickets", description="Управление системой тикетов")
+    @app_commands.describe(
+        action="Действие (create/set)",
+        message_id="ID сообщения с панелью тикетов",
+        tickets_channel="ID канала для панели тикетов",
+        category="ID категории для тикетов",
+        mod_role="ID роли модераторов тикетов"
+    )
+    @commands.has_permissions(administrator=True)
+    async def tickets_command(
+        self, 
+        interaction: discord.Interaction, 
+        action: str,
+        message_id: str = None,
+        tickets_channel: str = None,
+        category: str = None,
+        mod_role: str = None
+    ):
+        """Команда для управления системой тикетов"""
+        if action == "create":
+            await self._handle_create_tickets(interaction, message_id, tickets_channel)
+        elif action == "set":
+            await self._handle_set_tickets(interaction, tickets_channel, category, mod_role)
+        else:
+            await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.ERROR} Ошибка",
+                    description="Неверное действие. Используйте create или set",
+                    color="RED"
                 ),
                 ephemeral=True
             )
 
-        embed=Embed(
-            title="📩 Система тикетов",
-            description="Нажмите на кнопку ниже, чтобы создать тикет и связаться с командой поддержки.",
-            color='BLUE'
-        )
+    async def _handle_create_tickets(self, interaction: discord.Interaction, message_id: str, tickets_channel: str):
+        """Обработка создания панели тикетов"""
+        try:
+            channel = interaction.guild.get_channel(int(tickets_channel))
+            if not channel:
+                return await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Канал не найден",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                
+            # Создаем эмбед
+            embed = Embed(
+                title="🎫 Система тикетов",
+                description=(
+                    "Нажмите на кнопку ниже, чтобы создать тикет.\n\n"
+                    f"{Emojis.DOT} В тикете опишите вашу проблему\n"
+                    f"{Emojis.DOT} Дождитесь ответа модератора\n"
+                    f"{Emojis.DOT} Не создавайте несколько тикетов\n"
+                    f"{Emojis.DOT} Не спамьте в тикетах"
+                ),
+                color="BLUE"
+            )
+            
+            # Пытаемся получить сообщение
+            try:
+                message = await channel.fetch_message(int(message_id))
+                await message.edit(embed=embed, view=TicketButton())
+            except discord.NotFound:
+                message = await channel.send(embed=embed, view=TicketButton())
+                
+            # Сохраняем ID канала и сообщения
+            await self.db.execute(
+                """
+                INSERT OR REPLACE INTO settings (category, key, value)
+                VALUES 
+                    ('tickets', 'panel_channel', ?),
+                    ('tickets', 'panel_message', ?)
+                """,
+                str(channel.id), str(message.id)
+            )
+            
+            await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.SUCCESS} Успешно",
+                    description="Панель тикетов создана",
+                    color="GREEN"
+                ),
+                ephemeral=True
+            )
+            
+        except Exception as e:
+            print(f"❌ Ошибка при создании панели тикетов: {e}")
+            try:
+                await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Произошла ошибка при создании панели тикетов",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+            except discord.HTTPException:
+                pass
 
-        view = TicketView()
-        await channel.send(embed=embed, view=view)
-        
-        await interaction.response.send_message(
-            embed=Embed(
-                description="Панель тикетов успешно настроена!",
-                color='GREEN'
-            ),
-            ephemeral=True
-        )
-
-    @app_commands.command(name="stats", description="Показать статистику тикетов")
-    @app_commands.default_permissions(administrator=True)
-    async def stats(self, interaction: discord.Interaction):
-        with open('config/tickets.yaml', 'r', encoding='utf-8') as f:
-            ticket_data = yaml.safe_load(f)
-
-        total_tickets = ticket_data["ticket_counter"]
-        active_tickets = len(ticket_data["active_tickets"])
-        closed_tickets = len(ticket_data["closed_tickets"])
-        
-        # Подсчет средней оценки
-        ratings = ticket_data["ratings"].values()
-        avg_rating = sum(ratings) / len(ratings) if ratings else 0
-
-        embed=Embed(
-            title="📊 Статистика тикетов",
-            color='BLUE'
-        )
-        embed.add_field(name="Всего тикетов", value=str(total_tickets), inline=True)
-        embed.add_field(name="Активные тикеты", value=str(active_tickets), inline=True)
-        embed.add_field(name="Закрытые тикеты", value=str(closed_tickets), inline=True)
-        embed.add_field(name="Средняя оценка", value=f"{avg_rating:.1f}⭐", inline=True)
-
-        await interaction.response.send_message(embed=embed)
+    async def _handle_set_tickets(self, interaction: discord.Interaction, tickets_channel: str = None, category: str = None, mod_role: str = None):
+        try:
+            # Сохраняем настройки
+            if tickets_channel:
+                await self.db.execute(
+                    """
+                    INSERT OR REPLACE INTO settings (category, key, value)
+                    VALUES ('tickets', 'panel_channel', ?)
+                    """,
+                    tickets_channel
+                )
+                
+            if category:
+                await self.db.execute(
+                    """
+                    INSERT OR REPLACE INTO settings (category, key, value)
+                    VALUES ('tickets', 'category', ?)
+                    """,
+                    category
+                )
+                
+            if mod_role:
+                await self.db.execute(
+                    """
+                    INSERT OR REPLACE INTO settings (category, key, value)
+                    VALUES ('tickets', 'mod_role', ?)
+                    """,
+                    mod_role
+                )
+                
+            # Обновляем панель
+            await self.setup_tickets_view()
+            
+            await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.SUCCESS} Успешно",
+                    description="Настройки тикетов обновлены",
+                    color="GREEN"
+                ),
+                ephemeral=True
+            )
+            
+        except Exception as e:
+            print(f"❌ Ошибка при настройке тикетов: {e}")
+            try:
+                await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Произошла ошибка при настройке тикетов",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+            except discord.HTTPException:
+                pass
 
 async def setup(bot):
     await bot.add_cog(Tickets(bot)) 

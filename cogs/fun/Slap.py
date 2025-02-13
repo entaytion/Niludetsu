@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
-from Niludetsu.utils.embed import Embed
-from Niludetsu.api.Gifs import GifsAPI
+from Niludetsu import Embed, GifsAPI
 
 class Slap(commands.Cog):
     def __init__(self, bot):

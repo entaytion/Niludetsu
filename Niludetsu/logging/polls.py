@@ -1,11 +1,21 @@
-from ..utils.logging import BaseLogger
-from ..utils.constants import Emojis
+from Niludetsu import BaseLogger, Emojis, LoggingState
 import discord
 from typing import Optional, List, Dict, Any
 
 class PollLogger(BaseLogger):
     """Логгер для опросов Discord."""
+        
+    def __init__(self, bot: discord.Client):
+        super().__init__(bot)
+        self.log_channel = None
+        bot.loop.create_task(self._initialize())
     
+    async def _initialize(self):
+        """Инициализация логгера"""
+        await self.bot.wait_until_ready()
+        await self.initialize_logs()
+        self.log_channel = LoggingState.log_channel
+        
     async def log_poll_create(self, message: discord.Message, question: str, options: List[str]):
         """Логирование создания опроса"""
         options_text = "\n".join([f"{i+1}. {option}" for i, option in enumerate(options)])

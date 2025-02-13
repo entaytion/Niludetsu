@@ -1,9 +1,13 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.utils.decorators import command_cooldown, has_mod_role
+from Niludetsu import (
+    Embed,
+    Emojis,
+    mod_only,
+    cooldown,
+    has_permission
+)
 import yaml
 
 # Загрузка конфигурации
@@ -21,7 +25,7 @@ class UndoKickButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         try:
-            if not await has_mod_role()(interaction):
+            if not await has_permission("admin", "moderator")(interaction):
                 return await interaction.response.send_message(
                     embed=Embed(
                         title=f"{Emojis.ERROR} Ошибка прав",
@@ -108,8 +112,8 @@ class Kick(commands.Cog):
         user="Пользователь для кика",
         reason="Причина кика",
     )
-    @has_mod_role()
-    @command_cooldown()
+    @mod_only()
+    @cooldown(seconds=3)
     async def kick(
         self,
         interaction: discord.Interaction,

@@ -1,11 +1,11 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import yaml
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, List, Tuple
 from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.constants import Emojis
+from Niludetsu.database.db import Database
 
 class AccountType:
     NORMAL = "Обычный"
@@ -72,116 +72,142 @@ class InviteSource:
             return "UNKNOWN", f"❓ Неизвестный источник ({source})"
 
 class InviteTracker:
+    """Класс для отслеживания входов на сервер"""
     def __init__(self, bot):
         self.bot = bot
-        self.invites: Dict[int, List[discord.Invite]] = {}
-        self.invite_uses: Dict[int, Dict[str, int]] = {}
-        with open("data/config.yaml", "r", encoding="utf-8") as f:
-            self.config = yaml.safe_load(f)
-            self.settings = self.config.get('invites', {})
+        self.db = Database()
+        self.guild_invites = {}
         
-    def save_settings(self):
-        """Сохраняет настройки в файл"""
-        self.config['invites'] = self.settings
-        with open('data/config.yaml', 'w', encoding='utf-8') as f:
-            yaml.dump(self.config, f, indent=4, allow_unicode=True)
-
-    async def cache_invites(self):
-        """Кэширует все текущие инвайты для всех серверов"""
-        print("[Invites] Начало кэширования инвайтов...")
-        for guild in self.bot.guilds:
-            try:
-                guild_invites = await guild.invites()
-                self.invites[guild.id] = guild_invites
-                print(f"[Invites] Кэшировано {len(guild_invites)} инвайтов для {guild.name}")
-            except discord.Forbidden:
-                print(f"[Invites] Нет прав для просмотра инвайтов на сервере {guild.name}")
-                continue
-            except Exception as e:
-                print(f"[Invites] Ошибка при кэшировании инвайтов для {guild.name}: {e}")
-                continue
-        print("[Invites] Кэширование инвайтов завершено")
-
-    async def get_used_invite(self, guild: discord.Guild) -> Optional[discord.Invite]:
-        """Определяет, какой инвайт был использован"""
+    async def load_invite_cache(self, guild_id: str):
+        """Загрузка кеша инвайтов из базы данных"""
         try:
-            current_invites = await guild.invites()
+            results = await self.db.fetch_all(
+                """
+                SELECT invite_code, uses, inviter_id
+                FROM invite_cache
+                WHERE guild_id = ?
+                """,
+                guild_id
+            )
             
-            # Получаем старые инвайты
-            old_invites = self.invites.get(guild.id, [])
-            
-            # Ищем инвайт, количество использований которого изменилось
-            for invite in current_invites:
-                # Ищем соответствующий старый инвайт
-                old_invite = discord.utils.get(old_invites, code=invite.code)
-                
-                if old_invite is None:
-                    # Если это новый инвайт и он уже был использован
-                    if invite.uses > 0:
-                        # Обновляем кэш и возвращаем этот инвайт
-                        self.invites[guild.id] = current_invites
-                        return invite
-                elif invite.uses > old_invite.uses:
-                    # Если количество использований увеличилось
-                    self.invites[guild.id] = current_invites
-                    return invite
-            
-            # Проверяем, не был ли использован временный инвайт, который уже удален
-            for old_invite in old_invites:
-                if not discord.utils.get(current_invites, code=old_invite.code):
-                    # Если старый инвайт больше не существует, возможно он был использован
-                    return old_invite
-                    
-            # Обновляем кэш в любом случае
-            self.invites[guild.id] = current_invites
-                    
-        except discord.Forbidden:
-            print(f"[Invites] Нет прав для просмотра инвайтов на сервере {guild.name}")
-            return None
+            self.guild_invites[guild_id] = {
+                row['invite_code']: row['uses'] for row in results
+            }
         except Exception as e:
-            print(f"[Invites] Ошибка при получении инвайтов: {e}")
-            return None
+            print(f"❌ Ошибка при загрузке кеша инвайтов: {e}")
             
-        return None
-
-    def get_log_channel(self, guild_id: int) -> Optional[int]:
-        """Получает ID канала для логов"""
-        return self.settings.get('channel')
-
-    def get_account_type(self, member: discord.Member) -> Tuple[str, str]:
-        """Определяет тип аккаунта участника"""
-        account_age = datetime.now(timezone.utc) - member.created_at
+    async def save_invite_cache(self, guild_id: str, invites: dict):
+        """Сохранение кеша инвайтов в базу данных"""
+        try:
+            # Удаляем старые записи
+            await self.db.execute(
+                "DELETE FROM invite_cache WHERE guild_id = ?",
+                guild_id
+            )
+            
+            # Добавляем новые записи
+            for invite_code, uses in invites.items():
+                await self.db.execute(
+                    """
+                    INSERT INTO invite_cache (guild_id, invite_code, uses)
+                    VALUES (?, ?, ?)
+                    """,
+                    guild_id, invite_code, uses
+                )
+        except Exception as e:
+            print(f"❌ Ошибка при сохранении кеша инвайтов: {e}")
+            
+    async def cache_invites(self, guild: discord.Guild):
+        """Кэширование текущих приглашений сервера"""
+        try:
+            invites = await guild.invites()
+            current_invites = {invite.code: invite.uses for invite in invites}
+            
+            # Добавляем vanity url если есть
+            if guild.vanity_url:
+                try:
+                    vanity = await guild.vanity_invite()
+                    if vanity:
+                        current_invites[vanity.code] = vanity.uses
+                except:
+                    pass
+                    
+            # Сохраняем в память и базу данных
+            self.guild_invites[guild.id] = current_invites
+            await self.save_invite_cache(str(guild.id), current_invites)
+            
+        except Exception as e:
+            print(f"❌ Ошибка при кэшировании инвайтов: {e}")
+            
+    async def get_used_invite(self, guild: discord.Guild) -> Tuple[str, discord.Member]:
+        """Определяет использованное приглашение"""
+        try:
+            # Получаем текущие приглашения
+            current_invites = await guild.invites()
+            current_uses = {invite.code: invite.uses for invite in current_invites}
+            
+            # Проверяем vanity url
+            if guild.vanity_url:
+                try:
+                    vanity = await guild.vanity_invite()
+                    if vanity:
+                        current_uses[vanity.code] = vanity.uses
+                except:
+                    pass
+            
+            # Загружаем сохраненные данные
+            await self.load_invite_cache(str(guild.id))
+            
+            # Сравниваем с сохраненными
+            if guild.id in self.guild_invites:
+                old_uses = self.guild_invites[guild.id]
+                
+                # Ищем приглашение с увеличенным счетчиком использований
+                for invite in current_invites:
+                    old_count = old_uses.get(invite.code, 0)
+                    new_count = current_uses.get(invite.code, 0)
+                    
+                    if new_count > old_count:
+                        return invite.code, invite.inviter
+                        
+                # Проверяем vanity url
+                if guild.vanity_url:
+                    vanity_code = guild.vanity_url.code
+                    old_count = old_uses.get(vanity_code, 0)
+                    new_count = current_uses.get(vanity_code, 0)
+                    
+                    if new_count > old_count:
+                        return vanity_code, None
+                        
+            # Обновляем кэш
+            await self.cache_invites(guild)
+            
+        except Exception as e:
+            print(f"❌ Ошибка при определении использованного приглашения: {e}")
+            
+        return None, None
+            
+    async def get_invite_source(self, member: discord.Member) -> Tuple[str, str]:
+        """Определяет источник входа участника"""
+        if member.bot:
+            return InviteSource.INTEGRATION, "🤖 Бот добавлен через OAuth2"
+            
+        invite_code, inviter = await self.get_used_invite(member.guild)
         
-        if account_age < timedelta(days=3):
-            return AccountType.SUSPICIOUS, f"⚠️ Аккаунт создан менее 3 дней назад ({account_age.days} дн.)"
-        elif account_age < timedelta(days=7):
-            return AccountType.NEW, f"ℹ️ Новый аккаунт ({account_age.days} дн.)"
-        else:
-            return AccountType.NORMAL, f"✅ Обычный аккаунт ({account_age.days} дн.)"
-
-    def get_invite_source(self, invite: Optional[discord.Invite]) -> Tuple[str, str]:
-        """Определяет источник приглашения"""
-        if not invite:
-            return InviteSource.UNKNOWN, "🔍 Источник не определен"
+        if invite_code:
+            if member.guild.vanity_url and invite_code == member.guild.vanity_url.code:
+                return InviteSource.VANITY, f"🌟 Персональная ссылка сервера ({invite_code})"
+            elif inviter:
+                if inviter.id == self.bot.user.id:
+                    return InviteSource.SERVER, f"🤖 Приглашение от бота ({invite_code})"
+                else:
+                    return InviteSource.SERVER, f"👤 Приглашение от {inviter.mention} ({invite_code})"
+                    
+        return InviteSource.UNKNOWN, "🔍 Источник не определен"
             
-        # Проверяем источник приглашения
-        if hasattr(invite, 'source'):
-            platform, source_text = InviteSource.from_invite_source(invite.source)
-            return platform, source_text
-            
-        # Если источник не определен, используем стандартную логику
-        if invite.guild and invite.guild.vanity_url_code and invite.code == invite.guild.vanity_url_code:
-            return InviteSource.VANITY, "🌟 Персональная ссылка сервера"
-        elif invite.inviter and invite.inviter.bot:
-            return InviteSource.INTEGRATION, f"🤖 Интеграция ({invite.inviter.name})"
-        elif "discord.gg/" in (invite.code or ""):
-            return InviteSource.DISCORD, "🔗 Ссылка Discord"
-        else:
-            return InviteSource.SERVER, "🏠 Серверное приглашение"
-
-    async def format_join_message(self, member: discord.Member, invite: Optional[discord.Invite]) -> discord.Embed:
+    async def format_join_message(self, member: discord.Member) -> discord.Embed:
         """Форматирует сообщение о входе участника"""
-        embed=Embed(
+        embed = Embed(
             title=f"👋 Новый {'бот' if member.bot else 'участник'} #{len(member.guild.members)}",
             color=0x2ecc71 if not member.bot else 0x3498db,
             timestamp=datetime.now(timezone.utc)
@@ -192,8 +218,8 @@ class InviteTracker:
         # Определяем тип аккаунта
         account_type, account_info = self.get_account_type(member)
         
-        # Определяем источник приглашения
-        invite_source, source_info = self.get_invite_source(invite)
+        # Определяем источник входа
+        invite_source, source_info = await self.get_invite_source(member)
         
         # Основная информация об участнике
         embed.add_field(
@@ -210,38 +236,14 @@ class InviteTracker:
             inline=False
         )
         
-        # Информация о приглашении
-        if invite:
-            inviter = invite.inviter
-            invite_info = [
-                f"🔗 Код: `{invite.code}`",
-                f"👥 Добавил: {inviter.mention if inviter else 'Неизвестно'}",
-                f"📊 Использований: `{invite.uses}`",
-                f"📨 Источник: {source_info}"
-            ]
+        # Информация об источнике
+        embed.add_field(
+            name="📨 Источник входа",
+            value=source_info,
+            inline=False
+        )
             
-            if invite.channel:
-                invite_info.append(f"📝 Канал: {invite.channel.mention}")
-                
-            if invite.expires_at:
-                expires_timestamp = int(invite.expires_at.timestamp())
-                invite_info.append(f"⌛ Истекает: <t:{expires_timestamp}:R>")
-            else:
-                invite_info.append("⌛ Истекает: Никогда")
-                
-            embed.add_field(
-                name="📨 Информация о приглашении",
-                value="\n".join(invite_info),
-                inline=False
-            )
-        else:
-            embed.add_field(
-                name="📨 Информация о приглашении",
-                value="❓ Не удалось определить источник приглашения",
-                inline=False
-            )
-            
-        # Добавляем предупреждение для подозрительных аккаунтов (только для обычных пользователей)
+        # Добавляем предупреждение для подозрительных аккаунтов
         if not member.bot:
             if account_type == AccountType.SUSPICIOUS:
                 embed.description = "⚠️ **Внимание!** Этот аккаунт был создан совсем недавно и может быть подозрительным!"
@@ -249,12 +251,12 @@ class InviteTracker:
             elif account_type == AccountType.NEW:
                 embed.description = "ℹ️ Это новый аккаунт Discord"
                 embed.color = 0xf1c40f
-            
+        
         return embed
-
+        
     async def format_leave_message(self, member: discord.Member) -> discord.Embed:
         """Форматирует сообщение о выходе участника"""
-        embed=Embed(
+        embed = Embed(
             title=f"👋 {'Бот' if member.bot else 'Участник'} покинул сервер",
             color=0xe74c3c,
             timestamp=datetime.now(timezone.utc)
@@ -318,84 +320,74 @@ class InviteTracker:
         )
         
         return embed
-
+        
     async def on_member_join(self, member: discord.Member):
-        """Обработчик события входа участника"""
-        guild = member.guild
-        log_channel_id = self.get_log_channel(guild.id)
-        if not log_channel_id:
-            return
-            
-        log_channel = guild.get_channel(log_channel_id)
-        if not log_channel:
-            return
-            
-        invite = await self.get_used_invite(guild)
-        embed = await self.format_join_message(member, invite)
-        
+        """Обработка входа участника"""
         try:
-            await log_channel.send(embed=embed)
-        except discord.Forbidden:
-            pass
-
+            channel_id = await self.get_log_channel(member.guild.id)
+            if not channel_id:
+                return
+                
+            channel = member.guild.get_channel(channel_id)
+            if channel:
+                embed = await self.format_join_message(member)
+                await channel.send(embed=embed)
+                
+        except Exception as e:
+            print(f"❌ Ошибка при логировании входа: {e}")
+            
     async def on_member_remove(self, member: discord.Member):
-        """Обработчик события выхода участника"""
-        guild = member.guild
-        log_channel_id = self.get_log_channel(guild.id)
-        if not log_channel_id:
-            return
-            
-        log_channel = guild.get_channel(log_channel_id)
-        if not log_channel:
-            return
-            
-        embed = await self.format_leave_message(member)
-        
+        """Обработка выхода участника"""
         try:
-            await log_channel.send(embed=embed)
-        except discord.Forbidden:
-            pass
-
-    async def setup(self):
-        """Инициализация трекера"""
-        # Проверяем и кэшируем канал для логов
-        if not self.settings.get('channel'):
-            print("❌ Канал для логов инвайтов не настроен")
-            return
-            
-        # Кэшируем текущие инвайты
-        await self.cache_invites()
+            channel_id = await self.get_log_channel(member.guild.id)
+            if not channel_id:
+                return
+                
+            channel = member.guild.get_channel(channel_id)
+            if channel:
+                embed = await self.format_leave_message(member)
+                await channel.send(embed=embed)
+                
+        except Exception as e:
+            print(f"❌ Ошибка при логировании выхода: {e}")
 
 class InvitesCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.invite_tracker = InviteTracker(bot)
+        self.tracker = InviteTracker(bot)
+        self._last_member = None
         
     async def cog_load(self):
-        await self.invite_tracker.setup()
+        """Инициализация при загрузке кога"""
+        for guild in self.bot.guilds:
+            await self.tracker.cache_invites(guild)
         
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
-        await self.invite_tracker.on_member_join(member)
+        # Проверяем, не был ли этот участник уже обработан
+        if self._last_member and self._last_member.id == member.id:
+            return
+        self._last_member = member
+        await self.tracker.on_member_join(member)
         
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
-        await self.invite_tracker.on_member_remove(member)
-
+        await self.tracker.on_member_remove(member)
+        
+    @commands.Cog.listener()
+    async def on_guild_join(self, guild: discord.Guild):
+        """При входе на новый сервер"""
+        await self.tracker.cache_invites(guild)
+        
     @commands.Cog.listener()
     async def on_invite_create(self, invite: discord.Invite):
-        """Обработчик создания нового инвайта"""
-        if invite.guild.id in self.invite_tracker.invites:
-            self.invite_tracker.invites[invite.guild.id].append(invite)
-            print(f"[Invites] Новый инвайт {invite.code} добавлен в кэш для {invite.guild.name}")
-
+        """При создании нового приглашения"""
+        await self.tracker.cache_invites(invite.guild)
+        
     @commands.Cog.listener()
     async def on_invite_delete(self, invite: discord.Invite):
-        """Обработчик удаления инвайта"""
-        if invite.guild.id in self.invite_tracker.invites:
-            guild_invites = self.invite_tracker.invites[invite.guild.id]
-            self.invite_tracker.invites[invite.guild.id] = [i for i in guild_invites if i.code != invite.code]
-            print(f"[Invites] Инвайт {invite.code} удален из кэша для {invite.guild.name}")
+        """При удалении приглашения"""
+        await self.tracker.cache_invites(invite.guild)
 
 async def setup(bot):
     await bot.add_cog(InvitesCog(bot)) 

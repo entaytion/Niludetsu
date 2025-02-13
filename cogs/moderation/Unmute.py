@@ -1,9 +1,12 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.utils.decorators import command_cooldown, has_mod_role
+from Niludetsu import (
+    Embed,
+    Emojis,
+    mod_only,
+    cooldown
+)
 import yaml
 
 class Unmute(commands.Cog):
@@ -12,14 +15,14 @@ class Unmute(commands.Cog):
         with open("data/config.yaml", "r", encoding="utf-8") as f:
             self.config = yaml.safe_load(f)
     
-    @app_commands.command(name="unmute", description="Размутить участника")
+    @app_commands.command(name="unmute", description="Размутить пользователя")
     @app_commands.describe(
-        member="Участник для размута",
+        user="Пользователь для размута",
         reason="Причина размута"
     )
-    @has_mod_role()
-    @command_cooldown()
-    async def unmute(self, interaction: discord.Interaction, member: discord.Member, reason: str = "Причина не указана"):
+    @mod_only()
+    @cooldown(seconds=3)
+    async def unmute(self, interaction: discord.Interaction, user: discord.Member, reason: str = "Причина не указана"):
         if not interaction.guild.me.guild_permissions.moderate_members:
             return await interaction.response.send_message(
                 embed=Embed(
@@ -49,34 +52,34 @@ class Unmute(commands.Cog):
                 )
             )
 
-        has_mute_role = mute_role in member.roles
-        is_timed_out = member.is_timed_out()
+        has_mute_role = mute_role in user.roles
+        is_timed_out = user.is_timed_out()
 
         if not has_mute_role and not is_timed_out:
             return await interaction.response.send_message(
                 embed=Embed(
                     title=f"{Emojis.ERROR} Ошибка",
-                    description=f"{member.mention} не находится в муте!",
+                    description=f"{user.mention} не находится в муте!",
                     color="RED"
                 )
             )
 
         try:
             if has_mute_role:
-                await member.remove_roles(mute_role, reason=reason)
+                await user.remove_roles(mute_role, reason=reason)
 
             if is_timed_out:
-                await member.timeout(None, reason=reason)
+                await user.timeout(None, reason=reason)
             
             unmute_embed=Embed(
                 title=f"{Emojis.UNMUTE} Размут участника",
                 color="GREEN"
             )
             
-            unmute_embed.set_thumbnail(url=member.display_avatar.url)
+            unmute_embed.set_thumbnail(url=user.display_avatar.url)
             unmute_embed.add_field(
                 name=f"{Emojis.USER} Участник",
-                value=member.mention,
+                value=user.mention,
                 inline=True
             )
             unmute_embed.add_field(
@@ -89,7 +92,7 @@ class Unmute(commands.Cog):
                 value=f"```{reason}```",
                 inline=False
             )
-            unmute_embed.set_footer(text=f"ID: {member.id}")
+            unmute_embed.set_footer(text=f"ID: {user.id}")
             
             await interaction.response.send_message(embed=unmute_embed)
             
@@ -113,7 +116,7 @@ class Unmute(commands.Cog):
                     value=f"```{reason}```",
                     inline=False
                 )
-                await member.send(embed=dm_embed)
+                await user.send(embed=dm_embed)
             except discord.Forbidden:
                 pass
             
@@ -121,7 +124,7 @@ class Unmute(commands.Cog):
             await interaction.response.send_message(
                 embed=Embed(
                     title=f"{Emojis.ERROR} Ошибка прав",
-                    description=f"У меня недостаточно прав для размута {member.mention}!",
+                    description=f"У меня недостаточно прав для размута {user.mention}!",
                     color="RED"
                 )
             )

@@ -1,5 +1,4 @@
-import os
-import aiohttp
+import os, aiohttp
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 from easy_pil import Editor, Font
@@ -8,9 +7,9 @@ from .models import ProfileData
 
 class ProfileImage:
     def __init__(self):
-        self.font_path_regular = os.path.join('config', 'fonts', 'TTNormsPro-Regular.ttf')
-        self.font_path_bold = os.path.join('config', 'fonts', 'TTNormsPro-Bold.ttf')
-        self.font_path_emoji = os.path.join('config', 'fonts', 'NotoColorEmoji.ttf')
+        self.font_path_regular = os.path.join('data', 'fonts', 'TTNormsPro-Regular.ttf')
+        self.font_path_bold = os.path.join('data', 'fonts', 'TTNormsPro-Bold.ttf')
+        self.font_path_emoji = os.path.join('data', 'fonts', 'NotoColorEmoji.ttf')
         
         # Проверяем наличие шрифтов
         if not os.path.exists(self.font_path_emoji):

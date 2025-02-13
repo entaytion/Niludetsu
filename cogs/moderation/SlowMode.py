@@ -2,28 +2,31 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from typing import Optional
-from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.utils.decorators import command_cooldown, has_mod_role
+from Niludetsu import (
+    Embed,
+    Emojis,
+    mod_only,
+    cooldown
+)
 
-class Slowmode(commands.Cog):
+class SlowMode(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
     @app_commands.command(name="slowmode", description="Установить медленный режим в канале")
     @app_commands.describe(
-        seconds="Задержка в секундах (0-21600, 0 для отключения)",
-        channel="Канал для установки медленного режима (по умолчанию - текущий)",
-        reason="Причина изменения медленного режима"
+        seconds="Задержка в секундах (0-21600)",
+        channel="Канал для установки медленного режима",
+        reason="Причина установки медленного режима"
     )
-    @has_mod_role()
-    @command_cooldown()
+    @mod_only()
+    @cooldown(seconds=3)
     async def slowmode(
         self,
         interaction: discord.Interaction,
         seconds: app_commands.Range[int, 0, 21600],
-        channel: Optional[discord.TextChannel] = None,
-        reason: Optional[str] = None
+        channel: discord.TextChannel = None,
+        reason: str = "Причина не указана"
     ):
         if not interaction.user.guild_permissions.manage_channels:
             return await interaction.response.send_message(
@@ -127,4 +130,4 @@ class Slowmode(commands.Cog):
             )
 
 async def setup(bot):
-    await bot.add_cog(Slowmode(bot))    
+    await bot.add_cog(SlowMode(bot))    

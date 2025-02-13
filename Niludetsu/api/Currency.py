@@ -1,5 +1,4 @@
-import aiohttp
-import os
+import aiohttp, os
 from typing import Optional, Dict
 from dotenv import load_dotenv
 

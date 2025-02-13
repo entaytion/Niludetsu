@@ -2,9 +2,11 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import re
-from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.utils.decorators import command_cooldown
+from Niludetsu import (
+    Embed,
+    Emojis,
+    cooldown
+)
 import asyncio
 from Niludetsu.database.db import Database
 
@@ -25,6 +27,15 @@ class Counter(commands.Cog):
         await self.db.init()
         await self.load_numbers()
         self.ready = True
+        
+        # Загружаем ID ветки из базы данных
+        result = await self.db.fetch_one(
+            "SELECT thread_id FROM games WHERE game_type = 'counter' AND forum_id = ?",
+            str(self.forum_channel_id)
+        )
+        if result and result['thread_id']:
+            self.counter_thread_id = int(result['thread_id'])
+            
         await self.ensure_counter_thread()
 
     async def ensure_counter_thread(self):
@@ -40,44 +51,55 @@ class Counter(commands.Cog):
                 return
 
             # Пытаемся получить существующую ветку
-            thread = self.bot.get_channel(self.counter_thread_id)
-            if not thread:
-                # Создаем новую ветку и эмбед
-                embed = Embed(
-                    title="🔢 Счетчик",
-                    description="Начинаем считать с 1!\nТекущее число: 0",
-                    color="DEFAULT"
-                )
-                thread = await forum.create_thread(
-                    name="🔢 Счетчик",
-                    embed=embed,
-                    auto_archive_duration=4320  # 3 дня
-                )
-                self.counter_thread_id = thread.thread.id
-                print(f"✅ Создана новая ветка счетчика: {thread.thread.id}")
-                
-                # Добавляем канал в базу данных
-                await self.db.execute(
-                    """INSERT INTO games 
-                       (channel_id, game_type, last_value, forum_id, thread_id) 
-                       VALUES (?, 'counter', ?, ?, ?)
-                       ON CONFLICT(channel_id) DO UPDATE SET 
-                       last_value = ?, forum_id = ?, thread_id = ?""",
-                    str(thread.thread.id), "0", 
-                    str(self.forum_channel_id), str(self.counter_thread_id),
-                    "0", str(self.forum_channel_id), str(self.counter_thread_id)
-                )
-                self.last_number[thread.thread.id] = 0
+            if self.counter_thread_id:
+                thread = self.bot.get_channel(self.counter_thread_id)
+                if thread and not thread.archived:  # Проверяем что ветка существует и не архивирована
+                    return thread  # Ветка существует и доступна
+
+            # Создаем новую ветку и эмбед
+            embed = Embed(
+                title="🔢 Счетчик",
+                description="Начинаем считать с 1!\nТекущее число: 0",
+                color="DEFAULT"
+            )
+            thread = await forum.create_thread(
+                name="🔢 Счетчик",
+                embed=embed,
+                auto_archive_duration=4320  # 3 дня
+            )
+            self.counter_thread_id = thread.thread.id
+            
+            # Сохраняем ID ветки в базу данных
+            await self.db.execute(
+                """
+                INSERT INTO games (channel_id, game_type, last_value, forum_id, thread_id, created_at, updated_at)
+                VALUES (?, 'counter', ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT(channel_id) DO UPDATE SET 
+                last_value = ?, forum_id = ?, thread_id = ?, updated_at = CURRENT_TIMESTAMP
+                """,
+                str(thread.thread.id), "0", str(self.forum_channel_id), str(thread.thread.id),
+                "0", str(self.forum_channel_id), str(thread.thread.id)
+            )
+            
+            self.last_number[thread.thread.id] = 0
+            print(f"✅ Создана новая ветка счетчика: {thread.thread.id}")
+            return thread
 
         except Exception as e:
             print(f"❌ Ошибка при проверке/создании ветки счетчика: {e}")
+            return None
 
     async def load_numbers(self):
         """Загрузка последних чисел из базы данных"""
         rows = await self.db.fetch_all(
             "SELECT channel_id, last_value FROM games WHERE game_type = 'counter'"
         )
-        self.last_number = {int(row['channel_id']): int(row['last_value']) for row in rows}
+        for row in rows:
+            channel_id = int(row['channel_id'])
+            self.last_number[channel_id] = int(row['last_value'])
+            # Очищаем last_user при загрузке
+            self.last_user[channel_id] = None
+            
         if self.last_number:
             # Берем первый и единственный канал
             self.counter_thread_id = int(list(self.last_number.keys())[0])
@@ -238,31 +260,48 @@ class Counter(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        # Игнорируем ботов и сообщения не в ветке счетчика
-        if message.author.bot or message.channel.id != self.counter_thread_id:
-            return
+        try:
+            # Игнорируем ботов и сообщения не в ветке счетчика
+            if message.author.bot or message.channel.id != self.counter_thread_id:
+                return
 
-        # Проверяем, не тот же ли пользователь пытается написать снова
-        if message.channel.id in self.last_user and self.last_user[message.channel.id] == message.author.id:
-            await message.delete()
-            return
+            # Проверяем, не тот же ли пользователь пытается написать снова
+            if message.channel.id in self.last_user and self.last_user[message.channel.id] == message.author.id:
+                try:
+                    await message.delete()
+                except discord.NotFound:
+                    pass
+                return
 
-        # Пытаемся вычислить значение выражения
-        result = self.evaluate_expression(message.content.strip())
-        if result is None:
-            await message.delete()
-            return
+            # Пытаемся вычислить значение выражения
+            result = self.evaluate_expression(message.content.strip())
+            if result is None:
+                try:
+                    await message.delete()
+                except discord.NotFound:
+                    pass
+                return
 
-        expected_number = self.last_number.get(message.channel.id, 0) + 1
+            current_number = self.last_number.get(message.channel.id, 0)
+            expected_number = current_number + 1
 
-        # Если результат правильный - сохраняем и ставим реакцию
-        if result == expected_number:
-            await self.save_number(message.channel.id, result, message.author.id)
-            await message.add_reaction("✅")
-            return
-
-        # Иначе просто удаляем
-        await message.delete()
+            # Если результат правильный - сохраняем и ставим реакцию
+            if result == expected_number:
+                # Сначала сохраняем в базу и обновляем состояние
+                await self.save_number(message.channel.id, result, message.author.id)
+                try:
+                    await message.add_reaction("✅")
+                except discord.NotFound:
+                    pass
+                return
+            else:
+                try:
+                    await message.delete()
+                except discord.NotFound:
+                    pass
+                return
+        except Exception as e:
+            print(f"❌ Ошибка в обработке сообщения счетчика: {e}")
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -285,6 +324,51 @@ class Counter(commands.Cog):
                 self.counter_thread_id = None
                 # Пробуем создать новую ветку
                 await self.ensure_counter_thread()
+
+    @app_commands.command(name="count", description="Подсчитать что-либо в сообщении")
+    @app_commands.describe(
+        text="Текст для подсчета",
+        count_type="Что подсчитать (chars/words/lines)"
+    )
+    @cooldown(seconds=3)
+    async def count(
+        self,
+        interaction: discord.Interaction,
+        text: str,
+        count_type: str = "chars"
+    ):
+        count_type = count_type.lower()
+        if count_type not in ["chars", "words", "lines"]:
+            return await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.ERROR} Ошибка",
+                    description="Неверный тип подсчета! Используйте: chars/words/lines",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+
+        result = 0
+        if count_type == "chars":
+            result = len(text)
+        elif count_type == "words":
+            result = len(text.split())
+        else:  # lines
+            result = len(text.splitlines())
+
+        count_types = {
+            "chars": "символов",
+            "words": "слов",
+            "lines": "строк"
+        }
+
+        await interaction.response.send_message(
+            embed=Embed(
+                title=f"{Emojis.SUCCESS} Результат подсчета",
+                description=f"В тексте `{result}` {count_types[count_type]}",
+                color="GREEN"
+            )
+        )
 
 async def setup(bot):
     await bot.add_cog(Counter(bot)) 

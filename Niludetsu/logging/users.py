@@ -1,6 +1,4 @@
-from ..utils.logging import BaseLogger
-from ..utils.constants import Emojis
-from ..utils.embed import Embed
+from Niludetsu import BaseLogger, Emojis, LoggingState
 import discord
 from typing import Optional, List
 from datetime import datetime
@@ -8,9 +6,17 @@ from datetime import datetime
 class UserLogger(BaseLogger):
     """Логгер для пользователей Discord."""
     
-    def __init__(self, bot):
+    def __init__(self, bot: discord.Client):
         super().__init__(bot)
+        self.log_channel = None
+        bot.loop.create_task(self._initialize())
         self.bot = bot
+
+    async def _initialize(self):
+        """Инициализация логгера"""
+        await self.bot.wait_until_ready()
+        await self.initialize_logs()
+        self.log_channel = LoggingState.log_channel
 
     async def log_user_name_update(self, before: discord.Member, after: discord.Member):
         """Логирование изменения никнейма пользователя"""

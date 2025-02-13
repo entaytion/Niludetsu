@@ -1,154 +1,127 @@
 from typing import Dict, List
+from dataclasses import dataclass
+from datetime import datetime
+
+@dataclass
+class Column:
+    """Описание колонки таблицы"""
+    type: str
+    required: bool = False
+    default: str = None
+    description: str = None
+    
+    def __str__(self) -> str:
+        """Преобразует описание колонки в SQL"""
+        sql = [self.type]
+        if self.required:
+            sql.append("NOT NULL")
+        if self.default is not None:
+            sql.append(f"DEFAULT {self.default}")
+        return " ".join(sql)
+
+@dataclass
+class Index:
+    """Описание индекса таблицы"""
+    name: str
+    columns: List[str]
+    unique: bool = False
+    
+    def __str__(self) -> str:
+        """Преобразует описание индекса в SQL"""
+        unique = "UNIQUE " if self.unique else ""
+        return f"CREATE {unique}INDEX IF NOT EXISTS {self.name} ON {{table}}({', '.join(self.columns)})"
+
+class TableSchema:
+    """Базовый класс для схемы таблицы"""
+    
+    # Общие колонки для всех таблиц
+    id = Column("INTEGER PRIMARY KEY AUTOINCREMENT")
+    created_at = Column("DATETIME", default="CURRENT_TIMESTAMP", description="Дата создания")
+    updated_at = Column("DATETIME", default="CURRENT_TIMESTAMP", description="Дата обновления")
+
+def get_schema(cls) -> Dict:
+    """Получает схему всех таблиц"""
+    schema = {}
+    
+    for table_name, table_class in cls.__dict__.items():
+        if isinstance(table_class, type) and issubclass(table_class, TableSchema) and table_class != TableSchema:
+            columns = {}
+            
+            # Добавляем колонки из базового класса
+            for name, col in TableSchema.__dict__.items():
+                if isinstance(col, Column):
+                    columns[name] = str(col)
+            
+            # Добавляем колонки из текущего класса
+            for name, col in table_class.__dict__.items():
+                if isinstance(col, Column):
+                    columns[name] = str(col)
+            
+            # Добавляем индексы
+            if hasattr(table_class, 'INDEXES'):
+                columns['INDEXES'] = [
+                    str(idx).format(table=table_name.lower())
+                    for idx in table_class.INDEXES
+                ]
+            
+            schema[table_name.lower()] = columns
+            
+    return schema
 
 class Tables:
     """Схемы таблиц базы данных"""
     
-    SCHEMA = {
-        "moderation": {
-            "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
-            "user_id": "TEXT",                                    # ID пользователя (null для исключений каналов)
-            "channel_id": "TEXT",                                 # ID канала (для исключений автомодерации)
-            "guild_id": "TEXT NOT NULL",                         # ID сервера
-            "moderator_id": "TEXT",                              # ID модератора (null для автомодерации)
-            "type": "TEXT NOT NULL",                             # Тип: warn/mute/ban/violation/exception
-            "rule_name": "TEXT",                                 # Название нарушенного правила
-            "reason": "TEXT",                                    # Причина наказания
-            "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",  # Дата создания
-            "expires_at": "DATETIME",                           # Дата окончания (для временных наказаний)
-            "active": "BOOLEAN DEFAULT TRUE",                    # Активно ли наказание
-            "INDEXES": [
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_moderation_exception ON moderation(channel_id, rule_name) WHERE type = 'exception'"
-            ]
-        },
+    class Users(TableSchema):
+        """Таблица пользователей"""
+        user_id = Column("TEXT", required=True, description="ID пользователя")
+        name = Column("TEXT", description="Имя пользователя")
+        balance = Column("INTEGER", default="0", description="Баланс")
+        xp = Column("INTEGER", default="0", description="Опыт")
+        level = Column("INTEGER", default="1", description="Уровень")
+        roles = Column("TEXT", default="'[]'", description="Роли")
         
-        "automod_exceptions": {
-            "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
-            "channel_id": "TEXT NOT NULL",                      # ID канала
-            "rule_name": "TEXT NOT NULL",                       # Название правила
-            "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP", # Дата создания
-            "INDEXES": [
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_automod_exceptions ON automod_exceptions(channel_id, rule_name)"
-            ]
-        },
-        "afk": {
-            "user_id": "TEXT",
-            "guild_id": "TEXT",
-            "reason": "TEXT",
-            "timestamp": "DATETIME DEFAULT CURRENT_TIMESTAMP",
-            "PRIMARY KEY": "(user_id, guild_id)"
-        },
-        
-        "users": {
-            "user_id": "TEXT PRIMARY KEY",
-            "reputation": "INTEGER DEFAULT 0",
-            "balance": "INTEGER DEFAULT 0",
-            "premium_balance": "INTEGER DEFAULT 0",
-            "deposit": "INTEGER DEFAULT 0",
-            "xp": "INTEGER DEFAULT 0",
-            "level": "INTEGER DEFAULT 1",
-            "voice_time": "INTEGER DEFAULT 0",
-            "voice_joins": "INTEGER DEFAULT 0",
-            "last_voice_join": "DATETIME",
-            "messages_count": "INTEGER DEFAULT 0",
-            "last_daily": "DATETIME",
-            "last_work": "DATETIME",
-            "last_voice_update": "DATETIME",
-            "roles": "TEXT DEFAULT '[]'",
-            "name": "TEXT",
-            "birthday": "TEXT",
-            "country": "TEXT",
-            "bio": "TEXT",
-            "timestamp": "DATETIME DEFAULT CURRENT_TIMESTAMP"
-        },
-        
-        "temp_rooms": {
-            "channel_id": "TEXT PRIMARY KEY",
-            "guild_id": "TEXT NOT NULL",
-            "owner_id": "TEXT NOT NULL",
-            "name": "TEXT NOT NULL",
-            "channel_type": "INTEGER DEFAULT 2",
-            "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
-            "trusted_users": "TEXT DEFAULT '[]'",
-            "banned_users": "TEXT DEFAULT '[]'",
-            "region": "TEXT",
-            "bitrate": "INTEGER DEFAULT 64000",
-            "user_limit": "INTEGER DEFAULT 0",
-            "is_locked": "BOOLEAN DEFAULT FALSE",
-            "is_hidden": "BOOLEAN DEFAULT FALSE",
-            "thread_id": "TEXT"
-        },
-        
-        "giveaways": {
-            "giveaway_id": "INTEGER PRIMARY KEY AUTOINCREMENT",
-            "channel_id": "TEXT",
-            "message_id": "TEXT UNIQUE",
-            "guild_id": "TEXT",
-            "host_id": "TEXT",
-            "prize": "TEXT",
-            "winners_count": "INTEGER",
-            "end_time": "DATETIME",
-            "is_ended": "INTEGER DEFAULT 0",
-            "participants": "TEXT DEFAULT '[]'"
-        },
-        
-        "shop_roles": {
-            "role_id": "TEXT PRIMARY KEY",
-            "price": "INTEGER NOT NULL",
-            "description": "TEXT",
-            "purchases": "INTEGER DEFAULT 0",
-            "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
-        },
-        
-        "global_bans": {
-            "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
-            "banned_user_id": "TEXT NOT NULL",
-            "owner_id": "TEXT NOT NULL",
-            "timestamp": "DATETIME DEFAULT CURRENT_TIMESTAMP",
-            "UNIQUE": "(banned_user_id, owner_id)"
-        },
-        
-        "games": {
-            "channel_id": "TEXT PRIMARY KEY",
-            "game_type": "TEXT NOT NULL",  # 'counter' или 'words'
-            "last_value": "TEXT DEFAULT ''",  # для counter - число, для words - слово
-            "used_values": "TEXT DEFAULT ''",  # для words - использованные слова
-            "forum_id": "TEXT",  # ID форум-канала (для counter)
-            "thread_id": "TEXT",  # ID ветки (для counter)
-            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
-        },
-        
-        "automod_rules": {
-            "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
-            "rule_name": "TEXT NOT NULL",                       # Название правила
-            "guild_id": "TEXT NOT NULL",                        # ID сервера
-            "enabled": "BOOLEAN DEFAULT TRUE",                  # Включено/выключено
-            "settings": "TEXT",                                 # JSON с настройками
-            "last_update": "DATETIME DEFAULT CURRENT_TIMESTAMP",# Последнее обновление
-            "INDEXES": [
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_automod_rules ON automod_rules(rule_name, guild_id)"
-            ]
-        }
-    }
+        INDEXES = [
+            Index("idx_users_id", ["user_id"], unique=True)
+        ]
     
-    # Названия таблиц для удобного доступа
-    TEMP_ROOMS = "temp_rooms"
-    USERS = "users"
-    MODERATION = "moderation"
-    AFK = "afk"
-    GIVEAWAYS = "giveaways"
-    SHOP_ROLES = "shop_roles"
-    GAMES = "games"
-    AUTOMOD_RULES = "automod_rules"
+    class Moderation(TableSchema):
+        """Таблица модерации"""
+        user_id = Column("TEXT", required=True, description="ID пользователя")
+        guild_id = Column("TEXT", required=True, description="ID сервера")
+        moderator_id = Column("TEXT", required=True, description="ID модератора")
+        type = Column("TEXT", required=True, description="Тип наказания")
+        reason = Column("TEXT", description="Причина")
+        expires_at = Column("DATETIME", description="Дата окончания")
+        active = Column("BOOLEAN", default="TRUE", description="Активно")
+        
+        INDEXES = [
+            Index("idx_mod_user", ["user_id", "guild_id", "type"]),
+            Index("idx_mod_active", ["active"])
+        ]
     
-    # Колонки таблиц для удобного доступа
-    COLUMNS = {
-        TEMP_ROOMS: ["channel_id", "guild_id", "owner_id", "created_at", "name", "type", "parent_id", "limit_users", "is_locked", "allowed_users"],
-        USERS: ["user_id", "reputation", "balance", "premium_balance", "deposit", "xp", "level", "voice_time", "voice_joins", "last_voice_join", "messages_count", "last_daily", "last_work", "last_voice_update", "roles", "name", "birthday", "country", "bio", "timestamp"],
-        MODERATION: ["id", "user_id", "channel_id", "guild_id", "moderator_id", "type", "rule_name", "reason", "created_at", "expires_at", "active"],
-        AFK: ["user_id", "guild_id", "reason", "timestamp"],
-        GIVEAWAYS: ["giveaway_id", "channel_id", "message_id", "guild_id", "host_id", "prize", "winners_count", "end_time", "is_ended", "participants"],
-        SHOP_ROLES: ["role_id", "price", "description", "purchases", "created_at"],
-        GAMES: ["channel_id", "game_type", "last_value", "used_values", "forum_id", "thread_id", "created_at", "updated_at"],
-        AUTOMOD_RULES: ["id", "rule_name", "guild_id", "enabled", "settings", "last_update"]
-    }
+    class TempRooms(TableSchema):
+        """Таблица временных комнат"""
+        channel_id = Column("TEXT", required=True, description="ID канала")
+        guild_id = Column("TEXT", required=True, description="ID сервера")
+        owner_id = Column("TEXT", required=True, description="ID владельца")
+        name = Column("TEXT", required=True, description="Название")
+        settings = Column("TEXT", default="'{}'", description="Настройки в JSON")
+        
+        INDEXES = [
+            Index("idx_temp_channel", ["channel_id"], unique=True),
+            Index("idx_temp_owner", ["owner_id", "guild_id"])
+        ]
+    
+    class Settings(TableSchema):
+        """Таблица настроек"""
+        guild_id = Column("TEXT", required=True, description="ID сервера")
+        category = Column("TEXT", required=True, description="Категория")
+        key = Column("TEXT", required=True, description="Ключ")
+        value = Column("TEXT", required=True, description="Значение")
+        
+        INDEXES = [
+            Index("idx_settings", ["guild_id", "category", "key"], unique=True)
+        ]
+
+# Генерируем схему после определения всех классов
+Tables.SCHEMA = get_schema(Tables)

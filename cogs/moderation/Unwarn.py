@@ -1,24 +1,35 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.database.db import Database
-from Niludetsu.utils.decorators import has_helper_role
+from Niludetsu import (
+    Embed,
+    Emojis,
+    helper_only,
+    cooldown,
+    Database
+)
 
 class Unwarn(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.db = Database()
         
-    @app_commands.command(name="unwarn", description="Снять предупреждение с участника")
+    @app_commands.command(name="unwarn", description="Снять предупреждение с пользователя")
     @app_commands.describe(
-        member="Участник для снятия предупреждения",
+        user="Пользователь для снятия предупреждения",
+        warn_id="ID предупреждения",
         reason="Причина снятия предупреждения"
     )
-    @has_helper_role()
-    async def unwarn_slash(self, interaction: discord.Interaction, member: discord.Member, reason: str = "Не указана"):
-        await self._unwarn_member(interaction, member, reason)
+    @helper_only()
+    @cooldown(seconds=3)
+    async def unwarn(
+        self,
+        interaction: discord.Interaction,
+        user: discord.Member,
+        warn_id: int,
+        reason: str = "Причина не указана"
+    ):
+        await self._unwarn_member(interaction, user, reason)
         
     async def _unwarn_member(self, ctx, member: discord.Member, reason: str):
         """Общая логика снятия предупреждения"""

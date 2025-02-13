@@ -1,38 +1,54 @@
 # --- Импорт библиотек ---
-import time
-import discord
-from discord.ext import commands
-import os
+import time, os, discord, yaml, asyncio, traceback, discord
 from dotenv import load_dotenv
-import yaml
-import asyncio
-import traceback
+from discord.ext import commands
 from typing import Union
 # --- Импорты из Niludetsu ---
-from Niludetsu.utils.cog_loader import cog_loader
-from Niludetsu.utils.config_loader import bot_state
-from Niludetsu.utils.command_sync import CommandSync
-from Niludetsu.utils.embed import Embed
-from Niludetsu.database.db import Database
-from Niludetsu.core.server_checker import ServerChecker
-from Niludetsu.core.level_system import LevelSystem
+from Niludetsu import CogLoader, BotState, CommandSync, Embed, Database, LevelSystem
+load_dotenv()
+token = os.getenv("MAIN_TOKEN")
 
 # --- Discord Bot setup ---
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
+print("✅ Discord интенты настроены")
 
 # --- Загрузка конфигурации ---
-load_dotenv()  # Загружаем переменные из .env
-with open('data/config.yaml', 'r', encoding='utf-8') as f:
-    config = yaml.safe_load(f)
+async def load_config():
+    try:
+        db = Database()
+        config = await db.fetch_all("SELECT category, key, value FROM settings")
+        config_dict = {}
+        for row in config:
+            if row['category'] not in config_dict:
+                config_dict[row['category']] = {}
+            config_dict[row['category']][row['key']] = row['value']
+        return config_dict
+    except Exception as e:
+        print(f"❌ Ошибка при загрузке конфигурации из базы данных: {e}")
+        raise
+
+try:
+    config = asyncio.run(load_config())
+    print("✅ Конфигурация успешно загружена из базы данных")
+except Exception as e:
+    print(f"❌ Ошибка при загрузке конфигурации из базы данных: {e}")
+    raise
 
 # Инициализируем системные компоненты
-command_sync = CommandSync(bot)
-server_checker = None
-level_system = None
+try:
+    command_sync = CommandSync(bot)
+    server_checker = None
+    level_system = None
+except Exception as e:
+    print(f"❌ Ошибка при инициализации системных компонентов: {e}")
+    raise
 
 # --- Загрузка когов ---
 async def load_cogs():
+    loaded_count = 0
+    error_count = 0
+    
     for folder in os.listdir("cogs"):
         if os.path.isdir(f"cogs/{folder}"):
             for filename in os.listdir(f"cogs/{folder}"):
@@ -40,14 +56,18 @@ async def load_cogs():
                     cog_path = f"{folder}/{filename[:-3]}"
                     try:
                         await bot.load_extension(f"cogs.{folder}.{filename[:-3]}")
-                        cog_loader.add_loaded_cog(cog_path, success=True)
+                        CogLoader.add_loaded_cog(cog_path, success=True)
+                        loaded_count += 1
                     except Exception as e:
                         error_msg = str(e)
-                        print(f"❌ Ошибка при загрузке кога {cog_path}:")
+                        print(f"❌ Ошибка при загрузке кога {cog_path}: {error_msg}")
                         traceback.print_exc()
-                        cog_loader.add_loaded_cog(cog_path, success=False, error=error_msg)
+                        CogLoader.add_loaded_cog(cog_path, success=False, error=error_msg)
+                        error_count += 1
+                        
+    print(f"📊 Загрузка когов завершена. Успешно: {loaded_count}, Ошибок: {error_count}")
 
-# --- Обработчик ошибок и логирование ---
+# --- Обработчик ошибок ---
 async def log_command_error(ctx_or_interaction: Union[commands.Context, discord.Interaction], error: commands.CommandError):
     """Логирование ошибок команд бота"""
     try:
@@ -57,7 +77,6 @@ async def log_command_error(ctx_or_interaction: Union[commands.Context, discord.
             if isinstance(ctx_or_interaction, discord.Interaction):
                 user = ctx_or_interaction.user
                 channel = ctx_or_interaction.channel
-                # Получаем полное имя команды, включая группу
                 if ctx_or_interaction.command:
                     if hasattr(ctx_or_interaction.command, 'parent') and ctx_or_interaction.command.parent:
                         command_name = f"/{ctx_or_interaction.command.parent.name} {ctx_or_interaction.command.name}"
@@ -73,8 +92,11 @@ async def log_command_error(ctx_or_interaction: Union[commands.Context, discord.
                 else:
                     command_name = f"{ctx_or_interaction.prefix}Неизвестно"
 
+            error_text = f"{str(error.__class__.__name__)}: {str(error)}"
+            print(f"❌ Ошибка в команде {command_name}: {error_text}")
+
             error_embed = Embed.error(
-                description=f"```py\n{str(error.__class__.__name__)}: {str(error)}\n```",
+                description=f"```py\n{error_text}\n```",
                 timestamp=discord.utils.utcnow()
             )
             error_embed.add_field(
@@ -106,10 +128,6 @@ async def log_command_error(ctx_or_interaction: Union[commands.Context, discord.
             # Отправляем пинг создателя и эмбед
             owner_id = config['settings']['owner_id']
             await log_channel.send(f"<@{owner_id}>", embed=error_embed)
-            
-            # Выводим ошибку в консоль для отладки
-            print(f"\n❌ Ошибка в команде {command_name}:")
-            traceback.print_exc()
             
     except Exception as e:
         print(f"❌ Ошибка при логировании: {e}")
@@ -151,21 +169,17 @@ async def on_app_command_error(interaction: discord.Interaction, error: commands
 async def setup_hook():
     try:
         global server_checker, level_system
-        bot_state.reset()
-        
-        # Инициализируем базу данных и создаем пул подключений
+        BotState.reset()
         db = Database()
         await db.init()
-        bot.pool = db.pool
-        
+        bot.db = db
         await load_cogs()
-        
-        # Инициализируем системные компоненты
-        server_checker = ServerChecker(bot)
         level_system = LevelSystem(bot)
+        
     except Exception as e:
-        print(f"❌ Ошибка в setup_hook: {e}")
+        print(f"❌ Критическая ошибка в setup_hook: {e}")
         traceback.print_exc()
+        raise
 
 @bot.event
 async def on_ready():
@@ -177,8 +191,10 @@ async def on_ready():
                 name="Создаём вайб на Discord!"
             )
         )
+        print("🔄 Синхронизация команд...")
         await command_sync.sync_commands()
-        cog_loader.print_loaded_cogs()
+        print("✅ Команды успешно синхронизированы")
+        CogLoader.print_loaded_cogs()
     except Exception as e:
         print(f"❌ Ошибка в on_ready: {e}")
         traceback.print_exc()
@@ -190,85 +206,17 @@ async def on_message(message):
             await level_system.process_message(message)
         await bot.process_commands(message)
     except Exception as e:
-        print(f"❌ Ошибка при обработке сообщения: {e}")
         traceback.print_exc()
 
-class HelpView(discord.ui.View):
-    def __init__(self, commands_list: list, per_page: int = 10):
-        super().__init__(timeout=60)
-        self.commands = commands_list
-        self.per_page = per_page
-        self.current_page = 0
-        self.total_pages = len(commands_list) // per_page + (1 if len(commands_list) % per_page else 0)
+@bot.event
+async def on_error(event, *args, **kwargs):
+    """Глобальный обработчик ошибок"""
+    print(f"❌ Ошибка в событии {event}: {traceback.format_exc()}")
 
-    def get_current_page_content(self):
-        start = self.current_page * self.per_page
-        end = start + self.per_page
-        return self.commands[start:end]
-
-    @discord.ui.button(label="◀️", style=discord.ButtonStyle.gray)
-    async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.current_page > 0:
-            self.current_page -= 1
-            await self.update_message(interaction)
-
-    @discord.ui.button(label="▶️", style=discord.ButtonStyle.gray)
-    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.current_page < self.total_pages - 1:
-            self.current_page += 1
-            await self.update_message(interaction)
-
-    async def update_message(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="Команды с префиксом",
-            description=f"Страница {self.current_page + 1}/{self.total_pages}",
-            color=discord.Color.blue()
-        )
-        
-        current_page = self.get_current_page_content()
-        commands_text = ""
-        for cmd, help_text in current_page:
-            commands_text += f"`!{cmd}` - {help_text}\n"
-        
-        embed.add_field(name="Команды", value=commands_text or "Нет доступных команд", inline=False)
-        await interaction.response.edit_message(embed=embed, view=self)
-
-@bot.command(name="aehelp")
-@commands.is_owner()
-async def aehelp(ctx):
-    """Показывает все команды с префиксом для создателя бота"""
-    # Собираем только команды с префиксом (не слэш-команды)
-    prefix_commands = []
-    for cmd in bot.commands:
-        if not cmd.hidden:  # Пропускаем скрытые команды
-            help_text = cmd.help or 'Нет описания'
-            prefix_commands.append((cmd.name, help_text))
-    
-    prefix_commands.sort(key=lambda x: x[0])  # Сортируем по имени команды
-    
-    if not prefix_commands:
-        embed = discord.Embed(
-            title="Команды с префиксом",
-            description="Нет доступных команд",
-            color=discord.Color.blue()
-        )
-        await ctx.send(embed=embed)
-        return
-
-    view = HelpView(prefix_commands)
-    
-    embed = discord.Embed(
-        title="Команды с префиксом",
-        description=f"Страница 1/{view.total_pages}",
-        color=discord.Color.blue()
-    )
-    
-    current_page = view.get_current_page_content()
-    commands_text = ""
-    for cmd, help_text in current_page:
-        commands_text += f"`!{cmd}` - {help_text}\n"
-    
-    embed.add_field(name="Команды", value=commands_text, inline=False)
-    await ctx.send(embed=embed, view=view)
-
-bot.run(os.getenv('MAIN_TOKEN'))  # Используем токен из .env файла
+if __name__ == "__main__":
+    try:
+        print("🔄 Запуск бота...")
+        bot.run(token)
+    except Exception as e:
+        print(f"❌ Критическая ошибка при запуске бота: {e}")
+        raise

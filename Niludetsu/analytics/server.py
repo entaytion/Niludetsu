@@ -1,10 +1,7 @@
-import discord
-import matplotlib.pyplot as plt
-import io
+import discord, matplotlib.pyplot as plt, io
 from collections import Counter
 from .base import BaseAnalytics, COLORS
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.utils.embed import Embed
+from Niludetsu import Emojis, Embed
 
 class ServerAnalytics(BaseAnalytics):
     def __init__(self, bot):

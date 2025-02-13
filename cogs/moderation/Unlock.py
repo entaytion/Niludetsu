@@ -2,9 +2,12 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from typing import Optional
-from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.utils.decorators import command_cooldown, has_mod_role
+from Niludetsu import (
+    Embed,
+    Emojis,
+    mod_only,
+    cooldown
+)
 
 class Unlock(commands.Cog):
     def __init__(self, bot):
@@ -16,8 +19,8 @@ class Unlock(commands.Cog):
         reason="Причина разблокировки",
         all_channels="Разблокировать все каналы"
     )
-    @has_mod_role()
-    @command_cooldown()
+    @mod_only()
+    @cooldown(seconds=3)
     async def unlock(
         self,
         interaction: discord.Interaction,

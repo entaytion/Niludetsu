@@ -1,8 +1,6 @@
-import yaml
-import hashlib
+import yaml, hashlib, discord
 from typing import Dict, List, Any
 from discord.ext import commands
-import discord
 
 class CommandSync:
     def __init__(self, bot: commands.Bot):

@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
-from Niludetsu.utils.embed import Embed
-from Niludetsu.api.Akinator import Akinator as AkinatorGame
+from Niludetsu import Embed, AkinatorAPI
 
 class AkinatorView(discord.ui.View):
     def __init__(self, aki_instance):
@@ -105,7 +104,7 @@ class Akinator(commands.Cog):
             )
             return
 
-        aki = AkinatorGame()
+        aki = AkinatorAPI()
         q = aki.start_game()
 
         embed=Embed(

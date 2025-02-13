@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import yaml
 from typing import Optional, Dict, Any, List
-from ..utils.embed import Embed
+from .embed import Embed
 
 class SetupView(discord.ui.View):
     """View для меню настроек"""

@@ -3,13 +3,10 @@
 Предоставляет базовые классы и функции для воспроизведения музыки.
 """
 
-import discord
+import discord, wavelink, asyncio, os
 from discord.ext import commands
-import wavelink
-from Niludetsu.utils.embed import Embed
+from Niludetsu import Embed
 from typing import Optional, Union
-import asyncio
-import os
 from dotenv import load_dotenv
 
 class Song:

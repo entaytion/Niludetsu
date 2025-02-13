@@ -3,12 +3,14 @@ from discord.ext import commands
 from discord import app_commands
 import yaml
 from datetime import datetime, timedelta
-from Niludetsu.utils.embed import Embed
-from Niludetsu.database import Database
-from Niludetsu.utils.decorators import has_helper_role, command_cooldown
-from Niludetsu.utils.constants import Emojis
+from Niludetsu import (
+    Embed,
+    Emojis,
+    helper_only,
+    cooldown,
+    Database
+)
 import asyncio
-from Niludetsu.moderation.punishments import Punishment
 
 # Загрузка конфигурации
 with open('data/config.yaml', 'r', encoding='utf-8') as f:
@@ -40,7 +42,6 @@ class Warn(commands.Cog):
         self.bot = bot
         self.db = Database()
         asyncio.create_task(self.db.init())  # Асинхронная инициализация базы данных
-        self.punishment_handler = Punishment(bot)
 
     async def get_user_active_warnings(self, user_id: int, guild_id: int) -> int:
         result = await self.db.execute(
@@ -104,7 +105,7 @@ class Warn(commands.Cog):
         warning_id="ID предупреждения для удаления"
     )
     @has_helper_role()
-    @command_cooldown()
+    @cooldown(seconds=3)
     async def warn_remove(
         self,
         interaction: discord.Interaction,
@@ -200,7 +201,7 @@ class Warn(commands.Cog):
     @app_commands.command(name="warnclear", description="Удалить все предупреждения у пользователя")
     @app_commands.describe(user="Пользователь для очистки предупреждений")
     @has_helper_role()
-    @command_cooldown()
+    @cooldown(seconds=3)
     async def warn_clear(
         self,
         interaction: discord.Interaction,

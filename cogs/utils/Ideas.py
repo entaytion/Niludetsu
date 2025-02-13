@@ -2,9 +2,9 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from discord.ui import Modal, TextInput, View, Button
-import yaml
 from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.constants import Emojis
+from Niludetsu.database.db import Database
 
 class ReasonModal(Modal):
     def __init__(self, title: str, callback):
@@ -22,11 +22,6 @@ class ReasonModal(Modal):
 
     async def on_submit(self, interaction: discord.Interaction):
         await self.callback(interaction, self.reason_input.value if self.reason_input.value else None)
-
-
-class BaseButton(View):
-    def __init__(self):
-        super().__init__(timeout=None)
 
 
 class IdeaButton(View):
@@ -75,130 +70,226 @@ class IdeaView(View):
         super().__init__(timeout=None)
         self.user_id = user_id
 
-    async def _update_idea_status(self, interaction: discord.Interaction, status: str, color: int, reason: str = None):
-        user = interaction.client.get_user(self.user_id)
-        status_emoji = "✅" if status == "принята" else "❌"
-
-        if user:
-            try:
-                embed=Embed(
-                    title=f"{status_emoji} Статус вашей идеи",
-                    description=f"Ваша идея была **{status}**!",
-                    color=color,
-                )
-                if reason:
-                    embed.add_field(name="Причина", value=reason, inline=False)
-                await user.send(embed=embed)
-            except discord.Forbidden:
-                pass
-
-        embed = interaction.message.embeds[0]
-        embed.color = color
-        embed.title = f"{status_emoji} Идея {status}"
-
-        if reason:
-            embed.add_field(name="Причина", value=reason, inline=False)
-
-        for item in self.children:
-            item.disabled = True
-
-        await interaction.message.edit(embed=embed, view=self)
-
-        response_message = f"{status_emoji} Идея пользователя {user.mention} была {status}"
-        if reason:
-            response_message += f"\n**Причина:** {reason}"
-        await interaction.response.send_message(response_message, ephemeral=True)
-
-    async def _handle_accept(self, interaction: discord.Interaction, reason: str = None):
-        await self._update_idea_status(interaction, "принята", 0x00FF00, reason)
-
-    async def _handle_reject(self, interaction: discord.Interaction, reason: str = None):
-        await self._update_idea_status(interaction, "отклонена", 0xFF0000, reason)
-
-    @discord.ui.button(label="Принять", style=discord.ButtonStyle.green, emoji="✅")
+    @discord.ui.button(label="Принять", style=discord.ButtonStyle.success, emoji="✅", custom_id="accept_idea")
     async def accept(self, interaction: discord.Interaction, button: Button):
-        modal = ReasonModal("Причина принятия", self._handle_accept)
-        await interaction.response.send_modal(modal)
-
-    @discord.ui.button(label="Отклонить", style=discord.ButtonStyle.red, emoji="❌")
+        try:
+            user = interaction.guild.get_member(self.user_id)
+            if not user:
+                return await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Пользователь не найден на сервере",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                
+            # Отправляем уведомление пользователю
+            try:
+                await user.send(
+                    embed=Embed(
+                        title=f"{Emojis.SUCCESS} Идея принята!",
+                        description="Ваша идея была принята!\nБлагодарим за вклад в развитие сервера.",
+                        color="GREEN"
+                    )
+                )
+            except:
+                pass
+                
+            # Обновляем сообщение
+            embed = interaction.message.embeds[0]
+            embed.color = discord.Color.green()
+            embed.title = f"{Emojis.SUCCESS} Идея принята: {embed.title.split(':')[1]}"
+            
+            await interaction.message.edit(embed=embed, view=None)
+            await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.SUCCESS} Идея обработана",
+                    description=f"Идея пользователя {user.mention} была принята",
+                    color="GREEN"
+                ),
+                ephemeral=True
+            )
+            
+        except Exception as e:
+            await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.ERROR} Ошибка",
+                    description=f"```{str(e)}```",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+            
+    @discord.ui.button(label="Отклонить", style=discord.ButtonStyle.danger, emoji="❌", custom_id="reject_idea")
     async def reject(self, interaction: discord.Interaction, button: Button):
-        modal = ReasonModal("Причина отказа", self._handle_reject)
-        await interaction.response.send_modal(modal)
+        try:
+            user = interaction.guild.get_member(self.user_id)
+            if not user:
+                return await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Пользователь не найден на сервере",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                
+            # Отправляем уведомление пользователю
+            try:
+                await user.send(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Идея отклонена",
+                        description="Ваша идея была отклонена.",
+                        color="RED"
+                    )
+                )
+            except:
+                pass
+                
+            # Обновляем сообщение
+            embed = interaction.message.embeds[0]
+            embed.color = discord.Color.red()
+            embed.title = f"{Emojis.ERROR} Идея отклонена: {embed.title.split(':')[1]}"
+            
+            await interaction.message.edit(embed=embed, view=None)
+            await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.SUCCESS} Идея обработана",
+                    description=f"Идея пользователя {user.mention} была отклонена",
+                    color="GREEN"
+                ),
+                ephemeral=True
+            )
+            
+        except Exception as e:
+            await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.ERROR} Ошибка",
+                    description=f"```{str(e)}```",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
 
 
 class Ideas(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        with open("data/config.yaml", "r", encoding="utf-8") as f:
-            self.config = yaml.safe_load(f)
+        self.db = Database()
         bot.loop.create_task(self.setup_ideas_view())
 
     async def setup_ideas_view(self):
-        await self.bot.wait_until_ready()
-        channel_id = self.config.get('ideas', {}).get('channel')
-        message_id = self.config.get('ideas', {}).get('message')
-        
-        if channel_id and message_id:
-            try:
-                channel = self.bot.get_channel(int(channel_id))
-                if channel:
-                    try:
-                        message = await channel.fetch_message(int(message_id))
-                        embed=Embed(
-                            title="💡 Предложить идею",
-                            description=(
-                                "**Есть идея по улучшению сервера?**\n"
-                                "Нажмите на кнопку ниже, чтобы предложить свою идею!\n\n"
-                                "**Требования к идеям:**\n"
-                                "• Идея должна быть конструктивной\n"
-                                "• Идея должна быть реализуемой\n"
-                                "• Идея не должна нарушать правила сервера\n"
-                                "• Одна заявка - одна идея"
-                            ),
-                        )
-                        view = IdeaButton()
-                        await message.edit(embed=embed, view=view)
-                        print(f"✅ Панель идей загружена: {channel.name} ({channel.id})")
-                    except discord.NotFound:
-                        print("❌ Сообщение с панелью идей не найдено!")
-                else:
-                    print("❌ Канал для идей не найден!")
-            except Exception as e:
-                print(f"❌ Ошибка при загрузке панели идей: {e}")
+        """Настройка панели идей"""
+        try:
+            # Получаем канал для идей
+            result = await self.db.fetch_one(
+                "SELECT value FROM settings WHERE category = 'ideas' AND key = 'channel'"
+            )
+            
+            if not result:
+                return
+                
+            channel_id = result['value']
+            channel = self.bot.get_channel(int(channel_id))
+            if not channel:
+                return
+                
+            # Создаем сообщение с панелью
+            embed = Embed(
+                title="💡 Предложить идею",
+                description=(
+                    "Нажмите на кнопку ниже, чтобы предложить свою идею для улучшения сервера.\n\n"
+                    f"{Emojis.DOT} Идея должна быть конструктивной и полезной\n"
+                    f"{Emojis.DOT} Опишите подробно, что вы хотите предложить\n"
+                    f"{Emojis.DOT} Укажите, какую проблему решает ваша идея"
+                ),
+                color="BLUE"
+            )
+            
+            message = await channel.send(embed=embed, view=IdeaButton())
+            
+            # Сохраняем ID сообщения
+            await self.db.execute(
+                """
+                INSERT OR REPLACE INTO settings (category, key, value)
+                VALUES ('ideas', 'message', ?)
+                """,
+                str(message.id)
+            )
+            
+            return message
+            
+        except Exception as e:
+            print(f"❌ Ошибка при настройке панели идей: {e}")
+            return None
 
     async def handle_idea_submit(self, interaction: discord.Interaction, title: str, description: str):
-        channel_id = self.config.get('ideas', {}).get('channel')
-        if not channel_id:
-            await interaction.response.send_message("❌ Канал для идей не настроен!")
-            return
+        """Обработка отправки идеи"""
+        try:
+            # Получаем канал для идей
+            channel_id = await self.db.fetch_one(
+                "SELECT value FROM settings WHERE category = 'ideas' AND key = 'channel'"
+            )
+            
+            if not channel_id:
+                return await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Канал для идей не настроен",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                
+            channel = self.bot.get_channel(int(channel_id))
+            if not channel:
+                return await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Канал для идей не найден",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
 
-        channel = self.bot.get_channel(int(channel_id))
-        if not channel:
-            await interaction.response.send_message("❌ Канал для идей не найден!")
-            return
+            embed = Embed(
+                title=f"💡 Новая идея: {title}",
+                description=(
+                    f"{Emojis.DOT} **От:** {interaction.user.mention} (`{interaction.user.id}`)\n\n"
+                    f"{Emojis.DOT} **Описание:**\n```\n{description}```"
+                ),
+                footer={"text": f"ID пользователя: {interaction.user.id}"}
+            )
 
-        embed=Embed(
-            title=f"💡 Новая идея: {title}",
-            description=(
-                f"{Emojis.DOT} **От:** {interaction.user.mention} (`{interaction.user.id}`)\n\n"
-                f"{Emojis.DOT} **Описание:**\n```\n{description}```"
-            ),
-            footer={"text": f"ID пользователя: {interaction.user.id}"},
-        )
+            if interaction.user.avatar:
+                embed.set_thumbnail(url=interaction.user.avatar.url)
 
-        if interaction.user.avatar:
-            embed.set_thumbnail(url=interaction.user.avatar.url)
+            await channel.send(embed=embed, view=IdeaView(interaction.user.id))
 
-        await channel.send(embed=embed, view=IdeaView(interaction.user.id))
+            success_embed = Embed(
+                title="✅ Идея отправлена",
+                description="Ваша идея успешно отправлена!\nОжидайте ответа от администрации.",
+                color="GREEN"
+            )
+            await interaction.response.send_message(embed=success_embed, ephemeral=True)
 
-        success_embed=Embed(
-            title="✅ Идея отправлена",
-            description="Ваша идея успешно отправлена!\nОжидайте ответа от администрации.",
-            color=0x00FF00
-        )
-        await interaction.response.send_message(embed=success_embed, ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.ERROR} Ошибка",
+                    description=f"```{str(e)}```",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
 
     @app_commands.command(name="ideas", description="Управление панелью идей")
+    @app_commands.describe(
+        action="Действие (create/set)",
+        message_id="ID сообщения с панелью для подачи идей",
+        ideas_channel="ID канала куда будут отправляться идеи"
+    )
     @commands.has_permissions(administrator=True)
     async def ideas(self, interaction: discord.Interaction, action: str, message_id: str = None, ideas_channel: str = None):
         action = action.lower()
@@ -230,7 +321,7 @@ class Ideas(commands.Cog):
             await interaction.response.send_message("❌ Неверный формат ID канала!")
             return
 
-        embed=Embed(
+        embed = Embed(
             title="💡 Предложить идею",
             description=(
                 "**Есть идея по улучшению сервера?**\n"
@@ -240,44 +331,44 @@ class Ideas(commands.Cog):
                 "• Идея должна быть реализуемой\n"
                 "• Идея не должна нарушать правила сервера\n"
                 "• Одна заявка - одна идея"
-            ),
+            )
         )
 
         await message.edit(embed=embed, view=IdeaButton())
-
-        if 'ideas' not in self.config:
-            self.config['ideas'] = {}
-        self.config['ideas'].update({
-            'channel': str(ideas_channel_id),
-            'message': str(message_id)
-        })
-
-        with open("data/config.yaml", "w", encoding='utf-8') as f:
-            yaml.dump(self.config, f, indent=4, allow_unicode=True)
-
-        success_embed=Embed(
-            title="✅ Панель идей создана",
-            description=(
-                f"📝 ID сообщения: `{message_id}`\n"
-                f"📨 Канал для идей: {channel.mention}"
-            ),
-            color=0x00FF00,
+        
+        # Сохраняем настройки в базу данных
+        await self.db.execute(
+            """
+            INSERT INTO settings (category, key, value) 
+            VALUES (?, ?, ?), (?, ?, ?)
+            ON CONFLICT (category, key) DO UPDATE SET value = excluded.value
+            """,
+            'ideas', 'channel', str(ideas_channel_id),
+            'ideas', 'message', str(message_id)
         )
-        await interaction.response.send_message(embed=success_embed)
+
+        await interaction.response.send_message(
+            f"✅ Панель идей успешно создана!\n"
+            f"📝 ID сообщения: `{message_id}`\n"
+            f"📨 Канал для идей: {channel.mention}"
+        )
 
     async def _handle_set_ideas(self, interaction, ideas_channel):
         channel = await commands.TextChannelConverter().convert(interaction, ideas_channel)
         
-        if 'ideas' not in self.config:
-            self.config['ideas'] = {}
-        self.config['ideas']['channel'] = str(channel.id)
-
-        with open("data/config.yaml", "w", encoding='utf-8') as f:
-            yaml.dump(self.config, f, indent=4, allow_unicode=True)
-
-        embed=Embed(
+        # Сохраняем канал в базу данных
+        await self.db.execute(
+            """
+            INSERT INTO settings (category, key, value) 
+            VALUES (?, ?, ?)
+            ON CONFLICT (category, key) DO UPDATE SET value = ?
+            """,
+            'ideas', 'channel', str(channel.id), str(channel.id)
+        )
+            
+        embed = Embed(
             title="✅ Канал для идей установлен",
-            description=f"Канал {channel.mention} успешно установлен для получения идей.",
+            description=f"Канал {channel.mention} успешно установлен для получения идей."
         )
         await interaction.response.send_message(embed=embed)
 

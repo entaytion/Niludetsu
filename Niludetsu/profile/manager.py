@@ -1,7 +1,7 @@
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from .models import ProfileData
-from Niludetsu.database import Database
+from Niludetsu import Database
 
 class ProfileManager:
     def __init__(self, database: Database):

@@ -1,5 +1,4 @@
-from ..utils.logging import BaseLogger
-from ..utils.constants import Emojis
+from Niludetsu import BaseLogger, Emojis, LoggingState
 import discord
 from discord.ext import commands
 from typing import Optional, Union
@@ -8,6 +7,17 @@ import traceback
 class ErrorLogger(BaseLogger):
     """Логгер для обработки и логирования ошибок."""
     
+    def __init__(self, bot: discord.Client):
+        super().__init__(bot)
+        self.log_channel = None
+        bot.loop.create_task(self._initialize())
+    
+    async def _initialize(self):
+        """Инициализация логгера"""
+        await self.bot.wait_until_ready()
+        await self.initialize_logs()
+        self.log_channel = LoggingState.log_channel
+        
     async def log_command_error(self, ctx: Union[commands.Context, discord.Interaction], error: Exception):
         """Логирование ошибок команд с автоматическим определением типа контекста"""
         if isinstance(ctx, discord.Interaction):

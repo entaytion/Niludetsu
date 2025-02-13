@@ -1,8 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import Embed
-from Niludetsu.api.Translate import TranslateAPI
+from Niludetsu import Embed, TranslateAPI
 
 class Translate(commands.Cog):
     def __init__(self, bot):

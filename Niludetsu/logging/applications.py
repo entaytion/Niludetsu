@@ -1,10 +1,20 @@
-from ..utils.logging import BaseLogger
-from ..utils.constants import Emojis
+from Niludetsu import BaseLogger, Emojis, LoggingState
 import discord
 
 class ApplicationLogger(BaseLogger):
     """Логгер для событий, связанных с приложениями Discord."""
     
+    def __init__(self, bot: discord.Client):
+        super().__init__(bot)
+        self.log_channel = None
+        bot.loop.create_task(self._initialize())
+    
+    async def _initialize(self):
+        """Инициализация логгера"""
+        await self.bot.wait_until_ready()
+        await self.initialize_logs()
+        self.log_channel = LoggingState.log_channel
+        
     async def log_app_add(self, app: discord.Integration):
         """Логирование добавления приложения"""
         fields = [

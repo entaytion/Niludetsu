@@ -1,18 +1,11 @@
-import discord
+import discord, psutil, platform, typing, io, time
 from discord import app_commands
 from discord.ext import commands
-import psutil
-import platform
 from datetime import datetime, timedelta
-import typing
 from collections import Counter
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
-import io
-import time
-from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.analytics import BotAnalytics, ServerAnalytics, RolesAnalytics, ChannelsAnalytics, MessageAnalytics
+from Niludetsu import BotAnalytics, ServerAnalytics, RolesAnalytics, ChannelsAnalytics, MessageAnalytics, Embed, Emojis
 
 # Добавляем кастомный шрифт
 plt.rcParams['font.family'] = 'sans-serif'

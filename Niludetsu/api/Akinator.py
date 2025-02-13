@@ -1,14 +1,12 @@
-import requests
+import requests, json
 from bs4 import BeautifulSoup
 from typing import Optional, Dict, Any, Union
-import json
-import re
 
 class AkinatorError(Exception):
     """Исключение для ошибок Akinator."""
     pass
 
-class Akinator:
+class AkinatorAPI:
     """
     Класс для работы с Akinator API.
     

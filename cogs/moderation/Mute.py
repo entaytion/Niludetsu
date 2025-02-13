@@ -4,26 +4,34 @@ from discord.ext import commands
 from typing import Optional
 from datetime import datetime, timedelta
 import asyncio
-from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.utils.decorators import command_cooldown, has_mod_role
-from Niludetsu.moderation.punishments import Punishment
+from Niludetsu import (
+    Embed,
+    Emojis,
+    mod_only,
+    cooldown
+)
 
 class Mute(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.punishment_handler = Punishment(bot)
         self.muted_users = {}
 
-    @app_commands.command(name="mute", description="Замутить участника")
+    @app_commands.command(name="mute", description="Замутить пользователя")
     @app_commands.describe(
-        member="Участник для мута",
+        user="Пользователь для мута",
         duration="Длительность мута (1h, 1d, 1w)",
         reason="Причина мута"
     )
-    @has_mod_role()
-    async def mute_slash(self, interaction: discord.Interaction, member: discord.Member, duration: str, reason: str = "Не указана"):
-        await self._mute_member(interaction, member, duration, reason)
+    @mod_only()
+    @cooldown(seconds=3)
+    async def mute(
+        self,
+        interaction: discord.Interaction,
+        user: discord.Member,
+        duration: str,
+        reason: str = "Причина не указана"
+    ):
+        await self._mute_member(interaction, user, duration, reason)
         
     async def _mute_member(self, ctx, member: discord.Member, duration: str, reason: str):
         """Общая логика мута участника"""

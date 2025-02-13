@@ -1,9 +1,12 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.utils.decorators import command_cooldown, has_mod_role
+from Niludetsu import (
+    Embed,
+    Emojis,
+    mod_only,
+    cooldown
+)
 import asyncio
 
 def has_manage_messages():
@@ -25,8 +28,8 @@ class Clear(commands.Cog):
         contains="Удалить сообщения, содержащие определенный текст",
         channel="Канал для очистки (по умолчанию - текущий)"
     )
-    @has_mod_role()
-    @command_cooldown()
+    @mod_only()
+    @cooldown(seconds=3)
     async def clear(
         self,
         interaction: discord.Interaction,

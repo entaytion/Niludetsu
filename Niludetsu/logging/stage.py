@@ -1,5 +1,4 @@
-from ..utils.logging import BaseLogger
-from ..utils.constants import Emojis
+from Niludetsu import BaseLogger, Emojis, LoggingState
 import discord
 from typing import Optional
 from discord.utils import format_dt
@@ -7,6 +6,17 @@ from discord.utils import format_dt
 class StageLogger(BaseLogger):
     """Логгер для стейдж-каналов Discord."""
     
+    def __init__(self, bot: discord.Client):
+        super().__init__(bot)
+        self.log_channel = None
+        bot.loop.create_task(self._initialize())
+    
+    async def _initialize(self):
+        """Инициализация логгера"""
+        await self.bot.wait_until_ready()
+        await self.initialize_logs()
+        self.log_channel = LoggingState.log_channel
+        
     async def log_stage_start(self, stage: discord.StageInstance):
         """Логирование начала стейдж-события"""
         fields = [
@@ -76,10 +86,10 @@ class StageLogger(BaseLogger):
             fields=fields
         )
         
-    def _get_privacy_level(self, level: discord.StagePrivacyLevel) -> str:
+    def _get_privacy_level(self, level: discord.PrivacyLevel) -> str:
         """Получение читаемого названия уровня приватности"""
         return {
-            discord.StagePrivacyLevel.public: "Публичный",
-            discord.StagePrivacyLevel.guild_only: "Только для сервера",
-            discord.StagePrivacyLevel.closed: "Закрытый"
+            discord.PrivacyLevel.public: "Публичный",
+            discord.PrivacyLevel.guild_only: "Только для сервера",
+            discord.PrivacyLevel.closed: "Закрытый"
         }.get(level, "Неизвестно") 

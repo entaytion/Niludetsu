@@ -1,9 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.api.Currency import CurrencyAPI
+from Niludetsu import Embed, Emojis, CurrencyAPI
 
 class Currency(commands.Cog):
     def __init__(self, bot):

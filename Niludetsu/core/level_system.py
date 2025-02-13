@@ -1,20 +1,10 @@
-import asyncio
-import random
-import re
+import asyncio, random, re, discord
 from typing import Optional, Dict, List, Union
-import discord
 from discord.ext import commands, tasks
-from ..database import Database
-from ..utils.embed import Embed
-from ..utils.constants import Emojis
+from Niludetsu import Database, Embed, Emojis
 
 class LevelSystem:
     def __init__(self, bot: commands.Bot):
-        """
-        Инициализация системы уровней
-        Args:
-            bot (commands.Bot): Экземпляр бота
-        """
         self.bot = bot
         self.db = Database()
         self.CATEGORY_ID = 1128436199204343828

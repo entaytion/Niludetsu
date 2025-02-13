@@ -1,86 +1,93 @@
 import discord
-from discord import app_commands
 from discord.ext import commands
+from discord import app_commands
 from datetime import datetime
-from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.utils.decorators import command_cooldown, has_mod_role
-from Niludetsu.database.db import Database
+from Niludetsu import (
+    Embed,
+    Emojis,
+    mod_only,
+    cooldown,
+    Database,
+    Tables
+)
 
 class Mutes(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.db = Database()
 
-    @app_commands.command(name="mutes", description="Показать список мутов")
-    @app_commands.describe(member="Участник для просмотра мутов")
-    @has_mod_role()
-    async def mutes_slash(self, interaction: discord.Interaction, member: discord.Member = None):
-        await self._show_mutes(interaction, member)
-        
-    async def _show_mutes(self, ctx, member: discord.Member = None):
-        """Общая логика отображения мутов"""
-        # Формируем SQL запрос
-        if member:
-            query = """
-                SELECT user_id, moderator_id, reason, created_at, expires_at 
-                FROM moderation 
-                WHERE guild_id = ? AND type = 'mute' AND active = TRUE AND user_id = ?
-                ORDER BY created_at DESC
-            """
-            params = [str(ctx.guild.id), str(member.id)]
-        else:
-            query = """
-                SELECT user_id, moderator_id, reason, created_at, expires_at 
-                FROM moderation 
-                WHERE guild_id = ? AND type = 'mute' AND active = TRUE
-                ORDER BY created_at DESC
-            """
-            params = [str(ctx.guild.id)]
-            
-        # Получаем активные муты
-        mutes = await self.db.fetch_all(query, *params)
-        
+    @app_commands.command(name="mutes", description="Показать список замученных пользователей")
+    @app_commands.describe(
+        page="Номер страницы"
+    )
+    @mod_only()
+    @cooldown(seconds=3)
+    async def mutes(
+        self,
+        interaction: discord.Interaction,
+        page: int = 1
+    ):
+        if page < 1:
+            return await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.ERROR} Ошибка",
+                    description="Номер страницы не может быть меньше 1!",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+
+        # Получаем список мутов
+        mutes = await self.db.fetch_all(
+            f"""
+            SELECT * FROM {Tables.MODERATION}
+            WHERE guild_id = ? AND type = 'mute' AND active = TRUE
+            ORDER BY created_at DESC
+            LIMIT 10 OFFSET ?
+            """,
+            str(interaction.guild_id), (page - 1) * 10
+        )
+
         if not mutes:
-            description = f"У {member.mention} нет активных мутов" if member else "На сервере нет замученных участников"
-            embed = Embed(
-                title=f"{Emojis.INFO} Активные муты",
-                description=description,
-                color="GREEN"
+            return await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.INFO} Список мутов",
+                    description="На сервере нет замученных пользователей!",
+                    color="BLUE"
+                )
             )
-        else:
-            embed = Embed(
-                title=f"{Emojis.INFO} Активные муты",
-                description=f"Всего активных мутов: {len(mutes)}",
-                color="YELLOW"
-            )
-            
-            for mute in mutes:
-                user = ctx.guild.get_member(int(mute[0]))
-                if not user:
-                    continue
-                    
-                moderator = ctx.guild.get_member(int(mute[1]))
-                moderator_mention = moderator.mention if moderator else f"ID: {mute[1]}"
+
+        # Создаем эмбед
+        mutes_embed = Embed(
+            title=f"{Emojis.MUTE} Список замученных пользователей",
+            description=f"Страница {page}",
+            color="BLUE"
+        )
+
+        for mute in mutes:
+            try:
+                user = await self.bot.fetch_user(int(mute['user_id']))
+                moderator = await self.bot.fetch_user(int(mute['moderator_id']))
                 
-                created_at = int(mute[3].timestamp())
-                expires_at = int(mute[4].timestamp())
-                
-                embed.add_field(
-                    name=f"Мут {user}",
-                    value=(
-                        f"{Emojis.DOT} **Модератор:** {moderator_mention}\n"
-                        f"{Emojis.DOT} **Причина:** {mute[2]}\n"
-                        f"{Emojis.DOT} **Выдан:** <t:{created_at}:R>\n"
-                        f"{Emojis.DOT} **Истекает:** <t:{expires_at}:R>"
-                    ),
-                    inline=False
+                value = (
+                    f"{Emojis.DOT} **Модератор:** {moderator.mention}\n"
+                    f"{Emojis.DOT} **Причина:** {mute['reason']}\n"
                 )
                 
-        if isinstance(ctx, discord.Interaction):
-            await ctx.response.send_message(embed=embed)
-        else:
-            await ctx.send(embed=embed)
+                if mute['expires_at']:
+                    value += f"{Emojis.DOT} **Истекает:** <t:{int(datetime.fromisoformat(mute['expires_at']).timestamp())}:R>"
+                else:
+                    value += f"{Emojis.DOT} **Длительность:** Навсегда"
+                
+                mutes_embed.add_field(
+                    name=f"{user} (ID: {user.id})",
+                    value=value,
+                    inline=False
+                )
+            except discord.NotFound:
+                continue
+
+        await interaction.response.send_message(embed=mutes_embed)
 
 async def setup(bot):
     await bot.add_cog(Mutes(bot)) 

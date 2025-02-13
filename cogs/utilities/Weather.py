@@ -1,9 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.api.Weather import WeatherAPI
+from Niludetsu import Embed, Emojis, WeatherAPI
 
 class Weather(commands.Cog):
     def __init__(self, bot):

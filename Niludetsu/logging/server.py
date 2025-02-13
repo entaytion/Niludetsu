@@ -1,13 +1,22 @@
-from ..utils.logging import BaseLogger
-from ..utils.constants import Emojis
+from Niludetsu import BaseLogger, Emojis, LoggingState
 import discord
 from typing import Optional, List, Dict, Any
 from discord.utils import format_dt
 
 class ServerLogger(BaseLogger):
     """Логгер для сервера Discord."""
+        
+    def __init__(self, bot: discord.Client):
+        super().__init__(bot)
+        self.log_channel = None
+        bot.loop.create_task(self._initialize())
     
-    # --- Модерация ---
+    async def _initialize(self):
+        """Инициализация логгера"""
+        await self.bot.wait_until_ready()
+        await self.initialize_logs()
+        self.log_channel = LoggingState.log_channel
+    
     async def log_ban_add(self, guild: discord.Guild, user: discord.User, reason: Optional[str] = None):
         """Логирование бана пользователя"""
         fields = [
@@ -101,7 +110,6 @@ class ServerLogger(BaseLogger):
             fields=fields
         )
         
-    # --- Настройки сервера ---
     async def log_afk_channel_update(self, before: Optional[discord.VoiceChannel], after: Optional[discord.VoiceChannel]):
         """Логирование изменения AFK канала"""
         fields = [
@@ -418,7 +426,6 @@ class ServerLogger(BaseLogger):
             fields=fields
         )
         
-    # --- Onboarding ---
     async def log_onboarding_toggle(self, enabled: bool):
         """Логирование включения/выключения онбординга"""
         await self.log_event(

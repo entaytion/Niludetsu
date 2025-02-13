@@ -1,27 +1,29 @@
 import discord
-from discord import app_commands
 from discord.ext import commands
-from typing import Optional
-from Niludetsu.utils.embed import Embed
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.utils.decorators import command_cooldown, has_mod_role
+from discord import app_commands
+from Niludetsu import (
+    Embed,
+    Emojis,
+    mod_only,
+    cooldown
+)
 
 class Unban(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="unban", description="Разбанить участника")
+    @app_commands.command(name="unban", description="Разбанить пользователя")
     @app_commands.describe(
-        user="ID пользователя для разбана",
+        user_id="ID пользователя для разбана",
         reason="Причина разбана"
     )
-    @has_mod_role()
-    @command_cooldown()
+    @mod_only()
+    @cooldown(seconds=3)
     async def unban(
         self,
         interaction: discord.Interaction,
-        user: str,
-        reason: Optional[str] = None
+        user_id: str,
+        reason: str = "Причина не указана"
     ):
         if not interaction.user.guild_permissions.ban_members:
             return await interaction.response.send_message(
@@ -36,7 +38,7 @@ class Unban(commands.Cog):
         # Отправляем начальное сообщение
         progress_embed=Embed(
             title=f"{Emojis.LOADING} Разбан участника",
-            description=f"Выполняю разбан участника с ID: `{user}`...",
+            description=f"Выполняю разбан участника с ID: `{user_id}`...",
             color="YELLOW"
         )
         await interaction.response.send_message(embed=progress_embed)
@@ -45,7 +47,7 @@ class Unban(commands.Cog):
             # Пытаемся получить информацию о бане
             ban_entry = None
             try:
-                ban_entry = await interaction.guild.fetch_ban(discord.Object(id=int(user)))
+                ban_entry = await interaction.guild.fetch_ban(discord.Object(id=int(user_id)))
             except (ValueError, discord.NotFound):
                 # Если ID неверный или пользователь не забанен
                 return await interaction.edit_original_response(
@@ -59,7 +61,7 @@ class Unban(commands.Cog):
             # Разбаниваем пользователя
             await interaction.guild.unban(
                 ban_entry.user,
-                reason=f"Разбан от {interaction.user}: {reason if reason else 'Причина не указана'}"
+                reason=f"Разбан от {interaction.user}: {reason}"
             )
 
             # Создаем эмбед с результатами
@@ -104,7 +106,7 @@ class Unban(commands.Cog):
                         description=(
                             f"**Сервер:** {interaction.guild.name}\n"
                             f"**Модератор:** {interaction.user.mention}\n"
-                            f"**Причина:** {reason if reason else 'Не указана'}"
+                            f"**Причина:** {reason}"
                         ),
                         color="GREEN"
                     )

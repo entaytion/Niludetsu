@@ -2,10 +2,10 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from discord.ui import Modal, TextInput, View, Button
-import yaml
 from Niludetsu.utils.embed import Embed
 from Niludetsu.utils.constants import Emojis
 import asyncio
+from Niludetsu.database.db import Database
 
 class ReasonModal(Modal):
     def __init__(self, title: str, callback):
@@ -90,197 +90,286 @@ class ReportView(View):
         self.user_id = user_id
         self.reported_user = reported_user
 
-    async def _update_report_status(self, interaction: discord.Interaction, status: str, color: int, reason: str = None):
-        user = interaction.client.get_user(self.user_id)
-        status_emoji = "✅" if status == "принята" else "❌"
-
-        if user:
-            try:
-                embed=Embed(
-                    title=f"{status_emoji} Статус вашей жалобы",
-                    description=f"Ваша жалоба была **{status}**!",
-                    color=color
-                )
-                if reason:
-                    embed.add_field(name="Причина", value=reason, inline=False)
-                await user.send(embed=embed)
-            except discord.Forbidden:
-                pass
-
-        embed = interaction.message.embeds[0]
-        embed.color = color
-        embed.title = f"{status_emoji} Жалоба {status}"
-
-        if reason:
-            embed.add_field(name="Причина", value=reason, inline=False)
-
-        for item in self.children:
-            item.disabled = True
-
-        await interaction.message.edit(embed=embed, view=self)
-
-        response_message = f"{status_emoji} Жалоба пользователя {user.mention} была {status}"
-        if reason:
-            response_message += f"\n**Причина:** {reason}"
-        await interaction.response.send_message(response_message, ephemeral=True)
-
-    async def _handle_accept(self, interaction: discord.Interaction, reason: str = None):
-        await self._update_report_status(interaction, "принята", 0x00FF00, reason)
-
-    async def _handle_reject(self, interaction: discord.Interaction, reason: str = None):
-        await self._update_report_status(interaction, "отклонена", 0xFF0000, reason)
-
-    @discord.ui.button(label="Принять", style=discord.ButtonStyle.green, emoji="✅")
+    @discord.ui.button(label="Принять", style=discord.ButtonStyle.success, emoji="✅", custom_id="accept_report")
     async def accept(self, interaction: discord.Interaction, button: Button):
-        modal = ReasonModal("Причина принятия", self._handle_accept)
-        await interaction.response.send_modal(modal)
-
-    @discord.ui.button(label="Отклонить", style=discord.ButtonStyle.red, emoji="❌")
+        try:
+            user = interaction.guild.get_member(self.user_id)
+            if not user:
+                return await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Пользователь не найден на сервере",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                
+            # Отправляем уведомление пользователю
+            try:
+                await user.send(
+                    embed=Embed(
+                        title=f"{Emojis.SUCCESS} Жалоба принята!",
+                        description="Ваша жалоба была принята!\nБлагодарим за помощь в поддержании порядка.",
+                        color="GREEN"
+                    )
+                )
+            except:
+                pass
+                
+            # Обновляем сообщение
+            embed = interaction.message.embeds[0]
+            embed.color = discord.Color.green()
+            embed.title = f"{Emojis.SUCCESS} Жалоба принята: {embed.title.split(':')[1]}"
+            
+            await interaction.message.edit(embed=embed, view=None)
+            await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.SUCCESS} Жалоба обработана",
+                    description=f"Жалоба пользователя {user.mention} была принята",
+                    color="GREEN"
+                ),
+                ephemeral=True
+            )
+            
+        except Exception as e:
+            await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.ERROR} Ошибка",
+                    description=f"```{str(e)}```",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+            
+    @discord.ui.button(label="Отклонить", style=discord.ButtonStyle.danger, emoji="❌", custom_id="reject_report")
     async def reject(self, interaction: discord.Interaction, button: Button):
-        modal = ReasonModal("Причина отказа", self._handle_reject)
-        await interaction.response.send_modal(modal)
+        try:
+            user = interaction.guild.get_member(self.user_id)
+            if not user:
+                return await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Пользователь не найден на сервере",
+                        color="RED"
+                    ),
+                    ephemeral=True
+                )
+                
+            # Отправляем уведомление пользователю
+            try:
+                await user.send(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Жалоба отклонена",
+                        description="Ваша жалоба была отклонена.",
+                        color="RED"
+                    )
+                )
+            except:
+                pass
+                
+            # Обновляем сообщение
+            embed = interaction.message.embeds[0]
+            embed.color = discord.Color.red()
+            embed.title = f"{Emojis.ERROR} Жалоба отклонена: {embed.title.split(':')[1]}"
+            
+            await interaction.message.edit(embed=embed, view=None)
+            await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.SUCCESS} Жалоба обработана",
+                    description=f"Жалоба пользователя {user.mention} была отклонена",
+                    color="GREEN"
+                ),
+                ephemeral=True
+            )
+            
+        except Exception as e:
+            await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.ERROR} Ошибка",
+                    description=f"```{str(e)}```",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
+
 
 class Reports(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        with open("data/config.yaml", "r", encoding="utf-8") as f:
-            self.config = yaml.safe_load(f)
+        self.db = Database()
         bot.loop.create_task(self.setup_reports_view())
 
     async def setup_reports_view(self):
-        await self.bot.wait_until_ready()
-        channel_id = self.config.get('reports', {}).get('channel')
-        message_id = self.config.get('reports', {}).get('message')
-        
-        if channel_id and message_id:
-            try:
-                channel = self.bot.get_channel(int(channel_id))
-                if channel:
-                    try:
-                        message = await channel.fetch_message(int(message_id))
-                        embed=Embed(
-                            title="⚠️ Подать жалобу",
-                            description=(
-                                "**Столкнулись с нарушением правил?**\n"
-                                "Нажмите на кнопку ниже, чтобы подать жалобу!\n\n"
-                                "**Требования к жалобам:**\n"
-                                "• Укажите пользователя и причину\n"
-                                "• Предоставьте доказательства\n"
-                                "• Жалоба должна быть обоснованной\n"
-                                "• Ложные жалобы наказуемы"
-                            )
-                        )
-                        view = ReportButton()
-                        await message.edit(embed=embed, view=view)
-                        print(f"✅ Панель жалоб загружена: {channel.name} ({channel.id})")
-                    except discord.NotFound:
-                        print("❌ Сообщение с панелью жалоб не найдено!")
-                else:
-                    print("❌ Канал для жалоб не найден!")
-            except Exception as e:
-                print(f"❌ Ошибка при загрузке панели жалоб: {e}")
+        """Настройка панели жалоб"""
+        try:
+            # Получаем канал для жалоб
+            result = await self.db.fetch_one(
+                "SELECT value FROM settings WHERE category = 'reports' AND key = 'channel'"
+            )
+            
+            if not result:
+                return
+                
+            channel_id = result['value']
+            channel = self.bot.get_channel(int(channel_id))
+            if not channel:
+                return
+                
+            # Создаем сообщение с панелью
+            embed = Embed(
+                title="⚠️ Подать жалобу",
+                description=(
+                    "Нажмите на кнопку ниже, чтобы подать жалобу на нарушителя.\n\n"
+                    f"{Emojis.DOT} Укажите никнейм нарушителя\n"
+                    f"{Emojis.DOT} Опишите суть нарушения\n"
+                    f"{Emojis.DOT} Приложите доказательства (скриншоты)"
+                ),
+                color="BLUE"
+            )
+            
+            message = await channel.send(embed=embed, view=ReportButton())
+            
+            # Сохраняем ID сообщения
+            await self.db.execute(
+                """
+                INSERT OR REPLACE INTO settings (category, key, value)
+                VALUES ('reports', 'message', ?)
+                """,
+                str(message.id)
+            )
+            
+            return message
+            
+        except Exception as e:
+            print(f"❌ Ошибка при настройке панели жалоб: {e}")
+            return None
 
     async def handle_report_submit(self, interaction: discord.Interaction, user: str, reason: str, proof: str = None, additional: str = None):
-        channel_id = self.config.get('reports', {}).get('channel')
-        if not channel_id:
-            await interaction.response.send_message("❌ Канал для жалоб не настроен!")
-            return
-
-        channel = self.bot.get_channel(int(channel_id))
-        if not channel:
-            await interaction.response.send_message("❌ Канал для жалоб не найден!")
-            return
-
-        file_attachment = None
-        if proof and proof.lower() == 'файл':
-            await interaction.response.send_message("Пожалуйста, прикрепите файл-доказательство:")
-            
-            try:
-                file_msg = await self.bot.wait_for(
-                    'message',
-                    timeout=60.0,
-                    check=lambda m: m.author == interaction.user and m.channel == interaction.channel and len(m.attachments) > 0
+        """Обработка отправки жалобы"""
+        try:
+            result = await self.db.fetch_one(
+                "SELECT value FROM settings WHERE category = 'reports' AND key = 'channel'"
+            )
+                
+            if not result:
+                await interaction.response.send_message(
+                    embed=Embed(
+                        title=f"{Emojis.ERROR} Ошибка",
+                        description="Канал для жалоб не настроен",
+                        color="RED"
+                    ),
+                    ephemeral=True
                 )
+                return
+
+            channel_id = result['value']
+            channel = self.bot.get_channel(int(channel_id))
+            if not channel:
+                await interaction.response.send_message("❌ Канал для жалоб не найден!")
+                return
+
+            file_attachment = None
+            if proof and proof.lower() == 'файл':
+                await interaction.response.send_message("Пожалуйста, прикрепите файл-доказательство:")
                 
-                attachment = file_msg.attachments[0]
-                file_attachment = await attachment.to_file()
-                
-                embed=Embed(
+                try:
+                    file_msg = await self.bot.wait_for(
+                        'message',
+                        timeout=60.0,
+                        check=lambda m: m.author == interaction.user and m.channel == interaction.channel and len(m.attachments) > 0
+                    )
+                    
+                    attachment = file_msg.attachments[0]
+                    file_attachment = await attachment.to_file()
+                    
+                    embed = Embed(
+                        title=f"⚠️ Новая жалоба",
+                        description=(
+                            f"○ **От:** {interaction.user.mention} ({interaction.user.id})\n"
+                            f"○ **На:** ID: {user}\n\n"
+                            f"○ **Причина:**\n{reason}\n\n"
+                            f"○ **Доказательства:**\nПрикреплённый файл\n\n"
+                            f"○ **Дополнительно:**\n{additional if additional else 'Не указано'}\n\n"
+                            f"ID пользователя: {interaction.user.id}"
+                        ),
+                        color='RED'
+                    )
+                    
+                    if attachment.content_type and attachment.content_type.startswith('image/'):
+                        embed.set_image(url=attachment.proxy_url)
+                    
+                    await file_msg.delete()
+                    
+                    await channel.send(
+                        file=file_attachment,
+                        embed=embed,
+                        view=ReportView(interaction.user.id, user)
+                    )
+                except asyncio.TimeoutError:
+                    proof = "Файл не был предоставлен"
+                    embed = Embed(
+                        title=f"⚠️ Новая жалоба",
+                        description=(
+                            f"○ **От:** {interaction.user.mention} ({interaction.user.id})\n"
+                            f"○ **На:** ID: {user}\n\n"
+                            f"○ **Причина:**\n{reason}\n\n"
+                            f"○ **Доказательства:**\n{proof}\n\n"
+                            f"○ **Дополнительно:**\n{additional if additional else 'Не указано'}\n\n"
+                            f"ID пользователя: {interaction.user.id}"
+                        ),
+                        color='RED'
+                    )
+            else:
+                embed = Embed(
                     title=f"⚠️ Новая жалоба",
                     description=(
                         f"○ **От:** {interaction.user.mention} ({interaction.user.id})\n"
                         f"○ **На:** ID: {user}\n\n"
                         f"○ **Причина:**\n{reason}\n\n"
-                        f"○ **Доказательства:**\nПрикреплённый файл\n\n"
+                        f"○ **Доказательства:**\n{'Не предоставлено' if not proof else proof}\n\n"
                         f"○ **Дополнительно:**\n{additional if additional else 'Не указано'}\n\n"
                         f"ID пользователя: {interaction.user.id}"
                     ),
                     color='RED'
                 )
-                
-                if attachment.content_type and attachment.content_type.startswith('image/'):
-                    embed.set_image(url=attachment.proxy_url)
-                
-                await file_msg.delete()
-                
-                await channel.send(
-                    file=file_attachment,
-                    embed=embed,
-                    view=ReportView(interaction.user.id, user)
-                )
-            except asyncio.TimeoutError:
-                proof = "Файл не был предоставлен"
-                embed=Embed(
-                    title=f"⚠️ Новая жалоба",
-                    description=(
-                        f"○ **От:** {interaction.user.mention} ({interaction.user.id})\n"
-                        f"○ **На:** ID: {user}\n\n"
-                        f"○ **Причина:**\n{reason}\n\n"
-                        f"○ **Доказательства:**\n{proof}\n\n"
-                        f"○ **Дополнительно:**\n{additional if additional else 'Не указано'}\n\n"
-                        f"ID пользователя: {interaction.user.id}"
-                    ),
-                    color=0xFF0000
-                )
-        else:
-            embed=Embed(
-                title=f"⚠️ Новая жалоба",
-                description=(
-                    f"○ **От:** {interaction.user.mention} ({interaction.user.id})\n"
-                    f"○ **На:** ID: {user}\n\n"
-                    f"○ **Причина:**\n{reason}\n\n"
-                    f"○ **Доказательства:**\n{'Не предоставлено' if not proof else proof}\n\n"
-                    f"○ **Дополнительно:**\n{additional if additional else 'Не указано'}\n\n"
-                    f"ID пользователя: {interaction.user.id}"
-                ),
-                color=0xFF0000
-            )
 
-        if interaction.user.avatar:
-            embed.set_thumbnail(url=interaction.user.avatar.url)
+            if interaction.user.avatar:
+                embed.set_thumbnail(url=interaction.user.avatar.url)
 
-        if file_attachment:
-            await channel.send(file=file_attachment, embed=embed, view=ReportView(interaction.user.id, user))
-        else:
-            await channel.send(embed=embed, view=ReportView(interaction.user.id, user))
-        
-        success_embed=Embed(
-            title="✅ Жалоба отправлена",
-            description="Ваша жалоба успешно отправлена! Персонал рассмотрит её в ближайшее время.",
-            color=0x00FF00
-        )
+            if file_attachment:
+                await channel.send(file=file_attachment, embed=embed, view=ReportView(interaction.user.id, user))
+            else:
+                await channel.send(embed=embed, view=ReportView(interaction.user.id, user))
             
-        if not interaction.response.is_done():
-            await interaction.response.send_message(embed=success_embed, ephemeral=True)
-        else:
-            await interaction.followup.send(embed=success_embed, ephemeral=True)
+            success_embed = Embed(
+                title="✅ Жалоба отправлена",
+                description="Ваша жалоба успешно отправлена! Персонал рассмотрит её в ближайшее время.",
+                color="GREEN"
+            )
+                
+            if not interaction.response.is_done():
+                await interaction.response.send_message(embed=success_embed, ephemeral=True)
+            else:
+                await interaction.followup.send(embed=success_embed, ephemeral=True)
+
+        except Exception as e:
+            await interaction.response.send_message(
+                embed=Embed(
+                    title=f"{Emojis.ERROR} Ошибка",
+                    description=f"```{str(e)}```",
+                    color="RED"
+                ),
+                ephemeral=True
+            )
 
     @app_commands.command(name="reports", description="Управление панелью жалоб")
     @app_commands.describe(
-        action="Действие (create/set)"
+        action="Действие (create/set)",
+        message_id="ID сообщения с панелью для подачи жалоб",
+        reports_channel="ID канала куда будут отправляться жалобы"
     )
     @commands.has_permissions(administrator=True)
-    async def reports(self, interaction: discord.Interaction, action: str):
+    async def reports(self, interaction: discord.Interaction, action: str, message_id: str = None, reports_channel: str = None):
         action = action.lower()
         if action not in ["create", "set"]:
             await interaction.response.send_message("❌ Неверное действие! Используйте 'create' или 'set'")
@@ -288,53 +377,79 @@ class Reports(commands.Cog):
 
         try:
             if action == "create":
-                embed=Embed(
-                    title="⚠️ Подать жалобу",
-                    description=(
-                        "**Столкнулись с нарушением правил?**\n"
-                        "Нажмите на кнопку ниже, чтобы подать жалобу!\n\n"
-                        "**Требования к жалобам:**\n"
-                        "• Укажите пользователя и причину\n"
-                        "• Предоставьте доказательства\n"
-                        "• Жалоба должна быть обоснованной\n"
-                        "• Ложные жалобы наказуемы"
-                    )
-                )
-
-                view = ReportButton()
-                message = await interaction.channel.send(embed=embed, view=view)
-                
-                if 'reports' not in self.config:
-                    self.config['reports'] = {}
-                self.config['reports'].update({
-                    'message': str(message.id),
-                    'channel': str(interaction.channel_id)
-                })
-                
-                with open('data/config.yaml', 'w', encoding='utf-8') as f:
-                    yaml.dump(self.config, f, indent=4, allow_unicode=True)
-
-                success_embed=Embed(
-                    title="✅ Панель жалоб создана",
-                    description=f"Панель жалоб успешно создана в канале {interaction.channel.mention}",
-                    color=0x00FF00
-                )
-                await interaction.response.send_message(embed=success_embed)
+                await self._handle_create_reports(interaction, message_id, reports_channel)
             else:
-                if 'reports' not in self.config:
-                    self.config['reports'] = {}
-                self.config['reports']['channel'] = str(interaction.channel_id)
-                
-                with open('data/config.yaml', 'w', encoding='utf-8') as f:
-                    yaml.dump(self.config, f, indent=4, allow_unicode=True)
-                    
-                embed=Embed(
-                    title="✅ Канал для жалоб установлен",
-                    description=f"Канал {interaction.channel.mention} успешно установлен для получения жалоб."
-                )
-                await interaction.response.send_message(embed=embed)
+                await self._handle_set_reports(interaction, reports_channel)
         except Exception as e:
             await interaction.response.send_message(f"❌ Произошла ошибка: {str(e)}")
+
+    async def _handle_create_reports(self, interaction, message_id, reports_channel):
+        try:
+            message = await interaction.channel.fetch_message(int(message_id))
+        except (discord.NotFound, ValueError):
+            await interaction.response.send_message("❌ Сообщение не найдено!")
+            return
+
+        try:
+            reports_channel_id = int(reports_channel)
+            if not (channel := self.bot.get_channel(reports_channel_id)):
+                await interaction.response.send_message("❌ Канал для жалоб не найден!")
+                return
+        except ValueError:
+            await interaction.response.send_message("❌ Неверный формат ID канала!")
+            return
+
+        embed = Embed(
+            title="⚠️ Подать жалобу",
+            description=(
+                "**Столкнулись с нарушением правил?**\n"
+                "Нажмите на кнопку ниже, чтобы подать жалобу!\n\n"
+                "**Требования к жалобам:**\n"
+                "• Укажите пользователя и причину\n"
+                "• Предоставьте доказательства\n"
+                "• Жалоба должна быть обоснованной\n"
+                "• Ложные жалобы наказуемы"
+            )
+        )
+
+        await message.edit(embed=embed, view=ReportButton())
+        
+        # Сохраняем настройки в базу данных
+        await self.db.execute(
+            """
+            INSERT INTO settings (category, key, value) 
+            VALUES (?, ?, ?), (?, ?, ?)
+            ON CONFLICT (category, key) DO UPDATE SET value = excluded.value
+            """,
+            'reports', 'channel', str(reports_channel_id),
+            'reports', 'message', str(message_id)
+        )
+
+        await interaction.response.send_message(
+            f"✅ Панель жалоб успешно создана!\n"
+            f"📝 ID сообщения: `{message_id}`\n"
+            f"📨 Канал для жалоб: {channel.mention}"
+        )
+
+    async def _handle_set_reports(self, interaction, reports_channel):
+        channel = await commands.TextChannelConverter().convert(interaction, reports_channel)
+        
+        # Сохраняем канал в базу данных
+        await self.db.execute(
+            """
+            INSERT INTO settings (category, key, value) 
+            VALUES (?, ?, ?)
+            ON CONFLICT (category, key) DO UPDATE SET value = ?
+            """,
+            'reports', 'channel', str(channel.id), str(channel.id)
+        )
+            
+        embed = Embed(
+            title="✅ Канал для жалоб установлен",
+            description=f"Канал {channel.mention} успешно установлен для получения жалоб."
+        )
+        await interaction.response.send_message(embed=embed)
+
 
 async def setup(bot):
     await bot.add_cog(Reports(bot)) 

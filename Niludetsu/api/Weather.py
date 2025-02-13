@@ -1,5 +1,4 @@
-import aiohttp
-import os
+import aiohttp, os
 from typing import Optional, Dict
 from datetime import datetime
 from dotenv import load_dotenv

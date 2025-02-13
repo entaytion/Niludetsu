@@ -1,12 +1,8 @@
-import discord
-import matplotlib.pyplot as plt
-import numpy as np
-import io
+import discord, matplotlib.pyplot as plt, numpy as np, io
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from .base import BaseAnalytics, COLORS
-from Niludetsu.utils.constants import Emojis
-from Niludetsu.utils.embed import Embed
+from Niludetsu import Emojis, Embed
 
 class MessageAnalytics(BaseAnalytics):
     def __init__(self, bot):

@@ -1,346 +1,412 @@
 import discord
-from discord.ext import commands, tasks
-from discord import app_commands
-import yaml
+from discord.ext import commands
+from discord.ext import tasks
 import datetime
 import re
-import asyncio
-from typing import Optional, Dict
 import pytz
+from typing import Optional
+from Niludetsu.database.db import Database
+from Niludetsu.utils.constants import Emojis
+from discord import Embed
+import asyncio
 
 class BumpReminder(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.config = self.load_config()
+        self.db = Database()
         self.check_bumps.start()
-        self.processing_messages: Dict[int, asyncio.Task] = {}
-        # Устанавливаем часовой пояс UTC+2
-        self.timezone = pytz.timezone('Europe/Kiev')  # UTC+2
-        # Загружаем список разрешенных ботов из конфига
-        self.allowed_bots = self.config.get('bump_reminder', {}).get('allowed_bots', [])
-        # Загружаем или инициализируем времена бампов
-        self.bump_times = self.config.get('bump_reminder', {}).get('bump_times', {})
-        if not self.allowed_bots:
-            print("[Bump Reminder] Предупреждение: список разрешенных ботов пуст!")
+        self.timezone = pytz.timezone('Europe/Moscow')
+        self.bump_role = None
+        self.ready = False
+        self.last_number = {}
+        # Определяем цвета для эмбедов
+        self.colors = {
+            'red': discord.Color.red(),
+            'green': discord.Color.green(),
+            'blue': discord.Color.blue(),
+            'yellow': discord.Color.yellow()
+        }
+        # Определяем имена ботов
+        self.bot_names = {
+            302050872383242240: "DISBOARD",
+            1059103014025171014: "DSGroup",
+            464272403766444044: "SD.C Monitoring",
+            315926021457051650: "Server Monitoring",
+            575776004233232386: "DSMonitoring"
+        }
+        asyncio.create_task(self._initialize())
         
-    def load_config(self) -> dict:
-        """Загрузка конфигурации из файла"""
+    async def load_numbers(self):
+        """Загрузка последних чисел из базы данных"""
         try:
-            with open('data/config.yaml', 'r', encoding='utf-8') as f:
-                return yaml.safe_load(f)
-        except Exception as e:
-            print(f"Ошибка загрузки конфига: {e}")
-            return {}
+            # Получаем все записи времени бампов из правильной таблицы
+            bump_times = await self.db.fetch_all(
+                "SELECT bot_id, next_bump FROM bump_reminders"
+            )
             
-    def cog_unload(self):
-        self.check_bumps.cancel()
-        # Отменяем все ожидающие задачи
-        for task in self.processing_messages.values():
-            task.cancel()
+            print(f"📝 Найдено записей в базе: {len(bump_times)}")
+            
+            for record in bump_times:
+                try:
+                    bot_id = int(record['bot_id'])
+                    next_bump = datetime.datetime.fromisoformat(record['next_bump'])
+                    self.last_number[bot_id] = next_bump
+                    print(f"✅ Успешно загружено время для бота {bot_id}: {next_bump}")
+                    
+                except Exception as e:
+                    print(f"❌ Ошибка при обработке записи бампа для бота {record.get('bot_id', 'Unknown')}: {str(e)}")
+                    continue
+                    
+        except Exception as e:
+            print(f"❌ Ошибка при загрузке чисел: {e}")
+            import traceback
+            traceback.print_exc()
 
+    async def _initialize(self):
+        """Асинхронная инициализация"""
+        try:
+            await self.bot.wait_until_ready()  # Ждем пока бот будет готов
+            await self.db.init()
+            
+            # Удаляем старую таблицу и создаем новую с правильной структурой
+            await self.db.execute("DROP TABLE IF EXISTS bump_reminders")
+            await self.db.execute("""
+                CREATE TABLE bump_reminders (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    bot_id TEXT UNIQUE NOT NULL,
+                    bot_name TEXT NOT NULL,
+                    next_bump TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            print("✅ Таблица bump_reminders успешно создана")
+            
+            # Загружаем ID роли для пинга
+            result = await self.db.fetch_one(
+                "SELECT value FROM settings WHERE category = 'bump_reminder' AND key = 'role'"
+            )
+            if result and result['value']:
+                self.bump_role = int(result['value'])
+                
+            await self.load_numbers()
+            self.ready = True
+            
+        except Exception as e:
+            print(f"❌ Ошибка при инициализации: {e}")
+            import traceback
+            traceback.print_exc()
+        
+    def cog_unload(self):
+        """Остановка задач при выгрузке кога"""
+        self.check_bumps.cancel()
+        
     def get_current_time(self) -> datetime.datetime:
         """Получение текущего времени с учетом часового пояса"""
         return datetime.datetime.now(self.timezone)
-
+        
     def localize_time(self, dt: datetime.datetime) -> datetime.datetime:
-        """Добавление информации о часовом поясе к datetime объекту"""
+        """Локализация времени в нужный часовой пояс"""
         if dt.tzinfo is None:
             return self.timezone.localize(dt)
-        return dt
-
+        return dt.astimezone(self.timezone)
+        
     def parse_discord_timestamp(self, content: str) -> Optional[datetime.datetime]:
-        """Парсинг Discord timestamp из сообщения с учетом часового пояса"""
-        timestamp_match = re.search(r'<t:(\d+):', content)
-        if timestamp_match:
-            try:
-                timestamp = int(timestamp_match.group(1))
-                # Преобразуем UTC timestamp в нужное время (UTC+2)
-                utc_time = datetime.datetime.fromtimestamp(timestamp, tz=pytz.UTC)
-                local_time = utc_time.astimezone(self.timezone)
-                print(f"[Bump Reminder] UTC время: {utc_time}, Локальное время: {local_time}")
-                return local_time
-            except (ValueError, OSError) as e:
-                print(f"[Bump Reminder] Ошибка при парсинге timestamp: {e}")
-        return None
-
-    def extract_time_from_text(self, text: str, bot_id: int) -> Optional[datetime.datetime]:
-        """Извлечение времени из текста"""
-        if not text:
+        """Парсинг временной метки Discord из сообщения"""
+        try:
+            # Ищем временную метку в формате <t:timestamp>
+            match = re.search(r'<t:(\d+)(?::[RFDTd])?>', content)
+            if match:
+                timestamp = int(match.group(1))
+                return datetime.datetime.fromtimestamp(timestamp, self.timezone)
+            return None
+        except Exception as e:
+            print(f"❌ Ошибка при парсинге временной метки: {e}")
             return None
             
-        print(f"[Bump Reminder] Анализ текста: {text}")
-        
-        # Специальная обработка для DISBOARD
-        if bot_id == 302050872383242240:  # DISBOARD
-            if "bump done" in text.lower():
-                # Если найдено "Bump done!", устанавливаем таймер на 2 часа
-                current_time = self.get_current_time()
-                next_bump = current_time + datetime.timedelta(hours=2)
-                print(f"[Bump Reminder] DISBOARD: Bump выполнен, следующий через 2 часа в {next_bump}")
-                return next_bump
-                
-        # Специальная обработка для Server Monitoring
-        if bot_id == 315926021457051650:  # Server Monitoring
-            # Ищем формат "will be available in XX:XX:XX"
-            time_match = re.search(r'will be available in (\d{2}):(\d{2}):(\d{2})', text)
-            if time_match:
-                hours, minutes, seconds = map(int, time_match.groups())
-                current_time = self.get_current_time()
-                next_bump = current_time + datetime.timedelta(hours=hours, minutes=minutes, seconds=seconds)
-                print(f"[Bump Reminder] Server Monitoring: Следующий бамп через {hours}:{minutes}:{seconds} в {next_bump}")
-                return next_bump
-            # Оставляем также проверку на "server bumped by" как запасной вариант
-            elif "server bumped by" in text.lower():
-                current_time = self.get_current_time()
-                next_bump = current_time + datetime.timedelta(hours=4)
-                print(f"[Bump Reminder] Server Monitoring: Bump выполнен, следующий через 4 часа в {next_bump}")
-                return next_bump
-                
-        # Специальная обработка для SD.C Monitoring
-        if bot_id == 464272403766444044:  # SD.C Monitoring
-            # Ищем время фиксации в тексте
-            if "Время фиксации апа:" in text.lower():
-                current_time = self.get_current_time()
-                next_bump = current_time + datetime.timedelta(hours=4)
-                print(f"[Bump Reminder] SD.C Monitoring: Зафиксирован ап, следующий через 4 часа в {next_bump}")
-                return next_bump
-            # Ищем Discord timestamp
-            timestamp_match = re.search(r'<t:(\d+):', text)
-            if timestamp_match:
-                timestamp = int(timestamp_match.group(1))
-                # Преобразуем UTC timestamp в локальное время и добавляем 4 часа
-                utc_time = datetime.datetime.fromtimestamp(timestamp, tz=pytz.UTC)
-                next_bump = utc_time.astimezone(self.timezone) + datetime.timedelta(hours=4)
-                print(f"[Bump Reminder] SD.C Monitoring: Следующий бамп в {next_bump}")
-                return next_bump
-            # Запасной вариант - если формат сообщения изменился
-            elif "up" in text.lower():
-                current_time = self.get_current_time()
-                next_bump = current_time + datetime.timedelta(hours=4)  # Стандартное время
-                print(f"[Bump Reminder] SD.C Monitoring: Формат не распознан, ставим стандартные 4 часа, в {next_bump}")
-                return next_bump
-        
-        # Проверяем Discord timestamp
-        next_bump = self.parse_discord_timestamp(text)
-        if next_bump:
-            print(f"[Bump Reminder] Найден Discord timestamp, следующий бамп в {next_bump}")
-            return next_bump
-
-        # Проверяем обычные форматы времени
-        patterns = [
-            (r'поднять сервер только через (\d+) час[а|ов].*?(\d{1,2}:\d{2})', True),
-            (r'поднять сервер.*?через (\d+) час[а|ов].*?(\d{1,2}:\d{2})', True),
-            (r'через (\d+) час[а|ов].*?(\d{1,2}:\d{2})', True),
-            (r'только через (\d+) час[а|ов].*?(\d{1,2}:\d{2})', True),
-            (r'поднять сервер только через (\d+) час[а|ов]', False),
-            (r'через (\d+) час[а|ов]', False),
-            (r'(\d{1,2}:\d{2})', False)  # Просто время
-        ]
-        
-        text_lower = text.lower()
-        current_time = self.get_current_time()
-        
-        for pattern, has_time in patterns:
-            match = re.search(pattern, text_lower)
-            if match:
-                print(f"[Bump Reminder] Найдено совпадение по паттерну: {pattern}")
-                try:
-                    if has_time:
-                        hours_until = int(match.group(1))
-                        time_str = match.group(2)
-                        print(f"[Bump Reminder] Найдено время: {time_str}, через {hours_until} часов")
-                        hours, minutes = map(int, time_str.split(':'))
-                        next_bump = current_time.replace(hour=hours, minute=minutes, second=0, microsecond=0)
-                        if next_bump < current_time:
-                            next_bump += datetime.timedelta(days=1)
-                    else:
-                        if len(match.groups()) == 1 and ':' in match.group(1):
-                            # Если нашли просто время (ЧЧ:ММ)
-                            time_str = match.group(1)
-                            print(f"[Bump Reminder] Найдено время: {time_str}")
-                            hours, minutes = map(int, time_str.split(':'))
-                            next_bump = current_time.replace(hour=hours, minute=minutes, second=0, microsecond=0)
-                            if next_bump < current_time:
-                                next_bump += datetime.timedelta(days=1)
-                        else:
-                            # Если нашли "через X часов"
-                            hours_until = int(match.group(1))
-                            print(f"[Bump Reminder] Через {hours_until} часов")
-                            next_bump = current_time + datetime.timedelta(hours=hours_until)
-                    
-                    print(f"[Bump Reminder] Рассчитанное время следующего бампа: {next_bump}")
-                    return next_bump
-                except (ValueError, IndexError) as e:
-                    print(f"[Bump Reminder] Ошибка при обработке времени: {e}")
-                    continue
-        
-        return None
-                
-    def save_config(self):
-        """Сохранение конфигурации в файл"""
+    def extract_time_from_text(self, text: str, bot_id: int) -> Optional[datetime.datetime]:
+        """Извлечение времени следующего бампа из текста сообщения"""
         try:
-            with open('data/config.yaml', 'w', encoding='utf-8') as f:
-                yaml.safe_dump(self.config, f, allow_unicode=True)
+            if not text:
+                return None
+
+            # Для Disboard
+            if bot_id == 302050872383242240:
+                if "Bump done!" in text:
+                    return self.get_current_time() + datetime.timedelta(hours=2)
+
+            # Для DSGroup
+            elif bot_id == 1059103014025171014:
+                # Ищем временную метку в формате <t:timestamp:R>
+                timestamp_match = re.search(r'<t:(\d+):[Rf]>', text)
+                if timestamp_match:
+                    timestamp = int(timestamp_match.group(1))
+                    return datetime.datetime.fromtimestamp(timestamp, self.timezone)
+
+            # Для SD.C Monitoring
+            elif bot_id == 464272403766444044:
+                # Ищем временную метку в формате <t:timestamp:T>
+                timestamp_match = re.search(r'<t:(\d+):[RT]>', text)
+                if timestamp_match:
+                    timestamp = int(timestamp_match.group(1))
+                    return datetime.datetime.fromtimestamp(timestamp, self.timezone)
+
+            # Для Server Monitoring
+            elif bot_id == 315926021457051650:
+                # Ищем время в формате HH:MM:SS
+                time_match = re.search(r'available in (\d{2}):(\d{2}):(\d{2})', text)
+                if time_match:
+                    hours = int(time_match.group(1))
+                    minutes = int(time_match.group(2))
+                    seconds = int(time_match.group(3))
+                    total_seconds = hours * 3600 + minutes * 60 + seconds
+                    return self.get_current_time() + datetime.timedelta(seconds=total_seconds)
+
+            # Для DSMonitoring
+            elif bot_id == 575776004233232386:
+                # Проверяем успешный лайк
+                if "Вы успешно лайкнули сервер" in text or "Следующий лайк" in text:
+                    # Ищем время в формате "Сегодня, в HH:MM"
+                    time_match = re.search(r'Следующий лайк.*?в (\d{2}:\d{2})', text)
+                    if time_match:
+                        time_str = time_match.group(1)
+                        hour, minute = map(int, time_str.split(':'))
+                        next_time = self.get_current_time().replace(hour=hour, minute=minute, second=0, microsecond=0)
+                        # Если указанное время уже прошло, значит это на следующий день
+                        if next_time <= self.get_current_time():
+                            next_time += datetime.timedelta(hours=4)
+                        return next_time
+                    return self.get_current_time() + datetime.timedelta(hours=4)
+
+            return None
+
         except Exception as e:
-            print(f"[Bump Reminder] Ошибка сохранения конфига: {e}")
-
-    def update_bump_time(self, bot_id: str, next_bump: Optional[datetime.datetime], bot_name: str):
-        """Обновление времени следующего бампа в конфиге"""
-        if 'bump_reminder' not in self.config:
-            self.config['bump_reminder'] = {}
-        if 'bump_times' not in self.config['bump_reminder']:
-            self.config['bump_reminder']['bump_times'] = {}
+            print(f"❌ Ошибка при извлечении времени для бота {bot_id}: {e}")
+            print(f"Текст сообщения: {text}")
+            return None
             
-        self.config['bump_reminder']['bump_times'][bot_id] = {
-            "next_bump": next_bump.strftime('%Y-%m-%d %H:%M:%S%z') if next_bump else None,
-            "bot_name": bot_name
-        }
-        self.bump_times = self.config['bump_reminder']['bump_times']
-        self.save_config()
-
-    async def process_message_with_delay(self, message: discord.Message):
-        """Обработка сообщения с задержкой"""
+    async def update_bump_time(self, bot_id: str, next_bump: Optional[datetime.datetime], bot_name: str):
+        """Обновляет время следующего бампа в базе данных"""
         try:
-            # Ждем 5 секунд
-            await asyncio.sleep(5)
+            if next_bump:
+                await self.db.execute(
+                    """
+                    INSERT INTO bump_reminders (bot_id, next_bump, bot_name)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(bot_id) DO UPDATE SET
+                    next_bump = ?, bot_name = ?
+                    """,
+                    bot_id, next_bump, bot_name,
+                    next_bump, bot_name
+                )
+            else:
+                await self.db.execute(
+                    "DELETE FROM bump_reminders WHERE bot_id = ?",
+                    bot_id
+                )
+        except Exception as e:
+            print(f"❌ Ошибка при обновлении времени бампа: {e}")
             
-            # Пытаемся получить обновленное сообщение
-            try:
-                message = await message.channel.fetch_message(message.id)
-            except discord.NotFound:
+    async def process_message_with_delay(self, message: discord.Message):
+        """Обработка сообщения с задержкой для корректного отображения эмбедов"""
+        try:
+            # Получаем настройки из базы данных
+            result_channel = await self.db.fetch_one(
+                "SELECT value FROM settings WHERE category = 'bump_reminder' AND key = 'channel'"
+            )
+            result_bots = await self.db.fetch_one(
+                "SELECT value FROM settings WHERE category = 'bump_reminder' AND key = 'allowed_bots'"
+            )
+            
+            if not result_channel or not result_bots:
                 return
-            except Exception as e:
+                
+            channel_id = int(result_channel['value'])
+            bot_ids_str = result_bots['value'].strip('[]').replace(' ', '')
+            allowed_bots = [int(bot_id.strip()) for bot_id in bot_ids_str.split(',') if bot_id.strip()]
+            
+            if message.author.id not in allowed_bots:
                 return
-
+                
+            bot_name = self.bot_names.get(message.author.id, "unknown")
+            
+            # Извлекаем время следующего бампа
             next_bump = None
             
-            # Проверяем основной контент сообщения
-            if message.content.strip():
-                next_bump = self.extract_time_from_text(message.content, message.author.id)
-                
-            # Проверяем эмбеды, если время не найдено в контенте
-            if not next_bump and message.embeds:
+            # Проверяем эмбеды
+            if message.embeds:
                 for embed in message.embeds:
-                    # Проверяем заголовок
-                    if embed.title:
-                        next_bump = self.extract_time_from_text(embed.title, message.author.id)
-                        if next_bump:
-                            break
-                    
-                    # Проверяем описание
-                    if not next_bump and embed.description:
+                    if embed.description:
+                        print(f"📝 Проверяем эмбед от бота {bot_name}: {embed.description}")
                         next_bump = self.extract_time_from_text(embed.description, message.author.id)
                         if next_bump:
                             break
-                    
-                    # Проверяем поля
-                    if not next_bump and embed.fields:
-                        for field in embed.fields:
-                            next_bump = self.extract_time_from_text(field.value, message.author.id)
-                            if not next_bump:
-                                next_bump = self.extract_time_from_text(field.name, message.author.id)
-                            if next_bump:
-                                break
-                        
-                    if next_bump:
-                        break
             
+            # Если время не найдено в эмбедах, проверяем контент сообщения
+            if not next_bump and message.content:
+                print(f"📝 Проверяем контент от бота {bot_name}: {message.content}")
+                next_bump = self.extract_time_from_text(message.content, message.author.id)
+                
+            # Обновляем время в базе данных
             if next_bump:
-                bot_id = str(message.author.id)
-                self.update_bump_time(bot_id, next_bump, message.author.name)
-
-        except asyncio.CancelledError:
-            return
+                print(f"✅ Найдено время бампа для бота {bot_name} ({message.author.id}): {next_bump}")
+                await self.db.execute(
+                    """
+                    INSERT INTO bump_reminders (bot_id, bot_name, next_bump)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(bot_id) DO UPDATE SET
+                    bot_name = ?, next_bump = ?
+                    """,
+                    str(message.author.id), bot_name, next_bump.isoformat(),
+                    bot_name, next_bump.isoformat()
+                )
+                
+                self.last_number[message.author.id] = next_bump
+                
+                # Отправляем уведомление
+                channel = self.bot.get_channel(channel_id)
+                if channel:
+                    embed = discord.Embed(
+                        title=f"{Emojis.SUCCESS} Время следующего бампа обновлено",
+                        description=(
+                            f"{Emojis.DOT} **Бот:** {bot_name}\n"
+                            f"{Emojis.DOT} **Следующий бамп:** <t:{int(next_bump.timestamp())}:R>"
+                        ),
+                        color=self.colors['green']
+                    )
+                    await channel.send(embed=embed)
+            else:
+                print(f"❌ Не удалось найти время бампа в сообщении от бота {bot_name}")
+                    
         except Exception as e:
-            return
-        finally:
-            # Удаляем задачу из списка обрабатываемых
-            if message.id in self.processing_messages:
-                del self.processing_messages[message.id]
-
+            print(f"❌ Ошибка при обработке сообщения: {e}")
+            import traceback
+            traceback.print_exc()
+            
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        """Обработчик сообщений для отслеживания бампов"""
-        if not message.author.bot or message.author.id not in self.allowed_bots:
-            return
-
-        # Создаем новую задачу для обработки сообщения с задержкой
-        task = asyncio.create_task(self.process_message_with_delay(message))
-        self.processing_messages[message.id] = task
-
+        """Обработчик сообщений"""
+        if message.author.bot:
+            await self.process_message_with_delay(message)
+            
     @tasks.loop(minutes=1)
     async def check_bumps(self):
         """Проверка времени бампов"""
-        current_time = self.get_current_time()
-        
-        for bot_id, bump_data in list(self.bump_times.items()):
-            if not bump_data['next_bump']:
-                continue
-                
-            next_bump = datetime.datetime.strptime(bump_data['next_bump'], '%Y-%m-%d %H:%M:%S%z')
-            if current_time >= next_bump:
-                notify_channel = self.bot.get_channel(1125546970522583070)
-                if notify_channel:
-                    owner_id = self.config.get('settings', {}).get('owner_id')
-                    if owner_id:
-                        await notify_channel.send(
-                            f"<@{owner_id}>, пора сделать бамп для бота {bump_data['bot_name']}!"
-                        )
-                        # Сбрасываем время бампа
-                        self.update_bump_time(bot_id, None, bump_data['bot_name'])
-                        break
-
-    @commands.command(
-        name="checkbump",
-        description="Показывает информацию о следующем бампе",
-        aliases=['bump']
-    )
-    async def check_bump(self, ctx, bot_name: str = None):
-        """Показывает информацию о следующем бампе
-        
-        Параметры:
-        ---------------
-        bot_name: Имя бота для проверки (необязательно)
-        """
-        current_time = self.get_current_time()
-        has_bumps = False
-        
-        embed = discord.Embed(
-            title="📊 Информация о бампах",
-            color=0x3498db,  # Синий цвет
-            timestamp=current_time
-        )
-        
-        for bot_id, bump_data in self.bump_times.items():
-            if not bump_data['next_bump']:
-                continue
-                
-            if bot_name and bot_name.lower() not in bump_data['bot_name'].lower():
-                continue
-                
-            next_bump = datetime.datetime.strptime(bump_data['next_bump'], '%Y-%m-%d %H:%M:%S%z')
-            time_until = next_bump - current_time
-            hours, remainder = divmod(int(time_until.total_seconds()), 3600)
-            minutes, seconds = divmod(remainder, 60)
-            
-            if hours > 0:
-                time_str = f"{hours} ч. {minutes} мин."
-            else:
-                time_str = f"{minutes} мин. {seconds} сек."
-            
-            has_bumps = True
-            
-            # Добавляем поле для каждого бота
-            embed.add_field(
-                name=f"🤖 {bump_data['bot_name']}",
-                value=f"⏰ **Следующий бамп:** `{next_bump.strftime('%H:%M')}`\n"
-                      f"⏳ **Осталось ждать:** `{time_str}`",
-                inline=False
+        try:
+            bump_times = await self.db.fetch_all(
+                "SELECT bot_id, bot_name, next_bump FROM bump_reminders"
             )
             
-        if not has_bumps:
-            embed.description = "Нет запланированных бампов"
-        await ctx.send(embed=embed)
+            if not bump_times:
+                return
+                
+            current_time = self.get_current_time()
+            
+            for record in bump_times:
+                try:
+                    bot_id = int(record['bot_id'])
+                    next_bump = datetime.datetime.fromisoformat(record['next_bump'])
+                    bot_name = record['bot_name']
+                    
+                    if next_bump <= current_time:
+                        result_channel = await self.db.fetch_one(
+                            "SELECT value FROM settings WHERE category = 'bump_reminder' AND key = 'channel'"
+                        )
+                        
+                        if not result_channel:
+                            continue
+                            
+                        channel = self.bot.get_channel(int(result_channel['value']))
+                        if not channel:
+                            continue
+                        
+                        embed = discord.Embed(
+                            title=f"{Emojis.DOT} Пора бампить!",
+                            description=f"Можно бампить бота **{bot_name}**!",
+                            color=self.colors['yellow']
+                        )
+                        
+                        await channel.send(
+                            f"<@&{self.bump_role}>" if self.bump_role is not None else "",
+                            embed=embed
+                        )
+                        
+                        await self.db.execute(
+                            "DELETE FROM bump_reminders WHERE bot_id = ?",
+                            str(bot_id)
+                        )
+                        
+                except Exception as e:
+                    print(f"❌ Ошибка при проверке бампа: {e}")
+                    continue
+                
+        except Exception as e:
+            print(f"❌ Ошибка в check_bumps: {e}")
+            
+    @commands.command(
+        name="checkbump",
+        aliases=["bump", "check_bump"],
+        description="Проверить время следующего бампа"
+    )
+    async def check_bump(self, ctx: commands.Context, bot_name: str = None):
+        """Проверка времени следующего бампа"""
+        try:
+            bump_times = await self.db.fetch_all(
+                "SELECT bot_id, bot_name, next_bump FROM bump_reminders"
+            )
+            
+            if not bump_times:
+                embed = discord.Embed(
+                    title=f"{Emojis.ERROR} Информация не найдена",
+                    description="Нет данных о следующих бампах",
+                    color=self.colors['red']
+                )
+                return await ctx.send(embed=embed)
+            
+            current_time = self.get_current_time()
+            bumps_info = []
+            
+            for record in bump_times:
+                try:
+                    next_bump = datetime.datetime.fromisoformat(record['next_bump'])
+                    record_bot_name = record['bot_name']
+                    
+                    if bot_name and bot_name.lower() != record_bot_name.lower():
+                        continue
+                        
+                    time_left = next_bump - current_time
+                    if time_left.total_seconds() > 0:
+                        bumps_info.append(
+                            f"{Emojis.DOT} **{record_bot_name}:** "
+                            f"<t:{int(next_bump.timestamp())}:R>"
+                        )
+                        
+                except Exception as e:
+                    print(f"❌ Ошибка при обработке записи бампа: {e}")
+                    continue
+                    
+            if not bumps_info:
+                description = "Нет данных о следующих бампах"
+                if bot_name:
+                    description = f"Нет данных о следующем бампе для бота **{bot_name}**"
+                    
+                embed = discord.Embed(
+                    title=f"{Emojis.ERROR} Информация не найдена",
+                    description=description,
+                    color=self.colors['red']
+                )
+            else:
+                embed = discord.Embed(
+                    title=f"{Emojis.DOT} Время следующих бампов",
+                    description="\n".join(bumps_info),
+                    color=self.colors['blue']
+                )
+                
+            await ctx.send(embed=embed)
+            
+        except Exception as e:
+            print(f"❌ Ошибка при выполнении команды check_bump: {e}")
+            import traceback
+            traceback.print_exc()
 
 async def setup(bot):
     await bot.add_cog(BumpReminder(bot)) 

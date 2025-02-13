@@ -1,243 +1,160 @@
-import os
-import aiosqlite
-from typing import Optional, Dict, Any, List, Union, Set
+import os, aiosqlite, asyncio
+from typing import Optional, Dict, Any, List, Union
 from datetime import datetime
-import asyncio
-
 from .tables import Tables
 
 class Database:
+    _initialized = False
+    _init_lock = asyncio.Lock()
+    
     def __init__(self, db_path: str = "data/database.db"):
+        """Инициализация базы данных"""
         self.db_path = db_path
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        self._connection = None
-        self.pool = None
+        self._pool = []
         self._pool_lock = asyncio.Lock()
-        self._max_connections = 10
+        self._max_connections = 5  # Уменьшаем количество соединений
         
-    async def create_pool(self):
-        """Создает пул подключений к базе данных"""
-        if self.pool is None:
-            async with self._pool_lock:
-                if self.pool is None:  # Двойная проверка для избежания race condition
-                    self.pool = []
-                    for _ in range(self._max_connections):
-                        conn = await aiosqlite.connect(self.db_path)
-                        conn.row_factory = aiosqlite.Row
-                        self.pool.append(conn)
-                        
-    async def acquire(self):
+    async def _create_connection(self) -> aiosqlite.Connection:
+        """Создает новое соединение с базой данных"""
+        conn = await aiosqlite.connect(self.db_path)
+        conn.row_factory = aiosqlite.Row
+        return conn
+        
+    async def acquire(self) -> aiosqlite.Connection:
         """Получает соединение из пула"""
-        if not self.pool:
-            await self.create_pool()
-            
         async with self._pool_lock:
-            while len(self.pool) == 0:
-                await asyncio.sleep(0.1)
-            return self.pool.pop()
+            if not self._pool:
+                return await self._create_connection()
+            return self._pool.pop()
             
-    async def release(self, conn):
+    async def release(self, conn: aiosqlite.Connection):
         """Возвращает соединение в пул"""
-        async with self._pool_lock:
-            self.pool.append(conn)
+        if len(self._pool) < self._max_connections:
+            self._pool.append(conn)
+        else:
+            await conn.close()
     
-    async def _get_existing_tables(self) -> Set[str]:
-        """Получить список существующих таблиц"""
-        async with aiosqlite.connect(self.db_path) as db:
-            cursor = await db.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            )
-            tables = await cursor.fetchall()
-            return {table[0] for table in tables}
-    
-    async def _get_table_columns(self, table: str) -> Dict[str, str]:
-        """Получить информацию о колонках таблицы"""
-        async with aiosqlite.connect(self.db_path) as db:
-            cursor = await db.execute(f"PRAGMA table_info({table})")
-            columns = await cursor.fetchall()
-            return {col[1]: col[2].upper() for col in columns}
-    
-    async def verify_database(self):
-        """Проверить и обновить структуру базы данных"""
-        try:
-            # Получаем существующие таблицы
-            existing_tables = await self._get_existing_tables()
-            
-            async with aiosqlite.connect(self.db_path) as db:
-                # Удаляем лишние таблицы
-                for table in existing_tables:
-                    if table not in Tables.SCHEMA and table != "sqlite_sequence":
-                        try:
-                            await db.execute(f"DROP TABLE IF EXISTS {table}")
-                        except aiosqlite.OperationalError:
-                            continue
-                
-                # Создаём или обновляем нужные таблицы
-                for table_name, columns in Tables.SCHEMA.items():
-                    try:
-                        if table_name not in existing_tables:
-                            # Создаём новую таблицу
-                            column_defs = []
-                            for col, type_ in columns.items():
-                                if col != "INDEXES":  # Пропускаем INDEXES
-                                    column_defs.append(f"{col} {type_}")
-                            
-                            columns_sql = ", ".join(column_defs)
-                            create_sql = f"CREATE TABLE {table_name} ({columns_sql})"
-                            await db.execute(create_sql)
-                            
-                            # Создаем индексы, если они определены
-                            if "INDEXES" in columns:
-                                for index_sql in columns["INDEXES"]:
-                                    await db.execute(index_sql)
-                                    
-                        else:
-                            # Проверяем структуру существующей таблицы
-                            existing_columns = await self._get_table_columns(table_name)
-                            
-                            # Проверяем, нужно ли обновить структуру
-                            needs_update = False
-                            for col, type_ in columns.items():
-                                if col == "INDEXES":  # Пропускаем INDEXES
-                                    continue
-                                if col not in existing_columns:
-                                    needs_update = True
-                                    break
-                                elif existing_columns[col] != type_.upper():
-                                    needs_update = True
-                                    break
-                            
-                            if needs_update:
-                                # Создаём временную таблицу с новой структурой
-                                temp_table = f"temp_{table_name}"
-                                column_defs = []
-                                for col, type_ in columns.items():
-                                    if col != "INDEXES":  # Пропускаем INDEXES
-                                        column_defs.append(f"{col} {type_}")
-                                
-                                columns_sql = ", ".join(column_defs)
-                                await db.execute(f"CREATE TABLE {temp_table} ({columns_sql})")
-                                
-                                # Копируем данные из существующих колонок
-                                common_columns = set(columns.keys()) & set(existing_columns.keys())
-                                common_columns.discard("INDEXES")  # Удаляем INDEXES из списка колонок
-                                if common_columns:
-                                    columns_to_copy = ", ".join(common_columns)
-                                    await db.execute(f"""
-                                        INSERT INTO {temp_table} ({columns_to_copy})
-                                        SELECT {columns_to_copy} FROM {table_name}
-                                    """)
-                                
-                                # Удаляем старую таблицу и переименовываем временную
-                                await db.execute(f"DROP TABLE {table_name}")
-                                await db.execute(f"ALTER TABLE {temp_table} RENAME TO {table_name}")
-                                
-                                # Пересоздаем индексы
-                                if "INDEXES" in columns:
-                                    for index_sql in columns["INDEXES"]:
-                                        await db.execute(index_sql)
-                    except aiosqlite.OperationalError as e:
-                        if "already exists" in str(e):
-                            # Игнорируем ошибку, если таблица уже существует
-                            continue
-                        else:
-                            raise
-                
-                await db.commit()
-        except Exception as e:
-            print(f"❌ Ошибка при проверке базы данных: {str(e)}")
-            raise
-
     async def init(self):
         """Инициализация базы данных"""
-        await self.verify_database()
-        await self.create_pool()
+        # Используем блокировку для предотвращения повторной инициализации
+        async with Database._init_lock:
+            if Database._initialized:
+                return
+                
+            conn = await self._create_connection()
+            try:
+                # Получаем существующие таблицы
+                cursor = await conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                existing = {row[0] for row in await cursor.fetchall()}
+                
+                # Создаем/обновляем таблицы
+                for table_name, schema in Tables.SCHEMA.items():
+                    if table_name not in existing:
+                        # Создаем таблицу
+                        columns = [f"{col} {type_}" for col, type_ in schema.items() if col != "INDEXES"]
+                        await conn.execute(f"CREATE TABLE {table_name} ({', '.join(columns)})")
+                        
+                        # Создаем индексы
+                        if "INDEXES" in schema:
+                            for index in schema["INDEXES"]:
+                                await conn.execute(index)
+                                
+                await conn.commit()
+                Database._initialized = True
+                
+            finally:
+                await conn.close()
     
     async def execute(self, query: str, *args) -> Optional[List[tuple]]:
-        """Выполнить SQL запрос"""
-        conn = await self.acquire()
+        """Выполняет SQL запрос
+        
+        Args:
+            query (str): SQL запрос
+            *args: Параметры запроса
+            
+        Returns:
+            Optional[List[tuple]]: Результат запроса, если есть
+        """
+        if not self._initialized:
+            await self.init()
+        
+        conn = await self._create_connection()
         try:
-            cursor = await conn.execute(query, args[0] if len(args) == 1 and isinstance(args[0], (tuple, list)) else args)
-            result = await cursor.fetchall()
+            if args and isinstance(args[0], (tuple, list)):
+                cursor = await conn.execute(query, args[0])
+            else:
+                cursor = await conn.execute(query, args)
             await conn.commit()
+            result = await cursor.fetchall()
             return result
+        except Exception as e:
+            print(f"❌ Ошибка выполнения запроса: {e}")
+            raise e
         finally:
-            await self.release(conn)
+            await conn.close()
     
     async def fetch_one(self, query: str, *args) -> Optional[Dict[str, Any]]:
-        """Получить одну запись"""
+        """Получает одну запись"""
         conn = await self.acquire()
         try:
-            async with conn.execute(query, args) as cursor:
-                if row := await cursor.fetchone():
-                    return dict(row)
-                return None
+            cursor = await conn.execute(query, args)
+            if row := await cursor.fetchone():
+                return dict(row)
+            return None
         finally:
             await self.release(conn)
     
     async def fetch_all(self, query: str, *args) -> List[Dict[str, Any]]:
-        """Получить все записи"""
+        """Получает все записи"""
         conn = await self.acquire()
         try:
-            async with conn.execute(query, args) as cursor:
-                rows = await cursor.fetchall()
-                return [dict(row) for row in rows]
+            cursor = await conn.execute(query, args)
+            return [dict(row) for row in await cursor.fetchall()]
         finally:
             await self.release(conn)
     
     async def get_row(self, table: str, **where) -> Optional[Dict[str, Any]]:
-        """Получить запись по условиям"""
-        where_clause = " AND ".join(f"{k} = ?" for k in where.keys())
-        return await self.fetch_one(
-            f"SELECT * FROM {table} WHERE {where_clause}",
-            *where.values()
-        )
+        """Получает запись по условиям"""
+        conditions = " AND ".join(f"{k} = ?" for k in where)
+        query = f"SELECT * FROM {table}"
+        query += f" WHERE {conditions}" if where else ""
+        return await self.fetch_one(query, *where.values())
     
     async def get_rows(self, table: str, **where) -> List[Dict[str, Any]]:
-        """Получить все записи по условиям"""
-        where_clause = " AND ".join(f"{k} = ?" for k in where.keys())
+        """Получает все записи по условиям"""
+        conditions = " AND ".join(f"{k} = ?" for k in where)
         query = f"SELECT * FROM {table}"
-        if where:
-            query += f" WHERE {where_clause}"
+        query += f" WHERE {conditions}" if where else ""
         return await self.fetch_all(query, *where.values())
     
-    async def update(
-        self,
-        table: str,
-        where: Dict[str, Any],
-        values: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
-        """Обновить запись"""
+    async def update(self, table: str, where: Dict[str, Any], values: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Обновляет запись"""
         if not values:
             return await self.get_row(table, **where)
             
-        set_clause = ", ".join(f"{k} = ?" for k in values.keys())
-        where_clause = " AND ".join(f"{k} = ?" for k in where.keys())
-        
+        set_clause = ", ".join(f"{k} = ?" for k in values)
+        where_clause = " AND ".join(f"{k} = ?" for k in where)
         query = f"UPDATE {table} SET {set_clause} WHERE {where_clause}"
-        params = list(values.values()) + list(where.values())
         
-        await self.execute(query, *params)
+        await self.execute(query, *values.values(), *where.values())
         return await self.get_row(table, **where)
     
-    async def insert(
-        self,
-        table: str,
-        values: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
-        """Вставить запись"""
+    async def insert(self, table: str, values: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Вставляет запись"""
         columns = ", ".join(values.keys())
         placeholders = ", ".join("?" * len(values))
-        
         query = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
-        await self.execute(query, *values.values())
         
-        # Получаем вставленную запись
-        where_clause = " AND ".join(f"{k} = ?" for k in values.keys())
-        return await self.fetch_one(
-            f"SELECT * FROM {table} WHERE {where_clause}",
-            *values.values()
-        )
+        await self.execute(query, *values.values())
+        return await self.get_row(table, **values)
+    
+    async def delete(self, table: str, **where) -> bool:
+        """Удаляет записи по условиям"""
+        conditions = " AND ".join(f"{k} = ?" for k in where)
+        query = f"DELETE FROM {table} WHERE {conditions}"
+        await self.execute(query, *where.values())
+        return True
 
     async def ensure_user(self, user_id: Union[str, int]) -> Dict[str, Any]:
         """
@@ -267,8 +184,8 @@ class Database:
         
     async def close(self):
         """Закрывает все соединения в пуле"""
-        if self.pool:
+        if self._pool:
             async with self._pool_lock:
-                for conn in self.pool:
+                for conn in self._pool:
                     await conn.close()
-                self.pool = None
+                self._pool = []
