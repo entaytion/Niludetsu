@@ -1,0 +1,278 @@
+import discord, math
+from discord import app_commands
+from discord.ext import commands
+from Niludetsu.moderation.checks import moderationcommand
+from Niludetsu.moderation.system.rudiments import RudimentsSystem
+from Niludetsu.tools.Embed import Embed
+from Niludetsu.tools.Emojis import Emojis
+
+PUNISHMENT_TYPES = (
+    ("warn", "Предупреждения", Emojis.WARN),
+    ("mute", "Муты", Emojis.MUTE),
+    ("ban", "Баны", Emojis.BAN),
+)
+
+PUNISHMENT_LABELS = {
+    "warn": "варн",
+    "mute": "мут",
+    "ban": "бан",
+}
+
+PAGE_SIZE = 5
+
+class RudimentSelect(discord.ui.Select):
+    def __init__(self, current: str, available_types: list[str]) -> None:
+        options = []
+
+        # Добавляем опции только для существующих типов наказаний
+        for value, label, emoji in PUNISHMENT_TYPES:
+            if value in available_types:
+                options.append(
+                    discord.SelectOption(
+                        label=label,
+                        value=value,
+                        emoji=emoji,
+                        default=value == current,
+                    )
+                )
+
+        # Добавляем "Все типы" если есть хотя бы 2 типа наказаний
+        if len(available_types) > 1:
+            options.append(
+                discord.SelectOption(
+                    label="Все типы",
+                    value="all",
+                    emoji="📚",
+                    default="all" == current,
+                )
+            )
+
+        super().__init__(
+            placeholder="🎛️ Выберите тип нарушения",
+            min_values=1,
+            max_values=1,
+            options=options,
+            row=0,
+        )
+
+    def update_default(self, current: str) -> None:
+        for option in self.options:
+            option.default = option.value == current
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        view: "RudimentView" = self.view  # type: ignore[assignment]
+        await view.handle_selection(interaction, self.values[0])
+
+class PageButton(discord.ui.Button):
+    def __init__(self, direction: int) -> None:
+        label = "Назад" if direction < 0 else "Вперёд"
+        emoji = "◀️" if direction < 0 else "▶️"
+        super().__init__(
+            style=discord.ButtonStyle.secondary,
+            label=label,
+            emoji=emoji,
+            row=1,
+        )
+        self.direction = direction
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        view: "RudimentView" = self.view  # type: ignore[assignment]
+        await view.change_page(interaction, self.direction)
+
+class RudimentView(discord.ui.View):
+    def __init__(
+        self,
+        *,
+        system: RudimentsSystem,
+        member: discord.Member,
+        include_inactive: bool = False,
+        statistics: dict[str, int] | None = None,
+    ) -> None:
+        super().__init__(timeout=180)
+        self.system = system
+        self.member = member
+        self.include_inactive = include_inactive
+        self.statistics = statistics or {}
+        self.available_types = [k for k, v in self.statistics.items() if v > 0]
+        self.current_action = "summary"
+        self.page = 1
+        self._records_cache: dict[str, list] = {}
+
+        # Добавляем селектор только если есть наказания
+        if self.available_types:
+            self.selector = RudimentSelect(self.current_action, self.available_types)
+            self.add_item(self.selector)
+
+        self.prev_button = PageButton(-1)
+        self.next_button = PageButton(1)
+        self.message: discord.Message | None = None
+
+    async def build_embed(self) -> Embed:
+        if self.current_action == "summary":
+            return self._build_summary_embed()
+
+        records = await self._get_records(self.current_action)
+        total_pages = max(1, math.ceil(len(records) / PAGE_SIZE)) if records else 1
+        self.page = max(1, min(self.page, total_pages))
+
+        embed = self.system.build_list_embed(
+            member=self.member,
+            records=records,
+            action=self.system.normalize_action(self.current_action),
+            include_inactive=self.include_inactive,
+            page=self.page,
+            per_page=PAGE_SIZE,
+        )
+
+        # Добавляем пагинацию только для варнов и только если > 5
+        self._sync_pagination_buttons(records, total_pages)
+        return embed
+
+    async def handle_selection(self, interaction: discord.Interaction, action: str) -> None:
+        self.current_action = action
+        self.selector.update_default(action)
+        self.page = 1
+        embed = await self.build_embed()
+        payload = embed
+
+        if interaction.response.is_done():
+            await interaction.edit_original_response(embed=payload, view=self)
+        else:
+            await interaction.response.edit_message(embed=payload, view=self)
+
+    async def change_page(self, interaction: discord.Interaction, direction: int) -> None:
+        if self.current_action == "summary":
+            if not interaction.response.is_done():
+                await interaction.response.defer()
+            return
+
+        records = await self._get_records(self.current_action)
+        total_pages = max(1, math.ceil(len(records) / PAGE_SIZE)) if records else 1
+        new_page = max(1, min(self.page + direction, total_pages))
+
+        if new_page == self.page:
+            if not interaction.response.is_done():
+                await interaction.response.defer()
+            return
+
+        self.page = new_page
+        embed = await self.build_embed()
+        payload = embed
+
+        if interaction.response.is_done():
+            await interaction.edit_original_response(embed=payload, view=self)
+        else:
+            await interaction.response.edit_message(embed=payload, view=self)
+
+    async def on_timeout(self) -> None:
+        if hasattr(self, 'selector'):
+            self.selector.disabled = True
+        self.prev_button.disabled = True
+        self.next_button.disabled = True
+        if self.message:  # pragma: no cover - зависит от Discord API
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
+
+    async def _get_records(self, action: str) -> list:
+        if action not in self._records_cache:
+            records = await self.system.fetch_records(
+                member=self.member,
+                action=action,
+                include_inactive=self.include_inactive,
+            )
+            self._records_cache[action] = records
+        return self._records_cache[action]
+
+    def _sync_pagination_buttons(self, records: list, total_pages: int) -> None:
+        """Управляет видимостью кнопок пагинации"""
+        # Убираем старые кнопки если они есть
+        if self.prev_button in self.children:
+            self.remove_item(self.prev_button)
+        if self.next_button in self.children:
+            self.remove_item(self.next_button)
+
+        # Показываем пагинацию только для варнов и только если > 5 записей
+        if self.current_action == "warn" and len(records) > PAGE_SIZE:
+            self.prev_button.disabled = self.page <= 1
+            self.next_button.disabled = self.page >= total_pages
+            self.add_item(self.prev_button)
+            self.add_item(self.next_button)
+
+    def _build_summary_embed(self) -> Embed:
+        """Создает краткую сводку по наказаниям"""
+        # Формируем список наказаний
+        punishment_parts = []
+        for ptype in ["ban", "mute", "warn"]:
+            count = self.statistics.get(ptype, 0)
+            if count > 0:
+                label = PUNISHMENT_LABELS.get(ptype, ptype)
+                # Склонение (1 бан, 2 бана, 5 банов)
+                if ptype == "ban":
+                    word = "бан" if count == 1 else "бана" if 2 <= count <= 4 else "банов"
+                elif ptype == "mute":
+                    word = "мут" if count == 1 else "мута" if 2 <= count <= 4 else "мутов"
+                else:  # warn
+                    word = "варн" if count == 1 else "варна" if 2 <= count <= 4 else "варнов"
+                punishment_parts.append(f"{count} {word}")
+
+        if punishment_parts:
+            description = f"**Нарушения:** {', '.join(punishment_parts)}"
+        else:
+            description = "**Нарушения:** отсутствуют"
+
+        embed = Embed.default(
+            title=f"{Emojis.MODERATION} Нарушения пользователя",
+            description=f"{self.member.mention}\n{description}",
+        )
+        embed.set_thumbnail(url=self.member.display_avatar.url)
+        return embed
+
+class Rudiments(commands.Cog):
+    def __init__(self, bot: commands.Bot) -> None:
+        self.bot = bot
+        self.system = RudimentsSystem(bot)
+
+    @commands.hybrid_command(name="rudiments", description="🛡️ Просмотреть нарушения пользователя по типам")
+    @app_commands.describe(user="👤 Пользователь или ID для просмотра (по умолчанию — вы)")
+    @moderationcommand(required_level=1, cooldown=5)
+    async def rudiments(self, ctx: commands.Context, user: discord.Member = None) -> None:
+        guild = ctx.guild
+        if not guild:
+            await ctx.send(embed=Embed.error(description="Команда доступна только на сервере."))
+            return
+
+        target = user or ctx.author
+
+        if not isinstance(target, discord.Member):
+            await ctx.send(embed=Embed.error(description="Не удалось определить пользователя."))
+            return
+
+        # Собираем статистику по типам наказаний
+        statistics = {}
+        for ptype in ["warn", "mute", "ban"]:
+            records = await self.system.fetch_records(
+                member=target,
+                action=ptype,
+                include_inactive=False,
+            )
+            statistics[ptype] = len(records)
+
+        view = RudimentView(system=self.system, member=target, statistics=statistics)
+        embed = await view.build_embed()
+        payload = embed
+
+        interaction = getattr(ctx, "interaction", None)
+        if interaction:
+            if interaction.response.is_done():
+                view.message = await interaction.followup.send(embed=payload, view=view, ephemeral=True, wait=True)
+            else:
+                await interaction.response.send_message(embed=payload, view=view, ephemeral=True)
+                view.message = await interaction.original_response()
+        else:
+            view.message = await ctx.send(embed=payload, view=view)
+
+async def setup(bot: commands.Bot) -> None:
+    await bot.add_cog(Rudiments(bot))
+
