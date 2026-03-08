@@ -3,9 +3,12 @@ from dataclasses import dataclass
 from discord import app_commands
 from discord.ext import commands
 from Niludetsu import Emojis, Embed, Colors
+from Niludetsu.embeds.Economy import EconomyEmbed
 from Niludetsu.database.supabase_database import database
 from Niludetsu.economy.manager import EconomyManager
 from Niludetsu.economy.validators import EconomyValidator
+from Niludetsu.economy.checks import ParseAmount, EnsureBalance
+from Niludetsu.tools.Validator import economy
 from typing import Callable, List, Optional
 
 GAME_NAME = "Слоты"
@@ -71,35 +74,18 @@ class Slots(commands.Cog):
         self.economy = EconomyManager(self.db)
         self.validator = EconomyValidator(self.economy)
 
-    # Команда 
     @commands.hybrid_command(name="slots", description="🎰 Испытать удачу в слотах.")
     @app_commands.describe(bet="🪙 Ставка (минимум 1)")
+    @economy(ParseAmount("bet"), EnsureBalance())
     async def slots(self, ctx: commands.Context, bet: Optional[str] = None) -> None:
-        user_id = ctx.author.id
-        guild_id = ctx.guild.id
-
-        valid, bet_value, error_embed = await self.validator.validate_bet(
-            bet or "0", str(user_id), str(guild_id)
-        )
-        if not valid:
-            await ctx.reply(embed=error_embed, ephemeral=True)
-            return
-
-        if bet_value <= 0:
-            await ctx.reply(
-                embed=Embed.error("Ставка должна быть положительной."),
-                ephemeral=True,
-            )
-            return
-
+        bet_value = ctx.eco["amount"]
         await self.start_spin(
             send_callable=lambda **kwargs: ctx.reply(**kwargs, mention_author=False),
-            user_id=user_id,
-            guild_id=guild_id,
+            user_id=ctx.author.id,
+            guild_id=ctx.guild.id,
             bet=bet_value,
         )
 
-    # Основной процесс 
     async def start_spin(
         self,
         send_callable: Callable[..., discord.Message],
@@ -116,15 +102,17 @@ class Slots(commands.Cog):
             return
 
         try:
-            removed, fail_msg = await self.economy.remove_money(user_key, guild_key, bet)
+            removed, fail_msg = await self.economy.remove_money(user_key, guild_key, bet, event="slots")
             if not removed:
                 await send_callable(embed=Embed.error(fail_msg))
                 return
 
-            initial_embed = Embed(
-                title="🎰 Игровые автоматы",
+            member = await self._resolve_member(user_id, guild_id)
+            initial_embed = EconomyEmbed.game_lobby(
+                action="Игровые автоматы",
+                user=member,
+                bet=bet,
                 description="💫 **Крутим…**",
-                color=Colors.PRIMARY,
             )
             message = await send_callable(embed=initial_embed)
 
@@ -136,10 +124,10 @@ class Slots(commands.Cog):
                 return
 
             for delay, frame in zip(self.ANIMATION_DELAYS, context.frames[:-1]):
-                await message.edit(embed=self._build_spin_embed(frame))
+                await message.edit(embed=self._build_spin_embed(frame, member, bet))
                 await asyncio.sleep(delay)
 
-            await message.edit(embed=self._build_spin_embed(context.frames[-1]))
+            await message.edit(embed=self._build_spin_embed(context.frames[-1], member, bet))
             await asyncio.sleep(self.ANIMATION_DELAYS[-1])
 
             result_embed = await self._build_result_embed(context)
@@ -165,7 +153,7 @@ class Slots(commands.Cog):
         net_change = payout - bet if won else -bet
 
         if won:
-            await self.economy.add_money(str(user_id), str(guild_id), payout)
+            await self.economy.add_money(str(user_id), str(guild_id), payout, event="slots")
 
         frames = self._generate_frames(final_rows)
         return SpinContext(
@@ -182,7 +170,6 @@ class Slots(commands.Cog):
             net_change=net_change,
         )
 
-    # Генерация и формат 
     def _generate_final_rows(self) -> List[List[str]]:
         return [[random.choice(self.SYMBOLS) for _ in range(3)] for _ in range(3)]
 
@@ -214,15 +201,16 @@ class Slots(commands.Cog):
             lines.append(line)
         return "\n".join(lines)
 
-    def _build_spin_embed(self, frame: List[List[str]]) -> Embed:
+    def _build_spin_embed(self, frame: List[List[str]], member: discord.User, bet: int) -> Embed:
         display = self._format_slots(frame)
-        return Embed(
-            title="🎰 Игровые автоматы",
+        return EconomyEmbed.game_lobby(
+            action="Игровые автоматы",
+            user=member,
+            bet=bet,
             description=f"{display}\n💫 **Крутим…**",
-            color=Colors.PRIMARY,
         )
 
-    async def _build_result_embed(self, context: SpinContext) -> Embed:
+    async def _build_result_embed(self, context: SpinContext) -> discord.Embed:
         display = self._format_slots(context.final_rows)
 
         if context.won:
@@ -232,51 +220,35 @@ class Slots(commands.Cog):
             else:
                 symbol = max(set(context.middle_row), key=context.middle_row.count)
                 result_phrase = f"выпало два {symbol} (x{context.multiplier:g})"
-            color = Colors.SUCCESS
         else:
             result_phrase = "не выпало выигрышной комбинации"
-            color = Colors.ERROR
 
-        description = (
-            f"{display}\n"
-            f"<@{context.user_id}>, вы {'выиграли' if context.won else 'проиграли'} "
-            f"**{abs(context.net_change):,}** {Emojis.MONEY}, потому что {result_phrase}."
+        member = await self._resolve_member(context.user_id, context.guild_id)
+        wallet = await self.economy.get_wallet(str(context.user_id), str(context.guild_id))
+
+        return EconomyEmbed.result(
+            action="Слоты",
+            user=member,
+            text=(
+                f"результат:\n"
+                f"{display}\n"
+                f"Вы {'выиграли' if context.won else 'проиграли'} "
+                f"**{abs(context.net_change):,}** {Emojis.MONEY}, потому что {result_phrase}."
+            ),
+            balance=wallet,
+            color=Colors.SUCCESS if context.won else Colors.ERROR,
         )
 
-        embed = Embed(
-            title="🎰 Результат слотов",
-            description=description,
-            color=color,
-        )
-
-        avatar = await self._resolve_avatar(context.user_id)
-        if avatar:
-            embed.set_thumbnail(url=avatar)
-
-        embed = await self._attach_balance_footer(embed, str(context.user_id), str(context.guild_id))
-        return embed
-
-    # Утилиты 
-    async def _attach_balance_footer(self, embed: Embed, user_id: str, guild_id: str) -> Embed:
-        wallet = await self.economy.get_wallet(user_id, guild_id)
-        bank = await self.economy.get_bank(user_id, guild_id)
-        embed.set_footer(text=f"Кошелёк: {wallet:,} монет • Банк: {bank:,} монет")
-        return embed
-
-    async def _resolve_avatar(self, user_id: int) -> Optional[str]:
-        for guild in self.bot.guilds:
+    async def _resolve_member(self, user_id: int, guild_id: int) -> discord.User:
+        guild = self.bot.get_guild(guild_id)
+        if guild:
             member = guild.get_member(user_id)
             if member:
-                return member.display_avatar.url
-        try:
-            user = await self.bot.fetch_user(user_id)
-            return user.display_avatar.url
-        except discord.HTTPException:
-            return None
+                return member
+        return await self.bot.fetch_user(user_id)
 
     def cog_unload(self) -> None:
-        pass  # состояние не хранится между играми
+        pass
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Slots(bot))
-

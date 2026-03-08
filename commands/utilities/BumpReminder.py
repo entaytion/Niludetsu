@@ -6,6 +6,8 @@ from Niludetsu.database.supabase_database import SupabaseDatabase
 from Niludetsu.economy.manager import EconomyManager
 from typing import Optional, Dict, Tuple, Any
 
+from Niludetsu.quests.tracker import QuestTracker
+
 _time = Time()
 
 class MonitoringBotsManager:
@@ -93,6 +95,7 @@ class BumpProcessor:
         self.economy = EconomyManager(self.db)
         self.bots_manager = MonitoringBotsManager()
         self.processing_messages: Dict[int, asyncio.Task] = {}
+        self.quest_tracker = QuestTracker()
 
     def parse_discord_timestamp(self, content: str):
         match = re.search(r"<t:(\d+):", content)
@@ -341,6 +344,11 @@ class BumpProcessor:
                 reward_embed.set_thumbnail(url=member.display_avatar.url)
 
             await message.channel.send(embed=reward_embed)
+
+            # Quest bump tracking
+            asyncio.create_task(
+                self.quest_tracker.on_bump(str(message.guild.id), user_id)
+            )
         except Exception as exc:
             print(f"Ошибка при обработке сообщения: {exc}")
 
@@ -515,6 +523,11 @@ class BumpReminder(commands.Cog):
             embed.set_thumbnail(url=member.display_avatar.url)
 
         await message.channel.send(embed=embed)
+
+        # Quest bump tracking
+        asyncio.create_task(
+            self.processor.quest_tracker.on_bump(str(message.guild.id), user_id)
+        )
 
     @tasks.loop(minutes=1)
     async def check_bumps(self):

@@ -3,9 +3,12 @@ from dataclasses import dataclass, field
 from discord import app_commands
 from discord.ext import commands
 from Niludetsu import Embed, Colors, Emojis
+from Niludetsu.embeds.Economy import EconomyEmbed
 from Niludetsu.database.supabase_database import database
 from Niludetsu.economy.manager import EconomyManager
 from Niludetsu.economy.validators import EconomyValidator
+from Niludetsu.economy.checks import ParseAmount, EnsureBalance, NotSelf, NotBot
+from Niludetsu.tools.Validator import economy
 from typing import Dict, List, Optional, Tuple
 
 GAME_NAME = "Дуэль"
@@ -208,51 +211,42 @@ class Duel(commands.Cog):
         self._pending_weapon: Dict[Tuple[str, int], str] = {}
         self._pending_actions: Dict[Tuple[str, int], str] = {}
 
-    # Команда 
     @commands.hybrid_command(name="duel", description="[НЕ РАБОТАЕТ] ⚔️ Вызвать игрока на дуэль.")
     @app_commands.describe(
         member="👤 Игрок, которого вы хотите вызвать.",
         bet="🪙 Ставка в монетах.",
     )
+    @economy(
+        NotSelf("Нельзя вызвать на дуэль самого себя."),
+        NotBot("Укажите живого противника."),
+        ParseAmount("bet"),
+        EnsureBalance(),
+    )
     async def duel(
         self,
         ctx: commands.Context,
-        member: Optional[discord.Member],
+        member: Optional[discord.Member] = None,
         bet: Optional[str] = None,
     ) -> None:
-        if member is None or member.bot:
-            await ctx.reply(embed=Embed.error("Укажите живого противника."), ephemeral=True)
-            return
-        if member.id == ctx.author.id:
-            await ctx.reply(embed=Embed.error("Нельзя вызвать на дуэль самого себя."), ephemeral=True)
+        if member is None:
+            await ctx.reply(embed=Embed.error("Укажите противника."), ephemeral=True)
             return
 
+        bet_value: int = ctx.eco["amount"]
         challenger_id = ctx.author.id
         opponent_id = member.id
         guild_id = ctx.guild.id
-        bet_input = bet or "0"
-
-        valid, bet_value, error_embed = await self.validator.validate_bet(
-            bet_input,
-            str(challenger_id),
-            str(guild_id),
-        )
-        if not valid:
-            await ctx.reply(embed=error_embed, ephemeral=True)
-            return
-
-        if bet_value < 0:
-            await ctx.reply(embed=Embed.error("Ставка не может быть отрицательной."), ephemeral=True)
-            return
 
         if bet_value > 0:
-            opp_valid, _, opp_error = await self.validator.validate_bet(
-                str(bet_value),
-                str(opponent_id),
-                str(guild_id),
-            )
-            if not opp_valid:
-                await ctx.reply(embed=opp_error, ephemeral=True)
+            opp_wallet = await self.economy.get_wallet(str(opponent_id), str(guild_id))
+            if opp_wallet < bet_value:
+                await ctx.reply(
+                    embed=Embed.error(
+                        f"У оппонента недостаточно средств! Баланс {opp_wallet:,} {Emojis.MONEY}, "
+                        f"требуется {bet_value:,} {Emojis.MONEY}"
+                    ),
+                    ephemeral=True,
+                )
                 return
 
         async with self._lock:
@@ -288,7 +282,7 @@ class Duel(commands.Cog):
             return
 
         if bet_value > 0:
-            removed, fail_msg = await self.economy.remove_money(str(challenger_id), str(guild_id), bet_value)
+            removed, fail_msg = await self.economy.remove_money(str(challenger_id), str(guild_id), bet_value, event="duel", related_user_id=str(opponent_id))
             if not removed:
                 await self._cancel_duel(duel_id, silent=True)
                 await self.validator.release_game(GAME_NAME, str(challenger_id), str(guild_id))
@@ -296,20 +290,19 @@ class Duel(commands.Cog):
                 await ctx.reply(embed=Embed.error(fail_msg), ephemeral=True)
                 return
 
-        invite_embed = Embed(
-            title="⚔️ Вызов на дуэль!",
-            description=(
-                f"<@{challenger_id}> вызывает <@{opponent_id}> на дуэль!\n"
-                + (
-                    f"{Emojis.MONEY} Ставка: **{bet_value:,}** {Emojis.MONEY}\n"
-                    if bet_value
-                    else "🎯 Дружеская дуэль без ставки.\n"
-                )
-                + "⏰ У оппонента 30 секунд, чтобы ответить."
-            ),
-            color=Colors.PRIMARY,
+        desc = (
+            f"<@{challenger_id}> вызывает <@{opponent_id}> на дуэль!\n"
+            "У оппонента 30 секунд, чтобы ответить."
         )
-        invite_embed.set_thumbnail(url=ctx.author.display_avatar.url)
+        if not bet_value:
+            desc = "Дружеская дуэль без ставки.\n" + desc
+
+        invite_embed = EconomyEmbed.game_lobby(
+            action="Вызов на дуэль!",
+            user=ctx.author,
+            bet=bet_value if bet_value > 0 else None,
+            description=desc,
+        )
 
         invite_view = DuelInviteView(self, duel_id, challenger_id, opponent_id)
         message = await ctx.reply(embed=invite_embed, view=invite_view, mention_author=False)
@@ -320,7 +313,6 @@ class Duel(commands.Cog):
             if state:
                 state.message_id = message.id
 
-    # Этап принятия 
     async def handle_invite_answer(self, duel_id: str, *, accepted: bool) -> None:
         async with self._lock:
             state = self._duels.get(duel_id)
@@ -340,13 +332,13 @@ class Duel(commands.Cog):
                 await self.economy.add_money(str(state.challenger_id), str(state.guild_id), state.bet)
             await self._send_update(
                 message,
-                Embed.error("🏳️ Оппонент отклонил вызов. Ставка возвращена."),
+                Embed.error("Оппонент отклонил вызов. Ставка возвращена."),
             )
             await self._cancel_duel(duel_id)
             return
 
         if state.bet > 0:
-            ok, fail_msg = await self.economy.remove_money(str(state.opponent_id), str(state.guild_id), state.bet)
+            ok, fail_msg = await self.economy.remove_money(str(state.opponent_id), str(state.guild_id), state.bet, event="duel", related_user_id=str(state.challenger_id))
             if not ok:
                 await self._send_update(
                     message,
@@ -359,10 +351,10 @@ class Duel(commands.Cog):
         await self._send_update(
             message,
             Embed(
-                title="⚔️ Дуэль принята!",
+                title="Дуэль принята!",
                 description=(
                     f"<@{state.opponent_id}> принял вызов!\n"
-                    "🔧 Теперь оба игрока должны выбрать оружие."
+                    "Теперь оба игрока должны выбрать оружие."
                 ),
                 color=Colors.SUCCESS,
             ),
@@ -387,11 +379,10 @@ class Duel(commands.Cog):
             await self.economy.add_money(str(state.challenger_id), str(state.guild_id), state.bet)
         await self._send_update(
             message,
-            Embed.error("⌛ Ответ не получен вовремя. Дуэль отменена, ставка возвращена."),
+            Embed.error("Ответ не получен вовремя. Дуэль отменена, ставка возвращена."),
         )
         await self._cancel_duel(duel_id)
 
-    # Выбор оружия 
     async def _prompt_weapon_choice(self, state: DuelState) -> None:
         channel = self.bot.get_channel(state.channel_id)
         if not isinstance(channel, discord.TextChannel):
@@ -399,7 +390,7 @@ class Duel(commands.Cog):
             return
 
         embed = Embed(
-            title="🗡️ Выбор оружия",
+            title="Выбор оружия",
             description="Выберите оружие для дуэли. У вас 30 секунд.",
             color=Colors.PRIMARY,
         )
@@ -407,8 +398,8 @@ class Duel(commands.Cog):
         chal_view = WeaponSelectView(self, state.duel_id, state.challenger_id)
         opp_view = WeaponSelectView(self, state.duel_id, state.opponent_id)
 
-        chal_msg = await channel.send(content=f"<@{state.challenger_id}>, выбирайте:", embed=embed, view=chal_view)
-        opp_msg = await channel.send(content=f"<@{state.opponent_id}>, выбирайте:", embed=embed, view=opp_view)
+        await channel.send(content=f"<@{state.challenger_id}>, выбирайте:", embed=embed, view=chal_view)
+        await channel.send(content=f"<@{state.opponent_id}>, выбирайте:", embed=embed, view=opp_view)
 
         async def weapon_timeout():
             await asyncio.sleep(30.1)
@@ -416,7 +407,7 @@ class Duel(commands.Cog):
                 st = self._duels.get(state.duel_id)
                 if not st or st.challenger_weapon and st.opponent_weapon:
                     return
-            await self._send_update(None, Embed.error("⌛ Выбор оружия просрочен. Дуэль отменена, ставки возвращены."))
+            await self._send_update(None, Embed.error("Выбор оружия просрочен. Дуэль отменена, ставки возвращены."))
             if state.bet > 0:
                 await self.economy.add_money(str(state.challenger_id), str(state.guild_id), state.bet)
                 await self.economy.add_money(str(state.opponent_id), str(state.guild_id), state.bet)
@@ -442,7 +433,7 @@ class Duel(commands.Cog):
                 try:
                     await channel.send(
                         embed=Embed(
-                            title="⚔️ Оружие выбрано!",
+                            title="Оружие выбрано!",
                             description=(
                                 f"<@{state.challenger_id}> выбрал {WEAPONS[state.challenger_weapon]['emoji']}\n"
                                 f"{WEAPONS[state.challenger_weapon]['name']}\n"
@@ -457,7 +448,6 @@ class Duel(commands.Cog):
             await asyncio.sleep(2)
             await self._start_round(state.duel_id)
 
-    # Раунды 
     async def _start_round(self, duel_id: str) -> None:
         async with self._lock:
             state = self._duels.get(duel_id)
@@ -471,7 +461,7 @@ class Duel(commands.Cog):
             return
 
         embed = Embed(
-            title=f"⚔️ Раунд {state.round_number}",
+            title=f"Раунд {state.round_number}",
             description=(
                 f"**Игрок 1:** <@{state.challenger_id}> — {state.challenger_hp}❤️ "
                 f"({WEAPONS[state.challenger_weapon]['emoji']} {WEAPONS[state.challenger_weapon]['name']})\n"
@@ -485,8 +475,8 @@ class Duel(commands.Cog):
         chal_view = ActionSelectView(self, duel_id, state.challenger_id)
         opp_view = ActionSelectView(self, duel_id, state.opponent_id)
 
-        chal_msg = await channel.send(content=f"<@{state.challenger_id}>:", embed=embed, view=chal_view)
-        opp_msg = await channel.send(content=f"<@{state.opponent_id}>:", embed=embed, view=opp_view)
+        await channel.send(content=f"<@{state.challenger_id}>:", embed=embed, view=chal_view)
+        await channel.send(content=f"<@{state.opponent_id}>:", embed=embed, view=opp_view)
 
         current_round = state.round_number
 
@@ -502,7 +492,7 @@ class Duel(commands.Cog):
                 self._pending_actions.pop((duel_id, active_state.opponent_id), None)
             await self._send_update(
                 None,
-                Embed.error("⌛ Кто-то не выбрал действие вовремя. Дуэль завершена без победителя."),
+                Embed.error("Кто-то не выбрал действие вовремя. Дуэль завершена без победителя."),
             )
             await self._finish_duel(active_state, winner_id=None, timeout=True)
 
@@ -566,7 +556,7 @@ class Duel(commands.Cog):
             try:
                 await channel.send(
                     embed=Embed(
-                        title=f"⚔️ Итоги раунда {state.round_number}",
+                        title=f"Итоги раунда {state.round_number}",
                         description="\n".join(log_lines)
                         + "\n"
                         + f"💚 <@{state.challenger_id}>: {state.challenger_hp}❤️\n"
@@ -585,7 +575,6 @@ class Duel(commands.Cog):
         await asyncio.sleep(ROUND_DELAY)
         await self._start_round(state.duel_id)
 
-    # Завершение 
     async def _finish_duel(self, state: DuelState, *, winner_id: Optional[int], timeout: bool = False) -> None:
         channel = self.bot.get_channel(state.channel_id)
         embed: Embed
@@ -599,24 +588,30 @@ class Duel(commands.Cog):
             loser_id = state.opponent_id if winner_id == state.challenger_id else state.challenger_id
             winnings = state.bet * 2
             if winnings > 0:
-                await self.economy.add_money(str(winner_id), str(state.guild_id), winnings)
+                await self.economy.add_money(str(winner_id), str(state.guild_id), winnings, event="duel", related_user_id=str(loser_id))
 
-            embed = Embed(
-                title="🏆 Дуэль завершена!",
-                description=(
-                    f"**Победитель:** <@{winner_id}>\n"
-                    f"**Проигравший:** <@{loser_id}>\n"
-                    + (
-                        f"**Выигрыш:** {winnings:,} {Emojis.MONEY}\n"
-                        if winnings
-                        else "🎯 Дружеская дуэль без ставок."
-                    )
-                    + "\n"
-                    + "\n".join(state.log[-6:])
-                ),
+            member = await self._resolve_member(winner_id, int(state.guild_id))
+            wallet = await self.economy.get_wallet(str(winner_id), str(state.guild_id))
+
+            text = (
+                f"**Победитель:** <@{winner_id}>\n"
+                f"**Проигравший:** <@{loser_id}>\n"
+                + (
+                    f"**Выигрыш:** {winnings:,} {Emojis.MONEY}\n"
+                    if winnings
+                    else "Дружеская дуэль без ставок."
+                )
+                + "\n"
+                + "\n".join(state.log[-6:])
+            )
+
+            embed = EconomyEmbed.result(
+                action="Дуэль",
+                user=member,
+                text=text,
+                balance=wallet,
                 color=Colors.SUCCESS,
             )
-            embed = await self._attach_balance_footer(embed, str(winner_id), str(state.guild_id))
 
         if isinstance(channel, discord.TextChannel):
             try:
@@ -639,33 +634,20 @@ class Duel(commands.Cog):
         if not silent and state.bet > 0:
             await self.economy.add_money(str(state.challenger_id), str(state.guild_id), state.bet)
 
-    # Утилиты 
     async def _send_update(self, message: Optional[discord.Message], embed: Embed) -> None:
         if message:
             try:
                 await message.edit(embed=embed, view=None)
             except discord.HTTPException:
                 pass
-        else:
-            guild = self.bot.get_guild(embed.guild_id) if hasattr(embed, "guild_id") else None
-            _ = guild  # заглушка
 
-    async def _attach_balance_footer(self, embed: Embed, user_id: str, guild_id: str) -> Embed:
-        wallet = await self.economy.get_wallet(user_id, guild_id)
-        bank = await self.economy.get_bank(user_id, guild_id)
-        embed.set_footer(text=f"Кошелёк: {wallet:,} {Emojis.MONEY} • Банк: {bank:,} {Emojis.MONEY}")
-        return embed
-
-    async def _resolve_avatar(self, user_id: int) -> Optional[str]:
-        for guild in self.bot.guilds:
+    async def _resolve_member(self, user_id: int, guild_id: int) -> discord.User:
+        guild = self.bot.get_guild(guild_id)
+        if guild:
             member = guild.get_member(user_id)
             if member:
-                return member.display_avatar.url
-        try:
-            user = await self.bot.fetch_user(user_id)
-            return user.display_avatar.url
-        except discord.HTTPException:
-            return None
+                return member
+        return await self.bot.fetch_user(user_id)
 
     def cog_unload(self) -> None:
         self._duels.clear()
@@ -673,4 +655,3 @@ class Duel(commands.Cog):
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Duel(bot))
-

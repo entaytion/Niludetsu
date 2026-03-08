@@ -80,9 +80,8 @@ class LeaderboardView(View):
         rows: List[Dict] = []
         offset = 0
         while True:
-            query = database.client.table(table).select(
-                ", ".join(columns) if columns else "*"
-            )
+            t = await database._atable(table)
+            query = t.select(", ".join(columns) if columns else "*")
 
             if filters:
                 for flt in filters:
@@ -102,7 +101,7 @@ class LeaderboardView(View):
                         nullsfirst=rule.get("nulls_first", False),
                     )
 
-            response = query.range(offset, offset + chunk_size - 1).execute()
+            response = await query.range(offset, offset + chunk_size - 1).execute()
             batch = response.data or []
             rows.extend(batch)
             if len(batch) < chunk_size:

@@ -1,8 +1,8 @@
-import asyncio, inspect, json, os, re, time
+import asyncio, json, os, time
 from dotenv import load_dotenv
 from Niludetsu.database.ensure_registry import EnsureRegistry
 from Niludetsu.tools.Time import TimeService
-from supabase import Client, create_client
+from supabase import AsyncClient, acreate_client, Client, create_client
 from typing import Any, Dict, List, Optional, Union
 
 _time = TimeService()
@@ -10,15 +10,15 @@ _time = TimeService()
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-client: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-_SIMPLE_SELECT = re.compile(
-    r"select\s+(?P<cols>\*|[\w,\s]+)\s+from\s+(?P<table>\w+)\s+where\s+(?P<field>\w+)\s*=\s*%s(?:\s+limit\s+\d+)?",
-    re.IGNORECASE,
-)
+
+# Sync client created at import time (needed for Leaderboard direct access etc.)
+_sync_client: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 class SupabaseDatabase:
     def __init__(self):
-        self.client = client
+        self.client = _sync_client
+        self._async_client: Optional[AsyncClient] = None
+        self._async_lock = asyncio.Lock()
         self.bot = None
         self._user_cache: Dict[str, Any] = {}
         self._cache_ttl = 300
@@ -62,7 +62,7 @@ class SupabaseDatabase:
                 "joined_at": _time.now().to_iso8601_string(),
                 "no_rejoin": False,
             },
-        )        
+        )
         self.ensure_registry.register(
             "user_economy",
             keys_builder=lambda user_id, guild_id, **_: {
@@ -179,10 +179,40 @@ class SupabaseDatabase:
                 "updated_at": _time.now().to_iso8601_string(),
             },
         )
-    # Вспомогательные методы 
+        self.ensure_registry.register(
+            "user_quests",
+            keys_builder=lambda user_id, guild_id, quest_key, **_: {
+                "user_id": str(user_id),
+                "guild_id": str(guild_id),
+                "quest_key": str(quest_key),
+            },
+            defaults_builder=lambda resets_at=None, **_: {
+                "progress": 0,
+                "completed": False,
+                "reward_claimed": False,
+                "started_at": _time.now().to_iso8601_string(),
+                "completed_at": None,
+                "resets_at": resets_at or _time.now().add(days=1).to_iso8601_string(),
+            },
+        )
+
+    # Async client (lazy init)
+    async def _aclient(self) -> AsyncClient:
+        if self._async_client is not None:
+            return self._async_client
+        async with self._async_lock:
+            if self._async_client is None:
+                self._async_client = await acreate_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+            return self._async_client
+
     def _table(self, name: str):
         return self.client.table(name)
 
+    async def _atable(self, name: str):
+        c = await self._aclient()
+        return c.table(name)
+
+    # Cache
     def _cache_key(self, user_id: str, guild_id: str) -> str:
         return f"{user_id}:{guild_id}"
 
@@ -237,26 +267,29 @@ class SupabaseDatabase:
                     merged[field] = current_value
         return merged
 
-    # CRUD 
+    # CRUD (true async via AsyncClient)
     async def get_row(self, table: str, **conditions) -> Optional[Dict[str, Any]]:
-        query = self._table(table).select("*")
+        t = await self._atable(table)
+        query = t.select("*")
         for key, value in conditions.items():
             query = query.eq(key, value)
         try:
-            response = query.single().execute()
+            response = await query.single().execute()
             return response.data
         except Exception:
             return None
 
     async def get_rows(self, table: str, **conditions) -> List[Dict[str, Any]]:
-        query = self._table(table).select("*")
+        t = await self._atable(table)
+        query = t.select("*")
         for key, value in conditions.items():
             query = query.eq(key, value)
-        response = query.execute()
+        response = await query.execute()
         return response.data or []
 
     async def insert(self, table: str, values: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        response = self._table(table).insert(values).execute()
+        t = await self._atable(table)
+        response = await t.insert(values).execute()
         return response.data[0] if response.data else None
 
     async def update_record(
@@ -271,11 +304,12 @@ class SupabaseDatabase:
     ) -> Optional[Dict[str, Any]]:
         payload = await self._merge_json_fields(table, where, values.copy(), json_fields)
 
-        query = self._table(table).update(payload)
+        t = await self._atable(table)
+        query = t.update(payload)
         for key, value in where.items():
             query = query.eq(key, value)
 
-        response = query.execute()
+        response = await query.execute()
         rows = response.data or []
 
         if {"user_id", "guild_id"} <= set(where.keys()):
@@ -291,10 +325,11 @@ class SupabaseDatabase:
         return None
 
     async def delete(self, table: str, **conditions) -> int:
-        query = self._table(table).delete()
+        t = await self._atable(table)
+        query = t.delete()
         for key, value in conditions.items():
             query = query.eq(key, value)
-        response = query.execute()
+        response = await query.execute()
         return len(response.data or [])
 
     async def where(
@@ -306,7 +341,8 @@ class SupabaseDatabase:
         order: Optional[List[Dict[str, Any]]] = None,
         limit: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
-        query = self._table(table).select(", ".join(columns) if columns else "*")
+        t = await self._atable(table)
+        query = t.select(", ".join(columns) if columns else "*")
         if filters:
             for flt in filters:
                 op = flt.get("op", "eq")
@@ -326,7 +362,7 @@ class SupabaseDatabase:
                 )
         if limit:
             query = query.limit(limit)
-        response = query.execute()
+        response = await query.execute()
         return response.data or []
 
     async def upsert(
@@ -337,7 +373,7 @@ class SupabaseDatabase:
         on_conflict: Optional[str] = None,
         returning: Optional[str] = "representation",
     ):
-        query = self.client.table(table)
+        t = await self._atable(table)
 
         kwargs: Dict[str, Any] = {}
         if on_conflict:
@@ -345,21 +381,14 @@ class SupabaseDatabase:
         if returning:
             kwargs["returning"] = returning
 
-        result = query.upsert(payload, **kwargs)
+        result = t.upsert(payload, **kwargs)
 
-        # Если клиент асинхронный, сам upsert возвращает awaitable
-        if inspect.isawaitable(result):
-            result = await result
-
-        # Sync‑ветка: upsert вернул builder -> нужно execute()
         if hasattr(result, "execute"):
-            result = result.execute()
-            if inspect.isawaitable(result):
-                result = await result
+            result = await result.execute()
 
-        return getattr(result, "data", result)  
+        return getattr(result, "data", result)
 
-    # Ensure 
+    # Ensure
     async def ensure_record(self, table: str, **params) -> Dict[str, Any]:
         keys, defaults = self.ensure_registry.resolve(table, **params)
         existing = await self.get_row(table, **keys)
@@ -375,22 +404,25 @@ class SupabaseDatabase:
         if cached:
             return cached
 
-        core = await self.ensure_record("users", user_id=user_id, guild_id=guild_id)
-        economy = await self.ensure_record("user_economy", user_id=user_id, guild_id=guild_id)
-        profile = await self.ensure_record("user_profile", user_id=user_id, guild_id=guild_id)
-        analytics = await self.ensure_record("user_analytics", user_id=user_id, guild_id=guild_id)
+        core, economy, profile, analytics, reminders = await asyncio.gather(
+            self.ensure_record("users", user_id=user_id, guild_id=guild_id),
+            self.ensure_record("user_economy", user_id=user_id, guild_id=guild_id),
+            self.ensure_record("user_profile", user_id=user_id, guild_id=guild_id),
+            self.ensure_record("user_analytics", user_id=user_id, guild_id=guild_id),
+            self.get_rows(
+                "user_reminders",
+                user_id=str(user_id),
+                guild_id=str(guild_id),
+                completed=False,
+            ),
+        )
 
         bundle = {
             "core": core,
             "economy": economy,
             "profile": profile,
             "analytics": analytics,
-            "reminders": await self.get_rows(
-                "user_reminders",
-                user_id=str(user_id),
-                guild_id=str(guild_id),
-                completed=False,
-            ),
+            "reminders": reminders,
         }
 
         await self._cache_user(user_id, guild_id, bundle)
@@ -399,17 +431,20 @@ class SupabaseDatabase:
     async def get_user(self, user_id: str, guild_id: str) -> Dict[str, Any]:
         return await self.ensure_user(user_id, guild_id)
 
-    # Настройки / общее 
+    # Настройки / общее
     async def get_setting(self, category: str, key: str, default=None, guild_id: str = "0"):
-        response = (
-            self._table("settings")
-            .select("value")
-            .eq("guild_id", guild_id)
-            .eq("category", category)
-            .eq("key", key)
-            .single()
-            .execute()
-        )
+        t = await self._atable("settings")
+        try:
+            response = await (
+                t.select("value")
+                .eq("guild_id", guild_id)
+                .eq("category", category)
+                .eq("key", key)
+                .single()
+                .execute()
+            )
+        except Exception:
+            return default
         if not response.data:
             return default
         value = response.data["value"]
@@ -436,7 +471,7 @@ class SupabaseDatabase:
     def set_bot(self, bot):
         self.bot = bot
 
-    # Утилиты 
+    # Утилиты
     async def update_economy(
         self,
         user_id: str,
@@ -599,5 +634,49 @@ class SupabaseDatabase:
             user_id=str(user_id),
             achievement_id=str(achievement_id),
         )
-database = SupabaseDatabase()
 
+    # Транзакции
+    async def insert_transaction(
+        self,
+        user_id,
+        guild_id,
+        event,
+        amount,
+        balance_after,
+        *,
+        related_user_id=None,
+        metadata=None,
+    ) -> Optional[Dict[str, Any]]:
+        return await self.insert("user_transactions", {
+            "user_id": str(user_id),
+            "guild_id": str(guild_id),
+            "event": event,
+            "amount": amount,
+            "balance_after": balance_after,
+            "related_user_id": str(related_user_id) if related_user_id else None,
+            "metadata": metadata or {},
+        })
+
+    async def get_transactions(
+        self,
+        user_id,
+        guild_id,
+        *,
+        limit: int = 10,
+        offset: int = 0,
+        events: Optional[List[str]] = None,
+    ):
+        t = await self._atable("user_transactions")
+        query = (
+            t.select("*", count="exact")
+            .eq("user_id", str(user_id))
+            .eq("guild_id", str(guild_id))
+            .order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
+        )
+        if events:
+            query = query.in_("event", events)
+        response = await query.execute()
+        return response.data or [], response.count or 0
+
+database = SupabaseDatabase()

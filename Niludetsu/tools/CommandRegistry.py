@@ -30,6 +30,7 @@ _BASE_REGISTRY: Dict[str, Dict[str, object]] = {
             {"name": "withdraw", "aliases": ["wd"], "description": "Вывести деньги с банковского счёта", "required_args": [], "optional_args": ["сумма"], "type": CommandType.HYBRID},
             {"name": "withdrawfamily", "aliases": [], "description": "Снять деньги с семейного счета", "required_args": [], "optional_args": ["сумма"], "type": CommandType.HYBRID},
             {"name": "work", "aliases": [], "description": "Заработать кривены", "required_args": [], "optional_args": [], "type": CommandType.HYBRID},
+            {"name": "transactions", "aliases": ["tx", "транзакции"], "description": "История транзакций", "required_args": [], "optional_args": ["юзер"], "type": CommandType.HYBRID},
         ],
     },
     "fun": {
@@ -38,6 +39,7 @@ _BASE_REGISTRY: Dict[str, Dict[str, object]] = {
         "command_list": [
             {"name": "8ball", "aliases": [], "description": "Задать вопрос магическому шару", "required_args": ["вопрос"], "optional_args": [], "type": CommandType.HYBRID},
             {"name": "nsfw", "aliases": ["rnsfw", "realnsfw"], "description": "Сам играйся со своим причандалом", "required_args": [], "optional_args": [], "type": CommandType.HYBRID},
+            {"name": "rps", "aliases": ["кнб"], "description": "Камень-Ножницы-Бумага", "required_args": ["user"], "optional_args": ["ставка"], "type": CommandType.HYBRID},
         ],
     },
     "main": {
@@ -150,6 +152,7 @@ _BASE_REGISTRY: Dict[str, Dict[str, object]] = {
             {"name": "translate", "aliases": [], "description": "Перевод текста", "type": CommandType.PREFIX},
             {"name": "weather", "aliases": [], "description": "Узнать погоду", "type": CommandType.PREFIX},
             {"name": "whois", "aliases": [], "description": "Информация о домене/IP адресе", "type": CommandType.PREFIX},
+            {"name": "afk", "aliases": ["афк"], "description": "Установить AFK-статус", "required_args": [], "optional_args": ["причина"], "type": CommandType.HYBRID},
         ],
     },
     "admin": {

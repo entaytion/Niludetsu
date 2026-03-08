@@ -28,7 +28,7 @@ class ContextualError(Exception):
         self.origin = origin
 
 class PastebinClient:
-    API_URL = "https://paste.rs"
+    API_URL = "https://dpaste.com/api/"
 
     def __init__(self) -> None:
         pass
@@ -42,11 +42,15 @@ class PastebinClient:
         private: bool = True,
     ) -> str:
         timeout = aiohttp.ClientTimeout(total=30)
+        payload = {
+            "content": content,
+            "title": title,
+            "expiry_days": 1,
+        }
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.post(
                 self.API_URL,
-                data=content.encode("utf-8"),
-                headers={"Content-Type": "text/plain; charset=utf-8"},
+                data=payload,
             ) as response:
                 body = (await response.text()).strip()
                 if not response.ok:

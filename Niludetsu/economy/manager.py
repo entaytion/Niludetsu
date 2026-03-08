@@ -1,3 +1,4 @@
+import asyncio
 from Niludetsu.database.supabase_database import SupabaseDatabase
 from Niludetsu.tools.Embed import Embed
 from Niludetsu.tools.Emojis import Emojis
@@ -99,6 +100,25 @@ class EconomyManager:
         economy = await self._get_economy(user_id, guild_id)
         return int(economy.get("spousal_balance", 0))
 
+    # Логирование транзакций (fire-and-forget)
+    def _log_tx(
+        self,
+        user_id: str,
+        guild_id: str,
+        event: str,
+        amount: int,
+        balance_after: int,
+        *,
+        related_user_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        if not event:
+            return
+        asyncio.create_task(self.db.insert_transaction(
+            user_id, guild_id, event, amount, balance_after,
+            related_user_id=related_user_id, metadata=metadata,
+        ))
+
     # 3. Операции с деньгами
     async def add_money(
         self,
@@ -107,10 +127,10 @@ class EconomyManager:
         amount: int,
         *,
         share_spousal: bool = True,
+        event: str = "",
+        related_user_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Tuple[bool, str]:
-        if amount <= 0:
-            return False, "Сумма должна быть положительной"
-
         economy = await self._get_economy(user_id, guild_id)
         wallet = int(economy["balance"])
         spousal_enabled = bool(economy.get("spousal_enabled"))
@@ -122,12 +142,14 @@ class EconomyManager:
             share = int(amount * 0.1)
             personal_amount = amount - share
 
+            new_balance = wallet + personal_amount
             await self._update_economy(
                 user_id,
                 guild_id,
-                balance=wallet + personal_amount,
+                balance=new_balance,
                 spousal_balance=spousal_balance + share,
             )
+            self._log_tx(user_id, guild_id, event, amount, new_balance, related_user_id=related_user_id, metadata=metadata)
 
             message = (
                 f"{personal_amount:,} {Emojis.MONEY} на личный счёт | "
@@ -135,79 +157,103 @@ class EconomyManager:
             )
             return True, message
 
+        new_balance = wallet + amount
         await self._update_economy(
             user_id,
             guild_id,
-            balance=wallet + amount,
+            balance=new_balance,
         )
+        self._log_tx(user_id, guild_id, event, amount, new_balance, related_user_id=related_user_id, metadata=metadata)
         return True, f"{amount:,} {Emojis.MONEY}"
 
-    async def remove_money(self, user_id: str, guild_id: str, amount: int) -> Tuple[bool, str]:
-        if amount <= 0:
-            return False, "Сумма должна быть положительной"
-
+    async def remove_money(
+        self,
+        user_id: str,
+        guild_id: str,
+        amount: int,
+        *,
+        event: str = "",
+        related_user_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[bool, str]:
         balance = await self.get_wallet(user_id, guild_id)
         if balance < amount:
             return False, "Недостаточно средств"
 
+        new_balance = balance - amount
         await self._update_economy(
             user_id,
             guild_id,
-            balance=balance - amount,
+            balance=new_balance,
         )
+        self._log_tx(user_id, guild_id, event, -amount, new_balance, related_user_id=related_user_id, metadata=metadata)
         return True, f"Списано {amount:,} {Emojis.MONEY}"
 
-    async def transfer_money(self, from_user_id: str, to_user_id: str, guild_id: str, amount: int) -> Tuple[bool, str]:
-        if amount <= 0:
-            return False, "Сумма должна быть положительной"
-        if from_user_id == to_user_id:
-            return False, "Нельзя переводить самому себе"
-
+    async def transfer_money(
+        self,
+        from_user_id: str,
+        to_user_id: str,
+        guild_id: str,
+        amount: int,
+        *,
+        event: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[bool, str]:
         sender_balance = await self.get_wallet(from_user_id, guild_id)
         if sender_balance < amount:
             return False, "Недостаточно средств"
 
         receiver_balance = await self.get_wallet(to_user_id, guild_id)
 
+        new_sender = sender_balance - amount
         await self._update_economy(
             from_user_id,
             guild_id,
-            balance=sender_balance - amount,
+            balance=new_sender,
         )
+        self._log_tx(from_user_id, guild_id, event, -amount, new_sender, related_user_id=to_user_id, metadata=metadata)
+
+        new_receiver = receiver_balance + amount
         await self._update_economy(
             to_user_id,
             guild_id,
-            balance=receiver_balance + amount,
+            balance=new_receiver,
         )
+        self._log_tx(to_user_id, guild_id, event, amount, new_receiver, related_user_id=from_user_id, metadata=metadata)
+
         return True, f"Перевод {amount:,} {Emojis.MONEY} выполнен"
 
     # 4. Операции с банком и семейным счётом
     async def deposit_money(self, user_id: str, guild_id: str, amount: int) -> Tuple[bool, str]:
         balance = await self.get_wallet(user_id, guild_id)
-        if amount <= 0 or balance < amount:
+        if balance < amount:
             return False, "Недостаточно средств"
 
+        new_balance = balance - amount
         bank = await self.get_bank(user_id, guild_id)
         await self._update_economy(
             user_id,
             guild_id,
-            balance=balance - amount,
+            balance=new_balance,
             deposit=bank + amount,
         )
+        self._log_tx(user_id, guild_id, "deposit", -amount, new_balance)
         return True, f"Внесено {amount:,} {Emojis.MONEY} в банк"
 
     async def withdraw_money(self, user_id: str, guild_id: str, amount: int) -> Tuple[bool, str]:
         bank = await self.get_bank(user_id, guild_id)
-        if amount <= 0 or bank < amount:
+        if bank < amount:
             return False, "Недостаточно средств на депозите"
 
         balance = await self.get_wallet(user_id, guild_id)
+        new_balance = balance + amount
         await self._update_economy(
             user_id,
             guild_id,
-            balance=balance + amount,
+            balance=new_balance,
             deposit=bank - amount,
         )
+        self._log_tx(user_id, guild_id, "withdraw", amount, new_balance)
         return True, f"Снято {amount:,} {Emojis.MONEY} с депозита"
 
     async def withdraw_spousal(self, user_id: str, guild_id: str, amount: Optional[int]) -> Tuple[bool, Embed]:
@@ -223,12 +269,14 @@ class EconomyManager:
         if family_balance < amount_to_withdraw:
             return False, Embed.error(f"Недостаточно средств: доступно {family_balance:,} {Emojis.MONEY}")
 
+        new_balance = int(economy["balance"]) + amount_to_withdraw
         await self._update_economy(
             user_id,
             guild_id,
-            balance=int(economy["balance"]) + amount_to_withdraw,
+            balance=new_balance,
             spousal_balance=family_balance - amount_to_withdraw,
         )
+        self._log_tx(user_id, guild_id, "withdraw_family", amount_to_withdraw, new_balance)
 
         return True, Embed.success(f"Снято {amount_to_withdraw:,} {Emojis.MONEY} с семейного счёта")
 
@@ -277,7 +325,7 @@ class EconomyManager:
         if cooldown_end > now:
             remaining = int((cooldown_end - now).total_seconds())
             pretty = self.time.format_duration(remaining)
-            return False, f"Подождите ещё **{pretty}**"
+            return False, f"через **{pretty}**"
 
         return True, None
 
@@ -322,22 +370,22 @@ class EconomyManager:
         # Подработка /work
         can_work, work_msg = await self.check_cooldown(user_id, guild_id, "work")
         if can_work:
-            rewards.append("- Работать **``/work``** — доступно")
+            rewards.append("- **``/work``** — доступно")
         else:
-            rewards.append(f"- Работать **``/work``** — {work_msg}")
+            rewards.append(f"- **``/work``** — {work_msg}")
         
         # Ежедневный бонус /daily (timely)
         can_daily, daily_msg = await self.check_cooldown(user_id, guild_id, "daily")
         if can_daily:
-            rewards.append("- Ежедневный бонус **``/daily``** — доступно")
+            rewards.append("- **``/daily``** — доступно")
         else:
-            rewards.append(f"- Ежедневный бонус **``/daily``** — {daily_msg}")
+            rewards.append(f"- **``/daily``** — {daily_msg}")
         
         # Половая жизнь /slut
         can_daily, daily_msg = await self.check_cooldown(user_id, guild_id, "slut")
         if can_daily:
-            rewards.append("- Половая жизнь **``/slut``** — доступно")
+            rewards.append("- **``/slut``** — доступно")
         else:
-            rewards.append(f"- Половая жизнь **``/slut``** — {daily_msg}")
+            rewards.append(f"- **``/slut``** — {daily_msg}")
         return "\n".join(rewards)
 

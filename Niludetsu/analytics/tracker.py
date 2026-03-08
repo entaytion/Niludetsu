@@ -7,6 +7,8 @@ from Niludetsu.temprooms.cache import TempRoomCache
 from Niludetsu.temprooms.repository import TempRoomsRepository
 from typing import Dict, Optional
 
+from Niludetsu.quests.tracker import QuestTracker
+
 _time = Time()
 
 @dataclass
@@ -27,6 +29,8 @@ class AnalyticsTracker:
         self.flush_voice_sessions.start()
         self.temp_repo = TempRoomsRepository()
         self.temp_cache = TempRoomCache(ttl=15.0)
+        self.quest_tracker = QuestTracker()
+        self._voice_quest_accum: Dict[int, int] = {}  # user_id -> accumulated seconds
 
     def cog_unload(self) -> None:
         self.flush_voice_sessions.cancel()
@@ -115,6 +119,18 @@ class AnalyticsTracker:
 
         state.joined_at_ts = now_ts
         state.joined_at_iso = _time.to_iso(now_dt)
+
+        # Quest voice tracking: accumulate seconds, fire per full minute
+        accum = self._voice_quest_accum.get(member.id, 0) + seconds
+        minutes = accum // 60
+        if minutes > 0:
+            asyncio.create_task(
+                self.quest_tracker.on_voice_minute(
+                    str(member.guild.id), str(member.id), minutes,
+                )
+            )
+        self._voice_quest_accum[member.id] = accum % 60
+
         return seconds
 
     @tasks.loop(seconds=3)

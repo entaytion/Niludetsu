@@ -1,8 +1,9 @@
 import discord, time
 from discord.ext import commands
-from Niludetsu import Emojis, Colors, Embed, Time
+from Niludetsu import Emojis, Time
 from Niludetsu.database.supabase_database import database
 from Niludetsu.economy.manager import EconomyManager
+from Niludetsu.embeds.Economy import EconomyEmbed
 from typing import Any, Dict, List, Optional
 
 _time = Time()
@@ -10,8 +11,10 @@ ROLE_INCOME_AMOUNT = 100
 ROLE_INCOME_INTERVAL_SECONDS = 6 * 60 * 60
 COOLDOWN_PREFIX = "income:role_shop"
 
+
 def _extract_data(response: Optional[Any]) -> Optional[Any]:
     return getattr(response, "data", None) if response is not None else None
+
 
 class IncomeRolesSystem:
     def __init__(self, db, economy: EconomyManager):
@@ -56,12 +59,7 @@ class IncomeRolesSystem:
             values={"cooldowns": {key: value}},
         )
 
-    async def get_income_status(
-        self,
-        *,
-        user_id: str,
-        guild: discord.Guild,
-    ) -> List[Dict[str, Any]]:
+    async def get_income_status(self, *, user_id: str, guild: discord.Guild) -> List[Dict[str, Any]]:
         guild_id = str(guild.id)
         roles = await self.fetch_owned_roles(guild_id, user_id)
         status: List[Dict[str, Any]] = []
@@ -75,16 +73,14 @@ class IncomeRolesSystem:
             can_claim = elapsed >= ROLE_INCOME_INTERVAL_SECONDS
             time_left = max(0, ROLE_INCOME_INTERVAL_SECONDS - elapsed)
 
-            status.append(
-                {
-                    "role_id": role_id,
-                    "discord_role": guild.get_role(int(role_id)),
-                    "holders": holders,
-                    "income": ROLE_INCOME_AMOUNT,
-                    "can_claim": can_claim,
-                    "time_left": time_left,
-                }
-            )
+            status.append({
+                "role_id": role_id,
+                "discord_role": guild.get_role(int(role_id)),
+                "holders": holders,
+                "income": ROLE_INCOME_AMOUNT,
+                "can_claim": can_claim,
+                "time_left": time_left,
+            })
         return status
 
     async def claim_income(self, *, user_id: str, guild: discord.Guild) -> Dict[str, Any]:
@@ -104,6 +100,7 @@ class IncomeRolesSystem:
 
         return {"total": total_income, "claimed": claimed, "status": status}
 
+
 class IncomeRoles(commands.Cog):
     """Пассивный доход владельцам ролей магазина."""
 
@@ -116,51 +113,44 @@ class IncomeRoles(commands.Cog):
     @commands.hybrid_command(name="income", aliases=["ic"], description="💱 Получить пассивный доход с ролей магазина")
     async def income(self, ctx: commands.Context) -> None:
         if ctx.guild is None:
-            await ctx.reply(embed=Embed.error("Команда работает только на сервере."), ephemeral=True)
+            await ctx.reply(embed=EconomyEmbed.error("Команда работает только на сервере."), ephemeral=True)
             return
 
         user_id = str(ctx.author.id)
         result = await self.system.claim_income(user_id=user_id, guild=ctx.guild)
 
-        embed = self.build_income_embed(ctx.guild, ctx.author, result)
-        await ctx.reply(embed=embed, mention_author=False)
-
-    def build_income_embed(self, guild: discord.Guild, user: discord.abc.User, result: Dict[str, Any]) -> Embed:
         total = result["total"]
         status = result["status"]
 
         if total > 0:
-            lines = [
-                f"{Emojis.MONEY} Получено: **+{total}** {Emojis.MONEY}",
-                "",
-            ]
+            role_lines = []
             for item in result["claimed"]:
                 role = item["discord_role"]
                 mention = role.mention if role else f"<@&{item['role_id']}>"
-                lines.append(f"- {mention} — **+{item['income']}** {Emojis.MONEY}")
-            lines.append("")
-            lines.append("Следующая выдача будет доступна через 6 часов.")
-            color = Colors.SUCCESS
+                role_lines.append(f"{mention} — **+{item['income']}** {Emojis.MONEY}")
+            roles_text = "\n".join(role_lines)
+            text = (
+                f"вы получили **+{total}** {Emojis.MONEY} дохода с ролей!\n"
+                f"{roles_text}\n\n"
+                f"Следующая выдача будет доступна через 6 часов."
+            )
         else:
-            lines = ["Сейчас доход недоступен."]
+            role_lines = []
             for item in status:
                 role = item["discord_role"]
                 mention = role.mention if role else f"<@&{item['role_id']}>"
-                if item["can_claim"]:
-                    lines.append(f"- {mention} — можно забрать прямо сейчас (попробуй ещё раз).")
-                else:
-                    pretty_wait = _time.format_duration(item["time_left"])
-                    lines.append(f"- {mention} — ждать {pretty_wait}.")
-            color = Colors.INFO
+                pretty_wait = _time.format_duration(item["time_left"])
+                role_lines.append(f"{mention} — ждать {pretty_wait}")
+            roles_text = "\n".join(role_lines) if role_lines else "Нет ролей для дохода."
+            text = f"сейчас доход недоступен.\n{roles_text}"
 
-        embed = Embed(
-            title="Пассивный доход с ролей",
-            description="\n".join(lines),
-            color=color,
-            thumbnail=str(user.display_avatar.url),
+        embed = EconomyEmbed.result(
+            action="Пассивный доход",
+            user=ctx.author,
+            text=text,
         )
-        return embed
+        await ctx.reply(embed=embed, mention_author=False)
+
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(IncomeRoles(bot))
-

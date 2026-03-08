@@ -9,6 +9,7 @@ from Niludetsu.tools.AccessControl import AccessGuard
 from Niludetsu.tools.Errors import setup_error_handling
 from Niludetsu.tools.Loader import Loader
 from Niludetsu.tools.Embed import Embed
+from Niludetsu.quests.tracker import QuestTracker
 
 intents = discord.Intents.all()
 async def get_prefix(bot, message):
@@ -120,6 +121,8 @@ class NiludetsuBot(commands.Bot):
         self.banner = Banner(self)
         await self.banner.cog_load()
 
+        self.quest_tracker = QuestTracker(self)
+
         for category in self.command_manager.get_categories():
             self.command_manager.set_category_enabled(config.SERVERS["MAIN_ID"], category, True)
 
@@ -185,6 +188,12 @@ class NiludetsuBot(commands.Bot):
 
         if level_system and message.guild.id == config.SERVERS["MAIN_ID"]:
             await level_system.process_message(message)
+
+        # Quest tracking (only MAIN_ID)
+        if message.guild.id == config.SERVERS["MAIN_ID"]:
+            asyncio.create_task(
+                self.quest_tracker.on_message(str(message.guild.id), str(message.author.id))
+            )
 
 bot = NiludetsuBot(command_prefix=get_prefix, intents=intents)
 bot.start_time = time.time()

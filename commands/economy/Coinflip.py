@@ -3,9 +3,12 @@ from dataclasses import dataclass
 from discord import app_commands
 from discord.ext import commands
 from Niludetsu import Emojis, Embed, Colors
+from Niludetsu.embeds.Economy import EconomyEmbed
 from Niludetsu.database.supabase_database import database
 from Niludetsu.economy.manager import EconomyManager
 from Niludetsu.economy.validators import EconomyValidator
+from Niludetsu.economy.checks import ParseAmount, EnsureBalance, ClaimGame, DeductMoney
+from Niludetsu.tools.Validator import economy
 from typing import Dict, Optional
 
 GAME_NAME = "Монетка"
@@ -80,7 +83,6 @@ class Coinflip(commands.Cog):
         self._games: Dict[int, CoinflipState] = {}
         self._lock = asyncio.Lock()
 
-    # Хранилище состояния 
     async def _store_game(self, message_id: int, state: CoinflipState) -> None:
         async with self._lock:
             self._games[message_id] = state
@@ -89,47 +91,27 @@ class Coinflip(commands.Cog):
         async with self._lock:
             return self._games.pop(message_id, None)
 
-    # Команда 
     @commands.hybrid_command(
         name="coinflip",
         aliases=("монетка",),
         description="🪙 Сыграть в монетку и удвоить ставку.",
     )
     @app_commands.describe(bet="🪙 Сумма ставки")
+    @economy(ParseAmount("bet"), EnsureBalance(), ClaimGame(GAME_NAME), DeductMoney("coinflip"))
     async def coinflip(self, ctx: commands.Context, bet: Optional[str] = None) -> None:
         user_id = str(ctx.author.id)
         guild_id = str(ctx.guild.id)
+        bet_value = ctx.eco["amount"]
 
-        valid, bet_value, error_embed = await self.validator.validate_bet(bet, user_id, guild_id)
-        if not valid:
-            await ctx.reply(embed=error_embed, ephemeral=True)
-            return
-
-        claimed, clash_embed = await self.validator.claim_game(GAME_NAME, user_id, guild_id)
-        if not claimed:
-            await ctx.reply(embed=clash_embed, ephemeral=True)
-            return
-
-        removed, error_text = await self.economy.remove_money(user_id, guild_id, bet_value)
-        if not removed:
-            await self.validator.release_game(GAME_NAME, user_id, guild_id)
-            await ctx.reply(embed=Embed.error(error_text), ephemeral=True)
-            return
-
-        await ctx.defer(ephemeral=False)
-
-        embed = Embed(
-            title="🪙 Игра в монетку",
-            description=(
-                f"Ставка: **{bet_value:,}** {Emojis.MONEY}\n"
-                "Выберите сторону: **Орёл** или **Решка**?"
-            ),
-            color=Colors.PRIMARY,
+        embed = EconomyEmbed.game_lobby(
+            action="🪙 Игра в монетку",
+            user=ctx.author,
+            bet=bet_value,
+            description="Выберите сторону: **Орёл** или **Решка**?",
         )
-        embed.set_thumbnail(url=ctx.author.display_avatar.url)
 
         message = await ctx.reply(embed=embed, mention_author=False)
-        view = CoinflipView(self, message.id, ctx.author.id)  # ← game_id совпадает с message.id
+        view = CoinflipView(self, message.id, ctx.author.id)
         view.message = message
         await message.edit(view=view)
 
@@ -142,7 +124,6 @@ class Coinflip(commands.Cog):
         )
         await self._store_game(message.id, state)
 
-    # Игровая логика 
     async def resolve_game(self, message_id: int, choice: str) -> Optional[Embed]:
         state = await self._pop_game(message_id)
         if not state:
@@ -152,27 +133,26 @@ class Coinflip(commands.Cog):
         won = result == choice
 
         if won:
-            await self.economy.add_money(state.user_id, state.guild_id, state.bet * 2)
-            outcome = f"🎉 Победа! Вы забрали **{state.bet:,}** {Emojis.MONEY} сверху."
-            color = Colors.SUCCESS
+            await self.economy.add_money(state.user_id, state.guild_id, state.bet * 2, event="coinflip")
+            outcome = f"выиграли **{state.bet:,}** {Emojis.MONEY}"
         else:
-            outcome = f"😢 Поражение. Ставка **{state.bet:,}** {Emojis.MONEY} сгорела."
-            color = Colors.ERROR
+            outcome = f"проиграли **{state.bet:,}** {Emojis.MONEY}"
 
-        embed = Embed(
-            title="🪙 Результат монетки",
-            description=(
-                f"<@{state.user_id}> выбрал **{'орла' if choice == 'heads' else 'решку'}**.\n"
-                f"Монета показала **{'орла' if result == 'heads' else 'решку'}**.\n"
-                f"{outcome}"
+        wallet = await self.economy.get_wallet(state.user_id, state.guild_id)
+        member = await self._resolve_member(state.user_id, state.guild_id)
+
+        choice_name = "орла" if choice == "heads" else "решку"
+        result_name = "орла" if result == "heads" else "решку"
+
+        embed = EconomyEmbed.result(
+            action="Монетка",
+            user=member,
+            text=(
+                f"вы выбрали **{choice_name}**, "
+                f"выпала **{result_name}**. Вы {outcome}."
             ),
-            color=color,
+            balance=wallet,
         )
-
-        avatar = await self._resolve_avatar(state.user_id)
-        if avatar:
-            embed.set_thumbnail(url=avatar)
-        embed = await self._attach_balance_footer(embed, state.user_id, state.guild_id)
 
         await self.validator.release_game(GAME_NAME, state.user_id, state.guild_id)
         return embed
@@ -194,35 +174,31 @@ class Coinflip(commands.Cog):
         except discord.HTTPException:
             return
 
-        embed = Embed.error("⏳ Время выбора вышло. Ставка возвращена.")
-        embed = await self._attach_balance_footer(embed, state.user_id, state.guild_id)
+        member = await self._resolve_member(state.user_id, state.guild_id)
+        wallet = await self.economy.get_wallet(state.user_id, state.guild_id)
+        embed = EconomyEmbed.result(
+            action="Монетка",
+            user=member,
+            text=f"время выбора вышло. Ставка возвращена.",
+            balance=wallet,
+        )
         try:
             await message.edit(embed=embed, view=None)
         except discord.HTTPException:
             pass
 
-    # Утилиты 
-    async def _attach_balance_footer(self, embed: Embed, user_id: str, guild_id: str) -> Embed:
-        wallet = await self.economy.get_wallet(user_id, guild_id)
-        bank = await self.economy.get_bank(user_id, guild_id)
-        embed.set_footer(text=f"Кошелёк: {wallet:,} {Emojis.MONEY} • Банк: {bank:,} {Emojis.MONEY}")
-        return embed
-
-    async def _resolve_avatar(self, user_id: str) -> Optional[str]:
-        user_id_int = int(user_id)
-        for guild in self.bot.guilds:
-            member = guild.get_member(user_id_int)
+    async def _resolve_member(self, user_id: str, guild_id: str) -> discord.User:
+        uid = int(user_id)
+        gid = int(guild_id)
+        guild = self.bot.get_guild(gid)
+        if guild:
+            member = guild.get_member(uid)
             if member:
-                return member.display_avatar.url
-        try:
-            user = await self.bot.fetch_user(user_id_int)
-            return user.display_avatar.url
-        except discord.HTTPException:
-            return None
+                return member
+        return await self.bot.fetch_user(uid)
 
     def cog_unload(self) -> None:
         self._games.clear()
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Coinflip(bot))
-
