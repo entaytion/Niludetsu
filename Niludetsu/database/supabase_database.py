@@ -404,8 +404,11 @@ class SupabaseDatabase:
         if cached:
             return cached
 
-        core, economy, profile, analytics, reminders = await asyncio.gather(
-            self.ensure_record("users", user_id=user_id, guild_id=guild_id),
+        # СНАЧАЛА гарантируем родительскую запись users (FK constraint!)
+        core = await self.ensure_record("users", user_id=user_id, guild_id=guild_id)
+
+        # Потом дочерние таблицы — параллельно
+        economy, profile, analytics, reminders = await asyncio.gather(
             self.ensure_record("user_economy", user_id=user_id, guild_id=guild_id),
             self.ensure_record("user_profile", user_id=user_id, guild_id=guild_id),
             self.ensure_record("user_analytics", user_id=user_id, guild_id=guild_id),

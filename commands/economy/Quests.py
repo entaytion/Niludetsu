@@ -179,15 +179,6 @@ class QuestsView(discord.ui.View):
         next_btn.callback = self._next
         self.add_item(next_btn)
 
-        # Закрыть
-        close_btn = discord.ui.Button(
-            label="Закрыть",
-            style=discord.ButtonStyle.danger,
-            custom_id="quests_close",
-        )
-        close_btn.callback = self._close
-        self.add_item(close_btn)
-
     async def _prev(self, interaction: discord.Interaction):
         if str(interaction.user.id) != str(self.user.id):
             await interaction.response.send_message(
@@ -205,15 +196,6 @@ class QuestsView(discord.ui.View):
             return
         self.page = min(self.max_pages, self.page + 1)
         await self.refresh(interaction)
-
-    async def _close(self, interaction: discord.Interaction):
-        if str(interaction.user.id) != str(self.user.id):
-            await interaction.response.send_message(
-                embed=Embed.error(description="Не твои квесты."), ephemeral=True,
-            )
-            return
-        self.stop()
-        await interaction.response.edit_message(view=None)
 
     async def refresh(self, interaction: discord.Interaction):
         embed, _ = await self.build()

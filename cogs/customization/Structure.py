@@ -1,9 +1,8 @@
 import discord
 from .Views import ProfileView
 from cogs.customization.Form import PositionSelect
-from discord import app_commands
 from discord.ext import commands
-from Niludetsu import Embed, Colors, Emojis
+from Niludetsu import Colors, Emojis
 
 class InfoView(discord.ui.View):
     def __init__(self):

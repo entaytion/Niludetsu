@@ -534,5 +534,4 @@ class PartnershipManager:
 
 async def setup(bot):
     """Пустой setup для совместимости"""
-    pass
 

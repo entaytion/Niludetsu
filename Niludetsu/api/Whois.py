@@ -6,7 +6,7 @@ import aiohttp, asyncio, dns.exception, dns.resolver, ipaddress, re, whois
 from datetime import datetime
 from functools import lru_cache
 from Niludetsu import Embed, Colors, TimeService
-from typing import Union, Dict, Any, Tuple, Optional, List
+from typing import Dict, Any, Tuple, Optional, List
 from urllib.parse import urlparse
 
 class WhoisAPI:

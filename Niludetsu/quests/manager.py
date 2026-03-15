@@ -17,7 +17,6 @@ from Niludetsu.database.supabase_database import SupabaseDatabase, database
 from Niludetsu.economy.manager import EconomyManager
 from Niludetsu.logging import logger
 from Niludetsu.quests.definitions import (
-    ALL_QUESTS,
     DAILY_POOL,
     DAILY_QUEST_COUNT,
     WEEKLY_POOL,

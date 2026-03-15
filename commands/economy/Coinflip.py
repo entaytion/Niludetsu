@@ -2,7 +2,7 @@ import asyncio, discord, random
 from dataclasses import dataclass
 from discord import app_commands
 from discord.ext import commands
-from Niludetsu import Emojis, Embed, Colors
+from Niludetsu import Emojis, Embed
 from Niludetsu.embeds.Economy import EconomyEmbed
 from Niludetsu.database.supabase_database import database
 from Niludetsu.economy.manager import EconomyManager

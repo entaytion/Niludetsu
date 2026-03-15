@@ -1,6 +1,6 @@
 from Niludetsu.database.supabase_database import database
 from Niludetsu.marriage.marriage_manager import MarriageManager
-from typing import List, Dict, Optional, Any
+from typing import Dict, Optional, Any
 
 class AdoptionManager:
     def __init__(self, db=database, marriage_manager: Optional[MarriageManager] = None):

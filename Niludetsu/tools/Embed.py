@@ -2,7 +2,7 @@ import discord
 from dataclasses import dataclass
 from Niludetsu.tools.Emojis import Emojis
 from Niludetsu.tools.Time import TimeService
-from typing import Iterable, Optional, Sequence
+from typing import Optional, Sequence
 
 @dataclass(frozen=True)
 class Colors:

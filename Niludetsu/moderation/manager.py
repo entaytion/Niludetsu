@@ -9,7 +9,6 @@ from Niludetsu.config import NOTIFICATION_CHANNEL_ID, SERVERS
 from Niludetsu.moderation.config import ActionType
 from Niludetsu.moderation.embed import moderationembed
 from Niludetsu.moderation.exceptions import ModerationError
-from Niludetsu.tools.Embed import Embed
 from Niludetsu.tools.Time import TimeService
 from typing import Optional, Dict, Any, List
 

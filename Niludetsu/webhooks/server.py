@@ -1,201 +1,207 @@
 import discord
 from Niludetsu import Emojis
-from Niludetsu.development.Webhooks import Webhooks
+from Niludetsu.webhooks.base import BaseLogger
 
-class ServerLogger:
-    """
-    Логгер для событий сервера через вебхук (максимум информации).
-    """
-    def __init__(self, bot: discord.Client):
-        self.bot = bot
-        self.webhooks = Webhooks(bot)
+
+class ServerLogger(BaseLogger):
+    """Логгер для событий сервера (join/remove/update) с полной детализацией."""
 
     async def log_guild_join(self, channel: discord.TextChannel, guild: discord.Guild):
-        title = f"{Emojis.SUCCESS} Сервер: бот добавлен"
-        description = f"**ID:** `{guild.id}`\n"
-        description += f"**Название:** `{guild.name}`\n"
-        description += f"**Владелец:** {guild.owner.mention if guild.owner else 'N/A'} (`{guild.owner_id}`)\n"
-        description += f"**Участников:** `{guild.member_count}`\n"
-        description += f"**Уровень проверки:** `{guild.verification_level.name}`\n"
-        description += f"**Создан:** <t:{int(guild.created_at.timestamp())}:R>"
+        description = (
+            f"**Сервер:** `{guild.name}` (`{guild.id}`)\n"
+            f"**Владелец:** {guild.owner.mention if guild.owner else 'Неизвестно'}\n"
+            f"**Участников:** `{guild.member_count}`"
+        )
+        fields = []
         if guild.description:
-            description += f"\n**Описание:** `{guild.description}`"
+            fields.append({"name": "Описание", "value": guild.description, "inline": False})
+        fields.append({"name": "Уровень верификации", "value": f"`{guild.verification_level}`", "inline": True})
+        fields.append({"name": "Уровень буста", "value": f"`{guild.premium_tier}` ({guild.premium_subscription_count} бустов)", "inline": True})
         await self.webhooks.send_log(
-            channel=channel,
-            title=title,
-            description=description,
+            channel=channel, title=f"{Emojis.SUCCESS} Бот: добавлен на сервер",
+            description=description, fields=fields, guild=guild,
             thumbnail_url=guild.icon.url if guild.icon else None,
-            guild=guild
         )
 
     async def log_guild_remove(self, channel: discord.TextChannel, guild: discord.Guild):
-        title = f"{Emojis.ERROR} Сервер: бот удалён"
-        description = f"**ID:** `{guild.id}`\n"
-        description += f"**Название:** `{guild.name}`\n"
-        description += f"**Владелец:** {guild.owner.mention if guild.owner else 'N/A'} (`{guild.owner_id}`)\n"
-        description += f"**Участников:** `{guild.member_count}`"
+        description = f"**Сервер:** `{guild.name}` (`{guild.id}`)\n**Участников:** `{guild.member_count}`"
         await self.webhooks.send_log(
-            channel=channel,
-            title=title,
-            description=description,
+            channel=channel, title=f"{Emojis.ERROR} Бот: удален с сервера",
+            description=description, guild=guild,
             thumbnail_url=guild.icon.url if guild.icon else None,
-            guild=guild
         )
 
     async def log_guild_update(self, channel: discord.TextChannel, before: discord.Guild, after: discord.Guild):
-        title = f"{Emojis.UNKNOWN} Сервер: обновлены настройки"
-        description = f"**ID:** `{after.id}`\n**Название:** `{after.name}`"
-        fields = []
-        def add_field(name, value):
-            fields.append({"name": "> Изменения:", "value": value, "inline": False})
+        """Полная детализация обновлений — максимальное логирование по Sapphire."""
+        changes = []
+
+        # ——— Основное ———
         if before.name != after.name:
-            add_field("name", f"- Название: `{before.name}` ➜ `{after.name}`")
+            changes.append(f"**Название:** `{before.name}` → `{after.name}`")
         if before.description != after.description:
-            add_field("description", f"- Описание: `{before.description or 'Нет'}` ➜ `{after.description or 'Нет'}`")
+            changes.append(f"**Описание:**\nБыло: `{before.description or '—'}`\nСтало: `{after.description or '—'}`")
+        if before.owner_id != after.owner_id:
+            changes.append(f"**Владелец:** <@{before.owner_id}> → <@{after.owner_id}>")
+        if before.preferred_locale != after.preferred_locale:
+            changes.append(f"**Язык:** `{before.preferred_locale}` → `{after.preferred_locale}`")
+
+        # ——— Изображения (с кликабельными ссылками) ———
         if before.icon != after.icon:
-            before_icon = before.icon.url if before.icon else None
-            after_icon = after.icon.url if after.icon else None
-            add_field(
-                "icon",
-                f"- Иконка:\nБыло: {('[Открыть](' + before_icon + ')') if before_icon else '—'}\nСтало: {('[Открыть](' + after_icon + ')') if after_icon else '—'}"
+            before_url = before.icon.url if before.icon else None
+            after_url = after.icon.url if after.icon else None
+            changes.append(
+                f"**Иконка:**\n"
+                f"Было: {('[Открыть](' + before_url + ')') if before_url else '—'}\n"
+                f"Стало: {('[Открыть](' + after_url + ')') if after_url else '—'}"
             )
         if before.banner != after.banner:
-            before_banner = before.banner.url if before.banner else None
-            after_banner = after.banner.url if after.banner else None
-            add_field(
-                "banner",
-                f"- Баннер:\nБыло: {('[Открыть](' + before_banner + ')') if before_banner else '—'}\nСтало: {('[Открыть](' + after_banner + ')') if after_banner else '—'}"
+            before_url = before.banner.url if before.banner else None
+            after_url = after.banner.url if after.banner else None
+            changes.append(
+                f"**Баннер:**\n"
+                f"Было: {('[Открыть](' + before_url + ')') if before_url else '—'}\n"
+                f"Стало: {('[Открыть](' + after_url + ')') if after_url else '—'}"
             )
         if before.splash != after.splash:
-            before_splash = before.splash.url if before.splash else None
-            after_splash = after.splash.url if after.splash else None
-            add_field(
-                "splash",
-                f"- Сплэш:\nБыло: {('[Открыть](' + before_splash + ')') if before_splash else '—'}\nСтало: {('[Открыть](' + after_splash + ')') if after_splash else '—'}"
+            before_url = before.splash.url if before.splash else None
+            after_url = after.splash.url if after.splash else None
+            changes.append(
+                f"**Сплэш приглашения:**\n"
+                f"Было: {('[Открыть](' + before_url + ')') if before_url else '—'}\n"
+                f"Стало: {('[Открыть](' + after_url + ')') if after_url else '—'}"
             )
         if before.discovery_splash != after.discovery_splash:
             before_ds = before.discovery_splash.url if before.discovery_splash else None
             after_ds = after.discovery_splash.url if after.discovery_splash else None
-            add_field(
-                "discovery_splash",
-                f"- Сплэш обнаружения:\nБыло: {('[Открыть](' + before_ds + ')') if before_ds else '—'}\nСтало: {('[Открыть](' + after_ds + ')') if after_ds else '—'}"
+            changes.append(
+                f"**Сплэш обнаружения:**\n"
+                f"Было: {('[Открыть](' + before_ds + ')') if before_ds else '—'}\n"
+                f"Стало: {('[Открыть](' + after_ds + ')') if after_ds else '—'}"
             )
-        if before.owner_id != after.owner_id:
-            add_field("owner", f"- Владелец: {before.owner.mention if before.owner else 'N/A'} (`{before.owner_id}`) ➜ {after.owner.mention if after.owner else 'N/A'} (`{after.owner_id}`)")
+
+        # ——— Каналы ———
         if before.afk_channel != after.afk_channel:
-            add_field("afk_channel", f"- AFK канал: {before.afk_channel.mention if before.afk_channel else 'Нет'} ➜ {after.afk_channel.mention if after.afk_channel else 'Нет'}")
+            bc = before.afk_channel.mention if before.afk_channel else '`Нет`'
+            ac = after.afk_channel.mention if after.afk_channel else '`Нет`'
+            changes.append(f"**AFK канал:** {bc} → {ac}")
         if before.afk_timeout != after.afk_timeout:
-            add_field("afk_timeout", f"- AFK таймаут: `{before.afk_timeout} сек.` ➜ `{after.afk_timeout} сек.`")
-        if before.verification_level != after.verification_level:
-            add_field("verification_level", f"- Уровень проверки: `{before.verification_level.name}` ➜ `{after.verification_level.name}`")
-        if before.default_notifications != after.default_notifications:
-            add_field("default_notifications", f"- Уведомления по умолчанию: `{before.default_notifications.name}` ➜ `{after.default_notifications.name}`")
-        if before.explicit_content_filter != after.explicit_content_filter:
-            add_field("explicit_content_filter", f"- Фильтр контента: `{before.explicit_content_filter.name}` ➜ `{after.explicit_content_filter.name}`")
+            changes.append(f"**AFK таймаут:** `{before.afk_timeout // 60}мин` → `{after.afk_timeout // 60}мин`")
         if before.system_channel != after.system_channel:
-            add_field("system_channel", f"- Системный канал: {before.system_channel.mention if before.system_channel else 'Нет'} ➜ {after.system_channel.mention if after.system_channel else 'Нет'}")
+            bc = before.system_channel.mention if before.system_channel else '`Нет`'
+            ac = after.system_channel.mention if after.system_channel else '`Нет`'
+            changes.append(f"**Системный канал:** {bc} → {ac}")
+        if before.system_channel_flags != after.system_channel_flags:
+            bf = before.system_channel_flags.value
+            af = after.system_channel_flags.value
+            changes.append(f"**Флаги системного канала:** `{bf}` → `{af}`")
         if before.rules_channel != after.rules_channel:
-            add_field("rules_channel", f"- Канал правил: {before.rules_channel.mention if before.rules_channel else 'Нет'} ➜ {after.rules_channel.mention if after.rules_channel else 'Нет'}")
+            bc = before.rules_channel.mention if before.rules_channel else '`Нет`'
+            ac = after.rules_channel.mention if after.rules_channel else '`Нет`'
+            changes.append(f"**Канал правил:** {bc} → {ac}")
         if before.public_updates_channel != after.public_updates_channel:
-            add_field("public_updates_channel", f"- Канал обновлений: {before.public_updates_channel.mention if before.public_updates_channel else 'Нет'} ➜ {after.public_updates_channel.mention if after.public_updates_channel else 'Нет'}")
-        if before.premium_tier != after.premium_tier:
-            add_field("premium_tier", f"- Уровень буста: `{before.premium_tier}` ➜ `{after.premium_tier}`")
-        if before.premium_subscription_count != after.premium_subscription_count:
-            add_field("premium_subscription_count", f"- Количество бустов: `{before.premium_subscription_count}` ➜ `{after.premium_subscription_count}`")
-        if before.preferred_locale != after.preferred_locale:
-            add_field("preferred_locale", f"- Основной язык: `{before.preferred_locale}` ➜ `{after.preferred_locale}`")
+            bc = before.public_updates_channel.mention if before.public_updates_channel else '`Нет`'
+            ac = after.public_updates_channel.mention if after.public_updates_channel else '`Нет`'
+            changes.append(f"**Канал обновлений:** {bc} → {ac}")
+        if getattr(before, 'safety_alerts_channel', None) != getattr(after, 'safety_alerts_channel', None):
+            bc = before.safety_alerts_channel.mention if getattr(before, 'safety_alerts_channel', None) else '`Нет`'
+            ac = after.safety_alerts_channel.mention if getattr(after, 'safety_alerts_channel', None) else '`Нет`'
+            changes.append(f"**Канал безопасности:** {bc} → {ac}")
+
+        # ——— Модерация и фильтры ———
+        if before.verification_level != after.verification_level:
+            changes.append(f"**Верификация:** `{before.verification_level}` → `{after.verification_level}`")
+        if before.default_notifications != after.default_notifications:
+            changes.append(f"**Уведомления по умолчанию:** `{before.default_notifications}` → `{after.default_notifications}`")
+        if before.explicit_content_filter != after.explicit_content_filter:
+            changes.append(f"**Контент-фильтр:** `{before.explicit_content_filter}` → `{after.explicit_content_filter}`")
         if before.mfa_level != after.mfa_level:
-            add_field("mfa_level", f"- Уровень 2FA: `{before.mfa_level.name}` ➜ `{after.mfa_level.name}`")
-        if before.nsfw_level != after.nsfw_level:
-            add_field("nsfw_level", f"- Уровень NSFW: `{before.nsfw_level.name}` ➜ `{after.nsfw_level.name}`")
-        if not fields:
+            changes.append(f"**Требование 2FA:** `{before.mfa_level}` → `{after.mfa_level}`")
+        if getattr(before, 'nsfw_level', None) != getattr(after, 'nsfw_level', None):
+            changes.append(f"**NSFW уровень:** `{getattr(before, 'nsfw_level', '—')}` → `{getattr(after, 'nsfw_level', '—')}`")
+
+        # ——— Буст ———
+        if before.premium_tier != after.premium_tier:
+            changes.append(f"**Уровень буста:** `{before.premium_tier}` → `{after.premium_tier}`")
+        if before.premium_subscription_count != after.premium_subscription_count:
+            changes.append(f"**Количество бустов:** `{before.premium_subscription_count}` → `{after.premium_subscription_count}`")
+        if getattr(before, 'premium_progress_bar_enabled', None) != getattr(after, 'premium_progress_bar_enabled', None):
+            changes.append(f"**Прогресс-бар буста:** `{'Вкл' if after.premium_progress_bar_enabled else 'Выкл'}`")
+
+        # ——— Vanity / Widget ———
+        if getattr(before, 'vanity_url_code', None) != getattr(after, 'vanity_url_code', None):
+            changes.append(f"**Vanity URL:** `{getattr(before, 'vanity_url_code', '—')}` → `{getattr(after, 'vanity_url_code', '—')}`")
+        if getattr(before, 'widget_enabled', None) != getattr(after, 'widget_enabled', None):
+            changes.append(f"**Виджет:** `{'Вкл' if getattr(after, 'widget_enabled', False) else 'Выкл'}`")
+        if getattr(before, 'widget_channel', None) != getattr(after, 'widget_channel', None):
+            bc = before.widget_channel.mention if getattr(before, 'widget_channel', None) else '`Нет`'
+            ac = after.widget_channel.mention if getattr(after, 'widget_channel', None) else '`Нет`'
+            changes.append(f"**Канал виджета:** {bc} → {ac}")
+
+        # ——— Фичи ———
+        if set(before.features) != set(after.features):
+            added = set(after.features) - set(before.features)
+            removed = set(before.features) - set(after.features)
+            if added:
+                changes.append(f"**Фичи (добавлены):** {', '.join(f'`{f}`' for f in added)}")
+            if removed:
+                changes.append(f"**Фичи (убраны):** {', '.join(f'`{f}`' for f in removed)}")
+
+        # ——— Остальное ———
+        if getattr(before, 'max_presences', None) != getattr(after, 'max_presences', None):
+            changes.append(f"**Макс. присутствий:** `{getattr(before, 'max_presences', '—')}` → `{getattr(after, 'max_presences', '—')}`")
+        if getattr(before, 'max_members', None) != getattr(after, 'max_members', None):
+            changes.append(f"**Макс. участников:** `{getattr(before, 'max_members', '—')}` → `{getattr(after, 'max_members', '—')}`")
+        if getattr(before, 'max_video_channel_users', None) != getattr(after, 'max_video_channel_users', None):
+            changes.append(f"**Макс. видео-пользователей:** `{getattr(before, 'max_video_channel_users', '—')}` → `{getattr(after, 'max_video_channel_users', '—')}`")
+
+        if not changes:
             return
+
+        description = f"**Сервер:** `{after.name}`\n**ID:** `{after.id}`"
+
+        # Получаем модератора
+        updater = None
+        try:
+            async for entry in after.audit_logs(limit=3, action=discord.AuditLogAction.guild_update):
+                updater = entry.user
+                break
+        except Exception:
+            pass
+        if updater:
+            description += f"\n**Изменил:** {updater.mention} (`{updater.id}`)"
+
+        fields = [{"name": "Изменение", "value": c, "inline": False} for c in changes]
         await self.webhooks.send_log(
-            channel=channel,
-            title=title,
-            description=description,
-            fields=fields,
+            channel=channel, title=f"{Emojis.UNKNOWN} Сервер: обновлён",
+            description=description, fields=fields, guild=after,
             thumbnail_url=after.icon.url if after.icon else None,
-            guild=after
         )
 
     async def log_guild_integrations_update(self, channel: discord.TextChannel, guild: discord.Guild):
-        title = f"{Emojis.UNKNOWN} Сервер: обновлены интеграции"
-        description = f"**ID:** `{guild.id}`\n**Название:** `{guild.name}`"
+        """Обновление интеграций сервера (общее событие)."""
+        description = f"**Сервер:** `{guild.name}` (`{guild.id}`)\n**Интеграции** были обновлены."
         fields = []
-        # Пытаемся получить список интеграций (нужны права manage_guild)
-        integrations = None
-        webhooks = None
         try:
             integrations = await guild.integrations()
-        except discord.Forbidden:
-            fields.append({
-                "name": "> Интеграции",
-                "value": "Недостаточно прав для просмотра интеграций (нужны Manage Guild).",
-                "inline": False
-            })
-        except discord.HTTPException:
-            fields.append({
-                "name": "> Интеграции",
-                "value": "Не удалось получить список интеграций (HTTP ошибка).",
-                "inline": False
-            })
-
-        # Вебхуки — могут помочь понять изменения
-        try:
-            webhooks = await guild.webhooks()
-        except discord.Forbidden:
-            pass
-        except discord.HTTPException:
-            pass
-
-        if integrations is not None:
-            total = len(integrations)
-            fields.append({"name": "Всего интеграций", "value": f"`{total}`", "inline": True})
-            # Краткое содержание по первым N интеграциям
-            parts = []
             for integ in integrations[:10]:
-                # Integration fields are not always present, guard with getattr
-                name = getattr(integ, 'name', 'Без имени')
-                itype = getattr(integ, 'type', 'unknown')
-                enabled = getattr(integ, 'enabled', None)
-                syncing = getattr(integ, 'syncing', None)
-                account = getattr(integ, 'account', None)
-                account_name = getattr(account, 'name', None) if account else None
-                role = getattr(integ, 'role', None)
-                expire_behavior = getattr(integ, 'expire_behavior', None)
-                expire_grace = getattr(integ, 'expire_grace_period', None)
-                flags = []
-                if enabled is not None:
-                    flags.append(f"Статус: {'Включено' if enabled else 'Выключено'}")
-                if syncing is not None:
-                    flags.append(f"Синхронизация: {'Включено' if syncing else 'Выключено'}")
-                if account_name:
-                    flags.append(f"Аккаунт: {account_name}")
-                if role:
-                    flags.append(f"Роль: {role.mention}")
-                if expire_behavior is not None:
-                    flags.append(f"Поведение при истечении: {expire_behavior}")
-                if expire_grace is not None:
-                    flags.append(f"Период отсрочки: {expire_grace}м")
-                flag_str = ", ".join(flags) if flags else ""
-                parts.append(f"• {name} (`{itype}`){' — ' + flag_str if flag_str else ''}")
-            if parts:
+                status = f"Тип: `{integ.type}`"
+                if hasattr(integ, 'enabled'):
+                    status += f"\nВключено: `{'Да' if integ.enabled else 'Нет'}`"
+                if hasattr(integ, 'syncing'):
+                    status += f"\nСинхронизация: `{'Да' if integ.syncing else 'Нет'}`"
+                if hasattr(integ, 'role') and integ.role:
+                    status += f"\nРоль: {integ.role.mention}"
+                if hasattr(integ, 'account') and integ.account:
+                    status += f"\nАккаунт: `{integ.account.name}`"
                 fields.append({
-                    "name": "Интеграции (топ 10)",
-                    "value": "\n".join(parts),
-                    "inline": False
+                    "name": f"{integ.name}",
+                    "value": status,
+                    "inline": True,
                 })
-
-        if webhooks is not None:
-            fields.append({"name": "Вебхуков", "value": f"`{len(webhooks)}`", "inline": True})
-
+        except Exception:
+            pass
         await self.webhooks.send_log(
-            channel=channel,
-            title=title,
-            description=description,
-            fields=fields if fields else None,
+            channel=channel, title=f"{Emojis.UNKNOWN} Сервер: интеграции обновлены",
+            description=description, fields=fields, guild=guild,
             thumbnail_url=guild.icon.url if guild.icon else None,
-            guild=guild
         )
-

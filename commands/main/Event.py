@@ -1,5 +1,4 @@
 import aiohttp, asyncio, discord, re
-from datetime import timedelta
 from discord.ext import commands
 from Niludetsu import TimeService, Embed, SupabaseDatabase, Emojis
 

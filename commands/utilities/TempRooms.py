@@ -3,7 +3,6 @@ from discord.ext import commands
 from Niludetsu import config
 from Niludetsu.temprooms.service import TempRoomService
 from Niludetsu.temprooms.views import TempRoomActions
-from typing import Optional
 
 class TempRooms(commands.Cog):
     """Управление временными голосовыми каналами."""

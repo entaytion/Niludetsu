@@ -3,7 +3,6 @@
 а также для исправления текста, набранного в неправильной раскладке клавиатуры.
 """
 
-from discord.ext import commands
 from Niludetsu import Embed
 from typing import Dict, Tuple
 

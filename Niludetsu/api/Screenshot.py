@@ -5,7 +5,7 @@
 
 import aiohttp, discord, os, re
 from io import BytesIO
-from Niludetsu import Embed, Colors
+from Niludetsu import Embed
 from typing import Optional
 
 class ScreenshotAPI:

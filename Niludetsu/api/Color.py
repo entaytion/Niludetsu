@@ -5,7 +5,7 @@
 import aiohttp, discord, re
 from discord.ext import commands
 from Niludetsu import Embed
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, Union
 
 class ColorAPI:
     """Класс для взаимодействия с TheColorAPI"""

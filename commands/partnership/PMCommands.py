@@ -1,7 +1,7 @@
 import discord
 from .RewardSystem import RewardSystem, AdRedeemView
 from discord.ext import commands
-from Niludetsu import Embed, Colors, config
+from Niludetsu import Embed, Colors
 from Niludetsu.database.supabase_database import database
 from typing import Optional
 

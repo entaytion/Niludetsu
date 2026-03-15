@@ -1,5 +1,5 @@
 import discord
-from discord.ui import View, Select
+from discord.ui import View
 from typing import Optional, Dict, Any
 from Niludetsu import Emojis, Embed
 from Niludetsu.config import GENDER_ROLES, COLOR_ROLES, OPTIONAL_ROLES, SERVERS

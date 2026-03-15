@@ -1,8 +1,7 @@
 import discord, re
-from discord import app_commands
 from discord.ext import commands
 from discord.ui import Modal, TextInput, View, Button, Select
-from Niludetsu import Embed, Colors, Emojis
+from Niludetsu import Embed, Emojis
 from Niludetsu.config import SERVERS, NOTIFICATION_CHANNEL_ID, SERVER_TEAM_ID, JUNIOR_MODERATOR_ID, MODER_TEAM_ID, PARTNER_MANAGER_ID, PM_TEAM_ID, EVENT_MANAGER_ID, EVENT_TEAM_ID
 
 # Маппинг должностей на роли

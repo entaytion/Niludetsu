@@ -2,7 +2,7 @@ import discord, re
 from enum import Enum
 from Niludetsu.tools.Patterns import PatternChecker
 from Niludetsu.tools.Time import TimeService
-from typing import List, Dict
+from typing import List
 
 _time = TimeService()
 

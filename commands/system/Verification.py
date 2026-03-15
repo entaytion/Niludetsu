@@ -171,7 +171,6 @@ class Verification(commands.Cog):
         if member.guild.id != MAIN_SERVER_ID:
             return
         # InviteSystem/AutoRole handles initial role assignment (UNVERIFIED)
-        pass
 
     async def approve_user(self, member: discord.Member):
         guild = member.guild

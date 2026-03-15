@@ -1,3 +1,4 @@
+import asyncio
 import discord
 from Niludetsu.tools.Embed import Embed, Colors
 from Niludetsu.tools.Time import TimeService
@@ -11,6 +12,7 @@ class Webhooks:
         self.bot = bot
         self._webhook_cache: dict[int, discord.Webhook] = {}
         self._avatar_bytes: bytes | None = None
+        self._locks: dict[int, asyncio.Lock] = {}
         self.webhook_avatar_url = "https://entaytion.vercel.app/ae/aeCatalog.png"
 
     async def _get_avatar_bytes(self) -> Optional[bytes]:
@@ -34,20 +36,30 @@ class Webhooks:
         if cached:
             return cached
 
-        webhooks = await channel.webhooks()
-        for webhook in webhooks:
-            if webhook.name == name:
-                self._webhook_cache[channel.id] = webhook
-                return webhook
+        # Lock per channel щоб не створювати дублі при паралельних евентах
+        if channel.id not in self._locks:
+            self._locks[channel.id] = asyncio.Lock()
 
-        avatar_bytes = await self._get_avatar_bytes()
-        try:
-            webhook = await channel.create_webhook(name=name, avatar=avatar_bytes)
-        except (discord.Forbidden, discord.HTTPException):
-            return None
+        async with self._locks[channel.id]:
+            # Перевіряємо кеш ще раз під локом
+            cached = self._webhook_cache.get(channel.id)
+            if cached:
+                return cached
 
-        self._webhook_cache[channel.id] = webhook
-        return webhook
+            webhooks = await channel.webhooks()
+            for webhook in webhooks:
+                if webhook.name == name:
+                    self._webhook_cache[channel.id] = webhook
+                    return webhook
+
+            avatar_bytes = await self._get_avatar_bytes()
+            try:
+                webhook = await channel.create_webhook(name=name, avatar=avatar_bytes)
+            except (discord.Forbidden, discord.HTTPException):
+                return None
+
+            self._webhook_cache[channel.id] = webhook
+            return webhook
 
     async def _send_webhook(
         self,

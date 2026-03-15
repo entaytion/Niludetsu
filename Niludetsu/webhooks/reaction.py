@@ -1,19 +1,13 @@
 import discord
 from Niludetsu import Emojis
-from Niludetsu.development.Webhooks import Webhooks
+from Niludetsu.webhooks.base import BaseLogger
 
-class ReactionLogger:
-    """
-    Логгер для событий реакций через вебхук (кто поставил/снял, где, на что, какой эмодзи).
-    """
-    def __init__(self, bot: discord.Client):
-        self.bot = bot
-        self.webhooks = Webhooks(bot)
+
+class ReactionLogger(BaseLogger):
+    """Логгер для событий реакций (добавление, удаление, очистка)."""
 
     async def log_reaction_add(self, log_channel: discord.TextChannel, payload: discord.RawReactionActionEvent, message: discord.Message, user: discord.User):
-        # Определяем канал, где была реакция
-        channel_info = f"<#{message.channel.id}> ({message.channel.id})" if hasattr(message.channel, 'mention') else f"ID: {message.channel.id}"
-        title = f"{Emojis.SUCCESS} Реакция: добавлена"
+        channel_info = f"<#{message.channel.id}> ({message.channel.id})"
         description = (
             f"**Пользователь:** {user.mention} ({user.id})\n"
             f"**Эмодзи:** {payload.emoji}\n"
@@ -22,16 +16,14 @@ class ReactionLogger:
         )
         await self.webhooks.send_log(
             channel=log_channel,
-            title=title,
-            description=description,
-            fields=[],
+            title=f"{Emojis.SUCCESS} Реакция: добавлена",
+            description=description, fields=[],
             thumbnail_url=getattr(user, 'avatar', None) and user.avatar.url,
-            guild=log_channel.guild
+            guild=log_channel.guild,
         )
 
     async def log_reaction_remove(self, log_channel: discord.TextChannel, payload: discord.RawReactionActionEvent, message: discord.Message, user: discord.User):
-        channel_info = f"<#{message.channel.id}> ({message.channel.id})" if hasattr(message.channel, 'mention') else f"ID: {message.channel.id}"
-        title = f"{Emojis.ERROR} Реакция: удалена"
+        channel_info = f"<#{message.channel.id}> ({message.channel.id})"
         description = (
             f"**Пользователь:** {user.mention} ({user.id})\n"
             f"**Эмодзи:** {payload.emoji}\n"
@@ -40,10 +32,35 @@ class ReactionLogger:
         )
         await self.webhooks.send_log(
             channel=log_channel,
-            title=title,
-            description=description,
-            fields=[],
+            title=f"{Emojis.ERROR} Реакция: удалена",
+            description=description, fields=[],
             thumbnail_url=getattr(user, 'avatar', None) and user.avatar.url,
-            guild=log_channel.guild
+            guild=log_channel.guild,
         )
 
+    async def log_reaction_clear(self, log_channel: discord.TextChannel, payload):
+        """Sapphire: очистка всех реакций с сообщения."""
+        description = (
+            f"**Канал:** <#{payload.channel_id}>\n"
+            f"**ID сообщения:** `{payload.message_id}`"
+        )
+        await self.webhooks.send_log(
+            channel=log_channel,
+            title=f"{Emojis.ERROR} Реакции: все очищены",
+            description=description,
+            guild=log_channel.guild,
+        )
+
+    async def log_reaction_clear_emoji(self, log_channel: discord.TextChannel, payload):
+        """Sapphire: очистка реакций конкретного эмодзи."""
+        description = (
+            f"**Канал:** <#{payload.channel_id}>\n"
+            f"**ID сообщения:** `{payload.message_id}`\n"
+            f"**Эмодзи:** {payload.emoji}"
+        )
+        await self.webhooks.send_log(
+            channel=log_channel,
+            title=f"{Emojis.ERROR} Реакции: эмодзи очищен",
+            description=description,
+            guild=log_channel.guild,
+        )

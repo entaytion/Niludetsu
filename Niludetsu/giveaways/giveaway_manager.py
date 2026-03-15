@@ -7,7 +7,7 @@ from Niludetsu.giveaways.repository import GiveawayRepository
 from Niludetsu.tools.Embed import Embed
 from Niludetsu.tools.Emojis import Emojis
 from Niludetsu.tools.Time import TimeService
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 _time = TimeService()
 

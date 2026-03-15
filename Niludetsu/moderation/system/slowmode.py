@@ -6,7 +6,7 @@ from Niludetsu.config import NOTIFICATION_CHANNEL_ID
 from Niludetsu.moderation.exceptions import ModerationError
 from Niludetsu.tools.Embed import Embed
 from Niludetsu.tools.Time import TimeService
-from typing import Optional, List
+from typing import List
 
 _time = TimeService()
 

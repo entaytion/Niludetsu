@@ -353,7 +353,6 @@ class Ideas(commands.Cog):
     @commands.hybrid_command(name="idea", aliases=["идея", "suggest"])
     @app_commands.describe(text="Текст вашей идеи", photo="Изображение для иллюстрации идеи (необязательно)")
     async def idea_command(self, ctx, *, text: str = None, photo: Optional[discord.Attachment] = None):
-        pass
         """ if not text and not ctx.message.attachments:
             await ctx.send("Пожалуйста, укажите текст идеи!")
             return

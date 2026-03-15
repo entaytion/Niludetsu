@@ -2,7 +2,6 @@
 Декоратор для модераторских команд с проверкой прав и кулдауном.
 """
 import functools
-from discord.ext import commands
 from Niludetsu.config import OWNER_ID, ROLE_PRIORITY
 from Niludetsu.tools.Embed import Embed
 from Niludetsu.tools.Time import TimeService

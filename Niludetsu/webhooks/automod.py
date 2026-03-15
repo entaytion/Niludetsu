@@ -1,17 +1,12 @@
 import discord
 from Niludetsu import Emojis
-from Niludetsu.development.Webhooks import Webhooks
+from Niludetsu.webhooks.base import BaseLogger
 
-class AutoModLogger:
-    """
-    Логгер для событий AutoMod (автоматическая модерация) через вебхук.
-    """
-    def __init__(self, bot: discord.Client):
-        self.bot = bot
-        self.webhooks = Webhooks(bot)
+
+class AutoModLogger(BaseLogger):
+    """Логгер для AutoMod с детализацией по Sapphire."""
 
     async def log_automod_rule_create(self, channel: discord.TextChannel, rule: discord.AutoModRule):
-        title = f"{Emojis.SUCCESS} AutoMod: правило создано"
         description = f"**ID:** `{rule.id}`\n**Имя:** `{rule.name}`\n**Тип:** `{rule.trigger_type}`"
         fields = []
         if rule.creator:
@@ -21,19 +16,22 @@ class AutoModLogger:
         if rule.actions:
             actions = ", ".join([str(a.type) for a in rule.actions])
             fields.append({"name": "Действия", "value": actions, "inline": False})
+        if getattr(rule, 'exempt_roles', None):
+            fields.append({"name": "Исключённые роли", "value": ", ".join(r.mention for r in rule.exempt_roles), "inline": False})
+        if getattr(rule, 'exempt_channels', None):
+            fields.append({"name": "Исключённые каналы", "value": ", ".join(f"<#{c.id}>" for c in rule.exempt_channels), "inline": False})
         await self.webhooks.send_log(
-            channel=channel,
-            title=title,
-            description=description,
-            fields=fields,
-            thumbnail_url=None,
-            guild=channel.guild
+            channel=channel, title=f"{Emojis.SUCCESS} AutoMod: правило создано",
+            description=description, fields=fields, guild=channel.guild,
         )
 
     async def log_automod_rule_update(self, channel: discord.TextChannel, rule: discord.AutoModRule):
-        title = f"{Emojis.UNKNOWN} AutoMod: правило изменено"
+        """Sapphire разделяет на toggle/name/actions/content/roles/channels/whitelist — мы логируем текущее состояние."""
         description = f"**ID:** `{rule.id}`\n**Имя:** `{rule.name}`\n**Тип:** `{rule.trigger_type}`"
         fields = []
+        # Статус вкл/выкл
+        if hasattr(rule, 'enabled'):
+            fields.append({"name": "Статус", "value": f"{'Включено' if rule.enabled else 'Выключено'}", "inline": True})
         if rule.creator:
             fields.append({"name": "Изменил", "value": f"{rule.creator.mention} ({rule.creator.id})", "inline": True})
         if rule.trigger_metadata:
@@ -41,29 +39,23 @@ class AutoModLogger:
         if rule.actions:
             actions = ", ".join([str(a.type) for a in rule.actions])
             fields.append({"name": "Действия", "value": actions, "inline": False})
+        if getattr(rule, 'exempt_roles', None):
+            fields.append({"name": "Исключённые роли", "value": ", ".join(r.mention for r in rule.exempt_roles), "inline": False})
+        if getattr(rule, 'exempt_channels', None):
+            fields.append({"name": "Исключённые каналы", "value": ", ".join(f"<#{c.id}>" for c in rule.exempt_channels), "inline": False})
         await self.webhooks.send_log(
-            channel=channel,
-            title=title,
-            description=description,
-            fields=fields,
-            thumbnail_url=None,
-            guild=channel.guild
+            channel=channel, title=f"{Emojis.UNKNOWN} AutoMod: правило изменено",
+            description=description, fields=fields, guild=channel.guild,
         )
 
     async def log_automod_rule_delete(self, channel: discord.TextChannel, rule: discord.AutoModRule):
-        title = f"{Emojis.ERROR} AutoMod: правило удалено"
         description = f"**ID:** `{rule.id}`\n**Имя:** `{rule.name}`\n**Тип:** `{rule.trigger_type}`"
         await self.webhooks.send_log(
-            channel=channel,
-            title=title,
-            description=description,
-            fields=[],
-            thumbnail_url=None,
-            guild=channel.guild
+            channel=channel, title=f"{Emojis.ERROR} AutoMod: правило удалено",
+            description=description, fields=[], guild=channel.guild,
         )
 
     async def log_automod_action(self, channel: discord.TextChannel, execution: discord.AutoModAction):
-        title = f"{Emojis.ERROR} AutoMod: сработало правило"
         description = f"**ID правила:** `{execution.rule_id}`\n**Тип действия:** `{execution.action.type}`"
         fields = []
         if hasattr(execution, 'user_id'):
@@ -75,11 +67,6 @@ class AutoModLogger:
         if hasattr(execution, 'matched_keyword') and execution.matched_keyword:
             fields.append({"name": "Совпадение", "value": f"{execution.matched_keyword}", "inline": True})
         await self.webhooks.send_log(
-            channel=channel,
-            title=title,
-            description=description,
-            fields=fields,
-            thumbnail_url=None,
-            guild=channel.guild
-        ) 
-
+            channel=channel, title=f"{Emojis.ERROR} AutoMod: сработало правило",
+            description=description, fields=fields, guild=channel.guild,
+        )

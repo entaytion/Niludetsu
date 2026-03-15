@@ -1,4 +1,3 @@
-import discord
 from discord.ext import commands
 from Niludetsu import Embed, config, Colors
 from Niludetsu.api.ASCII import ascii_api

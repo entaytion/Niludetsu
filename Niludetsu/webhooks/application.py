@@ -1,45 +1,32 @@
 import discord
 from Niludetsu import Emojis
-from Niludetsu.development.Webhooks import Webhooks
+from Niludetsu.webhooks.base import BaseLogger
 
-class ApplicationLogger:
-    """
-    Логгер для событий приложений через вебхук (максимум информации).
-    """
-    def __init__(self, bot: discord.Client):
-        self.bot = bot
-        self.webhooks = Webhooks(bot)
+
+class ApplicationLogger(BaseLogger):
+    """Логгер для событий приложений (интеграции)."""
 
     async def log_app_add(self, channel: discord.TextChannel, app: discord.Integration):
-        title = f"{Emojis.SUCCESS} Приложение: добавлено"
         description = f"**ID:** `{app.id}`\n**Название:** `{app.name}`\n**Тип:** `{app.type}`"
         if hasattr(app, "user") and app.user:
             description += f"\n**Добавил:** {app.user.mention} ({app.user.id})"
         await self.webhooks.send_log(
-            channel=channel,
-            title=title,
-            description=description,
-            fields=[],
-            thumbnail_url=getattr(app, 'icon_url', None),
-            guild=channel.guild
+            channel=channel, title=f"{Emojis.SUCCESS} Приложение: добавлено",
+            description=description, fields=[],
+            thumbnail_url=getattr(app, 'icon_url', None), guild=channel.guild,
         )
 
     async def log_app_remove(self, channel: discord.TextChannel, app: discord.Integration, remover: discord.User = None):
-        title = f"{Emojis.ERROR} Приложение: удалено"
         description = f"**ID:** `{app.id}`\n**Название:** `{app.name}`\n**Тип:** `{app.type}`"
         if remover:
             description += f"\n**Удалил:** {remover.mention} ({remover.id})"
         await self.webhooks.send_log(
-            channel=channel,
-            title=title,
-            description=description,
-            fields=[],
-            thumbnail_url=getattr(app, 'icon_url', None),
-            guild=channel.guild
+            channel=channel, title=f"{Emojis.ERROR} Приложение: удалено",
+            description=description, fields=[],
+            thumbnail_url=getattr(app, 'icon_url', None), guild=channel.guild,
         )
 
     async def log_app_update(self, channel: discord.TextChannel, before: discord.Integration, after: discord.Integration, updater: discord.User = None):
-        title = f"{Emojis.UNKNOWN} Приложение: изменено"
         description = f"**ID:** `{after.id}`\n**Название:** `{after.name}`\n**Тип:** `{after.type}`"
         if updater:
             description += f"\n**Обновил:** {updater.mention} ({updater.id})"
@@ -53,16 +40,12 @@ class ApplicationLogger:
         if hasattr(before, 'syncing') and hasattr(after, 'syncing') and before.syncing != after.syncing:
             fields.append({"name": "Синхронизация", "value": f"{'Да' if after.syncing else 'Нет'}", "inline": True})
         await self.webhooks.send_log(
-            channel=channel,
-            title=title,
-            description=description,
-            fields=fields,
-            thumbnail_url=getattr(after, 'icon_url', None),
-            guild=channel.guild
+            channel=channel, title=f"{Emojis.UNKNOWN} Приложение: изменено",
+            description=description, fields=fields,
+            thumbnail_url=getattr(after, 'icon_url', None), guild=channel.guild,
         )
 
     async def log_app_permission_update(self, channel: discord.TextChannel, app_command, updater: discord.User = None):
-        title = f"{Emojis.UNKNOWN} Приложение: обновление разрешений"
         description = f"**ID:** `{app_command.id}`\n**Команда:** `{app_command.name}`\n**Тип:** `{app_command.type}`"
         if updater:
             description += f"\n**Обновил:** {updater.mention} ({updater.id})"
@@ -74,11 +57,8 @@ class ApplicationLogger:
                 permission_type = "разрешено" if permission.permission else "запрещено"
                 fields.append({"name": f"{target_name}", "value": f"{permission_type}", "inline": True})
         await self.webhooks.send_log(
-            channel=channel,
-            title=title,
-            description=description,
-            fields=fields,
+            channel=channel, title=f"{Emojis.UNKNOWN} Приложение: обновление разрешений",
+            description=description, fields=fields,
             thumbnail_url=getattr(app_command, 'application', None) and getattr(app_command.application, 'icon_url', None),
-            guild=channel.guild
-        ) 
-
+            guild=channel.guild,
+        )

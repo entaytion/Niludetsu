@@ -1,6 +1,6 @@
 from Niludetsu import Time
 from Niludetsu.analytics.repository import AnalyticsRepository
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 _time = Time()
 

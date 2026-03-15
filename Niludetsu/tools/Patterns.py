@@ -1,7 +1,6 @@
 
 import re, unicodedata
-from functools import lru_cache
-from typing import Dict, Iterable, List, Optional, Sequence, Set
+from typing import Dict, Iterable, List, Sequence, Set
 
 ZERO_WIDTH_PATTERN = re.compile(
     r"[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]"

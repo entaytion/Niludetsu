@@ -1,7 +1,7 @@
 import asyncio, discord, re
 from discord.ext import commands, tasks
 from Niludetsu import config
-from Niludetsu import Emojis, Embed, Time, Colors
+from Niludetsu import Emojis, Embed, Time
 from Niludetsu.database.supabase_database import SupabaseDatabase
 from Niludetsu.economy.manager import EconomyManager
 from typing import Optional, Dict, Tuple, Any
@@ -12,6 +12,17 @@ _time = Time()
 
 class MonitoringBotsManager:
     """Управление ботами мониторинга и их настройками"""
+
+    # Slash-команды мониторингов (контекстные ментіони)
+    BUMP_COMMANDS = {
+        302050872383242240: "</bump:947088344167366698>",       # DISBOARD
+        1059103014025171014: "</bump:1059103014025171015>",     # DSGroup
+        315926021457051650: "</bump:956435492398841858>",       # Server Monitoring
+        464272403766444044: "</up:891377101494681660>",         # SD.C Monitoring
+        575776004233232386: "</like:788801838828879933>",       # DSMonitoring - я ебу пока что нету этого бота
+        1327714529223901186: "</bump:1327714529223901187>",     # BumPing - я ебу пока что нету этого бота
+        789751844821401630: "</partner:789751844821401631>",    # AutoPartnership - я ебу пока что нету этого бота
+    }
 
     def __init__(self) -> None:
         self.bots: Dict[int, Dict[str, Any]] = {
@@ -330,7 +341,10 @@ class BumpProcessor:
             emoji = bot_config.get("emoji", "")
             bot_name = bot_config.get("name", "")
 
-            success = await self.economy.add_money(user_id, str(message.guild.id), reward)
+            success = await self.economy.add_money(
+                user_id, str(message.guild.id), reward,
+                event="bump", metadata={"bot": bot_name},
+            )
             if not success:
                 return
 
@@ -509,7 +523,10 @@ class BumpReminder(commands.Cog):
         emoji = bot_config.get("emoji", "")
         bot_name = bot_config.get("name", "")
 
-        success = await self.processor.economy.add_money(user_id, str(message.guild.id), reward)
+        success = await self.processor.economy.add_money(
+            user_id, str(message.guild.id), reward,
+            event="bump", metadata={"bot": bot_name},
+        )
         if not success:
             return
 
@@ -559,9 +576,11 @@ class BumpReminder(commands.Cog):
                 continue
 
             records = await self.processor.get_next_bump(ctx.guild.id, bot_id)
+            # Slash-команда бота
+            slash_cmd = MonitoringBotsManager.BUMP_COMMANDS.get(bot_id, "—")
 
             if not records:
-                status = "**Доступен для бампа**"
+                status = f"**Доступен для бампа**\nКоманда: {slash_cmd}"
             else:
                 record = records[0]
                 next_bump = record.get("next_bump")
@@ -569,15 +588,16 @@ class BumpReminder(commands.Cog):
                 is_ready = _time.is_time_passed(next_bump)
 
                 if is_ready and not notified:
-                    status = "**Доступен для бампа**"
+                    status = f"**Доступен для бампа**\nКоманда: {slash_cmd}"
                 elif is_ready and notified:
                     parsed_next = _time.parse(next_bump)
                     next_available = _time.add_hours(parsed_next, cfg["delay"])
-                    remaining = _time.format_remaining_time(next_available)
-                    status = f"Доступен через **`{remaining[1]}`**"
+                    ts = int(next_available.timestamp())
+                    status = f"Доступен <t:{ts}:R> (<t:{ts}:f>)\nКоманда: {slash_cmd}"
                 else:
-                    remaining = _time.format_remaining_time(next_bump)
-                    status = f"Доступен через **`{remaining[1]}`**"
+                    parsed = _time.parse(next_bump)
+                    ts = int(parsed.timestamp())
+                    status = f"Доступен <t:{ts}:R> (<t:{ts}:f>)\nКоманда: {slash_cmd}"
 
             embed.add_field(
                 name=f"{cfg['emoji']} {cfg['name']}",

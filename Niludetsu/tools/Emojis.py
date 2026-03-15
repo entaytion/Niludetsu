@@ -116,3 +116,5 @@ class Emojis:
     NAME = "<:aeIconName:1367558167747367113>"
     AGE = "<:aeIconAge:1367558434853097513>"
     EXP = "<:aeIconExperience:1367560596719014009>"
+    MINUS = "<:aeMinus:1480132332013752372>"
+    PLUS = "<:aePlus:1480132378453082188>"

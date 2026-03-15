@@ -3,7 +3,7 @@ from discord.ext import commands
 from Niludetsu import config, Embed, Colors, Emojis
 from Niludetsu.config import SERVERS
 from Niludetsu.database.supabase_database import database
-from typing import List, Optional
+from typing import List
 
 MAIN_SERVER_ID = SERVERS["MAIN_ID"]
 

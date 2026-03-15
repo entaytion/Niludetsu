@@ -5,7 +5,7 @@
 import aiohttp, discord, io
 from discord.ext import commands
 from Niludetsu import Embed, Emojis
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any
 from urllib.parse import urlencode
 
 class QRCodeAPI:

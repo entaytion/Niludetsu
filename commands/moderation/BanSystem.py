@@ -2,7 +2,6 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from Niludetsu.moderation.checks import moderationcommand
-from Niludetsu.moderation.exceptions import ModerationError
 from Niludetsu import send
 from Niludetsu.tools.SendHybrid import send_moderation, ensure_embed
 from Niludetsu.moderation.system.ban import BanSystem

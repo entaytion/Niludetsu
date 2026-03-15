@@ -3,7 +3,6 @@ from discord import app_commands
 from discord.ext import commands
 from Niludetsu.music.manager import MusicManager
 from Niludetsu.tools.Embed import Embed
-from typing import Optional
 
 class MusicSystem(commands.Cog):
     """Музыкальная система"""

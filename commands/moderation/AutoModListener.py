@@ -2,7 +2,7 @@ import discord
 from datetime import datetime
 from discord.ext import commands
 from Niludetsu.config import SERVERS
-from Niludetsu.moderation.automod import AutoModRuleType, LinksRule, InvitesRule, CapsLockRule, SpamRule, BadWordsRule, RepeatedTextRule, CustomWordsRule, AutoModManager
+from Niludetsu.moderation.automod import AutoModRuleType, LinksRule, InvitesRule, CapsLockRule, BadWordsRule, AutoModManager
 from Niludetsu.moderation.config import ActionType
 from Niludetsu.moderation.manager import ModerationManager
 from typing import Optional, Dict

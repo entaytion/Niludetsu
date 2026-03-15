@@ -1,7 +1,7 @@
 import os
 import aiohttp
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 class VerificationService:
     """Service to handle AI verification requests using Mistral."""

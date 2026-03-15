@@ -1,6 +1,6 @@
 import pendulum, re
 from datetime import timedelta
-from typing import Optional, Union, Dict, Tuple, Any
+from typing import Optional, Union, Dict, Tuple
 
 KYIV_TIMEZONE = "Europe/Kiev"
 DEFAULT_FORMAT = "DD-MM-YYYY HH:mm:ss"

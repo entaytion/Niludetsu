@@ -5,7 +5,6 @@ from Niludetsu.giveaways import GiveawayManager
 from Niludetsu.giveaways.ui import GiveawayConfigurator, GiveawayParticipationView
 from Niludetsu.tools.Embed import Embed
 from Niludetsu.tools.Time import TimeService
-from typing import Optional
 
 _time = TimeService()
 

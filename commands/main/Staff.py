@@ -1,4 +1,3 @@
-import discord
 from discord.ext import commands
 from Niludetsu.config import PARTNER_MANAGER_ID, EVENT_MANAGER_ID, JUNIOR_MODERATOR_ID, MODERATOR_ID, SENIOR_MODERATOR_ID, ADMIN_MODERATOR_ID, ADMINISTRATOR_ID, SERVER_TEAM_ID
 from Niludetsu import Embed

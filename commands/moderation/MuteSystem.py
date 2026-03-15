@@ -7,7 +7,6 @@ from Niludetsu.tools.SendHybrid import ensure_embed, send_moderation
 from Niludetsu.moderation.system.mute import MuteSystem as NiludetsuMuteSystem
 from Niludetsu.tools.Embed import Embed
 from Niludetsu.tools.Time import TimeService
-from typing import Optional
 
 _time = TimeService()
 

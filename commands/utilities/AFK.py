@@ -1,7 +1,7 @@
 import discord, time
 from discord import app_commands
 from discord.ext import commands
-from Niludetsu import Embed, Colors, Emojis
+from Niludetsu import Embed, Colors
 from typing import Dict, Optional, Tuple
 
 

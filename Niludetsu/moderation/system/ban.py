@@ -2,13 +2,12 @@
 Система бана с поддержкой софтбана (роль) и настоящего бана (Discord API).
 """
 import discord
-from Niludetsu.config import BAN_ROLE_ID
 from Niludetsu.moderation.config import ActionType
 from Niludetsu.moderation.exceptions import ModerationError
 from Niludetsu.moderation.manager import ModerationManager
 from Niludetsu.tools.Embed import Embed
 from Niludetsu.tools.Time import TimeService
-from typing import Optional, List
+from typing import Optional
 
 _time = TimeService()
 

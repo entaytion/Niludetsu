@@ -7,7 +7,6 @@ QuestTracker — хуки для интеграции с существующи�
   - BumpReminder                  → трекает бампы
 """
 
-import asyncio
 from Niludetsu.database.supabase_database import database
 from Niludetsu.logging import logger
 from Niludetsu.quests.manager import QuestManager

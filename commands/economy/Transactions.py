@@ -1,101 +1,14 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from Niludetsu import Embed, Colors, Emojis
+from Niludetsu import Embed
 from Niludetsu.database.supabase_database import database
 from Niludetsu.economy.manager import EconomyManager
+from Niludetsu.embeds.Economy import EconomyEmbed
 from Niludetsu.tools.Time import TimeService
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 PAGE_SIZE = 10
-
-EVENT_LABELS: Dict[str, str] = {
-    "daily": "Ежедневка",
-    "work": "Подработка",
-    "slut": "Заработок",
-    "slut_penalty": "Штраф",
-    "rob": "Ограбление",
-    "rob_penalty": "Штраф",
-    "pay": "Перевод",
-    "deposit": "Депозит",
-    "withdraw": "Снятие",
-    "withdraw_family": "Семейный счёт",
-    "coinflip": "Монетка",
-    "slots": "Слоты",
-    "roulette": "Рулетка",
-    "blackjack": "Блекджек",
-    "duel": "Дуэль",
-    "income": "Доход с роли",
-    "shop": "Покупка",
-    "refund": "Возврат",
-    "quest_reward": "Квест",
-}
-
-FILTER_MAP: Dict[str, Optional[List[str]]] = {
-    "all": None,
-    "income": ["daily", "work", "slut", "income", "quest_reward"],
-    "games": ["coinflip", "slots", "roulette", "blackjack"],
-    "transfers": ["pay", "rob", "rob_penalty", "duel"],
-    "bank": ["deposit", "withdraw", "withdraw_family"],
-}
-
-FILTER_LABELS: Dict[str, str] = {
-    "all": "Все",
-    "income": "Доход",
-    "games": "Игры",
-    "transfers": "Переводы",
-    "bank": "Банк",
-}
-
-
-EVENT_ICONS: Dict[str, str] = {
-    "daily": "🎁",
-    "work": "🛠️",
-    "slut": "💋",
-    "slut_penalty": "⚠️",
-    "rob": "🔫",
-    "rob_penalty": "⚠️",
-    "pay": "💸",
-    "deposit": "🏦",
-    "withdraw": "🏦",
-    "withdraw_family": "👨‍👩‍👧",
-    "coinflip": "🪙",
-    "slots": "🎰",
-    "roulette": "🎡",
-    "blackjack": "🃏",
-    "duel": "⚔️",
-    "income": "💎",
-    "shop": "🛒",
-    "refund": "↩️",
-    "quest_reward": "📜",
-}
-
-_DOT = "・"
-
-
-def _format_row(tx: dict, time_svc: TimeService) -> str:
-    amount = tx["amount"]
-    event = tx["event"]
-    icon = EVENT_ICONS.get(event, "📌")
-    label = EVENT_LABELS.get(event, event)
-
-    if amount >= 0:
-        amount_str = f"**+{amount:,}**"
-    else:
-        amount_str = f"**{amount:,}**"
-
-    created = time_svc.ensure_datetime(tx.get("created_at"))
-    time_str = f"`{created.format('HH:mm')}`" if created else ""
-
-    related = tx.get("related_user_id")
-    related_str = ""
-    if related:
-        if amount < 0:
-            related_str = f" → <@{related}>"
-        else:
-            related_str = f" ← <@{related}>"
-
-    return f"{icon} **{label}**{related_str}{_DOT}{amount_str} {Emojis.MONEY}{_DOT}{time_str}"
 
 
 class TransactionsPaginator(discord.ui.View):
@@ -152,7 +65,7 @@ class TransactionsPaginator(discord.ui.View):
             self.guild_id,
             self.display_name,
             page=self.page,
-            events=FILTER_MAP[self.filter_key],
+            events=EconomyEmbed.FILTER_MAP[self.filter_key],
             paginator=self,
             avatar_url=self.avatar_url,
         )
@@ -181,8 +94,8 @@ class TransactionsPaginator(discord.ui.View):
     @discord.ui.select(
         placeholder="Фильтр",
         options=[
-            discord.SelectOption(label=FILTER_LABELS[k], value=k, default=(k == "all"))
-            for k in FILTER_LABELS
+            discord.SelectOption(label=EconomyEmbed.FILTER_LABELS[k], value=k, default=(k == "all"))
+            for k in EconomyEmbed.FILTER_LABELS
         ],
         row=1,
     )
@@ -222,30 +135,20 @@ class Transactions(commands.Cog):
         if paginator:
             paginator.total = total
 
-        if not rows:
-            embed = Embed(
-                title=f"📋 Транзакции {display_name}",
-                description="История пуста.",
-                color=Colors.PRIMARY,
-            )
-            if avatar_url:
-                embed.set_thumbnail(url=avatar_url)
-            return embed
+        filter_label = EconomyEmbed.FILTER_LABELS.get(
+            paginator.filter_key, "Все"
+        ) if paginator else "Все"
 
-        lines = [_format_row(tx, self.time) for tx in rows]
-        max_page = max(0, (total - 1) // PAGE_SIZE)
-
-        filter_label = FILTER_LABELS.get(paginator.filter_key, "Все") if paginator else "Все"
-
-        embed = Embed(
-            title=f"📋 Транзакции {display_name}",
-            description="\n".join(lines),
-            color=Colors.PRIMARY,
+        return EconomyEmbed.transactions_page(
+            display_name=display_name,
+            rows=rows,
+            time_svc=self.time,
+            page=page,
+            total=total,
+            page_size=PAGE_SIZE,
+            filter_label=filter_label,
+            avatar_url=avatar_url,
         )
-        if avatar_url:
-            embed.set_thumbnail(url=avatar_url)
-        embed.set_footer(text=f"Страница {page + 1}/{max_page + 1} • Фильтр: {filter_label} • Всего: {total:,}")
-        return embed
 
     @commands.hybrid_command(
         name="transactions",

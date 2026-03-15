@@ -1,8 +1,7 @@
 import asyncio
-from datetime import timedelta
 from Niludetsu.database.supabase_database import database
 from Niludetsu.tools.Time import TimeService
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple
 
 _time = TimeService()
 

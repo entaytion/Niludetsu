@@ -1,83 +1,58 @@
 import discord
 from Niludetsu import Emojis
-from Niludetsu.development.Webhooks import Webhooks
+from Niludetsu.webhooks.base import BaseLogger
 
-class WebhookLogger:
-    """
-    Логгер для действий с вебхуками через вебхук (максимум информации).
-    """
-    def __init__(self, bot: discord.Client):
-        self.bot = bot
-        self.webhooks = Webhooks(bot)
+
+class WebhookLogger(BaseLogger):
+    """Логгер для действий с вебхуками."""
 
     async def log_webhook_create(self, log_channel: discord.TextChannel, channel: discord.TextChannel, webhook: discord.Webhook):
-        title = f"{Emojis.SUCCESS} Вебхук: добавлен"
         description = f"**ID:** `{webhook.id}`\n**Название:** `{webhook.name}`\n**Канал:** {channel.mention}"
-        guild = channel.guild
-        user = None
-        if guild:
-            async for entry in guild.audit_logs(limit=5, action=discord.AuditLogAction.webhook_create):
-                if entry.target and entry.target.id == webhook.id:
-                    description += f"\n**Создал:** {entry.user.mention} (`{entry.user.id}`)"
-                    user = entry.user
-                    break
+        creator = await self._safe_audit_log(channel.guild, discord.AuditLogAction.webhook_create, webhook.id, limit=5)
+        if creator:
+            description += f"\n**Создал:** {creator.mention} (`{creator.id}`)"
         await self.webhooks.send_log(
-            log_channel,
-            title=title,
+            log_channel, title=f"{Emojis.SUCCESS} Вебхук: добавлен",
             description=description,
             thumbnail_url=webhook.avatar.url if webhook.avatar else None,
-            guild=guild
+            guild=channel.guild,
         )
 
     async def log_webhook_delete(self, log_channel: discord.TextChannel, channel: discord.TextChannel, webhook: discord.Webhook):
-        title = f"{Emojis.ERROR} Вебхук: удален"
         description = f"**ID:** `{webhook.id}`\n**Название:** `{webhook.name}`\n**Канал:** {channel.mention}"
-        guild = channel.guild
-        user = None
-        if guild:
-            async for entry in guild.audit_logs(limit=5, action=discord.AuditLogAction.webhook_delete):
-                if entry.target and entry.target.id == webhook.id:
-                    description += f"\n**Удалил:** {entry.user.mention} (`{entry.user.id}`)"
-                    user = entry.user
-                    break
+        deleter = await self._safe_audit_log(channel.guild, discord.AuditLogAction.webhook_delete, webhook.id, limit=5)
+        if deleter:
+            description += f"\n**Удалил:** {deleter.mention} (`{deleter.id}`)"
         await self.webhooks.send_log(
-            log_channel,
-            title=title,
+            log_channel, title=f"{Emojis.ERROR} Вебхук: удален",
             description=description,
             thumbnail_url=webhook.avatar.url if webhook.avatar else None,
-            guild=guild
+            guild=channel.guild,
         )
 
     async def log_webhook_update(self, log_channel: discord.TextChannel, channel: discord.TextChannel, before: discord.Webhook, after: discord.Webhook):
         changes = []
         if before.name != after.name:
             changes.append(f"- Название: `{before.name}` ➜ `{after.name}`")
-        # Аватар: проверяем на None или URL
         before_avatar_url = before.avatar.url if before.avatar else None
         after_avatar_url = after.avatar.url if after.avatar else None
         if before_avatar_url != after_avatar_url:
             changes.append("- Аватар: изменён")
-
+        # Sapphire: Webhook Channel Update
+        before_ch = getattr(before, 'channel_id', None)
+        after_ch = getattr(after, 'channel_id', None)
+        if before_ch and after_ch and before_ch != after_ch:
+            changes.append(f"- Канал: <#{before_ch}> ➜ <#{after_ch}>")
         if not changes:
-            return  # Нет реальных изменений
-
-        title = f"{Emojis.UNKNOWN} Вебхук: обновлен"
+            return
         description = f"**ID:** `{after.id}`\n**Название:** `{after.name}`\n**Канал:** {channel.mention}"
-        fields = [{"name": "Изменения:", "value": "\n".join(changes), "inline": False}]
-        guild = channel.guild
-        user = None
-        if guild:
-            async for entry in guild.audit_logs(limit=5, action=discord.AuditLogAction.webhook_update):
-                if entry.target and entry.target.id == after.id:
-                    description += f"\n**Изменил:** {entry.user.mention} (`{entry.user.id}`)"
-                    user = entry.user
-                    break
+        updater = await self._safe_audit_log(channel.guild, discord.AuditLogAction.webhook_update, after.id, limit=5)
+        if updater:
+            description += f"\n**Изменил:** {updater.mention} (`{updater.id}`)"
         await self.webhooks.send_log(
-            log_channel,
-            title=title,
+            log_channel, title=f"{Emojis.UNKNOWN} Вебхук: обновлен",
             description=description,
-            fields=fields,
+            fields=[{"name": "Изменения:", "value": "\n".join(changes), "inline": False}],
             thumbnail_url=after.avatar.url if after.avatar else None,
-            guild=guild
+            guild=channel.guild,
         )
-
