@@ -1,11 +1,14 @@
+from typing import Any, Dict, Optional
+
 import discord
+
 from Niludetsu.giveaways.conditions import GiveawayConditions
 from Niludetsu.tools.Embed import Embed
 from Niludetsu.tools.Emojis import Emojis
 from Niludetsu.tools.Time import TimeService
-from typing import Any, Dict, Optional
 
 _time = TimeService()
+
 
 class GiveawayConfigurator(discord.ui.View):
     """Единый мастер создания розыгрыша."""
@@ -34,16 +37,26 @@ class GiveawayConfigurator(discord.ui.View):
         self.add_item(self.channel_select)
         self.add_item(self.conditions_select)
 
-    # Кнопки 
-    @discord.ui.button(label="Настроить розыгрыш", style=discord.ButtonStyle.primary, emoji=Emojis.ICON_CONFIG)
-    async def setup_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    # Кнопки
+    @discord.ui.button(
+        label="Настроить розыгрыш",
+        style=discord.ButtonStyle.primary,
+        emoji=Emojis.ICON_CONFIG,
+    )
+    async def setup_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         modal = GiveawayBaseModal(self.config)
         await interaction.response.send_modal(modal)
         await modal.wait()
         await self.refresh(interaction)
 
-    @discord.ui.button(label="Создать", style=discord.ButtonStyle.success, emoji=Emojis.GIVEAWAY)
-    async def create_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(
+        label="Создать", style=discord.ButtonStyle.success, emoji=Emojis.GIVEAWAY
+    )
+    async def create_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         missing = []
         if not self.config["channel_id"]:
             missing.append("канал")
@@ -58,7 +71,9 @@ class GiveawayConfigurator(discord.ui.View):
 
         channel = self.guild.get_channel(self.config["channel_id"])
         if not isinstance(channel, discord.TextChannel):
-            await interaction.response.send_message("Выбранный канал недоступен.", ephemeral=True)
+            await interaction.response.send_message(
+                "Выбранный канал недоступен.", ephemeral=True
+            )
             return
 
         try:
@@ -84,24 +99,34 @@ class GiveawayConfigurator(discord.ui.View):
         )
         await self.close()
 
-    @discord.ui.button(label="Отмена", style=discord.ButtonStyle.secondary, emoji=Emojis.ICON_IGNORE)
-    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(
+        label="Отмена", style=discord.ButtonStyle.secondary, emoji=Emojis.ICON_IGNORE
+    )
+    async def cancel_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         await interaction.response.send_message("Создание отменено.", ephemeral=True)
         await self.close()
 
-    # Служебные методы 
+    # Служебные методы
     def build_embed(self) -> discord.Embed:
-        embed = Embed.info(
+        embed = Embed.default(
             title=f"{Emojis.GIVEAWAY} Настройка розыгрыша",
             description="Заполните параметры и посмотрите предпросмотр.",
         )
 
-        channel_value = f"<#{self.config['channel_id']}>" if self.config["channel_id"] else "—"
+        channel_value = (
+            f"<#{self.config['channel_id']}>" if self.config["channel_id"] else "—"
+        )
         embed.add_field(name="Канал", value=channel_value, inline=True)
         embed.add_field(name="Приз", value=self.config["prize"] or "—", inline=True)
-        embed.add_field(name="Победители", value=str(self.config["winners"]), inline=True)
+        embed.add_field(
+            name="Победители", value=str(self.config["winners"]), inline=True
+        )
 
-        seconds, human, error = _time.validate_duration(self.config["duration"], max_days=30)
+        seconds, human, error = _time.validate_duration(
+            self.config["duration"], max_days=30
+        )
         embed.add_field(
             name="Длительность",
             value=human if not error else f"⚠️ {error}",
@@ -154,7 +179,9 @@ class GiveawayConfigurator(discord.ui.View):
         if interaction.response.is_done():
             if self.message:
                 try:
-                    await interaction.followup.edit_message(self.message.id, embed=embed, view=self)
+                    await interaction.followup.edit_message(
+                        self.message.id, embed=embed, view=self
+                    )
                 except discord.HTTPException:
                     pass
         else:
@@ -168,7 +195,8 @@ class GiveawayConfigurator(discord.ui.View):
             except discord.NotFound:
                 pass
 
-# Модалки 
+
+# Модалки
 class GiveawayBaseModal(discord.ui.Modal, title="Параметры розыгрыша"):
     def __init__(self, config: Dict[str, Any]):
         super().__init__(timeout=300)
@@ -215,10 +243,14 @@ class GiveawayBaseModal(discord.ui.Modal, title="Параметры розыгр
         try:
             winners = max(1, min(20, int(self.winners_input.value)))
         except ValueError:
-            await interaction.response.send_message("Количество победителей должно быть числом.", ephemeral=True)
+            await interaction.response.send_message(
+                "Количество победителей должно быть числом.", ephemeral=True
+            )
             return
 
-        seconds, _, error = _time.validate_duration(self.duration_input.value, max_days=30)
+        seconds, _, error = _time.validate_duration(
+            self.duration_input.value, max_days=30
+        )
         if error:
             await interaction.response.send_message(error, ephemeral=True)
             return
@@ -226,11 +258,15 @@ class GiveawayBaseModal(discord.ui.Modal, title="Параметры розыгр
         mention_raw = self.mention_input.value.strip()
         if mention_raw:
             if not mention_raw.isdigit():
-                await interaction.response.send_message("ID роли должен быть числом.", ephemeral=True)
+                await interaction.response.send_message(
+                    "ID роли должен быть числом.", ephemeral=True
+                )
                 return
             role = interaction.guild.get_role(int(mention_raw))
             if not role:
-                await interaction.response.send_message("Роль с таким ID не найдена.", ephemeral=True)
+                await interaction.response.send_message(
+                    "Роль с таким ID не найдена.", ephemeral=True
+                )
                 return
             self.config["mention_role_id"] = role.id
         else:
@@ -242,6 +278,7 @@ class GiveawayBaseModal(discord.ui.Modal, title="Параметры розыгр
         self.config["description"] = self.description_input.value.strip() or None
 
         await interaction.response.defer()
+
 
 class ConditionValueModal(discord.ui.Modal):
     def __init__(self, title: str, unit: str):
@@ -260,10 +297,13 @@ class ConditionValueModal(discord.ui.Modal):
             if val < 0:
                 raise ValueError
         except ValueError:
-            await interaction.response.send_message("Нужно положительное число.", ephemeral=True)
+            await interaction.response.send_message(
+                "Нужно положительное число.", ephemeral=True
+            )
             return
         self.value = val
         await interaction.response.defer()
+
 
 class RoleModal(discord.ui.Modal, title="ID роли"):
     def __init__(self):
@@ -274,16 +314,21 @@ class RoleModal(discord.ui.Modal, title="ID роли"):
 
     async def on_submit(self, interaction: discord.Interaction):
         if not self.input.value.isdigit():
-            await interaction.response.send_message("ID роли должен быть числом.", ephemeral=True)
+            await interaction.response.send_message(
+                "ID роли должен быть числом.", ephemeral=True
+            )
             return
         role = interaction.guild.get_role(int(self.input.value))
         if not role:
-            await interaction.response.send_message("Роль не найдена на сервере.", ephemeral=True)
+            await interaction.response.send_message(
+                "Роль не найдена на сервере.", ephemeral=True
+            )
             return
         self.role_id = role.id
         await interaction.response.defer()
 
-# Селекты 
+
+# Селекты
 class _ChannelSelect(discord.ui.Select):
     def __init__(self, configurator: GiveawayConfigurator):
         self.configurator = configurator
@@ -307,10 +352,13 @@ class _ChannelSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         if self.values[0] == "0":
-            await interaction.response.send_message("Нет доступных текстовых каналов.", ephemeral=True)
+            await interaction.response.send_message(
+                "Нет доступных текстовых каналов.", ephemeral=True
+            )
             return
         self.configurator.config["channel_id"] = int(self.values[0])
         await self.configurator.refresh(interaction)
+
 
 class _ConditionsSelect(discord.ui.Select):
     """Выпадающий список условий. За раз — одно условие, чтобы не путать модалки."""
@@ -331,12 +379,24 @@ class _ConditionsSelect(discord.ui.Select):
             min_values=0,
             max_values=1,
             options=[
-                discord.SelectOption(label="Мин. время на сервере", value="min_server_time", emoji="⏱️"),
-                discord.SelectOption(label="Мин. время в голосе", value="min_voice_time", emoji="⏲️"),
-                discord.SelectOption(label="Необходимая роль", value="required_role", emoji="🛡️"),
-                discord.SelectOption(label="Мин. уровень", value="min_level", emoji="📊"),
-                discord.SelectOption(label="Только для бустеров", value="booster_only", emoji="🚀"),
-                discord.SelectOption(label="Запрет на повторное участие", value="no_revote", emoji="🔄"),
+                discord.SelectOption(
+                    label="Мин. время на сервере", value="min_server_time", emoji="⏱️"
+                ),
+                discord.SelectOption(
+                    label="Мин. время в голосе", value="min_voice_time", emoji="⏲️"
+                ),
+                discord.SelectOption(
+                    label="Необходимая роль", value="required_role", emoji="🛡️"
+                ),
+                discord.SelectOption(
+                    label="Мин. уровень", value="min_level", emoji="📊"
+                ),
+                discord.SelectOption(
+                    label="Только для бустеров", value="booster_only", emoji="🚀"
+                ),
+                discord.SelectOption(
+                    label="Запрет на повторное участие", value="no_revote", emoji="🔄"
+                ),
             ],
         )
 
@@ -349,7 +409,9 @@ class _ConditionsSelect(discord.ui.Select):
         if key in {"booster_only", "no_revote"}:
             settings[key] = not settings.get(key, False)
             state = "включено" if settings[key] else "отключено"
-            await interaction.response.send_message(f"Условие «{self._label_by_key(key)}» {state}.", ephemeral=True)
+            await interaction.response.send_message(
+                f"Условие «{self._label_by_key(key)}» {state}.", ephemeral=True
+            )
             await self.configurator.refresh(interaction)
             return
 
@@ -383,17 +445,27 @@ class _ConditionsSelect(discord.ui.Select):
         }
         return mapping.get(key, key)
 
+
 class GiveawayParticipationView(discord.ui.View):
     """Бессрочная вьюха для участия в розыгрыше."""
 
-    def __init__(self, manager=None, giveaway_id: Optional[int] = None, participants_count: int = 0):
+    def __init__(
+        self,
+        manager=None,
+        giveaway_id: Optional[int] = None,
+        participants_count: int = 0,
+    ):
         super().__init__(timeout=None)
         self.manager = manager
         self.giveaway_id = giveaway_id
         self.count = participants_count
 
-        join_id = f"giveaway_join:{giveaway_id}" if giveaway_id else "giveaway_join:pending"
-        list_id = f"giveaway_list:{giveaway_id}" if giveaway_id else "giveaway_list:pending"
+        join_id = (
+            f"giveaway_join:{giveaway_id}" if giveaway_id else "giveaway_join:pending"
+        )
+        list_id = (
+            f"giveaway_list:{giveaway_id}" if giveaway_id else "giveaway_list:pending"
+        )
 
         self.join_button = discord.ui.Button(
             label=f"Участвовать ({self.count})",
@@ -435,15 +507,21 @@ class GiveawayParticipationView(discord.ui.View):
         await self.ensure_manager(interaction)
         await self.ensure_giveaway_id(interaction)
         if not self.giveaway_id:
-            await interaction.response.send_message("Не удалось определить розыгрыш.", ephemeral=True)
+            await interaction.response.send_message(
+                "Не удалось определить розыгрыш.", ephemeral=True
+            )
             return
 
         giveaway = await self.manager.get_giveaway(self.giveaway_id)
         if not giveaway or giveaway["is_ended"]:
-            await interaction.response.send_message("Этот розыгрыш уже завершён.", ephemeral=True)
+            await interaction.response.send_message(
+                "Этот розыгрыш уже завершён.", ephemeral=True
+            )
             return
 
-        guild = interaction.guild or interaction.client.get_guild(int(giveaway["guild_id"]))
+        guild = interaction.guild or interaction.client.get_guild(
+            int(giveaway["guild_id"])
+        )
         result = await GiveawayConditions.check(
             interaction.client,
             interaction.user,
@@ -457,9 +535,13 @@ class GiveawayParticipationView(discord.ui.View):
             )
             return
 
-        status = await self.manager.toggle_participation(self.giveaway_id, str(interaction.user.id))
+        status = await self.manager.toggle_participation(
+            self.giveaway_id, str(interaction.user.id)
+        )
         if status == "inactive":
-            await interaction.response.send_message("Розыгрыш уже завершён.", ephemeral=True)
+            await interaction.response.send_message(
+                "Розыгрыш уже завершён.", ephemeral=True
+            )
             return
 
         participants = await self.manager.repo.list_participants(self.giveaway_id)
@@ -479,12 +561,16 @@ class GiveawayParticipationView(discord.ui.View):
         await self.ensure_manager(interaction)
         await self.ensure_giveaway_id(interaction)
         if not self.giveaway_id:
-            await interaction.response.send_message("Не удалось определить розыгрыш.", ephemeral=True)
+            await interaction.response.send_message(
+                "Не удалось определить розыгрыш.", ephemeral=True
+            )
             return
 
         giveaway = await self.manager.get_giveaway(self.giveaway_id)
         if not giveaway:
-            await interaction.response.send_message("Розыгрыш не найден.", ephemeral=True)
+            await interaction.response.send_message(
+                "Розыгрыш не найден.", ephemeral=True
+            )
             return
 
         participants = await self.manager.repo.list_participants(self.giveaway_id)
@@ -499,13 +585,19 @@ class GiveawayParticipationView(discord.ui.View):
         chance = (winners_count / len(participants)) * 100
         lines: List[str] = []
         for user_id in participants:
-            member = interaction.guild.get_member(int(user_id)) if interaction.guild else None
+            member = (
+                interaction.guild.get_member(int(user_id))
+                if interaction.guild
+                else None
+            )
             if member:
                 lines.append(f"{member.mention} — **{chance:.1f}%**")
             else:
                 try:
                     user = await interaction.client.fetch_user(int(user_id))
-                    lines.append(f"{discord.utils.escape_markdown(user.name)} — **{chance:.1f}%**")
+                    lines.append(
+                        f"{discord.utils.escape_markdown(user.name)} — **{chance:.1f}%**"
+                    )
                 except Exception:
                     lines.append(f"<@{user_id}> — **{chance:.1f}%**")
 
@@ -519,8 +611,7 @@ class GiveawayParticipationView(discord.ui.View):
                 title=f"{Emojis.GIVEAWAY} Участники розыгрыша",
                 description=(
                     f"Всего участников: **{len(participants)}**\n"
-                    f"Призовых мест: **{winners_count}**\n"
-                    + "\n".join(page_lines)
+                    f"Призовых мест: **{winners_count}**\n" + "\n".join(page_lines)
                 ),
                 color=Colors.SUCCESS,
             )
@@ -536,8 +627,12 @@ class GiveawayParticipationView(discord.ui.View):
             def __init__(self):
                 super().__init__(timeout=120)
                 self.page = 0
-                self.prev_btn = discord.ui.Button(emoji=Emojis.ICON_ARROW_LEFT, style=discord.ButtonStyle.secondary)
-                self.next_btn = discord.ui.Button(emoji=Emojis.ICON_ARROW_RIGHT, style=discord.ButtonStyle.secondary)
+                self.prev_btn = discord.ui.Button(
+                    emoji=Emojis.ICON_ARROW_LEFT, style=discord.ButtonStyle.secondary
+                )
+                self.next_btn = discord.ui.Button(
+                    emoji=Emojis.ICON_ARROW_RIGHT, style=discord.ButtonStyle.secondary
+                )
                 self.prev_btn.callback = self.prev
                 self.next_btn.callback = self.next
                 self.add_item(self.prev_btn)
@@ -548,18 +643,21 @@ class GiveawayParticipationView(discord.ui.View):
                     await btn_inter.response.defer()
                     return
                 self.page = (self.page - 1) % len(pages)
-                await btn_inter.response.edit_message(embed=make_embed(self.page), view=self)
+                await btn_inter.response.edit_message(
+                    embed=make_embed(self.page), view=self
+                )
 
             async def next(self, btn_inter: discord.Interaction):
                 if btn_inter.user.id != interaction.user.id:
                     await btn_inter.response.defer()
                     return
                 self.page = (self.page + 1) % len(pages)
-                await btn_inter.response.edit_message(embed=make_embed(self.page), view=self)
+                await btn_inter.response.edit_message(
+                    embed=make_embed(self.page), view=self
+                )
 
         await interaction.response.send_message(
             embed=make_embed(0),
             view=Paginator(),
             ephemeral=True,
         )
-

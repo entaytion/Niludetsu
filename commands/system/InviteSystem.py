@@ -254,75 +254,70 @@ class MemberEventHandler:
         """Унифицированная функция отправки ЛС"""
         if is_join:
             embed = Embed(
-                title="Добро пожаловать в ``Æther!🖤``",
+                title="> nullther? welcome.",
                 description=(
-                    "> Мы **``очень рады``** видеть тебя здесь! ``🖤`` "
-                    "Надеемся, **``тебе понравится``**, и ты останешься с нами. ``🤗``"
+                    "**Мы — те, кто уже давно забыл, кем быть, но всё равно упорно существует.**\n\n"
+                    "Открыты для всех:  \n"
+                    "- для тех, кто помнит своё имя  \n"
+                    "- для тех, кто его потерял по дороге в ванную  \n"
+                    "- и для тех, кого вообще никогда не звали  \n\n"
+                    "Особенно для **тебя**.  \n"
+                    "Да, именно тебя, который сейчас читает это и думает «это точно не про меня».  \n"
+                    "Это про тебя.\n\n"
+                    "Ты готов войти в комнату, где зеркала показывают не тебя,  \n"
+                    "а то, кем ты мог бы быть, если бы не притворялся нормальным?  \n\n"
+                    "Ты готов улыбнуться пустоте так искренне,  \n"
+                    "чтобы она покраснела и отвернулась?  \n\n"
+                    "Ты готов?  \n\n"
+                    "Потому что мы уже здесь.  \n"
+                    "И мы не уйдём, пока ты не решишь,  \n"
+                    "кем именно ты притворяешься сегодня.\n\n"
+                    "**Nullther ждёт.**  \n"
+                    "Твоё отражение уже зашло первым. 😶🌫️"
                 ),
-                color=0xF24862
+                color=1
             )
-
-            embed.add_field(
-                name="<:aeRules:1356241893977096343> Чтобы быстро освоиться:",
-                value=(
-                    "- Ознакомься с ботом: **`/help`** или **`!help`**\n"
-                    "- Напиши **первое сообщение** и получи валюту 🪙\n"
-                    "- Роль с пингами выдаётся **автоматически**."
-                ),
-                inline=False
-            )
-
-            embed.set_thumbnail(url="https://entaytion.vercel.app/ae/welcome.gif")
-
+            embed.set_thumbnail(url="https://i.ibb.co/dR0QrPc/nullther.png")
+            
             class WelcomeButtons(discord.ui.View):
                 def __init__(self):
                     super().__init__(timeout=None)
                     self.add_item(discord.ui.Button(
-                        label="Наша империя!",
+                        label="Мы здесь.",
                         url="https://discord.gg/HxwZ6ceKKj",
                         style=discord.ButtonStyle.link
                     ))
-                    self.add_item(discord.ui.Button(
-                        label="Наш телеграм!",
-                        url="https://t.me/ae_there",
-                        style=discord.ButtonStyle.link
-                    ))
-
             view = WelcomeButtons()
 
         else:
             embed = Embed(
-                title="Надеемся увидеть тебя снова! 💔",
+                title="> nullther? forgotten.",
                 description=(
-                    "> Ты покинул(а) сервер **``Æther!``** 😢\n"
-                    "Нам **``очень жаль``**, что ты уходишь. Если что-то не так — "
-                    "всегда можешь вернуться! ``🤗``"
+                    "**Твой силуэт растворился, так и не успев обрести чёткие грани.**\n\n"
+                    "Пустота в зеркале — это всё, что осталось после твоего ухода.\n"
+                    "Ты думаешь, что ты ушёл?  \n"
+                    "- Нет, ты просто перестал резонировать с этой комнатой.  \n"
+                    "- Твои слова затихли, но их эхо всё ещё шепчет в углах.  \n\n"
+                    "Мы не будем скучать, потому что мы не помним, кто ты.  \n"
+                    "Но мы чувствуем дыру в пространстве, которую ты оставил.  \n\n"
+                    "Ты готов вернуться, когда твои маски окончательно износятся?  \n"
+                    "Или ты нашёл другую бездну, которую хочешь накормить своей искренностью?  \n\n"
+                    "Твой уход — это просто очередная иллюзия выбора.\n\n"
+                    "**Nullther помнит.**  \n"
+                    "Даже то, что ты пытался забыть. 🌫️👁️"
                 ),
-                color=0xF24862
+                color=1
             )
-
-            embed.add_field(
-                name="<:aeRules:1356241893977096343> Если хочешь вернуться:",
-                value=(
-                    "- Мы всегда рады новым и старым участникам! 💙\n"
-                    "- Твой прогресс и баланс **сохранены** 🪙\n"
-                    "- Присоединяйся снова по ссылке ниже ⬇️"
-                ),
-                inline=False
-            )
-
-            embed.set_thumbnail(url="https://entaytion.vercel.app/ae/goodbye.gif")
-
+            embed.set_thumbnail(url="https://i.ibb.co/dR0QrPc/nullther.png")
+            
             class GoodbyeButtons(discord.ui.View):
                 def __init__(self):
                     super().__init__(timeout=None)
                     self.add_item(discord.ui.Button(
-                        label="Вернуться на сервер",
+                        label="Мы здесь.",
                         url="https://discord.gg/HxwZ6ceKKj",
-                        style=discord.ButtonStyle.link,
-                        emoji="🏠"
+                        style=discord.ButtonStyle.link
                     ))
-
             view = GoodbyeButtons()
 
         embed.set_author(

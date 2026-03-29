@@ -1,7 +1,8 @@
+from typing import Union
+
 from Niludetsu.tools.Embed import Embed
 from Niludetsu.tools.Emojis import Emojis
 from Niludetsu.tools.Validator import Check, ValidationError
-from typing import Union
 
 
 class ParseAmount(Check):
@@ -20,7 +21,9 @@ class ParseAmount(Check):
             )
         if any(s in raw_str for s in (".", ",")):
             raise ValidationError(
-                Embed.error(f"Сумма должна быть целым числом! Пример: 100 {Emojis.MONEY}")
+                Embed.error(
+                    f"Сумма должна быть целым числом! Пример: 100 {Emojis.MONEY}"
+                )
             )
         if raw_str.startswith("-") or (len(raw_str) > 1 and raw_str.startswith("0")):
             raise ValidationError(
@@ -31,9 +34,7 @@ class ParseAmount(Check):
 
         value = int(raw_str)
         if value < 1:
-            raise ValidationError(
-                Embed.error(f"Минимальная сумма — 1 {Emojis.MONEY}")
-            )
+            raise ValidationError(Embed.error(f"Минимальная сумма — 1 {Emojis.MONEY}"))
 
         data["amount"] = value
         return data
@@ -71,7 +72,9 @@ class DeductMoney(Check):
         guild_id = str(ctx.guild.id)
         amount = data["amount"]
 
-        removed, msg = await cog.economy.remove_money(user_id, guild_id, amount, event=self.event)
+        removed, msg = await cog.economy.remove_money(
+            user_id, guild_id, amount, event=self.event
+        )
         if not removed:
             # Если есть активная игра — снимаем блокировку
             game_name = data.get("_game_name")
@@ -84,6 +87,13 @@ class DeductMoney(Check):
 class CheckCooldown(Check):
     """Проверяет кулдаун команды."""
 
+    DEFAULT_MESSAGES = {
+        "daily": "Вы уже забирали ежедневную награду, поэтому подождите ещё",
+        "work": "Вы уже работали недавно, поэтому подождите ещё",
+        "rob": "Вы уже проворачивали дельце недавно, поэтому подождите ещё",
+        "slut": "Вы уже использовали эту команду недавно, поэтому подождите ещё",
+    }
+
     def __init__(self, command: str, message: str = ""):
         self.command = command
         self.message = message
@@ -93,11 +103,25 @@ class CheckCooldown(Check):
         user_id = str(ctx.author.id)
         guild_id = str(ctx.guild.id)
 
-        can_use, error_msg = await cog.economy.check_cooldown(user_id, guild_id, self.command)
+        can_use, error_msg = await cog.economy.check_cooldown(
+            user_id, guild_id, self.command
+        )
         if not can_use:
-            text = f"{self.message} {error_msg}" if self.message else error_msg
-            raise ValidationError(Embed.error(description=text))
-        return data
+            from Niludetsu.tools.Embed import Colors
+
+            cooldown_message = self.message or self.DEFAULT_MESSAGES.get(
+                self.command,
+                "Эта команда пока недоступна, поэтому подождите ещё",
+            )
+            text = f"{cooldown_message} {error_msg}" if error_msg else cooldown_message
+            embed = Embed(
+                title="Ошибка —",
+                description=f"{ctx.author.mention}, {text}",
+                color=Colors.ERROR,
+                thumbnail=ctx.author.display_avatar.url,
+            )
+            raise ValidationError(embed)
+        return dict(data)
 
 
 class UpdateCooldown(Check):
@@ -126,7 +150,9 @@ class ClaimGame(Check):
         user_id = str(ctx.author.id)
         guild_id = str(ctx.guild.id)
 
-        claimed, clash_embed = await cog.validator.claim_game(self.name, user_id, guild_id)
+        claimed, clash_embed = await cog.validator.claim_game(
+            self.name, user_id, guild_id
+        )
         if not claimed:
             raise ValidationError(clash_embed)
         data["_game_name"] = self.name

@@ -1,11 +1,13 @@
 import random
+
 from discord.ext import commands
+
 from Niludetsu import Emojis
 from Niludetsu.database.supabase_database import database
-from Niludetsu.economy.manager import EconomyManager
 from Niludetsu.economy.checks import CheckCooldown
-from Niludetsu.tools.Validator import economy
+from Niludetsu.economy.manager import EconomyManager
 from Niludetsu.embeds.Economy import EconomyEmbed
+from Niludetsu.tools.Validator import economy
 
 SLUT_SUCCESS_CHANCE = 0.65
 SLUT_MIN_REWARD = 150
@@ -39,7 +41,7 @@ class Slut(commands.Cog):
         self.economy = EconomyManager(self.db)
 
     @commands.hybrid_command(name="slut", description="💋 Рискованный способ заработка")
-    @economy(CheckCooldown("slut", "Ты недавно уже работал!"))
+    @economy(CheckCooldown("slut"))
     async def slut(self, ctx: commands.Context) -> None:
         user_id = str(ctx.author.id)
         guild_id = str(ctx.guild.id)
@@ -48,7 +50,9 @@ class Slut(commands.Cog):
 
         if random.random() <= SLUT_SUCCESS_CHANCE:
             reward = random.randint(SLUT_MIN_REWARD, SLUT_MAX_REWARD)
-            success, message = await self.economy.add_money(user_id, guild_id, reward, share_spousal=True, event="slut")
+            success, message = await self.economy.add_money(
+                user_id, guild_id, reward, share_spousal=True, event="slut"
+            )
 
             if not success:
                 await ctx.reply(embed=EconomyEmbed.error(message), ephemeral=True)
@@ -71,7 +75,9 @@ class Slut(commands.Cog):
             actual_penalty = min(current_wallet, penalty)
 
             if actual_penalty > 0:
-                await self.economy.remove_money(user_id, guild_id, actual_penalty, event="slut_penalty")
+                await self.economy.remove_money(
+                    user_id, guild_id, actual_penalty, event="slut_penalty"
+                )
 
             wallet = await self.economy.get_wallet(user_id, guild_id)
 

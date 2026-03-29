@@ -1,11 +1,13 @@
 import random
+
 from discord.ext import commands
+
 from Niludetsu import Emojis
 from Niludetsu.database.supabase_database import database
-from Niludetsu.economy.manager import EconomyManager
 from Niludetsu.economy.checks import CheckCooldown
-from Niludetsu.tools.Validator import economy
+from Niludetsu.economy.manager import EconomyManager
 from Niludetsu.embeds.Economy import EconomyEmbed
+from Niludetsu.tools.Validator import economy
 
 WORK_MESSAGES = [
     ("спасателем котов", "спас кота с дерева и получил премию от благодарного хозяина"),
@@ -31,14 +33,18 @@ class Work(commands.Cog):
         self.db = database
         self.economy = EconomyManager(self.db)
 
-    @commands.hybrid_command(name="work", description="⛑️ Получить зарплату за честный труд")
-    @economy(CheckCooldown("work", "Ты уже трудился недавно!"))
+    @commands.hybrid_command(
+        name="work", description="⛑️ Получить зарплату за честный труд"
+    )
+    @economy(CheckCooldown("work"))
     async def work(self, ctx: commands.Context) -> None:
         user_id = str(ctx.author.id)
         guild_id = str(ctx.guild.id)
 
         reward = random.randint(120, 260)
-        success, message = await self.economy.add_money(user_id, guild_id, reward, share_spousal=True, event="work")
+        success, message = await self.economy.add_money(
+            user_id, guild_id, reward, share_spousal=True, event="work"
+        )
         if not success:
             await ctx.reply(embed=EconomyEmbed.error(message), ephemeral=True)
             return

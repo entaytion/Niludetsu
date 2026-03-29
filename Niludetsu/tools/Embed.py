@@ -38,6 +38,9 @@ class Embed(discord.Embed):
         inline_fields: bool = False,
         **kwargs,
     ) -> None:
+        thumbnail = thumbnail or kwargs.pop("thumbnail_url", None)
+        image = image or kwargs.pop("image_url", None)
+        
         color = Colors.PRIMARY if color is None else color
         if emoji:
             title = f"{emoji} {title}" if title else emoji

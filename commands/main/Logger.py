@@ -1,7 +1,9 @@
 import asyncio
 import time
+
 import discord
 from discord.ext import commands
+
 from Niludetsu.config import LOG_CHANNEL_ID
 from Niludetsu.development.Webhooks import Webhooks
 from Niludetsu.webhooks.application import ApplicationLogger
@@ -12,6 +14,7 @@ from Niludetsu.webhooks.event import EventLogger
 from Niludetsu.webhooks.invite import InviteLogger
 from Niludetsu.webhooks.member import MemberLogger
 from Niludetsu.webhooks.message import MessageLogger
+from Niludetsu.webhooks.poll import PollLogger
 from Niludetsu.webhooks.reaction import ReactionLogger
 from Niludetsu.webhooks.role import RoleLogger
 from Niludetsu.webhooks.server import ServerLogger
@@ -21,7 +24,6 @@ from Niludetsu.webhooks.sticker import StickerLogger
 from Niludetsu.webhooks.thread import ThreadLogger
 from Niludetsu.webhooks.voice import VoiceLogger
 from Niludetsu.webhooks.webhook import WebhookLogger
-from Niludetsu.webhooks.poll import PollLogger
 
 
 class Logger(commands.Cog):
@@ -72,7 +74,9 @@ class Logger(commands.Cog):
             self._message_cache[message_id] = (msg, now)
             # Очищаем старые записи (>100)
             if len(self._message_cache) > 100:
-                oldest = sorted(self._message_cache, key=lambda k: self._message_cache[k][1])
+                oldest = sorted(
+                    self._message_cache, key=lambda k: self._message_cache[k][1]
+                )
                 for k in oldest[:50]:
                     self._message_cache.pop(k, None)
             return msg
@@ -120,9 +124,9 @@ class Logger(commands.Cog):
         for a in after:
             b = before_map.get(a.id)
             if b and (
-                getattr(b, 'name', None) != getattr(a, 'name', None) or
-                getattr(b, 'description', None) != getattr(a, 'description', None) or
-                getattr(b, 'emoji', None) != getattr(a, 'emoji', None)
+                getattr(b, "name", None) != getattr(a, "name", None)
+                or getattr(b, "description", None) != getattr(a, "description", None)
+                or getattr(b, "emoji", None) != getattr(a, "emoji", None)
             ):
                 await self.sticker_logger.log_sticker_update(channel, b, a)
 
@@ -157,30 +161,36 @@ class Logger(commands.Cog):
         before_ids = {w.id for w in before}
         after_ids = {w.id for w in after}
 
-        for add_id in (after_ids - before_ids):
+        for add_id in after_ids - before_ids:
             webhook = next(w for w in after if w.id == add_id)
             await self.webhook_logger.log_webhook_create(log_channel, channel, webhook)
 
-        for rem_id in (before_ids - after_ids):
+        for rem_id in before_ids - after_ids:
             webhook = next(w for w in before if w.id == rem_id)
             await self.webhook_logger.log_webhook_delete(log_channel, channel, webhook)
 
-        for com_id in (before_ids & after_ids):
+        for com_id in before_ids & after_ids:
             bw = next(w for w in before if w.id == com_id)
             aw = next(w for w in after if w.id == com_id)
             if bw.name != aw.name or bw.avatar != aw.avatar:
-                await self.webhook_logger.log_webhook_update(log_channel, channel, bw, aw)
+                await self.webhook_logger.log_webhook_update(
+                    log_channel, channel, bw, aw
+                )
 
         self._webhook_cache[channel_id] = list(after)
 
         # Периодическая очистка cooldown
-        if not hasattr(self, '_cleanup_task') or self._cleanup_task.done():
+        if not hasattr(self, "_cleanup_task") or self._cleanup_task.done():
             self._cleanup_task = asyncio.create_task(self._cleanup_webhook_cooldowns())
 
     async def _cleanup_webhook_cooldowns(self):
         await asyncio.sleep(60)
         current_time = time.time()
-        to_remove = [cid for cid, ts in self._webhook_update_cooldown.items() if current_time - ts > 30]
+        to_remove = [
+            cid
+            for cid, ts in self._webhook_update_cooldown.items()
+            if current_time - ts > 30
+        ]
         for cid in to_remove:
             self._webhook_update_cooldown.pop(cid, None)
 
@@ -195,39 +205,60 @@ class Logger(commands.Cog):
 
         if before.channel != after.channel:
             if not before.channel and after.channel:
-                await self.voice_logger.log_voice_join(log_channel, member, after.channel)
+                await self.voice_logger.log_voice_join(
+                    log_channel, member, after.channel
+                )
             elif before.channel and not after.channel:
                 # Проверяем — kick или сам ушел
                 moderator = None
                 try:
-                    async for entry in member.guild.audit_logs(limit=3, action=discord.AuditLogAction.member_disconnect):
+                    async for entry in member.guild.audit_logs(
+                        limit=3, action=discord.AuditLogAction.member_disconnect
+                    ):
                         if entry.target and entry.target.id == member.id:
                             moderator = entry.user
                             break
                 except Exception:
                     pass
                 if moderator and moderator.id != member.id:
-                    await self.voice_logger.log_voice_disconnect(log_channel, member, before.channel, moderator)
+                    await self.voice_logger.log_voice_disconnect(
+                        log_channel, member, before.channel, moderator
+                    )
                 else:
-                    await self.voice_logger.log_voice_leave(log_channel, member, before.channel)
+                    await self.voice_logger.log_voice_leave(
+                        log_channel, member, before.channel
+                    )
             elif before.channel and after.channel and before.channel != after.channel:
                 # Проверяем — move модератором или сам перешел
                 moderator = None
                 try:
-                    async for entry in member.guild.audit_logs(limit=3, action=discord.AuditLogAction.member_move):
+                    async for entry in member.guild.audit_logs(
+                        limit=3, action=discord.AuditLogAction.member_move
+                    ):
                         if entry.target and entry.target.id == member.id:
                             moderator = entry.user
                             break
                 except Exception:
                     pass
                 if moderator and moderator.id != member.id:
-                    await self.voice_logger.log_voice_move(log_channel, member, before.channel, after.channel, moderator)
+                    await self.voice_logger.log_voice_move(
+                        log_channel, member, before.channel, after.channel, moderator
+                    )
                 else:
-                    await self.voice_logger.log_voice_switch(log_channel, member, before.channel, after.channel)
+                    await self.voice_logger.log_voice_switch(
+                        log_channel, member, before.channel, after.channel
+                    )
         else:
             # Изменения состояния (mute, deaf, stream, video)
             changes = {}
-            for attr in ('deaf', 'mute', 'self_deaf', 'self_mute', 'self_stream', 'self_video'):
+            for attr in (
+                "deaf",
+                "mute",
+                "self_deaf",
+                "self_mute",
+                "self_stream",
+                "self_video",
+            ):
                 b_val = getattr(before, attr)
                 a_val = getattr(after, attr)
                 if b_val != a_val:
@@ -241,13 +272,21 @@ class Logger(commands.Cog):
                 # suppress = True → слушатель, suppress = False → спикер
                 if before.suppress and not after.suppress:
                     # Стал спикером
-                    await self.stage_logger.log_stage_speaker_join(log_channel, member, channel)
+                    await self.stage_logger.log_stage_speaker_join(
+                        log_channel, member, channel
+                    )
                 elif not before.suppress and after.suppress:
                     # Перешел в слушатели
-                    await self.stage_logger.log_stage_speaker_leave(log_channel, member, channel)
+                    await self.stage_logger.log_stage_speaker_leave(
+                        log_channel, member, channel
+                    )
                 # Request to speak
-                if not getattr(before, 'requested_to_speak_at', None) and getattr(after, 'requested_to_speak_at', None):
-                    await self.stage_logger.log_stage_request_to_speak(log_channel, member, channel)
+                if not getattr(before, "requested_to_speak_at", None) and getattr(
+                    after, "requested_to_speak_at", None
+                ):
+                    await self.stage_logger.log_stage_request_to_speak(
+                        log_channel, member, channel
+                    )
 
     # ═══════════════════════════════════════════
     # THREADS
@@ -438,14 +477,22 @@ class Logger(commands.Cog):
     # ═══════════════════════════════════════════
     @commands.Cog.listener()
     async def on_invite_create(self, invite):
-        channel = self._get_log_channel(invite.channel.guild) if invite.channel and invite.channel.guild else None
+        channel = (
+            self._get_log_channel(invite.channel.guild)
+            if invite.channel and invite.channel.guild
+            else None
+        )
         if not channel:
             return
         await self.invite_logger.log_invite_create(channel, invite)
 
     @commands.Cog.listener()
     async def on_invite_delete(self, invite):
-        channel = self._get_log_channel(invite.channel.guild) if invite.channel and invite.channel.guild else None
+        channel = (
+            self._get_log_channel(invite.channel.guild)
+            if invite.channel and invite.channel.guild
+            else None
+        )
         if not channel:
             return
         await self.invite_logger.log_invite_delete(channel, invite)
@@ -547,7 +594,9 @@ class Logger(commands.Cog):
             if before_ow != after_ow:
                 perms_diff = {}
                 for perm in dir(after_ow):
-                    if perm.startswith('_') or not isinstance(getattr(after_ow, perm, None), (bool, type(None))):
+                    if perm.startswith("_") or not isinstance(
+                        getattr(after_ow, perm, None), (bool, type(None))
+                    ):
                         continue
                     before_val = getattr(before_ow, perm, None) if before_ow else None
                     after_val = getattr(after_ow, perm, None)
@@ -558,12 +607,20 @@ class Logger(commands.Cog):
         if changes:
             moderator = after.guild.me  # fallback
             try:
-                async for entry in after.guild.audit_logs(limit=1, action=discord.AuditLogAction.overwrite_update):
-                    moderator = entry.user if isinstance(entry.user, discord.Member) else after.guild.get_member(entry.user.id) or after.guild.me
+                async for entry in after.guild.audit_logs(
+                    limit=1, action=discord.AuditLogAction.overwrite_update
+                ):
+                    moderator = (
+                        entry.user
+                        if isinstance(entry.user, discord.Member)
+                        else after.guild.get_member(entry.user.id) or after.guild.me
+                    )
                     break
             except Exception:
                 pass
-            await self.channel_logger.log_permissions_update(log_channel, after, moderator, changes)
+            await self.channel_logger.log_permissions_update(
+                log_channel, after, moderator, changes
+            )
 
     @commands.Cog.listener()
     async def on_guild_channel_pins_update(self, channel, last_pin):
@@ -598,7 +655,7 @@ class Logger(commands.Cog):
 
     @commands.Cog.listener()
     async def on_automod_action(self, execution):
-        guild = getattr(execution, 'guild', None)
+        guild = getattr(execution, "guild", None)
         channel = self._get_log_channel(guild)
         if not channel:
             return
@@ -652,15 +709,23 @@ class Logger(commands.Cog):
             return
         source_channel = guild.get_channel(payload.channel_id)
         log_channel = self._get_log_channel(guild)
-        if not source_channel or not log_channel or not hasattr(source_channel, 'fetch_message'):
+        if (
+            not source_channel
+            or not log_channel
+            or not hasattr(source_channel, "fetch_message")
+        ):
             return
         try:
             message = await self._get_cached_message(source_channel, payload.message_id)
             if not message:
                 return
-            user = guild.get_member(payload.user_id) or (await self.bot.fetch_user(payload.user_id))
+            user = guild.get_member(payload.user_id) or (
+                await self.bot.fetch_user(payload.user_id)
+            )
             if user and not user.bot:
-                await self.reaction_logger.log_reaction_add(log_channel, payload, message, user)
+                await self.reaction_logger.log_reaction_add(
+                    log_channel, payload, message, user
+                )
         except Exception:
             pass
 
@@ -671,15 +736,23 @@ class Logger(commands.Cog):
             return
         source_channel = guild.get_channel(payload.channel_id)
         log_channel = self._get_log_channel(guild)
-        if not source_channel or not log_channel or not hasattr(source_channel, 'fetch_message'):
+        if (
+            not source_channel
+            or not log_channel
+            or not hasattr(source_channel, "fetch_message")
+        ):
             return
         try:
             message = await self._get_cached_message(source_channel, payload.message_id)
             if not message:
                 return
-            user = guild.get_member(payload.user_id) or (await self.bot.fetch_user(payload.user_id))
+            user = guild.get_member(payload.user_id) or (
+                await self.bot.fetch_user(payload.user_id)
+            )
             if user and not user.bot:
-                await self.reaction_logger.log_reaction_remove(log_channel, payload, message, user)
+                await self.reaction_logger.log_reaction_remove(
+                    log_channel, payload, message, user
+                )
         except Exception:
             pass
 
@@ -705,24 +778,37 @@ class Logger(commands.Cog):
             return
         await self.reaction_logger.log_reaction_clear_emoji(log_channel, payload)
 
+    """
     # ═══════════════════════════════════════════
     # USER UPDATE (Sapphire: username/avatar changes)
     # ═══════════════════════════════════════════
     @commands.Cog.listener()
     async def on_user_update(self, before, after):
-        """Логирование глобальных изменений пользователя (username, avatar)."""
+        # Логирование глобальных изменений пользователя (username, avatar).
         changes = []
         if before.name != after.name:
             changes.append(f"**Username:** `{before.name}` → `{after.name}`")
+        
+        # Это я не знаю нахуя, уже нету дискриминаторов.
         if before.discriminator != after.discriminator:
             changes.append(f"**Дискриминатор:** `{before.discriminator}` → `{after.discriminator}`")
+            
         if before.avatar != after.avatar:
-            changes.append("**Аватар:** изменён")
+            before_avatar = before.avatar.url if before.avatar else None
+            after_avatar = after.avatar.url if after.avatar else None
+            changes.append(f"**Аватар:** `{before_avatar}` → `{after_avatar}`")
+
+        if before.banner != after.banner:
+            before_banner = before.banner.url if before.banner else None
+            after_banner = after.banner.url if after.banner else None
+            changes.append(f"**Баннер:** `{before_banner}` → `{after_banner}`")
+
         if before.global_name != after.global_name:
-            changes.append(f"**Отображаемое имя:** `{before.global_name or 'Нет'}` → `{after.global_name or 'Нет'}`")
+            changes.append(
+                f"**Отображаемое имя:** `{before.global_name or 'Нет'}` → `{after.global_name or 'Нет'}`"
+            )
         if not changes:
             return
-        # Отправляем во все гильдии, где этот юзер есть
         for guild in self.bot.guilds:
             member = guild.get_member(after.id)
             if not member:
@@ -731,15 +817,21 @@ class Logger(commands.Cog):
             if not log_channel:
                 continue
             from Niludetsu import Emojis
+
             description = f"**Пользователь:** {after.mention} ({after.id})"
-            fields = [{"name": "Изменение", "value": c, "inline": False} for c in changes]
+            fields = [
+                {"name": "Изменение", "value": c, "inline": False} for c in changes
+            ]
             await self._webhooks.send_log(
                 channel=log_channel,
                 title=f"{Emojis.UNKNOWN} Пользователь: обновлён",
-                description=description, fields=fields,
-                thumbnail_url=after.display_avatar.url, guild=guild,
+                description=description,
+                fields=fields,
+                thumbnail_url=after.display_avatar.url,
+                guild=guild,
             )
             break  # Логируем только в первую подходящую гильдию
+    """
 
     # ═══════════════════════════════════════════
     # APP COMMAND PERMISSIONS
@@ -747,14 +839,20 @@ class Logger(commands.Cog):
     @commands.Cog.listener()
     async def on_raw_app_command_permissions_update(self, payload):
         """Логирует обновление прав доступа к slash-командам."""
-        guild = self.bot.get_guild(payload.guild_id) if hasattr(payload, 'guild_id') else None
+        guild = (
+            self.bot.get_guild(payload.guild_id)
+            if hasattr(payload, "guild_id")
+            else None
+        )
         if not guild:
             return
         log_channel = self._get_log_channel(guild)
         if not log_channel:
             return
         try:
-            await self.application_logger.log_app_permission_update(log_channel, payload)
+            await self.application_logger.log_app_permission_update(
+                log_channel, payload
+            )
         except Exception:
             pass
 
@@ -794,7 +892,7 @@ class Logger(commands.Cog):
             return
 
         data = payload.data or {}
-        flags = data.get('flags', 0)
+        flags = data.get("flags", 0)
         # CROSSPOSTED flag = 1 << 0 = 1
         if not (flags & 1):
             return
@@ -806,7 +904,7 @@ class Logger(commands.Cog):
         # Получаем сообщение
         try:
             source_channel = guild.get_channel(payload.channel_id)
-            if source_channel and hasattr(source_channel, 'fetch_message'):
+            if source_channel and hasattr(source_channel, "fetch_message"):
                 message = await source_channel.fetch_message(payload.message_id)
                 if message and not message.author.bot:
                     await self.message_logger.log_message_publish(log_channel, message)

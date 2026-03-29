@@ -194,7 +194,7 @@ class TimeService:
 
     def format_duration(self, seconds: int) -> str:
         if seconds <= 0:
-            return "0 секунд"
+            return "**0** секунд"
 
         units = [
             ("неделя", "недели", "недель", 604800),
@@ -210,7 +210,7 @@ class TimeService:
             if not value:
                 continue
             parts.append(self._pluralize(value, singular, few, many))
-        return " ".join(parts) if parts else "0 секунд"
+        return " ".join(parts) if parts else "**0** секунд"
 
     def is_time_passed(self, target: DateLike) -> bool:
         dt = self.ensure_datetime(target)
@@ -221,10 +221,10 @@ class TimeService:
     def format_remaining_time(self, target: DateLike) -> Tuple[int, str]:
         dt = self.ensure_datetime(target)
         if not dt:
-            return 0, "0 секунд"
+            return 0, "**0** секунд"
         now = self.now()
         if dt <= now:
-            return 0, "0 секунд"
+            return 0, "**0** секунд"
 
         diff = now.diff(dt, abs=False)
         seconds = int(diff.total_seconds())
@@ -234,10 +234,10 @@ class TimeService:
     def _pluralize(value: int, singular: str, few: str, many: str) -> str:
         mod10, mod100 = value % 10, value % 100
         if mod10 == 1 and mod100 != 11:
-            return f"{value} {singular}"
+            return f"**{value}** {singular}"
         if 2 <= mod10 <= 4 and not 12 <= mod100 <= 14:
-            return f"{value} {few}"
-        return f"{value} {many}"
+            return f"**{value}** {few}"
+        return f"**{value}** {many}"
 
     def check_cooldown(self, key: str, seconds: int) -> Tuple[bool, int]:
         now = self.now()

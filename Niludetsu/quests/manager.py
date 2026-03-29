@@ -118,6 +118,9 @@ class QuestManager:
         quest_key: str,
         payload: Dict[str, Any],
     ) -> None:
+        # Сначала гарантируем наличие юзера в родительской таблице users
+        await self.db.ensure_user(user_id, guild_id)
+
         base = {
             "user_id": str(user_id),
             "guild_id": str(guild_id),

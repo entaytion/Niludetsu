@@ -396,8 +396,17 @@ class SupabaseDatabase:
             return existing
 
         payload = {**keys, **defaults}
-        created = await self.insert(table, payload)
-        return created or payload
+        try:
+            created = await self.insert(table, payload)
+            return created or payload
+        except Exception as exc:
+            # Race condition: concurrent ensure_record calls both saw no row
+            # and tried to insert simultaneously. Fetch the winner's row.
+            if "23505" in str(exc):
+                existing = await self.get_row(table, **keys)
+                if existing:
+                    return existing
+            raise
 
     async def ensure_user(self, user_id: str, guild_id: str) -> Dict[str, Any]:
         cached = await self._get_cached_user(user_id, guild_id)

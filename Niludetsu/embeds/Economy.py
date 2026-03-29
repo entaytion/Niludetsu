@@ -3,17 +3,18 @@
 Формат:
     Title:       "Действие — username"
     Description: "@user, текст..."
-                 "**Ваш текущий баланс:** X <money>"
     Thumbnail:   аватар пользователя
     Color:       Colors.PRIMARY
     Footer:      нет
     Fields:      нет (кроме balance)
 """
 
-import discord
-from Niludetsu.tools.Embed import Embed, Colors
-from Niludetsu.tools.Emojis import Emojis
 from typing import Optional
+
+import discord
+
+from Niludetsu.tools.Embed import Colors, Embed
+from Niludetsu.tools.Emojis import Emojis
 
 
 class EconomyEmbed:
@@ -33,9 +34,6 @@ class EconomyEmbed:
             lines = [f"{user.mention}\n{text.strip()}"]
         else:
             lines = [f"{user.mention}, {text}"]
-            
-        if balance is not None:
-            lines.append(f"\n**Ваш текущий баланс:** {balance:,} {Emojis.MONEY}")
 
         embed = Embed(
             title=f"{action} — {user.display_name}",
@@ -60,12 +58,22 @@ class EconomyEmbed:
             color=Colors.PRIMARY,
         )
         embed.set_thumbnail(url=user.display_avatar.url)
-        embed.add_field(name="> Кошелёк", value=f"**{wallet:,}** {Emojis.MONEY}", inline=True)
-        embed.add_field(name="> Банк", value=f"**{bank:,}** {Emojis.MONEY}", inline=True)
+        embed.add_field(
+            name="> Кошелёк", value=f"**{wallet:,}** {Emojis.MONEY}", inline=True
+        )
+        embed.add_field(
+            name="> Банк", value=f"**{bank:,}** {Emojis.MONEY}", inline=True
+        )
         if family is not None:
-            embed.add_field(name="> Семейный счёт", value=f"**{family:,}** {Emojis.MONEY}", inline=True)
+            embed.add_field(
+                name="> Семейный счёт",
+                value=f"**{family:,}** {Emojis.MONEY}",
+                inline=True,
+            )
         if rewards_info:
-            embed.add_field(name="> Доступные награды", value=rewards_info, inline=False)
+            embed.add_field(
+                name="> Доступные награды", value=rewards_info, inline=False
+            )
         return embed
 
     @staticmethod
@@ -90,9 +98,20 @@ class EconomyEmbed:
         )
 
     @staticmethod
-    def error(text: str) -> Embed:
-        """Ошибка экономической команды (без title-username)."""
-        return Embed.error(description=text)
+    def error(
+        text: str,
+        user: Optional[discord.Member | discord.User] = None,
+    ) -> Embed:
+        """Ошибка экономической команды в формате: title='Ошибка — ...', description='@user, ...'."""
+        if user is None:
+            return Embed.error(title="Ошибка — экономика", description=text)
+
+        return Embed(
+            title=f"Ошибка — {user.display_name}",
+            description=f"{user.mention}, {text}",
+            color=Colors.ERROR,
+            thumbnail=user.display_avatar.url,
+        )
 
     @staticmethod
     def game_lobby(
@@ -107,10 +126,10 @@ class EconomyEmbed:
         lines = []
         if bet is not None:
             lines.append(f"**Ставка:** {bet:,} {Emojis.MONEY}\n")
-        
+
         if description:
             lines.append(description)
-            
+
         embed = Embed(
             title=f"{action} — {user.display_name}",
             description="\n".join(lines).strip(),

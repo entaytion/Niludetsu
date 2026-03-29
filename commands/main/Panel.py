@@ -95,9 +95,9 @@ class EditUserModal(discord.ui.Modal, title="Редактировать поль
         self.user_id = user_id
 
         # Данные из user_economy
-        self.money.default = str(economy_data.get('balance', 0) if economy_data else 0)
-        self.deposit.default = str(economy_data.get('deposit', 0) if economy_data else 0)
-        self.love_deposit.default = str(economy_data.get('spousal_balance', 0) if economy_data else 0)
+        self.money.default = str((economy_data.get('balance') or 0) if economy_data else 0)
+        self.deposit.default = str((economy_data.get('deposit') or 0) if economy_data else 0)
+        self.love_deposit.default = str((economy_data.get('spousal_balance') or 0) if economy_data else 0)
 
         # Данные из user_profile (level и experience)
         self.level.default = str(profile_data.get('level', 1) if profile_data else 1)
@@ -168,10 +168,14 @@ class PanelCog(commands.Cog, name="Панель администратора"):
 
         # Показываем данные из economy
         if economy:
-            embed.add_field(name="> Основной:", value=f"```{economy.get('balance', 0)}```", inline=True)
-            embed.add_field(name="> Банк:", value=f"```{economy.get('deposit', 0)}```", inline=True)
-            if economy.get('spousal_balance', 0) > 0:
-                embed.add_field(name="> Семейный:", value=f"```{economy['spousal_balance']}```", inline=True)
+            balance = economy.get('balance') or 0
+            deposit = economy.get('deposit') or 0
+            spousal = economy.get('spousal_balance') or 0
+            
+            embed.add_field(name="> Основной:", value=f"```{balance}```", inline=True)
+            embed.add_field(name="> Банк:", value=f"```{deposit}```", inline=True)
+            if spousal > 0:
+                embed.add_field(name="> Семейный:", value=f"```{spousal}```", inline=True)
 
         await interaction.response.edit_message(embed=embed, view=UserPanelView(interaction.client, user, interaction.user, user_id))
 
@@ -203,21 +207,21 @@ class PanelCog(commands.Cog, name="Панель администратора"):
             economy_updates = {}
             if modal.money.value:
                 new_balance = int(modal.money.value)
-                old_balance = old_economy.get('balance', 0) if old_economy else 0
+                old_balance = (old_economy.get('balance') or 0) if old_economy else 0
                 if new_balance != old_balance:
                     economy_updates['balance'] = new_balance
                     changes['balance'] = (old_balance, new_balance)
 
             if modal.deposit.value:
                 new_deposit = int(modal.deposit.value)
-                old_deposit = old_economy.get('deposit', 0) if old_economy else 0
+                old_deposit = (old_economy.get('deposit') or 0) if old_economy else 0
                 if new_deposit != old_deposit:
                     economy_updates['deposit'] = new_deposit
                     changes['deposit'] = (old_deposit, new_deposit)
 
             if modal.love_deposit.value:
                 new_spousal = int(modal.love_deposit.value)
-                old_spousal = old_economy.get('spousal_balance', 0) if old_economy else 0
+                old_spousal = (old_economy.get('spousal_balance') or 0) if old_economy else 0
                 if new_spousal != old_spousal:
                     economy_updates['spousal_balance'] = new_spousal
                     changes['spousal_balance'] = (old_spousal, new_spousal)
@@ -255,8 +259,8 @@ class PanelCog(commands.Cog, name="Панель администратора"):
                 # Получаем текущие данные для расчёта уровня
                 profile = await database.get_row("user_profile", user_id=user_id_str, guild_id=guild_id)
 
-                old_level = profile.get('level', 1) if profile else 1
-                old_xp = profile.get('experience', 0) if profile else 0
+                old_level = (profile.get('level') or 1) if profile else 1
+                old_xp = (profile.get('experience') or 0) if profile else 0
 
                 experience = int(modal.xp.value) if modal.xp.value else old_xp
                 level = int(modal.level.value) if modal.level.value else old_level

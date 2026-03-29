@@ -81,7 +81,7 @@ class AutoModListener(commands.Cog):
                         guild=message.guild,
                         target=message.author,
                         moderator=message.guild.me,
-                        reason="1.4 (Discord инвайт)",
+                        reason="1.4",
                         channel=message.channel,
                         metadata={"roles": roles}
                     )
@@ -90,7 +90,7 @@ class AutoModListener(commands.Cog):
                         guild=message.guild,
                         target=message.author,
                         moderator=message.guild.me,
-                        reason="1.4 (Discord инвайт)",
+                        reason="1.4",
                         channel=message.channel,
                         metadata={"roles": roles}
                     )

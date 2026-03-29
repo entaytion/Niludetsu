@@ -151,7 +151,7 @@ class NiludetsuBot(commands.Bot):
                     await self.change_presence(
                         activity=discord.Activity(
                             type=discord.ActivityType.watching,
-                            name=f"на {member_count:,} участников Æther 🖤",
+                            name=f"{member_count:,} nullther's",
                         )
                     )
             except Exception as exc:
@@ -195,7 +195,8 @@ class NiludetsuBot(commands.Bot):
                 self.quest_tracker.on_message(str(message.guild.id), str(message.author.id))
             )
 
-bot = NiludetsuBot(command_prefix=get_prefix, intents=intents)
+allowed = discord.AllowedMentions(users=True, everyone=False, roles=False)
+bot = NiludetsuBot(command_prefix=get_prefix, intents=intents, allowed_mentions=allowed)
 bot.start_time = time.time()
 load_dotenv()
 level_system = None

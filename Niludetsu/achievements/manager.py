@@ -5,6 +5,7 @@ from Niludetsu.economy.manager import EconomyManager
 from Niludetsu.tools.Embed import Embed, Colors
 from Niludetsu.tools.Emojis import Emojis
 from Niludetsu.tools.Time import TimeService
+from Niludetsu.embeds.Achievements import AchievementEmbed
 from typing import Dict, Iterable, List, Optional, Set
 
 class AchievementsManager:
@@ -32,8 +33,10 @@ class AchievementsManager:
         achievement_id: str,
         *,
         channel: Optional[discord.abc.Messageable] = None,
+        user: Optional[discord.Member | discord.User] = None,
         metadata: Optional[Dict] = None,
         existing: Optional[Set[str]] = None,
+        send_embed: bool = True,
     ) -> bool:
         data = ACHIEVEMENTS.get(achievement_id)
         if not data:
@@ -73,17 +76,16 @@ class AchievementsManager:
             share_spousal=True,
         )
 
-        if channel:
-            embed = Embed(
-                title=f"{data['icon']} Новое достижение!",
-                description=(
-                    f"<@{user_id}> получил достижение **{data['name']}**\n"
-                    f"Награда: **``{data['reward']:,}``** {Emojis.MONEY}"
-                ),
-                color=Colors.PRIMARY,
-            )
-            embed.set_footer(text=self.time.format_datetime(record["unlocked_at"]))
-            await channel.send(embed=embed)
+        if channel and send_embed:
+            if not user:
+                if hasattr(channel, "guild"):
+                    user = channel.guild.get_member(int(user_id)) or await channel.guild.fetch_member(int(user_id))
+                else:
+                    user = await channel.bot.fetch_user(int(user_id))
+            
+            if user:
+                embed = AchievementEmbed.unlocked(user, [data])
+                await channel.send(embed=embed)
 
         return True
 
@@ -188,6 +190,8 @@ class AchievementsManager:
             metrics["level"] = int(profile.get("level", 0))
 
         newly_unlocked: List[str] = []
+        newly_unlocked_data: List[Dict] = []
+        user_obj: Optional[discord.Member | discord.User] = None
 
         for achievement_id, data in candidates.items():
             if achievement_id in unlocked_ids:
@@ -207,6 +211,7 @@ class AchievementsManager:
             if not meets_all:
                 continue
 
+            # Розблоковуємо без надсилання ембеду тут
             unlocked = await self.unlock(
                 guild_id,
                 user_id,
@@ -214,10 +219,20 @@ class AchievementsManager:
                 channel=channel,
                 metadata=None,
                 existing=unlocked_ids,
+                send_embed=False,
             )
 
             if unlocked:
                 newly_unlocked.append(achievement_id)
+                newly_unlocked_data.append(ACHIEVEMENTS[achievement_id])
+
+        if newly_unlocked_data and channel:
+            if hasattr(channel, "guild"):
+                user_obj = channel.guild.get_member(int(user_id)) or await channel.guild.fetch_member(int(user_id))
+            
+            if user_obj:
+                embed = AchievementEmbed.unlocked(user_obj, newly_unlocked_data)
+                await channel.send(embed=embed)
 
         return newly_unlocked
 

@@ -1,11 +1,12 @@
 from discord import app_commands
 from discord.ext import commands
+
 from Niludetsu import Emojis
 from Niludetsu.database.supabase_database import database
-from Niludetsu.economy.manager import EconomyManager
 from Niludetsu.economy.checks import CheckCooldown
-from Niludetsu.tools.Validator import economy
+from Niludetsu.economy.manager import EconomyManager
 from Niludetsu.embeds.Economy import EconomyEmbed
+from Niludetsu.tools.Validator import economy
 
 DAILY_DEFAULT_AMOUNT = 250
 
@@ -18,9 +19,11 @@ class Daily(commands.Cog):
         self.db = database
         self.economy = EconomyManager(self.db)
 
-    @commands.hybrid_command(name="daily", aliases=("timely",), description="💰 Получить ежедневную награду")
+    @commands.hybrid_command(
+        name="daily", aliases=("timely",), description="💰 Получить ежедневную награду"
+    )
     @app_commands.describe()
-    @economy(CheckCooldown("daily", "Вы уже забирали ежедневку!"))
+    @economy(CheckCooldown("daily"))
     async def daily(self, ctx: commands.Context) -> None:
         user_id = str(ctx.author.id)
         guild_id = str(ctx.guild.id)
