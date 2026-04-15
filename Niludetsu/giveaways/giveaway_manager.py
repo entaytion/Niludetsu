@@ -19,11 +19,6 @@ class GiveawayManager:
         self.db = database
         self.repo = GiveawayRepository(self.db)
         self.active: Dict[int, Dict[str, Any]] = {}
-        bot.loop.create_task(self._restore())
-
-    async def _restore(self) -> None:
-        await self.bot.wait_until_ready()
-        await self.load_active()
 
     async def setup_database(self):
         await self.load_active()

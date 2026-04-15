@@ -1,8 +1,8 @@
-import asyncio, discord
+import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 from Niludetsu.giveaways import GiveawayManager
-from Niludetsu.giveaways.ui import GiveawayConfigurator, GiveawayParticipationView
+from Niludetsu.giveaways.ui import GiveawayConfigurator
 from Niludetsu.tools.Embed import Embed
 from Niludetsu.tools.Time import TimeService
 
@@ -14,15 +14,13 @@ class Giveaways(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.manager = GiveawayManager(bot)
-        asyncio.create_task(self.manager.setup_database())
         self.check_giveaways.start()
+
+    async def cog_load(self):
+        await self.manager.setup_database()
 
     def cog_unload(self):
         self.check_giveaways.cancel()
-
-    @commands.Cog.listener()
-    async def on_ready(self):
-        self.bot.add_view(GiveawayParticipationView())
 
     @tasks.loop(seconds=5)
     async def check_giveaways(self):

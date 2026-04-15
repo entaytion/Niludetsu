@@ -69,14 +69,12 @@ class InfoCard:
                 children.append(discord.ui.TextDisplay(self.header))
 
         for text in self.sections:
-            children.append(discord.ui.Separator())
             children.append(discord.ui.TextDisplay(text))
             
         # Append all dynamically added V2 components
         children.extend(self.components)
 
         if self.footer:
-            children.append(discord.ui.Separator())
             children.append(discord.ui.TextDisplay(self.footer))
 
         container = discord.ui.Container(

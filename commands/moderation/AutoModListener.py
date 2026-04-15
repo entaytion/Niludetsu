@@ -1,6 +1,7 @@
 import discord
 from datetime import datetime
 from discord.ext import commands
+from Niludetsu import safe_delete
 from Niludetsu.config import SERVERS
 from Niludetsu.moderation.automod import AutoModRuleType, LinksRule, InvitesRule, CapsLockRule, BadWordsRule, AutoModManager
 from Niludetsu.moderation.config import ActionType
@@ -61,15 +62,11 @@ class AutoModListener(commands.Cog):
 
             if await self._check_rule(rule_type, rule_data, message):
                 # Удаляем нарушающее сообщение
-                try:
-                    await message.delete()
+                deleted = await safe_delete(message)
+                if deleted:
                     print(f"🗑️ AutoMod: Удалено сообщение от {message.author} в {message.channel} за нарушение правила {rule_type}")
-                except discord.errors.NotFound:
-                    print(f"⚠️ AutoMod: Сообщение уже удалено")
-                except discord.errors.Forbidden:
-                    print(f"❌ AutoMod: Нет прав на удаление сообщения в {message.channel}")
-                except Exception as e:
-                    print(f"❌ AutoMod: Ошибка удаления сообщения: {e}")
+                else:
+                    print(f"⚠️ AutoMod: Не удалось удалить сообщение в {message.channel}")
 
                 # Сохраняем роли пользователя для софтбана
                 roles = [role.id for role in message.author.roles if role.name != "@everyone"]
@@ -154,11 +151,17 @@ class AutoModListener(commands.Cog):
             self.spam_history[user_id] = []
 
         # Очищаем старые записи
-        self.spam_history[user_id] = [
+        active_timestamps = [
             ts for ts in self.spam_history[user_id]
             if _time.seconds_between(now, ts, absolute=True) <= interval
         ]
 
+        if not active_timestamps and user_id in self.spam_history:
+            del self.spam_history[user_id]
+            active_timestamps = []
+            
+        self.spam_history.setdefault(user_id, []).extend(active_timestamps)
+        
         # Добавляем текущее сообщение
         self.spam_history[user_id].append(now)
 
@@ -179,8 +182,8 @@ class AutoModListener(commands.Cog):
         history = self.repeated_text_history[user_id]
 
         # 1. Проверка повторяющихся строк внутри сообщения
-        if '' in content:
-            lines = [re.sub(r'\W+', '', line.strip().lower()) for line in content.split('') if len(line.strip()) > 15]
+        if '\n' in content:
+            lines = [re.sub(r'\W+', '', line.strip().lower()) for line in content.split('\n') if len(line.strip()) > 15]
             if lines:
                 line_counts = {}
                 for line in lines:

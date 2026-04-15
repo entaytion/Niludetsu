@@ -42,13 +42,10 @@ class Pay(commands.Cog):
             await ctx.reply(embed=EconomyEmbed.error(message), ephemeral=True)
             return
 
-        wallet = await self.economy.get_wallet(user_id, guild_id)
-
         embed = EconomyEmbed.result(
             action="Перевод",
             user=ctx.author,
             text=f"вы отправили **{amount_value:,}** {Emojis.MONEY} пользователю {member.mention}.",
-            balance=wallet,
         )
         await ctx.reply(embed=embed, mention_author=False)
 

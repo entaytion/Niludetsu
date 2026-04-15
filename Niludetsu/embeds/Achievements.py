@@ -40,10 +40,9 @@ class AchievementEmbed:
                     f"награда: **{ach['reward']:,}** {Emojis.MONEY}"
                 )
 
-        embed = Embed(
-            title=f"{action} — {user.display_name}",
+        return Embed.user(
+            user=user,
+            title_prefix=action,
             description="\n".join(lines).strip(),
             color=Colors.PRIMARY,
         )
-        embed.set_thumbnail(url=user.display_avatar.url)
-        return embed

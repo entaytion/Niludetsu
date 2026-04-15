@@ -32,13 +32,10 @@ class Daily(commands.Cog):
         await self.economy.add_money(user_id, guild_id, reward, event="daily")
         await self.economy.update_cooldown(user_id, guild_id, "daily")
 
-        wallet = await self.economy.get_wallet(user_id, guild_id)
-
         embed = EconomyEmbed.result(
             action="Ежедневная награда",
             user=ctx.author,
             text=f"вы получили **{reward:,}** {Emojis.MONEY}! До следующей награды — 24 часа.",
-            balance=wallet,
         )
         await ctx.reply(embed=embed, mention_author=False)
 

@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands, tasks
+from Niludetsu import safe_fetch_user
 from Niludetsu.database.supabase_database import database
 from Niludetsu.tools.Embed import Embed
 from Niludetsu.tools.Time import TimeService
@@ -133,7 +134,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
                 continue
 
             user_id = int(reminder["user_id"])
-            user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+            user = await safe_fetch_user(self.bot, user_id)
             if not user:
                 await self.complete_reminder(reminder["id"])
                 continue

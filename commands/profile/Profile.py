@@ -6,8 +6,8 @@ from Niludetsu.achievements.manager import AchievementsManager
 from Niludetsu.database.supabase_database import database
 from Niludetsu.profile.image import ProfileGenerator
 from Niludetsu.tools.Embed import Embed
+from Niludetsu.tools.Discord import resolve_member
 from typing import Optional
-
 class Profile(commands.Cog):
     """Команды профиля"""
 
@@ -32,18 +32,17 @@ class Profile(commands.Cog):
         profile = bundle.get("profile", {})
         economy = bundle.get("economy", {})
 
-        analytics_rows = await self.db.get_rows("user_analytics", user_id=user_id, guild_id=guild_id)
-        analytics = analytics_rows[0] if analytics_rows else {}
+        analytics = bundle.get("analytics", {})
 
         marriage = await self.db.get_active_marriage(guild_id, user_id)
         partner = None
 
         if marriage:
             partner_id = await self.db.get_marriage_partner(marriage, user_id)
-            try:
-                partner = await interaction.guild.fetch_member(int(partner_id))
-            except:
-                partner = None
+            partner = await resolve_member(interaction.client, partner_id, guild_id)
+            if isinstance(partner, discord.User):
+                # We need a user object for display, resolve_member gives User or Member
+                pass
 
         achievements_data = await self.achievements.get_user_summary(guild_id, user_id)
         achievements_count = sum(1 for ach in achievements_data.values() if ach.get("unlocked"))
@@ -67,7 +66,7 @@ class Profile(commands.Cog):
 
         file = discord.File(BytesIO(image_bytes), filename="profile.jpg")
 
-        view = ProfileActionsView(target) if target.id == interaction.user.id else None
+        view = ProfileActionsView(self, target) if target.id == interaction.user.id else None
 
         if view:
             await interaction.followup.send(file=file, view=view)
@@ -77,8 +76,9 @@ class Profile(commands.Cog):
 class ProfileActionsView(discord.ui.View):
     """View с кнопками действий профиля"""
 
-    def __init__(self, user: discord.Member):
+    def __init__(self, cog: "Profile", user: discord.Member):
         super().__init__(timeout=300)
+        self.cog = cog
         self.user = user
 
     @discord.ui.button(label="Достижения", emoji="🏆", style=discord.ButtonStyle.gray)
@@ -91,17 +91,8 @@ class ProfileActionsView(discord.ui.View):
             )
             return
 
-        # Получаем достижения
-        achievements_cog = interaction.client.get_cog('AchievementsCog')
-        if not achievements_cog:
-            await interaction.response.send_message(
-                embed=Embed.error(description="Система достижений недоступна"),
-                ephemeral=True
-            )
-            return
-
-        achievements_manager = achievements_cog.achievements
-        summary = await achievements_manager.get_user_summary(
+        # Получаем достижения через cog
+        summary = await self.cog.achievements.get_user_summary(
             str(interaction.guild_id),
             str(self.user.id)
         )

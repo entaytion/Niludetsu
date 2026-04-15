@@ -133,7 +133,7 @@ class AnalyticsTracker:
 
         return seconds
 
-    @tasks.loop(seconds=3)
+    @tasks.loop(minutes=1)
     async def flush_voice_sessions(self) -> None:
         if not self.voice_states:
             return
@@ -173,7 +173,7 @@ class AnalyticsTracker:
         if cached is True:
             return True
         if cached is False:
-            pass
+            return False
 
         try:
             row = await self.temp_repo.get_room_row(channel_id)

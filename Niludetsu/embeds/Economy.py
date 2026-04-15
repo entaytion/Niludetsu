@@ -26,22 +26,15 @@ class EconomyEmbed:
         action: str,
         user: discord.Member | discord.User,
         text: str,
-        balance: Optional[int] = None,
         color: int = Colors.PRIMARY,
     ) -> Embed:
         """Стандартный embed результата."""
-        if text.startswith("```") or text.startswith("\n"):
-            lines = [f"{user.mention}\n{text.strip()}"]
-        else:
-            lines = [f"{user.mention}, {text}"]
-
-        embed = Embed(
-            title=f"{action} — {user.display_name}",
-            description="\n".join(lines).strip(),
+        return Embed.user_action(
+            action=action,
+            user=user,
             color=color,
+            text=text,
         )
-        embed.set_thumbnail(url=user.display_avatar.url)
-        return embed
 
     @staticmethod
     def balance(
@@ -53,11 +46,11 @@ class EconomyEmbed:
         rewards_info: Optional[str] = None,
     ) -> Embed:
         """Embed баланса пользователя."""
-        embed = Embed(
-            title=f"Кошелёк пользователя — {user.display_name}",
+        embed = Embed.user(
+            user=user,
+            title_prefix="Кошелёк пользователя",
             color=Colors.PRIMARY,
         )
-        embed.set_thumbnail(url=user.display_avatar.url)
         embed.add_field(
             name="> Кошелёк", value=f"**{wallet:,}** {Emojis.MONEY}", inline=True
         )
@@ -82,7 +75,6 @@ class EconomyEmbed:
         action: str,
         user: discord.Member | discord.User,
         text: str,
-        balance: Optional[int] = None,
         color: int = Colors.PRIMARY,
     ) -> Embed:
         """Embed для результата мини-игры (coinflip, slots, etc).
@@ -93,7 +85,6 @@ class EconomyEmbed:
             action=action,
             user=user,
             text=text,
-            balance=balance,
             color=color,
         )
 
@@ -106,11 +97,12 @@ class EconomyEmbed:
         if user is None:
             return Embed.error(title="Ошибка — экономика", description=text)
 
-        return Embed(
-            title=f"Ошибка — {user.display_name}",
-            description=f"{user.mention}, {text}",
+        return Embed.user(
+            user=user,
+            title_prefix="Ошибка",
             color=Colors.ERROR,
-            thumbnail=user.display_avatar.url,
+            text=text,
+            mention=True,
         )
 
     @staticmethod
@@ -130,13 +122,12 @@ class EconomyEmbed:
         if description:
             lines.append(description)
 
-        embed = Embed(
-            title=f"{action} — {user.display_name}",
-            description="\n".join(lines).strip(),
+        return Embed.user(
+            user=user,
+            title_prefix=action,
             color=color,
+            description="\n".join(lines).strip(),
         )
-        embed.set_thumbnail(url=user.display_avatar.url)
-        return embed
 
     # ——— Транзакції ———
 

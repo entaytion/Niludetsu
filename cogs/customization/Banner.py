@@ -1,4 +1,4 @@
-import aiohttp, discord, io, os, time
+import discord, io, os, time
 from collections import defaultdict
 from discord.ext import commands, tasks
 from Niludetsu.config import SERVERS
@@ -19,7 +19,7 @@ class Banner(commands.Cog):
 
     async def cog_load(self):
         """Инициализация при загрузке кога"""
-        self.session = aiohttp.ClientSession()
+        self.session = getattr(self.bot, "http_session", None)
 
         # Проверяем доступность баннера для основного сервера
         guild = self.bot.get_guild(SERVERS["MAIN_ID"])
@@ -37,8 +37,6 @@ class Banner(commands.Cog):
     def cog_unload(self):
         """Закрываем сессию при выгрузке кога"""
         self.update_banner.cancel()
-        if self.session and not self.session.closed:
-            self.bot.loop.create_task(self.session.close())
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -114,46 +112,47 @@ class Banner(commands.Cog):
         draw.ellipse((0, 0) + size, fill=255)
         return mask
 
-    async def create_banner(self, member: discord.Member, voice_count: int) -> io.BytesIO:
-        """Создает баннер с информацией о пользователе"""
+    def _build_banner_image(self, avatar_data: bytes, username: str, voice_count: int, total_members: int) -> io.BytesIO:
         with Image.open(self.banner_path) as img:
             draw = ImageDraw.Draw(img)
             font = ImageFont.truetype(self.font_path, 32)
-
-            # Никнейм (обрезаем если длинный)
-            username = member.name
-            if len(username) > 12:
-                username = username[:9] + "..."
-
+            
             draw.text((250, 293), username, font=font, fill="white")
-
-            # Аватар (круглый)
-            avatar_url = str(member.display_avatar.with_format("png").url)
-            async with self.session.get(avatar_url) as response:
-                avatar_data = await response.read()
-                with Image.open(io.BytesIO(avatar_data)) as avatar:
-                    avatar = avatar.convert('RGBA').resize((180, 180))
-                    output = Image.new('RGBA', (180, 180), (0, 0, 0, 0))
-                    mask = self.create_circular_mask((180, 180))
-
-                    for x in range(180):
-                        for y in range(180):
-                            if mask.getpixel((x, y)) > 0:
-                                output.putpixel((x, y), avatar.getpixel((x, y)))
-
-                    img.paste(output, (52, 223), output)
-
-            # Онлайн в голосовых
+            
+            with Image.open(io.BytesIO(avatar_data)) as avatar:
+                avatar = avatar.convert('RGBA').resize((180, 180))
+                mask = self.create_circular_mask((180, 180))
+                
+                output = Image.new('RGBA', (180, 180), (0, 0, 0, 0))
+                output.paste(avatar, (0, 0), mask)
+                img.paste(output, (52, 223), output)
+                
             draw.text((750, 293), str(voice_count), font=font, fill="white")
-
-            # Всего участников
-            total_members = member.guild.member_count if hasattr(member.guild, 'member_count') else 0
             draw.text((739, 373), str(total_members), font=font, fill="white")
 
             buffer = io.BytesIO()
             img.save(buffer, format='JPEG')
             buffer.seek(0)
             return buffer
+
+    async def create_banner(self, member: discord.Member, voice_count: int) -> io.BytesIO:
+        username = member.name
+        if len(username) > 12:
+            username = username[:9] + "..."
+
+        if self.session is None or self.session.closed:
+            raise RuntimeError("HTTP session is not available")
+
+        avatar_url = str(member.display_avatar.with_format("png").url)
+        async with self.session.get(avatar_url) as response:
+            avatar_data = await response.read()
+            
+        total_members = member.guild.member_count if hasattr(member.guild, 'member_count') else 0
+        
+        import asyncio
+        return await asyncio.to_thread(
+            self._build_banner_image, avatar_data, username, voice_count, total_members
+        )
 
     @tasks.loop(minutes=5)
     async def update_banner(self):
@@ -203,7 +202,7 @@ class Banner(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         """Запускает ротацию баннера при старте бота"""
-        if self.banner_available:
+        if self.banner_available and not self.update_banner.is_running():
             self.update_banner.start()
 
 async def setup(bot):

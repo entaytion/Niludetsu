@@ -50,7 +50,6 @@ class Work(commands.Cog):
             return
 
         await self.economy.update_cooldown(user_id, guild_id, "work")
-        wallet = await self.economy.get_wallet(user_id, guild_id)
 
         job, story = random.choice(WORK_MESSAGES)
 
@@ -61,7 +60,6 @@ class Work(commands.Cog):
                 f"сегодня вы работали как **{job}** и {story}. "
                 f"Вы получили **{reward:,}** {Emojis.MONEY}!"
             ),
-            balance=wallet,
         )
         await ctx.reply(embed=embed, mention_author=False)
 

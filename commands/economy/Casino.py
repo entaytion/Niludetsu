@@ -2,7 +2,7 @@ import asyncio, discord, random
 from dataclasses import dataclass
 from discord import app_commands
 from discord.ext import commands
-from Niludetsu import Emojis, Embed, Colors
+from Niludetsu import Emojis, Embed, Colors, resolve_member, safe_edit, safe_fetch_message, GameView
 from Niludetsu.embeds.Economy import EconomyEmbed
 from Niludetsu.database.supabase_database import database
 from Niludetsu.economy.manager import EconomyManager
@@ -47,7 +47,7 @@ class RouletteState:
     bet_amount: int
     bet_code: Optional[str] = None
 
-class RouletteBetView(discord.ui.View):
+class RouletteBetView(GameView):
     def __init__(self, cog: "Roulette", message_id: int, owner_id: int, *, timeout: float = 45.0):
         super().__init__(timeout=timeout)
         self.cog = cog
@@ -65,22 +65,12 @@ class RouletteBetView(discord.ui.View):
         return True
 
     async def on_timeout(self) -> None:
-        await self.disable_buttons()
+        await self.disable_all()
         await self.cog.handle_timeout(self.message_id)
-
-    async def disable_buttons(self) -> None:
-        for child in self.children:
-            if isinstance(child, discord.ui.Button):
-                child.disabled = True
-        if self.message:
-            try:
-                await self.message.edit(view=self)
-            except discord.HTTPException:
-                pass
 
     async def make_choice(self, interaction: discord.Interaction, bet_code: str) -> None:
         await interaction.response.defer()
-        await self.disable_buttons()
+        await self.disable_all()
         await self.cog.resolve_bet(self.message_id, bet_code)
 
     @discord.ui.button(label="Красное", style=discord.ButtonStyle.danger, emoji="🟥")
@@ -182,13 +172,12 @@ class Roulette(commands.Cog):
             await self._cleanup(state, refund=True)
             return
 
-        try:
-            message = await channel.fetch_message(state.message_id)
-        except discord.HTTPException:
+        message = await safe_fetch_message(channel, state.message_id)
+        if not message:
             await self._cleanup(state, refund=True)
             return
 
-        member = await self._resolve_member(state.user_id, state.guild_id)
+        member = await resolve_member(self.bot, state.user_id, state.guild_id)
         result_number, frames = self._generate_frames()
         for delay, frame in frames[:-1]:
             await message.edit(embed=self._build_spin_embed(frame, member, state.bet_amount))
@@ -220,23 +209,17 @@ class Roulette(commands.Cog):
         if not isinstance(channel, discord.TextChannel):
             return
 
-        try:
-            message = await channel.fetch_message(state.message_id)
-        except discord.HTTPException:
+        message = await safe_fetch_message(channel, state.message_id)
+        if not message:
             return
 
-        member = await self._resolve_member(state.user_id, state.guild_id)
-        wallet = await self.economy.get_wallet(state.user_id, state.guild_id)
+        member = await resolve_member(self.bot, state.user_id, state.guild_id)
         embed = EconomyEmbed.result(
             action="Рулетка",
             user=member,
             text=f"время выбора ставки вышло. Ставка возвращена.",
-            balance=wallet,
         )
-        try:
-            await message.edit(embed=embed, view=None)
-        except discord.HTTPException:
-            pass
+        await safe_edit(message, embed=embed, view=None)
 
     async def _cleanup(self, state: RouletteState, refund: bool) -> None:
         await self._pop_game(state.message_id)
@@ -295,8 +278,7 @@ class Roulette(commands.Cog):
         bet_name = self._bet_label(state.bet_code)
         diff = payout - state.bet_amount if won else -state.bet_amount
 
-        member = await self._resolve_member(state.user_id, state.guild_id)
-        wallet = await self.economy.get_wallet(state.user_id, state.guild_id)
+        member = await resolve_member(self.bot, state.user_id, state.guild_id)
 
         text = (
             "```\n\n"
@@ -312,7 +294,6 @@ class Roulette(commands.Cog):
             action="Рулетка",
             user=member,
             text=text,
-            balance=wallet,
             color=Colors.SUCCESS if won else Colors.ERROR,
         )
 
@@ -346,15 +327,6 @@ class Roulette(commands.Cog):
                 return name
         return "?"
 
-    async def _resolve_member(self, user_id: str, guild_id: str) -> discord.User:
-        uid = int(user_id)
-        gid = int(guild_id)
-        guild = self.bot.get_guild(gid)
-        if guild:
-            member = guild.get_member(uid)
-            if member:
-                return member
-        return await self.bot.fetch_user(uid)
 
     def cog_unload(self) -> None:
         self._games.clear()

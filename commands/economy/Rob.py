@@ -83,8 +83,6 @@ class Rob(commands.Cog):
                     user_id, guild_id, penalty, event="rob_penalty"
                 )
 
-            wallet = await self.economy.get_wallet(user_id, guild_id)
-
             embed = EconomyEmbed.result(
                 action="Ограбление",
                 user=ctx.author,
@@ -92,7 +90,6 @@ class Rob(commands.Cog):
                     f"стража оказалась быстрее. "
                     f"Вы выплатили штраф в **{penalty:,}** {Emojis.MONEY}."
                 ),
-                balance=wallet,
             )
             await ctx.reply(embed=embed, mention_author=False)
 

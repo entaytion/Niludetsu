@@ -149,14 +149,13 @@ class QuestsView(discord.ui.View):
 
         page_label = "Ежедневные" if self.page == 1 else "Еженедельные"
 
-        embed = Embed(
-            title=f"Квесты — {self.user.display_name}",
+        return Embed.user(
+            user=self.user,
+            title_prefix="Квесты",
             description=f"**{page_label} квесты**\n\n{description}",
             color=Colors.PRIMARY,
             footer={"text": f"Страница {self.page}/{self.max_pages}"},
         )
-        embed.set_thumbnail(url=self.user.display_avatar.url)
-        return embed
 
     def _add_buttons(self):
         # Предыдущая

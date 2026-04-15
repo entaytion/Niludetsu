@@ -1,6 +1,8 @@
-import discord, random, requests
+import random
 from discord import app_commands
 from discord.ext import commands
+import aiohttp
+import discord
 from Niludetsu.api.Gifs import GifsAPI
 from Niludetsu.marriage.marriage_manager import MarriageManager
 from Niludetsu.tools.Embed import Embed
@@ -11,7 +13,7 @@ class ReactionSystem(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.gifs_api = GifsAPI()
+        self.gifs_api = GifsAPI(getattr(bot, "http_session", None))
         self.marriage = MarriageManager()
         self.purrbot_api = "https://purrbot.site/api/img"
 
@@ -199,13 +201,24 @@ class ReactionSystem(commands.Cog):
             }
         }
 
+    async def cog_load(self):
+        self.gifs_api.bind_session(getattr(self.bot, "http_session", None))
+
     async def _get_purrbot_gif(self, type_name: str, is_nsfw: bool = False) -> Optional[str]:
         """Получает гифку из PurrBot API"""
         category = "nsfw" if is_nsfw else "sfw"
+        session = getattr(self.bot, "http_session", None)
+        if session is None or session.closed:
+            return None
+
         try:
-            response = requests.get(f"{self.purrbot_api}/{category}/{type_name}/gif", timeout=5)
-            if response.status_code == 200:
-                return response.json().get("link")
+            async with session.get(
+                f"{self.purrbot_api}/{category}/{type_name}/gif",
+                timeout=aiohttp.ClientTimeout(total=5),
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data.get("link")
         except Exception:
             pass
         return None
@@ -363,7 +376,7 @@ class ReactionSystem(commands.Cog):
         else:
             # SFW команды — используем обычные гифки
             try:
-                gif_url = self.gifs_api.get_random_gif(reaction_type)
+                gif_url = await self.gifs_api.get_random_gif(reaction_type)
             except Exception:
                 # Фоллбек на PurrBot
                 if reaction_type in ["kiss", "hug", "pat", "slap", "tickle"]:

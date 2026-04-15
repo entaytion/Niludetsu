@@ -5,6 +5,7 @@ from Niludetsu.config import NOTIFICATION_CHANNEL_ID
 from Niludetsu.moderation.checks import moderationcommand
 from Niludetsu.moderation.exceptions import ModerationError
 from Niludetsu.tools.Embed import Embed
+from Niludetsu.tools.Emojis import Emojis
 from typing import Optional
 
 class ClearCog(commands.Cog):
@@ -132,7 +133,7 @@ class ClearCog(commands.Cog):
                 except:
                     pass
 
-        description = f"{Emoji.SUCCESS} Успешно удалено **{deleted_count}** сообщений"
+        description = f"{Emojis.SUCCESS} Успешно удалено **{deleted_count}** сообщений"
         if target:
             description += f" пользователя {target.mention}"
         description += "!"
@@ -214,7 +215,7 @@ class ClearCog(commands.Cog):
 
         if log_channel:
             try:
-                await log_channel.send(embed=log_channel)
+                await log_channel.send(embed=embed)
             except (discord.Forbidden, discord.HTTPException):
                 pass
 

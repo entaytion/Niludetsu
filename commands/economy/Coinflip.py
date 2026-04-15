@@ -2,7 +2,7 @@ import asyncio, discord, random
 from dataclasses import dataclass
 from discord import app_commands
 from discord.ext import commands
-from Niludetsu import Emojis, Embed
+from Niludetsu import Emojis, Embed, resolve_member, safe_edit, safe_fetch_message, GameView
 from Niludetsu.embeds.Economy import EconomyEmbed
 from Niludetsu.database.supabase_database import database
 from Niludetsu.economy.manager import EconomyManager
@@ -22,7 +22,7 @@ class CoinflipState:
     message_id: int
     choice: Optional[str] = None
 
-class CoinflipView(discord.ui.View):
+class CoinflipView(GameView):
     def __init__(self, cog: "Coinflip", game_id: int, owner_id: int, *, timeout: float = 30.0):
         super().__init__(timeout=timeout)
         self.cog = cog
@@ -40,18 +40,8 @@ class CoinflipView(discord.ui.View):
         return True
 
     async def on_timeout(self) -> None:
-        await self.disable_buttons()
+        await self.disable_all()
         await self.cog.handle_timeout(self.game_id)
-
-    async def disable_buttons(self) -> None:
-        for child in self.children:
-            if isinstance(child, discord.ui.Button):
-                child.disabled = True
-        if self.message:
-            try:
-                await self.message.edit(view=self)
-            except discord.HTTPException:
-                pass
 
     @discord.ui.button(label="Орёл", style=discord.ButtonStyle.secondary, emoji="🦅")
     async def heads(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
@@ -63,13 +53,10 @@ class CoinflipView(discord.ui.View):
 
     async def process_choice(self, interaction: discord.Interaction, choice: str) -> None:
         await interaction.response.defer()
-        await self.disable_buttons()
+        await self.disable_all()
         embed = await self.cog.resolve_game(self.game_id, choice)
-        if embed and self.message:
-            try:
-                await self.message.edit(embed=embed, view=None)
-            except discord.HTTPException:
-                pass
+        if embed:
+            await safe_edit(self.message, embed=embed, view=None)
 
 class Coinflip(commands.Cog):
     """🪙 Монетка: ставка х2 с учётом экономики и блокировкой мультисессий."""
@@ -138,8 +125,7 @@ class Coinflip(commands.Cog):
         else:
             outcome = f"проиграли **{state.bet:,}** {Emojis.MONEY}"
 
-        wallet = await self.economy.get_wallet(state.user_id, state.guild_id)
-        member = await self._resolve_member(state.user_id, state.guild_id)
+        member = await resolve_member(self.bot, state.user_id, state.guild_id)
 
         choice_name = "орла" if choice == "heads" else "решку"
         result_name = "орла" if result == "heads" else "решку"
@@ -151,7 +137,6 @@ class Coinflip(commands.Cog):
                 f"вы выбрали **{choice_name}**, "
                 f"выпала **{result_name}**. Вы {outcome}."
             ),
-            balance=wallet,
         )
 
         await self.validator.release_game(GAME_NAME, state.user_id, state.guild_id)
@@ -174,28 +159,14 @@ class Coinflip(commands.Cog):
         except discord.HTTPException:
             return
 
-        member = await self._resolve_member(state.user_id, state.guild_id)
-        wallet = await self.economy.get_wallet(state.user_id, state.guild_id)
+        member = await resolve_member(self.bot, state.user_id, state.guild_id)
         embed = EconomyEmbed.result(
             action="Монетка",
             user=member,
             text=f"время выбора вышло. Ставка возвращена.",
-            balance=wallet,
         )
-        try:
-            await message.edit(embed=embed, view=None)
-        except discord.HTTPException:
-            pass
+        await safe_edit(message, embed=embed, view=None)
 
-    async def _resolve_member(self, user_id: str, guild_id: str) -> discord.User:
-        uid = int(user_id)
-        gid = int(guild_id)
-        guild = self.bot.get_guild(gid)
-        if guild:
-            member = guild.get_member(uid)
-            if member:
-                return member
-        return await self.bot.fetch_user(uid)
 
     def cog_unload(self) -> None:
         self._games.clear()

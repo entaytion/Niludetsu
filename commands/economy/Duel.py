@@ -2,7 +2,7 @@ import asyncio, discord, random, uuid
 from dataclasses import dataclass, field
 from discord import app_commands
 from discord.ext import commands
-from Niludetsu import Embed, Colors, Emojis
+from Niludetsu import Embed, Colors, Emojis, resolve_member, safe_edit, GameView
 from Niludetsu.embeds.Economy import EconomyEmbed
 from Niludetsu.database.supabase_database import database
 from Niludetsu.economy.manager import EconomyManager
@@ -63,7 +63,7 @@ class DuelState:
     last_resolved_round: int = 0
     log: List[str] = field(default_factory=list)
 
-class DuelInviteView(discord.ui.View):
+class DuelInviteView(GameView):
     def __init__(self, cog: "Duel", duel_id: str, challenger_id: int, opponent_id: int, *, timeout: float = 30.0):
         super().__init__(timeout=timeout)
         self.cog = cog
@@ -82,29 +82,19 @@ class DuelInviteView(discord.ui.View):
         return True
 
     async def on_timeout(self) -> None:
-        await self.disable()
+        await self.disable_all()
         await self.cog.handle_invite_timeout(self.duel_id)
-
-    async def disable(self) -> None:
-        for child in self.children:
-            if isinstance(child, discord.ui.Button):
-                child.disabled = True
-        if self.message:
-            try:
-                await self.message.edit(view=self)
-            except discord.HTTPException:
-                pass
 
     @discord.ui.button(label="Принять", style=discord.ButtonStyle.success, emoji="⚔️")
     async def accept(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
         await interaction.response.defer()
-        await self.disable()
+        await self.disable_all()
         await self.cog.handle_invite_answer(self.duel_id, accepted=True)
 
     @discord.ui.button(label="Отказаться", style=discord.ButtonStyle.danger, emoji="🏳️")
     async def decline(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
         await interaction.response.defer()
-        await self.disable()
+        await self.disable_all()
         await self.cog.handle_invite_answer(self.duel_id, accepted=False)
 
 class WeaponSelectView(discord.ui.View):
@@ -136,11 +126,7 @@ class WeaponSelectView(discord.ui.View):
             for child in self.children:
                 if isinstance(child, discord.ui.Button):
                     child.disabled = True
-            if interaction.message:
-                try:
-                    await interaction.message.edit(view=self)
-                except discord.HTTPException:
-                    pass
+            await safe_edit(interaction.message, view=self)
 
         return callback
 
@@ -188,11 +174,7 @@ class ActionSelectView(discord.ui.View):
             for child in self.children:
                 if isinstance(child, discord.ui.Button):
                     child.disabled = True
-            if interaction.message:
-                try:
-                    await interaction.message.edit(view=self)
-                except discord.HTTPException:
-                    pass
+            await safe_edit(interaction.message, view=self)
 
         return callback
 
@@ -590,7 +572,7 @@ class Duel(commands.Cog):
             if winnings > 0:
                 await self.economy.add_money(str(winner_id), str(state.guild_id), winnings, event="duel", related_user_id=str(loser_id))
 
-            member = await self._resolve_member(winner_id, int(state.guild_id))
+            member = await resolve_member(self.bot, winner_id, state.guild_id)
             wallet = await self.economy.get_wallet(str(winner_id), str(state.guild_id))
 
             text = (
@@ -609,7 +591,6 @@ class Duel(commands.Cog):
                 action="Дуэль",
                 user=member,
                 text=text,
-                balance=wallet,
                 color=Colors.SUCCESS,
             )
 
@@ -635,19 +616,7 @@ class Duel(commands.Cog):
             await self.economy.add_money(str(state.challenger_id), str(state.guild_id), state.bet)
 
     async def _send_update(self, message: Optional[discord.Message], embed: Embed) -> None:
-        if message:
-            try:
-                await message.edit(embed=embed, view=None)
-            except discord.HTTPException:
-                pass
-
-    async def _resolve_member(self, user_id: int, guild_id: int) -> discord.User:
-        guild = self.bot.get_guild(guild_id)
-        if guild:
-            member = guild.get_member(user_id)
-            if member:
-                return member
-        return await self.bot.fetch_user(user_id)
+        await safe_edit(message, embed=embed, view=None)
 
     def cog_unload(self) -> None:
         self._duels.clear()

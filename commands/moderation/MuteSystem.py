@@ -46,21 +46,11 @@ class MuteSystem(commands.Cog):
         """
         duration_minutes = None
         if duration:
-            try:
-                parsed_duration = _time.parse_duration(duration)
-                if parsed_duration:
-                    duration_minutes = int(parsed_duration.total_seconds() / 60)
-                else:
-                    raise ValueError("Не удалось распарсить длительность")
-            except Exception as e:
-                embed = Embed.error(
-                    title="❌ Неверный формат длительности",
-                    description=(
-                        f"Не удалось распарсить длительность: `{duration}`\n"
-                        "**Примеры правильного формата:**\n`30s` — 30 секунд, `5m` — 5 минут, `2h` — 2 часа, `7d` — 7 дней, `1w` — 1 неделя"
-                    )
-                )
+            seconds, _, err = _time.validate_duration(duration, max_days=28, min_seconds=60)
+            if err:
+                embed = Embed.error(title="❌ Неверный формат длительности", description=f"Ошибка: {err}\nПримеры: `5m`, `2h`, `7d`")
                 return await send(ctx, embed=embed, ephemeral=True)
+            duration_minutes = seconds // 60
 
         result = await self.mute_system.mute(
             guild=ctx.guild,

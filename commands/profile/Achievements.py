@@ -21,7 +21,8 @@ class AchievementsCog(commands.Cog):
         summary = await self.manager.get_user_summary(guild_id, user_id)
         total = sum(1 for item in summary.values() if item["unlocked"])
 
-        embed = Embed(
+        embed = Embed.user(
+            user=target,
             title=f"⭐ Достижения {target.display_name}",
             description=f"> Разблокировано: **{total}/{len(summary)}**",
             color=Colors.SUCCESS,
@@ -32,8 +33,6 @@ class AchievementsCog(commands.Cog):
             if data["unlocked_at"]:
                 line += f"\n• Получено: {_time.format_datetime(data['unlocked_at'])}"
             embed.add_field(name=data["category"].capitalize(), value=line, inline=False)
-
-        embed.set_thumbnail(url=target.display_avatar.url)
         await ctx.reply(embed=embed, mention_author=False)
 
     async def award_marriage(self, guild_id: str, user_id: str, channel: discord.TextChannel | None = None):

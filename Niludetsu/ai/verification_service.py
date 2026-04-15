@@ -2,6 +2,8 @@ import os
 import aiohttp
 import json
 from typing import Dict, Any
+from Niludetsu.ai.models import MISTRAL_SMALL_MODEL
+from Niludetsu.ai.prompts import VERIFICATION_SYSTEM_PROMPT
 
 class VerificationService:
     """Service to handle AI verification requests using Mistral."""
@@ -9,7 +11,7 @@ class VerificationService:
     def __init__(self):
         self.api_key = os.getenv("MISTRAL_API_KEY")
         self.api_url = "https://api.mistral.ai/v1/chat/completions"
-        self.model = "mistral-small-latest"  # Efficient model for JSON tasks
+        self.model = MISTRAL_SMALL_MODEL
 
     async def score_user(self, user_data: Dict[str, Any], answer: str) -> Dict[str, Any]:
         """
@@ -33,11 +35,7 @@ class VerificationService:
             "messages": [
                 {
                     "role": "system", 
-                    "content": (
-                        "You are a strict security officer for a Discord server. "
-                        "Evaluate the user's application based on their account metadata and answer. "
-                        "Respond ONLY in valid JSON format. No markdown, no explanations outside JSON."
-                    )
+                    "content": VERIFICATION_SYSTEM_PROMPT
                 },
                 {"role": "user", "content": prompt}
             ],

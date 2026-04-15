@@ -224,14 +224,16 @@ class SupabaseDatabase:
                 return None
             data, ts = cached
             if time.time() - ts < self._cache_ttl:
-                return json.loads(json.dumps(data))
+                import copy
+                return copy.deepcopy(data)
             self._user_cache.pop(key, None)
             return None
 
     async def _cache_user(self, user_id: str, guild_id: str, data: Dict[str, Any]) -> None:
         key = self._cache_key(user_id, guild_id)
         async with self._cache_lock:
-            self._user_cache[key] = (json.loads(json.dumps(data)), time.time())
+            import copy
+            self._user_cache[key] = (copy.deepcopy(data), time.time())
             if len(self._user_cache) > 1000:
                 now = time.time()
                 stale = [k for k, (_, ts) in self._user_cache.items() if now - ts >= self._cache_ttl]

@@ -1,24 +1,44 @@
-import aiohttp, asyncio, discord, os, random
-from discord.ext import commands
-from dotenv import load_dotenv
-from Niludetsu.config import SERVERS
-from Niludetsu.database.supabase_database import database
-from Niludetsu import Embed, Colors, TimeService, Emojis
-from typing import Optional, Dict
+from __future__ import annotations
 
-load_dotenv()
+import asyncio
+import random
+from typing import Optional
+
+import discord
+from discord.ext import commands
+
+from Niludetsu import Colors, Emojis, InfoCard, TimeService, safe_fetch_user
+from Niludetsu.ai.models import WelcomeQuestionGenerator
+from Niludetsu.config import SERVERS
+from Niludetsu.database import database
+from Niludetsu.logging import logger
 
 MAIN_SERVER_ID = SERVERS["MAIN_ID"]
-INVITES_CHANNEL_ID = 1130114236673171476  # Канал для логов инвайтов
-WELCOME_CHANNEL_ID = 1125546968517726228  # Канал приветствия
-MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+INVITES_CHANNEL_ID = 1130114236673171476
+WELCOME_CHANNEL_ID = 1125546968517726228
+RULES_CHANNEL_ID = 1261069675098279996
+DISCORD_INVITE_URL = "https://discord.gg/HxwZ6ceKKj"
+
+WELCOME_GREETINGS = (
+    "здарова",
+    "ку",
+    "хай",
+    "привет",
+    "приветик",
+    "хаюшки",
+    "салют",
+    "хеей-хеей",
+    "дарова",
+)
 
 _time = TimeService()
+
 
 class AccountType:
     NORMAL = "NORMAL"
     NEW = "NEW"
     SUSPICIOUS = "SUSPICIOUS"
+
 
 class InviteSource:
     UNKNOWN = "UNKNOWN"
@@ -39,395 +59,484 @@ class InviteSource:
     def get_emoji(source: str) -> str:
         return InviteSource.EMOJI_MAP.get(source.upper(), "❓")
 
+
 class InviteManager:
-    """Управление инвайтами и их отслеживание"""
+    """Caches invites and determines how a member joined."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.db = database
-
-        # Кеш инвайтов
-        self.invites: Dict[str, discord.Invite] = {}
+        self.invites: dict[str, discord.Invite] = {}
         self.vanity_invite: Optional[discord.Invite] = None
-        self.vanity_uses: int = 0
-
+        self.vanity_uses = 0
         self.lock = asyncio.Lock()
 
-        # Инициализируем кеш
-        bot.loop.create_task(self._initialize())
-
-    async def _initialize(self):
-        """Инициализация кеша инвайтов"""
+    async def initialize(self) -> None:
         await self.bot.wait_until_ready()
         await self.cache_invites()
 
-    async def cache_invites(self):
-        """Кеширует все инвайты сервера"""
+    async def cache_invites(self) -> None:
         guild = self.bot.get_guild(MAIN_SERVER_ID)
         if not guild:
             return
 
-        async with self.lock:
-            try:
-                # Кешируем обычные инвайты
-                invites = await guild.invites()
+        try:
+            invites = await guild.invites()
+            vanity = None
+            vanity_uses = 0
+            if guild.vanity_url_code:
+                try:
+                    vanity = await guild.vanity_invite()
+                    if vanity:
+                        vanity_uses = vanity.uses or 0
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
+
+            async with self.lock:
                 self.invites = {invite.code: invite for invite in invites}
+                self.vanity_invite = vanity
+                self.vanity_uses = vanity_uses
 
-                # Кешируем vanity invite
-                if guild.vanity_url_code:
-                    try:
-                        vanity = await guild.vanity_invite()
-                        if vanity:
-                            self.vanity_invite = vanity
-                            self.vanity_uses = vanity.uses
-                    except (discord.Forbidden, discord.HTTPException):
-                        pass
+            logger.info(f"[InviteManager] Cached {len(self.invites)} invites")
+        except discord.Forbidden:
+            logger.warning("[InviteManager] Missing permissions to cache invites")
+        except Exception as exc:
+            logger.error(f"[InviteManager] Failed to cache invites: {exc}")
 
-                print(f"[InviteManager] Кеш инвайтов обновлён: {len(self.invites)} инвайтов")
-
-            except discord.Forbidden:
-                print(f"[InviteManager] Нет прав для получения инвайтов")
-            except Exception as e:
-                print(f"[InviteManager] Ошибка кеширования инвайтов: {e}")
-
-    async def track_invite_create(self, invite: discord.Invite):
-        """Отслеживает создание инвайта"""
+    async def track_invite_create(self, invite: discord.Invite) -> None:
         if not invite.guild or invite.guild.id != MAIN_SERVER_ID:
             return
 
         async with self.lock:
             self.invites[invite.code] = invite
 
-    async def track_invite_delete(self, invite: discord.Invite):
-        """Отслеживает удаление инвайта"""
+    async def track_invite_delete(self, invite: discord.Invite) -> None:
         if not invite.guild or invite.guild.id != MAIN_SERVER_ID:
             return
 
         async with self.lock:
             self.invites.pop(invite.code, None)
 
-    async def track_guild_update(self, before: discord.Guild, after: discord.Guild):
-        """Отслеживает изменение vanity URL"""
-        if before.id != MAIN_SERVER_ID:
+    async def track_guild_update(self, before: discord.Guild, after: discord.Guild) -> None:
+        if before.id != MAIN_SERVER_ID or before.vanity_url_code == after.vanity_url_code:
             return
 
-        if before.vanity_url_code != after.vanity_url_code:
-            try:
-                vanity = await after.vanity_invite()
-                if vanity:
-                    async with self.lock:
-                        self.vanity_invite = vanity
-                        self.vanity_uses = vanity.uses
-            except Exception:
-                pass
+        try:
+            vanity = await after.vanity_invite()
+            vanity_uses = vanity.uses or 0 if vanity else 0
+            async with self.lock:
+                self.vanity_invite = vanity
+                self.vanity_uses = vanity_uses
+        except Exception:
+            pass
 
     async def find_used_invite(self, guild: discord.Guild) -> Optional[discord.Invite]:
-        """Находит использованный инвайт"""
-        async with self.lock:
-            try:
-                # Получаем текущие инвайты
-                current_invites = await guild.invites()
+        try:
+            current_invites = await guild.invites()
+            vanity = None
+            vanity_uses = 0
+            if guild.vanity_url_code:
+                try:
+                    vanity = await guild.vanity_invite()
+                    if vanity:
+                        vanity_uses = vanity.uses or 0
+                except (discord.Forbidden, discord.HTTPException):
+                    vanity = None
+        except Exception as exc:
+            logger.error(f"[InviteManager] Failed to resolve used invite: {exc}")
+            return None
 
-                # Сравниваем с кешем
+        async with self.lock:
+            used_invite = None
+            try:
                 for invite in current_invites:
                     cached = self.invites.get(invite.code)
-                    if cached and invite.uses > cached.uses:
-                        # Обновляем кеш
-                        self.invites[invite.code] = invite
-                        return invite
+                    if cached and (invite.uses or 0) > (cached.uses or 0):
+                        used_invite = invite
+                        break
 
-                # Проверяем vanity invite
-                if guild.vanity_url_code:
-                    vanity = await guild.vanity_invite()
-                    if vanity and vanity.uses > self.vanity_uses:
-                        self.vanity_invite = vanity
-                        self.vanity_uses = vanity.uses
-                        return vanity
+                if vanity and vanity_uses > self.vanity_uses:
+                    used_invite = vanity
 
-                # Обновляем кеш для следующего раза
-                self.invites = {inv.code: inv for inv in current_invites}
+                self.invites = {invite.code: invite for invite in current_invites}
+                self.vanity_invite = vanity
+                self.vanity_uses = vanity_uses
+            except Exception as exc:
+                logger.error(f"[InviteManager] Failed to resolve used invite: {exc}")
+                return None
 
-            except Exception as e:
-                print(f"[InviteManager] Ошибка поиска инвайта: {e}")
+        return used_invite
 
-        return None
-
-    def get_account_type(self, member: discord.Member) -> str:
-        """Определяет тип аккаунта"""
+    @staticmethod
+    def get_account_type(member: discord.Member) -> str:
         now = _time.now().timestamp()
         created_ts = member.created_at.timestamp()
         days = int((now - created_ts) // 86400)
 
         if days < 1:
             return AccountType.SUSPICIOUS
-        elif days < 7:
+        if days < 7:
             return AccountType.NEW
-        else:
-            return AccountType.NORMAL
-
-    def get_invite_source(self, invite: Optional[discord.Invite]) -> str:
-        """Определяет источник инвайта"""
-        if not invite:
-            return InviteSource.UNKNOWN
-
-        if invite.guild and invite.guild.vanity_url_code == invite.code:
-            return InviteSource.VANITY
-
-        if invite.inviter and invite.inviter.bot:
-            return InviteSource.INTEGRATION
-
-        return InviteSource.SERVER
-
-class QuestionGenerator:
-    """Генерирует приветственные вопросы через AI"""
-
-    FALLBACK_QUESTIONS = [
-        "какую привычку ты считаешь своей самой полезной?",
-        "если бы у тебя было лишних 2 часа в день, на что бы ты их тратил?",
-        "как выглядел бы твой идеальный выходной?",
-        "какой навык ты хотел бы выучить в этом месяце?",
-        "что приносит тебе ощущение спокойствия?",
-        "в каком вымышленном мире ты хотел бы пожить день?",
-        "какое маленькое достижение сегодня тобой гордится?",
-    ]
+        return AccountType.NORMAL
 
     @staticmethod
-    async def generate() -> str:
-        """Генерирует вопрос через Mistral AI"""
-        if not MISTRAL_API_KEY:
-            return random.choice(QuestionGenerator.FALLBACK_QUESTIONS)
+    def get_invite_source(invite: Optional[discord.Invite]) -> str:
+        if not invite:
+            return InviteSource.UNKNOWN
+        if invite.guild and invite.guild.vanity_url_code == invite.code:
+            return InviteSource.VANITY
+        if invite.inviter and invite.inviter.bot:
+            return InviteSource.INTEGRATION
+        return InviteSource.SERVER
 
-        prompt = (
-            "Сгенерируй один оригинальный и интересный вопрос для нового участника Discord сервера. "
-            "Вопрос должен быть коротким, неформальным, и заставляющим задуматься. "
-            "Избегай банальных тем. Обязательно закончи вопрос знаком вопроса (?). "
-            "Не используй кавычки. Не надо писать вводные фразы — просто вопрос."
-        )
-
-        headers = {
-            "Authorization": f"Bearer {MISTRAL_API_KEY}",
-            "Content-Type": "application/json"
-        }
-
-        data = {
-            "model": "mistral-small-latest",
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.8,
-            "max_tokens": 60,
-        }
-
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.mistral.ai/v1/chat/completions",
-                    headers=headers,
-                    json=data
-                ) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        question = result["choices"][0]["message"]["content"].strip()
-
-                        # Убираем кавычки
-                        if question.startswith('"') and question.endswith('"'):
-                            question = question[1:-1]
-
-                        # Добавляем знак вопроса если нет
-                        if not question.endswith("?"):
-                            question += "?"
-
-                        return question
-
-        except Exception as e:
-            print(f"[QuestionGenerator] Ошибка генерации: {e}")
-
-        return random.choice(QuestionGenerator.FALLBACK_QUESTIONS)
 
 class MemberEventHandler:
-    """Обработка событий входа и выхода участников"""
-
     def __init__(self, bot: commands.Bot, invite_manager: InviteManager):
         self.bot = bot
-        self.invite_manager = invite_manager
         self.db = database
-
-    async def send_dm(self, member: discord.Member, is_join: bool = True) -> bool:
-        """Унифицированная функция отправки ЛС"""
-        if is_join:
-            embed = Embed(
-                title="> nullther? welcome.",
-                description=(
-                    "**Мы — те, кто уже давно забыл, кем быть, но всё равно упорно существует.**\n\n"
-                    "Открыты для всех:  \n"
-                    "- для тех, кто помнит своё имя  \n"
-                    "- для тех, кто его потерял по дороге в ванную  \n"
-                    "- и для тех, кого вообще никогда не звали  \n\n"
-                    "Особенно для **тебя**.  \n"
-                    "Да, именно тебя, который сейчас читает это и думает «это точно не про меня».  \n"
-                    "Это про тебя.\n\n"
-                    "Ты готов войти в комнату, где зеркала показывают не тебя,  \n"
-                    "а то, кем ты мог бы быть, если бы не притворялся нормальным?  \n\n"
-                    "Ты готов улыбнуться пустоте так искренне,  \n"
-                    "чтобы она покраснела и отвернулась?  \n\n"
-                    "Ты готов?  \n\n"
-                    "Потому что мы уже здесь.  \n"
-                    "И мы не уйдём, пока ты не решишь,  \n"
-                    "кем именно ты притворяешься сегодня.\n\n"
-                    "**Nullther ждёт.**  \n"
-                    "Твоё отражение уже зашло первым. 😶🌫️"
-                ),
-                color=1
-            )
-            embed.set_thumbnail(url="https://i.ibb.co/dR0QrPc/nullther.png")
-            
-            class WelcomeButtons(discord.ui.View):
-                def __init__(self):
-                    super().__init__(timeout=None)
-                    self.add_item(discord.ui.Button(
-                        label="Мы здесь.",
-                        url="https://discord.gg/HxwZ6ceKKj",
-                        style=discord.ButtonStyle.link
-                    ))
-            view = WelcomeButtons()
-
-        else:
-            embed = Embed(
-                title="> nullther? forgotten.",
-                description=(
-                    "**Твой силуэт растворился, так и не успев обрести чёткие грани.**\n\n"
-                    "Пустота в зеркале — это всё, что осталось после твоего ухода.\n"
-                    "Ты думаешь, что ты ушёл?  \n"
-                    "- Нет, ты просто перестал резонировать с этой комнатой.  \n"
-                    "- Твои слова затихли, но их эхо всё ещё шепчет в углах.  \n\n"
-                    "Мы не будем скучать, потому что мы не помним, кто ты.  \n"
-                    "Но мы чувствуем дыру в пространстве, которую ты оставил.  \n\n"
-                    "Ты готов вернуться, когда твои маски окончательно износятся?  \n"
-                    "Или ты нашёл другую бездну, которую хочешь накормить своей искренностью?  \n\n"
-                    "Твой уход — это просто очередная иллюзия выбора.\n\n"
-                    "**Nullther помнит.**  \n"
-                    "Даже то, что ты пытался забыть. 🌫️👁️"
-                ),
-                color=1
-            )
-            embed.set_thumbnail(url="https://i.ibb.co/dR0QrPc/nullther.png")
-            
-            class GoodbyeButtons(discord.ui.View):
-                def __init__(self):
-                    super().__init__(timeout=None)
-                    self.add_item(discord.ui.Button(
-                        label="Мы здесь.",
-                        url="https://discord.gg/HxwZ6ceKKj",
-                        style=discord.ButtonStyle.link
-                    ))
-            view = GoodbyeButtons()
-
-        embed.set_author(
-            name=member.name,
-            icon_url=member.display_avatar.url
+        self.invite_manager = invite_manager
+        self.question_generator = WelcomeQuestionGenerator(
+            getattr(bot, "http_session", None)
         )
 
+    async def close(self) -> None:
+        await self.question_generator.close()
+
+    @staticmethod
+    def _log_step_errors(
+        stage: str,
+        member_id: int,
+        results: list[object],
+    ) -> None:
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(
+                    f"[InviteTracker] {stage} step failed for {member_id}: {result}"
+                )
+
+    def _link_button(self) -> discord.ui.Button:
+        return discord.ui.Button(
+            label="Мы здесь.",
+            url=DISCORD_INVITE_URL,
+            style=discord.ButtonStyle.link,
+        )
+
+    @staticmethod
+    def _display_name(user: discord.abc.User) -> str:
+        return discord.utils.escape_markdown(user.display_name)
+
+    @staticmethod
+    def _member_label(member: discord.Member) -> str:
+        return f"{discord.utils.escape_markdown(str(member))} (`{member.id}`)"
+
+    @staticmethod
+    def _channel_label(channel: discord.abc.GuildChannel | discord.Thread) -> str:
+        return f"#{discord.utils.escape_markdown(channel.name)}"
+
+    @staticmethod
+    def _channel_url(guild_id: int, channel_id: int) -> str:
+        return f"https://discord.com/channels/{guild_id}/{channel_id}"
+
+    def _build_dm_card(self, member: discord.Member, *, is_join: bool) -> InfoCard:
+        card = InfoCard(colour=Colors.PRIMARY)
+        card.thumbnail_url = "https://i.ibb.co/dR0QrPc/nullther.png"
+        card.add_item(discord.ui.ActionRow(self._link_button()))
+
+        if is_join:
+            card.header = "> **# nullther? welcome.**"
+            card.sections = [
+                (
+                    "**Мы — те, кто уже давно забыл, кем быть, но всё равно упорно существует.**\n\n"
+                    "Открыты для всех:\n"
+                    "- для тех, кто помнит своё имя\n"
+                    "- для тех, кто его потерял по дороге в ванную\n"
+                    "- и для тех, кого вообще никогда не звали"
+                ),
+                (
+                    "Особенно для **тебя**.\n"
+                    "Да, именно тебя, который сейчас читает это и думает «это точно не про меня».\n"
+                    "Это про тебя."
+                ),
+                (
+                    "Ты готов войти в комнату, где зеркала показывают не тебя,\n"
+                    "а то, кем ты мог бы быть, если бы не притворялся нормальным?\n\n"
+                    "Ты готов улыбнуться пустоте так искренне,\n"
+                    "чтобы она покраснела и отвернулась?"
+                ),
+                (
+                    "**Nullther ждёт.**\n"
+                    f"Твоё отражение уже зашло первым, **{discord.utils.escape_markdown(member.display_name)}**."
+                ),
+            ]
+        else:
+            card.header = "> **# nullther? forgotten.**"
+            card.sections = [
+                (
+                    "**Твой силуэт растворился, так и не успев обрести чёткие грани.**\n\n"
+                    "Пустота в зеркале — это всё, что осталось после твоего ухода."
+                ),
+                (
+                    "Ты думаешь, что ты ушёл?\n"
+                    "- Нет, ты просто перестал резонировать с этой комнатой.\n"
+                    "- Твои слова затихли, но их эхо всё ещё шепчет в углах."
+                ),
+                (
+                    "Мы не будем скучать, потому что мы не помним, кто ты.\n"
+                    "Но мы чувствуем дыру в пространстве, которую ты оставил."
+                ),
+                (
+                    "**Nullther помнит.**\n"
+                    "Даже то, что ты пытался забыть. Возвращайся, если снова захочешь отразиться."
+                ),
+            ]
+
+        return card
+
+    def _build_welcome_channel_view(
+        self,
+        member: discord.Member,
+        *,
+        greeting: str,
+        question: str,
+    ) -> discord.ui.LayoutView:
+        rules_url = self._channel_url(member.guild.id, RULES_CHANNEL_ID)
+        container = discord.ui.Container(
+            discord.ui.Section(
+                question,
+                accessory=discord.ui.Thumbnail(member.display_avatar.url),
+            ),
+            discord.ui.Separator(visible=False, spacing=discord.SeparatorSpacing.small),
+            discord.ui.Section(
+                f"{Emojis.INFORMATION} Чтобы быстрее освоиться, загляни в наш основной канал.",
+                accessory=discord.ui.Button(
+                    label="Открыть канал",
+                    style=discord.ButtonStyle.link,
+                    url=rules_url,
+                ),
+            ),
+            accent_colour=discord.Colour.random(),
+        )
+
+        view = discord.ui.LayoutView(timeout=None)
+        view.add_item(
+            discord.ui.TextDisplay(
+                f"{member.mention}, {greeting}!"
+            )
+        )
+        view.add_item(container)
+        return view
+
+    def _build_join_log_card(
+        self,
+        member: discord.Member,
+        invite: Optional[discord.Invite],
+        *,
+        dm_sent: bool,
+    ) -> InfoCard:
+        created_ts = int(member.created_at.timestamp())
+        now_ts = int(_time.now().timestamp())
+        days = (now_ts - created_ts) // 86400
+        account_icon = self._account_icon(days)
+
+        card = InfoCard(colour=Colors.SUCCESS)
+        card.header = f"{Emojis.SUCCESS} **{discord.utils.escape_markdown(member.display_name)} вошёл на сервер**"
+        card.thumbnail_url = member.display_avatar.url
+
+        info_lines = [
+            f"- **Тип:** `{'бот' if member.bot else 'участник'}`",
+            f"- **Аккаунт:** {self._member_label(member)}",
+            f"- **ID:** `{member.id}`",
+            f"- **Регистрация:** <t:{created_ts}:D>",
+            f"- **Создан:** {account_icon} `{days}` дней назад",
+            f"- **На сервере:** `{len(member.guild.members)}` участников",
+        ]
+
+        invite_lines = ["- **Источник:** ❓ Не удалось определить"]
+        if invite:
+            source = self.invite_manager.get_invite_source(invite)
+            invite_lines = [
+                f"- **Код:** `{invite.code}`",
+                f"- **Источник:** {InviteSource.get_emoji(source)} {source}",
+            ]
+            if invite.uses is not None:
+                invite_lines.append(f"- **Использований:** `{invite.uses}`")
+            if source == InviteSource.VANITY:
+                invite_lines.append("- **Добавил:** Персональная ссылка")
+            elif invite.inviter:
+                invite_lines.append(
+                    f"- **Добавил:** {self._display_name(invite.inviter)} (`{invite.inviter.id}`)"
+                )
+            if invite.channel:
+                invite_lines.append(
+                    f"- **Канал:** {self._channel_label(invite.channel)}"
+                )
+            if invite.expires_at:
+                invite_lines.append(
+                    f"- **Истекает:** <t:{int(invite.expires_at.timestamp())}:R>"
+                )
+            else:
+                invite_lines.append("- **Истекает:** Никогда")
+
+        card.sections = ["\n".join(info_lines), "\n".join(invite_lines)]
+        card.footer = "✅ ЛС отправлено" if dm_sent else "❌ ЛС закрыты"
+        return card
+
+    async def _build_leave_log_card(
+        self,
+        member: discord.Member,
+        invite_data: Optional[dict],
+        *,
+        dm_sent: bool,
+    ) -> InfoCard:
+        created_ts = int(member.created_at.timestamp())
+        now_ts = int(_time.now().timestamp())
+        days = (now_ts - created_ts) // 86400
+        account_icon = self._account_icon(days)
+
+        card = InfoCard(colour=Colors.ERROR)
+        card.header = f"{Emojis.ERROR} **{discord.utils.escape_markdown(member.display_name)} покинул сервер**"
+        card.thumbnail_url = member.display_avatar.url
+
+        info_lines = [
+            f"- **Тип:** `{'бот' if member.bot else 'участник'}`",
+            f"- **Аккаунт:** {self._member_label(member)}",
+            f"- **ID:** `{member.id}`",
+            f"- **Регистрация:** <t:{created_ts}:D>",
+            f"- **Создан:** {account_icon} `{days}` дней назад",
+            f"- **На сервере:** `{len(member.guild.members)}` участников",
+        ]
+
+        server_lines: list[str] = []
+        if member.joined_at:
+            joined_ts = int(member.joined_at.timestamp())
+            server_lines.append(f"- **Присоединился:** <t:{joined_ts}:D>")
+
+            delta = now_ts - joined_ts
+            days_on_server = delta // 86400
+            hours = (delta % 86400) // 3600
+            time_parts = []
+            if days_on_server > 0:
+                time_parts.append(f"{days_on_server} дн.")
+            if hours > 0 or not time_parts:
+                time_parts.append(f"{hours} ч.")
+            server_lines.append(f"- **Провёл:** {' '.join(time_parts)}")
+
+        if invite_data:
+            invite_code = invite_data.get("invite_code")
+            source = invite_data.get("invite_source", InviteSource.UNKNOWN)
+            if invite_code:
+                server_lines.append(f"- **Код:** `{invite_code}`")
+            server_lines.append(
+                f"- **Источник:** {InviteSource.get_emoji(source)} {source}"
+            )
+
+            invited_by = invite_data.get("invited_by")
+            if invited_by:
+                server_lines.append(
+                    f"- **Пригласил:** {await self._resolve_user_label(invited_by)}"
+                )
+            elif source == InviteSource.VANITY:
+                server_lines.append("- **Пригласил:** Персональная ссылка")
+
+        roles = [
+            f"`@{discord.utils.escape_markdown(role.name)}`"
+            for role in member.roles
+            if role.name != "@everyone"
+        ]
+        sections = [
+            "\n".join(info_lines),
+            "\n".join(server_lines) if server_lines else "Нет данных о пребывании на сервере.",
+        ]
+        if roles:
+            roles_text = ", ".join(roles)
+            if len(roles_text) > 1024:
+                roles_text = f"{len(roles)} ролей"
+            sections.append(f"**Роли:**\n{roles_text}")
+
+        card.sections = sections
+        card.footer = "✅ Прощальное ЛС отправлено" if dm_sent else "❌ ЛС закрыты"
+        return card
+
+    @staticmethod
+    def _account_icon(days: int) -> str:
+        if days > 7:
+            return Emojis.SUCCESS
+        if days >= 1:
+            return Emojis.WARNING
+        return Emojis.ERROR
+
+    async def _resolve_user_label(self, user_id: str) -> str:
+        user = await safe_fetch_user(self.bot, user_id)
+        if user:
+            return f"{self._display_name(user)} (`{user.id}`)"
+        return f"`{user_id}`"
+
+    async def send_dm(self, member: discord.Member, *, is_join: bool) -> bool:
         try:
-            await member.send(embed=embed, view=view)
+            await member.send(view=self._build_dm_card(member, is_join=is_join).build())
             return True
         except discord.Forbidden:
             return False
+        except Exception as exc:
+            logger.error(f"[InviteTracker] Failed to send DM to {member.id}: {exc}")
+            return False
 
-    async def handle_join(self, member: discord.Member):
-        """Обрабатывает вход участника"""
-        if member.guild.id != MAIN_SERVER_ID:
-            return
-
-        guild = member.guild
-        guild_id = str(guild.id)
-        user_id = str(member.id)
-
-        invite = await self.invite_manager.find_used_invite(guild)
-
-        invited_by = str(invite.inviter.id) if invite and invite.inviter else None
-        invite_code = invite.code if invite else None
-        invite_source = self.invite_manager.get_invite_source(invite)
-        account_type = self.invite_manager.get_account_type(member)
-
-        dm_sent = await self.send_dm(member, is_join=True)
-
-        await self._send_welcome_channel(member)
-
-        await self._save_join_to_db(
-            guild_id=guild_id,
-            user_id=user_id,
-            invited_by=invited_by,
-            invite_code=invite_code,
-            invite_source=invite_source,
-            account_type=account_type,
-            dm_sent=dm_sent
-        )
-
-        await self._log_join(member, invite, dm_sent)
-
-    async def _send_welcome_channel(self, member: discord.Member):
-        """Отправляет приветствие в канал"""
+    async def _send_welcome_channel(self, member: discord.Member) -> None:
         channel = self.bot.get_channel(WELCOME_CHANNEL_ID)
         if not channel:
             return
 
-        greeting = random.choice([
-            "здарова", "ку", "хай", "привет", "приветик",
-            "хаюшки", "салют", "хеей-хеей", "дарова"
-        ])
-
-        question = await QuestionGenerator.generate()
-
-        embed = Embed(
-            description=(
-                f"**{member.name}**, `{question}`\n"
-                "- Ознакомься с правилами в <#1261069675098279996>"
-            ),
-            color=discord.Color.random()
+        greeting = random.choice(WELCOME_GREETINGS)
+        question = await self.question_generator.generate()
+        view = self._build_welcome_channel_view(
+            member,
+            greeting=greeting,
+            question=question,
         )
-        embed.set_thumbnail(url=member.display_avatar.url)
-
         await channel.send(
-            f"{member.mention}, {greeting}! <a:aeGreetingHi:1352232699774898218>",
-            embed=embed
+            view=view,
+            allowed_mentions=discord.AllowedMentions(
+                users=True,
+                roles=False,
+                everyone=False,
+            ),
         )
 
     async def _save_join_to_db(
         self,
+        *,
         guild_id: str,
         user_id: str,
         invited_by: Optional[str],
         invite_code: Optional[str],
         invite_source: str,
         account_type: str,
-        dm_sent: bool
-    ):
-        """Сохраняет вход в БД"""
+        dm_sent: bool,
+    ) -> None:
         try:
-            # Проверяем существующую запись
             existing = await self.db.get_row("invites", guild_id=guild_id, user_id=user_id)
-
             now_dt = _time.now()
+            payload = {
+                "invited_by": invited_by,
+                "invite_code": invite_code,
+                "invite_source": invite_source,
+                "last_join": now_dt.format("YYYY-MM-DDTHH:mm:ssZ"),
+                "is_active": True,
+                "account_type": account_type,
+                "dm_sent": dm_sent,
+            }
 
             if existing:
-                # Обновляем существующую запись
+                payload["join_count"] = existing["join_count"] + 1
                 await self.db.update_record(
                     "invites",
                     {"guild_id": guild_id, "user_id": user_id},
-                    {
-                        "invited_by": invited_by,
-                        "invite_code": invite_code,
-                        "invite_source": invite_source,
-                        "last_join": now_dt.format("YYYY-MM-DDTHH:mm:ssZ"),
-                        "join_count": existing["join_count"] + 1,
-                        "is_active": True,
-                        "account_type": account_type,
-                        "dm_sent": dm_sent,
-                    }
+                    payload,
                 )
-                print(f"[InviteTracker] Обновлён вход: {user_id} (join_count: {existing['join_count'] + 1})")
+                return
 
-            else:
-                # Создаём новую запись
-                await self.db.insert("invites", {
+            await self.db.insert(
+                "invites",
+                {
                     "guild_id": guild_id,
                     "user_id": user_id,
                     "invited_by": invited_by,
@@ -440,250 +549,162 @@ class MemberEventHandler:
                     "is_active": True,
                     "account_type": account_type,
                     "dm_sent": dm_sent,
-                })
-                print(f"[InviteTracker] Создана запись входа: {user_id}")
+                },
+            )
+        except Exception as exc:
+            logger.error(f"[InviteTracker] Failed to save join for {user_id}: {exc}")
 
-        except Exception as e:
-            print(f"[InviteTracker] Ошибка сохранения входа: {e}")
+    async def _save_leave_to_db(
+        self,
+        *,
+        guild_id: str,
+        user_id: str,
+        dm_sent: bool,
+    ) -> Optional[dict]:
+        existing = await self.db.get_row("invites", guild_id=guild_id, user_id=user_id)
+        if not existing:
+            return None
 
-    async def _log_join(self, member: discord.Member, invite: Optional[discord.Invite], dm_sent: bool):
-        """Логирует вход в канал"""
+        try:
+            now_dt = _time.now()
+            await self.db.update_record(
+                "invites",
+                {"guild_id": guild_id, "user_id": user_id},
+                {
+                    "left_at": existing.get("left_at")
+                    or now_dt.format("YYYY-MM-DDTHH:mm:ssZ"),
+                    "last_leave": now_dt.format("YYYY-MM-DDTHH:mm:ssZ"),
+                    "leave_count": existing["leave_count"] + 1,
+                    "is_active": False,
+                    "dm_sent": dm_sent,
+                },
+            )
+        except Exception as exc:
+            logger.error(f"[InviteTracker] Failed to save leave for {user_id}: {exc}")
+        return existing
+
+    async def _send_join_log(
+        self,
+        member: discord.Member,
+        invite: Optional[discord.Invite],
+        *,
+        dm_sent: bool,
+    ) -> None:
         channel = self.bot.get_channel(INVITES_CHANNEL_ID)
         if not channel:
             return
-
-        # Создаём embed с информацией о входе
-        created_ts = int(member.created_at.timestamp())
-        now_ts = int(_time.now().timestamp())
-        days = (now_ts - created_ts) // 86400
-
-        # Иконка типа аккаунта
-        if days > 7:
-            account_icon = Emojis.SUCCESS
-        elif days >= 1:
-            account_icon = Emojis.WARNING
-        else:
-            account_icon = Emojis.ERROR
-
-        embed = Embed(
-            title=f"{Emojis.SUCCESS} ``{member.name}``",
-            color=Colors.SUCCESS,
-            timestamp=_time.now()
+        await channel.send(
+            view=self._build_join_log_card(member, invite, dm_sent=dm_sent).build(),
+            allowed_mentions=discord.AllowedMentions.none(),
         )
-        embed.set_thumbnail(url=member.display_avatar.url)
 
-        # Информация об участнике
-        info = [
-            f"- ``❓`` **Тип:** ``{'бот' if member.bot else 'участник'}``",
-            f"- ``👥`` **Аккаунт:** {member.mention}",
-            f"- ``🆔`` **ID:** `{member.id}`",
-            f"- ``📅`` **Регистрация:** <t:{created_ts}:D>",
-            f"- {account_icon} **Создан:** ``{days}`` дней назад",
-            f"- ``🚪`` **На сервере:** ``{len(member.guild.members)}`` участников",
-        ]
-        embed.add_field(name="Информация:", value="\n".join(info), inline=True)
+    async def _send_leave_log(
+        self,
+        member: discord.Member,
+        invite_data: Optional[dict],
+        *,
+        dm_sent: bool,
+    ) -> None:
+        channel = self.bot.get_channel(INVITES_CHANNEL_ID)
+        if not channel:
+            return
+        card = await self._build_leave_log_card(member, invite_data, dm_sent=dm_sent)
+        await channel.send(
+            view=card.build(),
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
 
-        # Информация об инвайте
-        if invite:
-            source = self.invite_manager.get_invite_source(invite)
-            emoji = InviteSource.get_emoji(source)
-
-            invite_info = [
-                f"- ``🔗`` **Код:** `{invite.code}`",
-                f"- ``🌐`` **Источник:** {emoji} {source}",
-            ]
-
-            if invite.uses is not None:
-                invite_info.append(f"- ``🔢`` **Использований:** `{invite.uses}`")
-
-            if source == InviteSource.VANITY:
-                invite_info.append("- ``➕`` **Добавил:** Персональная ссылка")
-            elif invite.inviter:
-                invite_info.append(f"- ``➕`` **Добавил:** {invite.inviter.mention}")
-
-            if invite.channel:
-                invite_info.append(f"- ``💬`` **Канал:** {invite.channel.mention}")
-
-            if invite.expires_at:
-                expires_ts = int(invite.expires_at.timestamp())
-                invite_info.append(f"- ``⌛`` **Истекает:** <t:{expires_ts}:R>")
-            else:
-                invite_info.append("- ``⌛`` **Истекает:** Никогда")
-
-            embed.add_field(name="Приглашение:", value="\n".join(invite_info), inline=True)
-        else:
-            embed.add_field(
-                name="Приглашение:",
-                value="❓ Не удалось определить источник",
-                inline=True
-            )
-
-        # Footer с информацией о ЛС
-        footer_text = "✅ ЛС отправлено" if dm_sent else "❌ ЛС закрыты"
-        embed.set_footer(text=footer_text)
-
-        await channel.send(embed=embed)
-
-    async def handle_leave(self, member: discord.Member):
-        """Обрабатывает выход участника"""
+    async def handle_join(self, member: discord.Member) -> None:
         if member.guild.id != MAIN_SERVER_ID:
             return
 
         guild_id = str(member.guild.id)
         user_id = str(member.id)
+        invite, dm_sent = await asyncio.gather(
+            self.invite_manager.find_used_invite(member.guild),
+            self.send_dm(member, is_join=True),
+        )
 
-        # Отправляем прощальное сообщение
-        dm_sent = await self.send_dm(member, is_join=False)
+        join_steps = await asyncio.gather(
+            self._send_welcome_channel(member),
+            self._save_join_to_db(
+                guild_id=guild_id,
+                user_id=user_id,
+                invited_by=str(invite.inviter.id) if invite and invite.inviter else None,
+                invite_code=invite.code if invite else None,
+                invite_source=self.invite_manager.get_invite_source(invite),
+                account_type=self.invite_manager.get_account_type(member),
+                dm_sent=dm_sent,
+            ),
+            self._send_join_log(member, invite, dm_sent=dm_sent),
+            return_exceptions=True,
+        )
+        self._log_step_errors("join", member.id, join_steps)
 
-        try:
-            existing = await self.db.get_row("invites", guild_id=guild_id, user_id=user_id)
-
-            if existing:
-                now_dt = _time.now()
-
-                await self.db.update_record(
-                    "invites",
-                    {"guild_id": guild_id, "user_id": user_id},
-                    {
-                        "left_at": existing.get("left_at") or now_dt.format("YYYY-MM-DDTHH:mm:ssZ"),
-                        "last_leave": now_dt.format("YYYY-MM-DDTHH:mm:ssZ"),
-                        "leave_count": existing["leave_count"] + 1,
-                        "is_active": False,
-                        "dm_sent": dm_sent,
-                    }
-                )
-                print(f"[InviteTracker] Обновлён выход: {user_id} (leave_count: {existing['leave_count'] + 1}, DM: {dm_sent})")
-
-        except Exception as e:
-            print(f"[InviteTracker] Ошибка сохранения выхода: {e}")
-
-        await self._log_leave(member, existing, dm_sent)
-
-    async def _log_leave(self, member: discord.Member, invite_data: Optional[Dict], dm_sent: bool = False):
-        """Логирует выход в канал"""
-        channel = self.bot.get_channel(INVITES_CHANNEL_ID)
-        if not channel:
+    async def handle_leave(self, member: discord.Member) -> None:
+        if member.guild.id != MAIN_SERVER_ID:
             return
 
-        created_ts = int(member.created_at.timestamp())
-        now_ts = int(_time.now().timestamp())
-        days = (now_ts - created_ts) // 86400
-
-        # Иконка типа аккаунта
-        if days > 7:
-            account_icon = Emojis.SUCCESS
-        elif days >= 1:
-            account_icon = Emojis.WARNING
-        else:
-            account_icon = Emojis.ERROR
-
-        embed = Embed(
-            title=f"{Emojis.ERROR} ``{member.name}``",
-            color=Colors.ERROR,
-            timestamp=_time.now()
+        guild_id = str(member.guild.id)
+        user_id = str(member.id)
+        dm_sent = await self.send_dm(member, is_join=False)
+        invite_data = await self._save_leave_to_db(
+            guild_id=guild_id,
+            user_id=user_id,
+            dm_sent=dm_sent,
         )
-        embed.set_thumbnail(url=member.display_avatar.url)
-
-        # Информация об участнике
-        info = [
-            f"- ``❓`` **Тип:** ``{'бот' if member.bot else 'участник'}``",
-            f"- ``👥`` **Аккаунт:** {member.mention}",
-            f"- ``🆔`` **ID:** `{member.id}`",
-            f"- ``📅`` **Регистрация:** <t:{created_ts}:D>",
-            f"- {account_icon} **Создан:** ``{days}`` дней назад",
-            f"- ``🚪`` **На сервере:** ``{len(member.guild.members)}`` участников",
-        ]
-        embed.add_field(name="Информация:", value="\n".join(info), inline=True)
-
-        # Информация о времени на сервере
-        server_info = []
-
-        if member.joined_at:
-            joined_ts = int(member.joined_at.timestamp())
-            server_info.append(f"- ``😶‍🌫️`` **Присоединился:** <t:{joined_ts}:D>")
-
-            delta = now_ts - joined_ts
-            days_on_server = delta // 86400
-            hours = (delta % 86400) // 3600
-
-            time_parts = []
-            if days_on_server > 0:
-                time_parts.append(f"{days_on_server} дн.")
-            if hours > 0 or not time_parts:
-                time_parts.append(f"{hours} ч.")
-
-            server_info.append(f"- ``🕰️`` **Провёл:** {' '.join(time_parts)}")
-
-        # Информация об инвайте
-        if invite_data:
-            invite_code = invite_data.get("invite_code")
-            source = invite_data.get("invite_source", InviteSource.UNKNOWN)
-            emoji = InviteSource.get_emoji(source)
-
-            if invite_code:
-                server_info.append(f"- ``🔗`` **Код:** `{invite_code}`")
-            server_info.append(f"- ``🌐`` **Источник:** {emoji} {source}")
-
-            invited_by = invite_data.get("invited_by")
-            if invited_by:
-                inviter = self.bot.get_user(int(invited_by))
-                mention = inviter.mention if inviter else f"<@{invited_by}>"
-                server_info.append(f"- ``➕`` **Пригласил:** {mention}")
-            elif source == InviteSource.VANITY:
-                server_info.append("- ``➕`` **Пригласил:** Персональная ссылка")
-
-        embed.add_field(
-            name="На сервере:",
-            value="\n".join(server_info) if server_info else "Нет данных",
-            inline=True
+        leave_steps = await asyncio.gather(
+            self._send_leave_log(member, invite_data, dm_sent=dm_sent),
+            return_exceptions=True,
         )
+        self._log_step_errors("leave", member.id, leave_steps)
 
-        # Роли
-        roles = [role.mention for role in member.roles if role.name != "@everyone"]
-        if roles:
-            roles_text = ", ".join(roles)
-            if len(roles_text) > 1024:
-                roles_text = f"{len(roles)} ролей"
-            embed.add_field(name="Роли:", value=roles_text, inline=False)
-
-        # Footer с информацией о ЛС
-        footer_text = "✅ Прощальное ЛС отправлено" if dm_sent else "❌ ЛС закрыты"
-        embed.set_footer(text=footer_text)
-
-        await channel.send(embed=embed)
 
 class InviteTracker(commands.Cog):
-    """Отслеживание инвайтов и приветствие участников"""
+    """Tracks invites and sends welcome/leave cards."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.invite_manager = InviteManager(bot)
         self.event_handler = MemberEventHandler(bot, self.invite_manager)
+        self._startup_task: asyncio.Task | None = None
+
+    async def cog_load(self) -> None:
+        if self.bot.is_ready():
+            await self.invite_manager.cache_invites()
+            return
+
+        self._startup_task = asyncio.create_task(self.invite_manager.initialize())
+
+    async def cog_unload(self) -> None:
+        if self._startup_task and not self._startup_task.done():
+            self._startup_task.cancel()
+            try:
+                await self._startup_task
+            except asyncio.CancelledError:
+                pass
+        await self.event_handler.close()
 
     @commands.Cog.listener()
-    async def on_member_join(self, member: discord.Member):
-        """Обработка входа участника"""
+    async def on_member_join(self, member: discord.Member) -> None:
         await self.event_handler.handle_join(member)
 
     @commands.Cog.listener()
-    async def on_member_remove(self, member: discord.Member):
-        """Обработка выхода участника"""
+    async def on_member_remove(self, member: discord.Member) -> None:
         await self.event_handler.handle_leave(member)
 
     @commands.Cog.listener()
-    async def on_invite_create(self, invite: discord.Invite):
-        """Отслеживание создания инвайта"""
+    async def on_invite_create(self, invite: discord.Invite) -> None:
         await self.invite_manager.track_invite_create(invite)
 
     @commands.Cog.listener()
-    async def on_invite_delete(self, invite: discord.Invite):
-        """Отслеживание удаления инвайта"""
+    async def on_invite_delete(self, invite: discord.Invite) -> None:
         await self.invite_manager.track_invite_delete(invite)
 
     @commands.Cog.listener()
-    async def on_guild_update(self, before: discord.Guild, after: discord.Guild):
-        """Отслеживание изменения vanity URL"""
+    async def on_guild_update(self, before: discord.Guild, after: discord.Guild) -> None:
         await self.invite_manager.track_guild_update(before, after)
 
-async def setup(bot: commands.Bot):
+
+async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(InviteTracker(bot))

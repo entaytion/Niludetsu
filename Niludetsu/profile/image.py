@@ -280,148 +280,153 @@ class ProfileGenerator:
         partner: Optional[discord.Member] = None,
         achievements_count: int = 0,
     ) -> Optional[bytes]:
-        background_path = self.resources.image_path("profile.jpg")
-        if not background_path.exists():
-            background_path = self.resources.image_path("profile.png")
-        if not background_path.exists():
-            raise FileNotFoundError("Не найден шаблон profile.jpg или profile.png в data/images")
-
-        # Загружаем фоновое изображение напрямую через PIL
-        background = Image.open(str(background_path)).convert("RGBA")
-
-        bold64 = self._get_font(700, 64)
-        medium32 = self._get_font(500, 32)
-
+        import asyncio
         avatar = await self._load_avatar(str(user.display_avatar.replace(size=512).url))
-        if avatar:
-            # Overlay аватар
-            overlay = avatar.resize(self.AVATAR_OVERLAY_SIZE, Image.LANCZOS)
-            overlay = self._apply_opacity(overlay, 128)
-            mask = self._create_top_rounded_mask(self.AVATAR_OVERLAY_SIZE, self.AVATAR_CORNER_RADIUS)
-            overlay_alpha = overlay.split()[3]
-            overlay.putalpha(ImageChops.multiply(overlay_alpha, mask))
-            gradient = self._create_vertical_gradient(
-                self.AVATAR_OVERLAY_SIZE,
-                "#000000",
-                "#212121",
-                start_alpha=0,
-                end_alpha=255,
-            )
-            blended_overlay = Image.alpha_composite(overlay, gradient)
-            background.paste(blended_overlay, self.AVATAR_OVERLAY_POS, blended_overlay)
+        partner_avatar = await self._load_avatar(str(partner.display_avatar.replace(size=512).url)) if partner else None
 
-            # Круглый аватар
-            circle_avatar = self._make_circle_image(
-                avatar.copy().resize(self.AVATAR_FOREGROUND_SIZE, Image.LANCZOS)
-            )
-            background.paste(circle_avatar, self.AVATAR_FOREGROUND_POS, circle_avatar)
+        def build_sync() -> bytes:
+            background_path = self.resources.image_path("profile.jpg")
+            if not background_path.exists():
+                background_path = self.resources.image_path("profile.png")
+            if not background_path.exists():
+                raise FileNotFoundError("Не найден шаблон profile.jpg или profile.png в data/images")
 
-        display_name = self._truncate(user.display_name, 14)
-        username = self._truncate(f"@{user.name}", 26)
-        self._draw_centered_text(
-            background,
-            display_name,
-            box=(40, 458, 500, 88),
-            font=bold64,
-            color="#FFFFFF",
-            spacing=self.LETTER_SPACING_RATIO,
-        )
-        self._draw_centered_text(
-            background,
-            username,
-            box=(40, 546, 500, 44),
-            font=medium32,
-            color="#A4A4A4",
-            spacing=self.LETTER_SPACING_RATIO,
-        )
+            # Загружаем фоновое изображение напрямую через PIL
+            background = Image.open(str(background_path)).convert("RGBA")
 
-        balance_value = max(0, int(economy.get("balance", 0)))
-        deposit_value = max(0, int(economy.get("deposit", 0)))
-        self._draw_right_aligned_text(
-            background,
-            self._format_currency(balance_value),
-            box=(208, 768, 300, 88),
-            font=bold64,
-            color="#FFFFFF",
-            spacing=self.LETTER_SPACING_RATIO,
-        )
-        self._draw_right_aligned_text(
-            background,
-            self._format_currency(deposit_value),
-            box=(208, 903, 300, 88),
-            font=bold64,
-            color="#FFFFFF",
-            spacing=self.LETTER_SPACING_RATIO,
-        )
+            bold64 = self._get_font(700, 64)
+            medium32 = self._get_font(500, 32)
 
-        if partner:
-            partner_avatar = await self._load_avatar(str(partner.display_avatar.replace(size=512).url))
-            if partner_avatar:
-                partner_circle = self._make_circle_image(
-                    partner_avatar.resize((280, 280), Image.LANCZOS)
+            if avatar:
+                # Overlay аватар
+                overlay = avatar.resize(self.AVATAR_OVERLAY_SIZE, Image.LANCZOS)
+                overlay = self._apply_opacity(overlay, 128)
+                mask = self._create_top_rounded_mask(self.AVATAR_OVERLAY_SIZE, self.AVATAR_CORNER_RADIUS)
+                overlay_alpha = overlay.split()[3]
+                overlay.putalpha(ImageChops.multiply(overlay_alpha, mask))
+                gradient = self._create_vertical_gradient(
+                    self.AVATAR_OVERLAY_SIZE,
+                    "#000000",
+                    "#212121",
+                    start_alpha=0,
+                    end_alpha=255,
                 )
-                background.paste(partner_circle, (715, 165), partner_circle)
-            partner_display = self._truncate(partner.display_name, 15)
-            partner_username = self._truncate(f"@{partner.name}", 28)
+                blended_overlay = Image.alpha_composite(overlay, gradient)
+                background.paste(blended_overlay, self.AVATAR_OVERLAY_POS, blended_overlay)
+
+                # Круглый аватар
+                circle_avatar = self._make_circle_image(
+                    avatar.copy().resize(self.AVATAR_FOREGROUND_SIZE, Image.LANCZOS)
+                )
+                background.paste(circle_avatar, self.AVATAR_FOREGROUND_POS, circle_avatar)
+
+            display_name = self._truncate(user.display_name, 14)
+            username = self._truncate(f"@{user.name}", 26)
             self._draw_centered_text(
                 background,
-                partner_display,
-                box=(580, 440, 550, 88),
+                display_name,
+                box=(40, 458, 500, 88),
                 font=bold64,
                 color="#FFFFFF",
                 spacing=self.LETTER_SPACING_RATIO,
             )
             self._draw_centered_text(
                 background,
-                partner_username,
-                box=(580, 528, 550, 44),
+                username,
+                box=(40, 546, 500, 44),
                 font=medium32,
                 color="#A4A4A4",
                 spacing=self.LETTER_SPACING_RATIO,
             )
-        else:
-            self._draw_multiline_centered(
+
+            balance_value = max(0, int(economy.get("balance", 0)))
+            deposit_value = max(0, int(economy.get("deposit", 0)))
+            self._draw_right_aligned_text(
                 background,
-                ["Мы верим,", "что найдёте!"],
-                box=(580, 227, 550, 176),
+                self._format_currency(balance_value),
+                box=(208, 768, 300, 88),
                 font=bold64,
                 color="#FFFFFF",
                 spacing=self.LETTER_SPACING_RATIO,
-                line_gap=24,
+            )
+            self._draw_right_aligned_text(
+                background,
+                self._format_currency(deposit_value),
+                box=(208, 903, 300, 88),
+                font=bold64,
+                color="#FFFFFF",
+                spacing=self.LETTER_SPACING_RATIO,
             )
 
-        messages_total = max(0, int(analytics.get("messages_total", 0)))
-        voice_seconds = max(0, int(analytics.get("voice_seconds", 0)))
-        reputation_value = int(profile.get("reputation", 0))
-        self._draw_right_aligned_text(
-            background,
-            self._format_currency(messages_total),
-            box=(1535, 198, 310, 88),
-            font=bold64,
-            color="#3D1FD4",
-            spacing=self.LETTER_SPACING_RATIO,
-        )
-        self._draw_right_aligned_text(
-            background,
-            self._format_voice_duration(voice_seconds),
-            box=(1535, 335, 310, 88),
-            font=bold64,
-            color="#3D1FD4",
-            spacing=self.LETTER_SPACING_RATIO,
-        )
-        self._draw_right_aligned_text(
-            background,
-            self._format_currency(reputation_value),
-            box=(1535, 472, 310, 88),
-            font=bold64,
-            color="#3D1FD4",
-            spacing=self.LETTER_SPACING_RATIO,
-        )
+            if partner:
+                if partner_avatar:
+                    partner_circle = self._make_circle_image(
+                        partner_avatar.resize((280, 280), Image.LANCZOS)
+                    )
+                    background.paste(partner_circle, (715, 165), partner_circle)
+                partner_display = self._truncate(partner.display_name, 15)
+                partner_username = self._truncate(f"@{partner.name}", 28)
+                self._draw_centered_text(
+                    background,
+                    partner_display,
+                    box=(580, 440, 550, 88),
+                    font=bold64,
+                    color="#FFFFFF",
+                    spacing=self.LETTER_SPACING_RATIO,
+                )
+                self._draw_centered_text(
+                    background,
+                    partner_username,
+                    box=(580, 528, 550, 44),
+                    font=medium32,
+                    color="#A4A4A4",
+                    spacing=self.LETTER_SPACING_RATIO,
+                )
+            else:
+                self._draw_multiline_centered(
+                    background,
+                    ["Мы верим,", "что найдёте!"],
+                    box=(580, 227, 550, 176),
+                    font=bold64,
+                    color="#FFFFFF",
+                    spacing=self.LETTER_SPACING_RATIO,
+                    line_gap=24,
+                )
 
-        buffer = io.BytesIO()
-        background.save(buffer, format="PNG")
-        buffer.seek(0)
-        return buffer.getvalue()
+            messages_total = max(0, int(analytics.get("messages_total", 0)))
+            voice_seconds = max(0, int(analytics.get("voice_seconds", 0)))
+            reputation_value = int(profile.get("reputation", 0))
+            self._draw_right_aligned_text(
+                background,
+                self._format_currency(messages_total),
+                box=(1535, 198, 310, 88),
+                font=bold64,
+                color="#3D1FD4",
+                spacing=self.LETTER_SPACING_RATIO,
+            )
+            self._draw_right_aligned_text(
+                background,
+                self._format_voice_duration(voice_seconds),
+                box=(1535, 335, 310, 88),
+                font=bold64,
+                color="#3D1FD4",
+                spacing=self.LETTER_SPACING_RATIO,
+            )
+            self._draw_right_aligned_text(
+                background,
+                self._format_currency(reputation_value),
+                box=(1535, 472, 310, 88),
+                font=bold64,
+                color="#3D1FD4",
+                spacing=self.LETTER_SPACING_RATIO,
+            )
+
+            buffer = io.BytesIO()
+            background.save(buffer, format="PNG")
+            buffer.seek(0)
+            return buffer.getvalue()
+            
+        return await asyncio.to_thread(build_sync)
 
 async def setup(bot):
     return None

@@ -5,6 +5,8 @@ from Niludetsu import Emojis, Embed
 from Niludetsu.config import GENDER_ROLES, COLOR_ROLES, OPTIONAL_ROLES, SERVERS
 from Niludetsu.database.supabase_database import SupabaseDatabase
 
+PROFILE_VIEWS_FLAG = "_profile_views_registered"
+
 class ProfileView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -42,37 +44,45 @@ class ProfileButton(discord.ui.Button):
         if self.custom_id == "profile_color":
             if COLOR_ROLES:
                 await interaction.response.send_message(
-                    content="Выберите цвет роли:",
+                    content="Выбери цвет, в который хочешь себя перекрасить.",
                     view=ColorSelectView(COLOR_ROLES),
-                    ephemeral=True
+                    ephemeral=True,
+                    allowed_mentions=discord.AllowedMentions.none(),
                 )
             else:
                 await interaction.response.send_message(
-                    content="Цветные роли не настроены. Обратитесь к администрации.",
-                    ephemeral=True
+                    content="Цветные роли пока не настроены. Комната ещё не решила, кем ей быть.",
+                    ephemeral=True,
+                    allowed_mentions=discord.AllowedMentions.none(),
                 )
 
         elif self.custom_id == "profile_gender":
             if GENDER_ROLES:
                 await interaction.response.send_message(
-                    content="Выберите пол:",
+                    content="Выбери роль, которая описывает тебя точнее.",
                     view=GenderSelectView(GENDER_ROLES),
-                    ephemeral=True
+                    ephemeral=True,
+                    allowed_mentions=discord.AllowedMentions.none(),
                 )
             else:
                 await interaction.response.send_message(
-                    content="Гендерные роли не настроены. Обратитесь к администрации.",
-                    ephemeral=True
+                    content="Гендерные роли пока не настроены. Значит, сервер сегодня притворяется нейтральным.",
+                    ephemeral=True,
+                    allowed_mentions=discord.AllowedMentions.none(),
                 )
 
         elif self.custom_id == "profile_optional_roles":
             await interaction.response.send_message(
                 embed=Embed.default(
                     title="Опциональные роли",
-                    description="Выберите роли, которые хотите ОТКЛЮЧИТЬ. Отмеченные роли будут сняты; снятие отменится, если убрать отметку. По умолчанию роли выдаются всем."
+                    description=(
+                        "Отметь роли, которые хочешь **отключить**.\n"
+                        "Отмеченные снимутся, неотмеченные останутся. Всё довольно честно."
+                    )
                 ),
                 view=OptionalRolesMultiSelect(interaction.user),
-                ephemeral=True
+                ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
 
         elif self.custom_id == "profile_booster_role":
@@ -130,9 +140,13 @@ class OptionalRolesSelect(discord.ui.Select):
         if added:
             msg += f"Включены роли: {', '.join(added)}"
         if not msg:
-            msg = "Изменений нет."
+            msg = "Ничего не изменилось. Значит, ты и так был настроен как надо."
 
-        await interaction.response.send_message(msg, ephemeral=True)
+        await interaction.response.send_message(
+            msg,
+            ephemeral=True,
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
 
 class ColorSelectView(View):
     def __init__(self, color_roles: list):
@@ -204,22 +218,25 @@ class ColorSelectView(View):
             if new_role:
                 await interaction.user.add_roles(new_role)
                 await interaction.response.send_message(
-                    f"Вы успешно выбрали цвет {new_role.name}",
-                    ephemeral=True
+                    f"Готово. Теперь твой цвет: **{new_role.name}**.",
+                    ephemeral=True,
+                    allowed_mentions=discord.AllowedMentions.none(),
                 )
             else:
                 await interaction.response.send_message(
-                    "Ошибка: роль не найдена",
-                    ephemeral=True
+                    "Ошибка: роль не найдена.",
+                    ephemeral=True,
+                    allowed_mentions=discord.AllowedMentions.none(),
                 )
         else:
             # Если выбрано удаление
-            message = "Цветная роль была удалена"
+            message = "Цветная роль снята"
             if removed_roles:
                 message += f" ({', '.join(removed_roles)})"
             await interaction.response.send_message(
                 message,
-                ephemeral=True
+                ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
 
 class GenderSelectView(View):
@@ -292,22 +309,25 @@ class GenderSelectView(View):
             if new_role:
                 await interaction.user.add_roles(new_role)
                 await interaction.response.send_message(
-                    f"Вы успешно выбрали роль {new_role.name}",
-                    ephemeral=True
+                    f"Готово. Теперь у тебя роль **{new_role.name}**.",
+                    ephemeral=True,
+                    allowed_mentions=discord.AllowedMentions.none(),
                 )
             else:
                 await interaction.response.send_message(
-                    "Ошибка: роль не найдена",
-                    ephemeral=True
+                    "Ошибка: роль не найдена.",
+                    ephemeral=True,
+                    allowed_mentions=discord.AllowedMentions.none(),
                 )
         else:
             # Если выбрано удаление
-            message = "Гендерная роль была удалена"
+            message = "Роль снята"
             if removed_roles:
                 message += f" ({', '.join(removed_roles)})"
             await interaction.response.send_message(
                 message,
-                ephemeral=True
+                ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
 
 async def show_booster_panel(interaction: discord.Interaction) -> None:
@@ -322,8 +342,9 @@ async def show_booster_panel(interaction: discord.Interaction) -> None:
     
     if not guild or guild.id != main_server_id:
         await interaction.response.send_message(
-            embed=Embed.error(description="Эта функция доступна только на основном сервере"),
-            ephemeral=True
+            embed=Embed.error(description="Эта функция доступна только на основном сервере."),
+            ephemeral=True,
+            allowed_mentions=discord.AllowedMentions.none(),
         )
         return
     
@@ -334,9 +355,10 @@ async def show_booster_panel(interaction: discord.Interaction) -> None:
     if not is_owner and not is_booster:
         await interaction.response.send_message(
             embed=Embed.error(
-                description="Вы должны быть создателем сервера или бустером, чтобы использовать эту функцию"
+                description="Нужен статус бустера или право владельца. Иначе эта дверь остаётся закрытой."
             ),
-            ephemeral=True
+            ephemeral=True,
+            allowed_mentions=discord.AllowedMentions.none(),
         )
         return
     
@@ -346,8 +368,11 @@ async def show_booster_panel(interaction: discord.Interaction) -> None:
     # Создаём embed
     embed = Embed.default(
         title=f"{Emojis.ICON_BOOSTER} Роль бустера",
-        description="Приятно осознавать, что **вы поддерживаете сервер**. Теперь у вас есть возможность **создать свою бустерскую роль!** ``🎉``",
-        image="https://entaytion.vercel.app/ae/aeBooster.jpg"
+        description=(
+            "Ты подпитываешь **nullthe.re**, а значит можешь собрать себе отдельную роль.\n"
+            "Небольшой личный артефакт. Цвет, имя, немного самоуважения."
+        ),
+        image="https://entaytion.vercel.app/ae/aeBooster.jpg",
     )
     
     # Создаём view с кнопками
@@ -356,7 +381,8 @@ async def show_booster_panel(interaction: discord.Interaction) -> None:
     await interaction.response.send_message(
         embed=embed,
         view=view,
-        ephemeral=True
+        ephemeral=True,
+        allowed_mentions=discord.AllowedMentions.none(),
     )
 
 
@@ -475,22 +501,26 @@ async def delete_booster_role(db: SupabaseDatabase, member: discord.Member, guil
 
 class BoosterRoleView(discord.ui.View):
     """View с кнопками управления бустерской ролью"""
-    
+
     def __init__(self, db: SupabaseDatabase, member: discord.Member, guild: discord.Guild, booster_item: Optional[Dict[str, Any]]):
         super().__init__(timeout=300)
         self.db = db
         self.member = member
         self.guild = guild
         self.booster_item = booster_item
-    
-    @discord.ui.button(label="Создать роль", emoji=Emojis.SUCCESS, style=discord.ButtonStyle.success)
-    async def create_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.member.id:
             await interaction.response.send_message(
                 embed=Embed.error(description="Это не твоя панель"),
-                ephemeral=True
+                ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
-            return
+            return False
+        return True
+
+    @discord.ui.button(label="Создать роль", emoji=Emojis.SUCCESS, style=discord.ButtonStyle.success)
+    async def create_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         
         await interaction.response.defer(ephemeral=True)
         
@@ -499,7 +529,8 @@ class BoosterRoleView(discord.ui.View):
         if booster_item:
             await interaction.followup.send(
                 embed=Embed.error(description="У вас уже есть бустерская роль. Удалите её перед созданием новой."),
-                ephemeral=True
+                ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
             return
         
@@ -508,32 +539,28 @@ class BoosterRoleView(discord.ui.View):
         if role:
             await interaction.followup.send(
                 embed=Embed.success(
-                    description=f"Бустерская роль **{role.name}** успешно создана!"
+                    description=f"Готово. Бустерская роль **{role.name}** собрана и уже дышит."
                 ),
-                ephemeral=True
+                ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
         else:
             await interaction.followup.send(
                 embed=Embed.error(description="Ошибка при создании роли. Проверьте логи."),
-                ephemeral=True
+                ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
     
     @discord.ui.button(label="Изменить роль", emoji=Emojis.WARNING, style=discord.ButtonStyle.secondary)
     async def edit_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.member.id:
-            await interaction.response.send_message(
-                embed=Embed.error(description="Это не твоя панель"),
-                ephemeral=True
-            )
-            return
-        
         # Обновляем booster_item перед редактированием (на случай если роль была создана)
         booster_item = await get_booster_role_item(self.db, str(self.member.id), str(self.guild.id))
         
         if not booster_item:
             await interaction.response.send_message(
-                embed=Embed.error(description="У вас нет бустерской роли."),
-                ephemeral=True
+                embed=Embed.error(description="У тебя ещё нет бустерской роли."),
+                ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
             return
         
@@ -543,8 +570,9 @@ class BoosterRoleView(discord.ui.View):
         
         if not role:
             await interaction.response.send_message(
-                embed=Embed.error(description="Красава, додумался блядь редактировать роль, которой нету."),
-                ephemeral=True
+                embed=Embed.error(description="Роли уже нет. Ты пытаешься редактировать призрак."),
+                ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
             return
         
@@ -554,20 +582,14 @@ class BoosterRoleView(discord.ui.View):
     
     @discord.ui.button(label="Удалить роль", emoji=Emojis.ERROR, style=discord.ButtonStyle.danger)
     async def delete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.member.id:
-            await interaction.response.send_message(
-                embed=Embed.error(description="Это не твоя панель"),
-                ephemeral=True
-            )
-            return
-        
         # Обновляем booster_item перед удалением (на случай если роль была создана)
         booster_item = await get_booster_role_item(self.db, str(self.member.id), str(self.guild.id))
         
         if not booster_item:
             await interaction.response.send_message(
-                embed=Embed.error(description="У вас нет бустерской роли."),
-                ephemeral=True
+                embed=Embed.error(description="У тебя ещё нет бустерской роли."),
+                ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
             return
         
@@ -577,13 +599,15 @@ class BoosterRoleView(discord.ui.View):
         
         if success:
             await interaction.followup.send(
-                embed=Embed.success(description="Бустерская роль успешно удалена!"),
-                ephemeral=True
+                embed=Embed.success(description="Бустерская роль удалена. След простыл."),
+                ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
         else:
             await interaction.followup.send(
-                embed=Embed.error(description="Ошибка при удалении роли"),
-                ephemeral=True
+                embed=Embed.error(description="Ошибка при удалении роли."),
+                ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
 
 
@@ -632,7 +656,8 @@ class EditBoosterRoleModal(discord.ui.Modal):
                 except ValueError:
                     await interaction.followup.send(
                         embed=Embed.error(description="Неверный формат цвета. Используйте HEX (например: FFD700)"),
-                        ephemeral=True
+                        ephemeral=True,
+                        allowed_mentions=discord.AllowedMentions.none(),
                     )
                     return
             
@@ -648,20 +673,27 @@ class EditBoosterRoleModal(discord.ui.Modal):
             
             if success:
                 await interaction.followup.send(
-                    embed=Embed.success(description="Бустерская роль успешно обновлена!"),
-                    ephemeral=True
+                    embed=Embed.success(description="Бустерская роль обновлена. Теперь отражение стало точнее."),
+                    ephemeral=True,
+                    allowed_mentions=discord.AllowedMentions.none(),
                 )
             else:
                 await interaction.followup.send(
-                    embed=Embed.error(description="Ошибка при обновлении роли"),
-                    ephemeral=True
+                    embed=Embed.error(description="Ошибка при обновлении роли."),
+                    ephemeral=True,
+                    allowed_mentions=discord.AllowedMentions.none(),
                 )
         except Exception as e:
             print(f"[BoosterRole] Ошибка в модальном окне: {e}")
             await interaction.followup.send(
-                embed=Embed.error(description="Произошла ошибка"),
-                ephemeral=True
+                embed=Embed.error(description="Произошла ошибка."),
+                ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
 
 async def setup(bot):
+    if getattr(bot, PROFILE_VIEWS_FLAG, False):
+        return
+
     bot.add_view(ProfileView())
+    setattr(bot, PROFILE_VIEWS_FLAG, True)

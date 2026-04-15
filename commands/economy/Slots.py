@@ -2,7 +2,7 @@ import asyncio, discord, random
 from dataclasses import dataclass
 from discord import app_commands
 from discord.ext import commands
-from Niludetsu import Emojis, Embed, Colors
+from Niludetsu import Emojis, Embed, Colors, resolve_member
 from Niludetsu.embeds.Economy import EconomyEmbed
 from Niludetsu.database.supabase_database import database
 from Niludetsu.economy.manager import EconomyManager
@@ -107,7 +107,7 @@ class Slots(commands.Cog):
                 await send_callable(embed=Embed.error(fail_msg))
                 return
 
-            member = await self._resolve_member(user_id, guild_id)
+            member = await resolve_member(self.bot,user_id, guild_id)
             initial_embed = EconomyEmbed.game_lobby(
                 action="Игровые автоматы",
                 user=member,
@@ -223,8 +223,7 @@ class Slots(commands.Cog):
         else:
             result_phrase = "не выпало выигрышной комбинации"
 
-        member = await self._resolve_member(context.user_id, context.guild_id)
-        wallet = await self.economy.get_wallet(str(context.user_id), str(context.guild_id))
+        member = await resolve_member(self.bot,context.user_id, context.guild_id)
 
         return EconomyEmbed.result(
             action="Слоты",
@@ -235,17 +234,9 @@ class Slots(commands.Cog):
                 f"Вы {'выиграли' if context.won else 'проиграли'} "
                 f"**{abs(context.net_change):,}** {Emojis.MONEY}, потому что {result_phrase}."
             ),
-            balance=wallet,
             color=Colors.SUCCESS if context.won else Colors.ERROR,
         )
 
-    async def _resolve_member(self, user_id: int, guild_id: int) -> discord.User:
-        guild = self.bot.get_guild(guild_id)
-        if guild:
-            member = guild.get_member(user_id)
-            if member:
-                return member
-        return await self.bot.fetch_user(user_id)
 
     def cog_unload(self) -> None:
         pass

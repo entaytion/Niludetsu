@@ -12,6 +12,7 @@ class Colors:
     SUCCESS: int = 0x0CF232
     INFO: int = 0x820CF2
 _time = TimeService()
+UserTarget = discord.Member | discord.User
 
 def _normalize_timestamp(value: Optional[object]) -> Optional[discord.utils.snowflake_time]:
     if value is True:
@@ -19,6 +20,15 @@ def _normalize_timestamp(value: Optional[object]) -> Optional[discord.utils.snow
     if value in (None, False):
         return None
     return _time.ensure_datetime(value)
+
+
+def _user_text(user: UserTarget, text: str, *, mention: bool, preserve_blocks: bool) -> str:
+    formatted = text.strip()
+    if not mention:
+        return formatted
+    if preserve_blocks and (text.startswith("```") or text.startswith("\n")):
+        return f"{user.mention}\n{formatted}"
+    return f"{user.mention}, {formatted}" if formatted else user.mention
 
 class Embed(discord.Embed):
     def __init__(
@@ -56,11 +66,10 @@ class Embed(discord.Embed):
 
         if fields:
             for field in fields:
-                self.add_field(**field)
-
-        if inline_fields:
-            for field in self.fields:
-                field.inline = True
+                payload = dict(field)
+                if inline_fields:
+                    payload["inline"] = True
+                self.add_field(**payload)
 
         if footer:
             self.set_footer(**footer)
@@ -83,8 +92,102 @@ class Embed(discord.Embed):
         return cls._base(emoji=None, color=color, **kwargs)
 
     @classmethod
+    def user(
+        cls,
+        *,
+        user: UserTarget,
+        title: Optional[str] = None,
+        title_prefix: Optional[str] = None,
+        description: Optional[str] = None,
+        text: Optional[str] = None,
+        color: Optional[int] = None,
+        mention: bool = False,
+        preserve_blocks: bool = True,
+        **kwargs,
+    ) -> "Embed":
+        if title is None and title_prefix is not None:
+            title = f"{title_prefix} — {user.display_name}"
+        if description is None and text is not None:
+            description = _user_text(
+                user,
+                text,
+                mention=mention,
+                preserve_blocks=preserve_blocks,
+            )
+        kwargs.setdefault("thumbnail", user.display_avatar.url)
+        return cls(title=title, description=description, color=color, **kwargs)
+
+    @classmethod
+    def user_action(
+        cls,
+        *,
+        action: str,
+        user: UserTarget,
+        text: str,
+        color: Optional[int] = None,
+        mention: bool = True,
+        preserve_blocks: bool = True,
+        **kwargs,
+    ) -> "Embed":
+        return cls.user(
+            user=user,
+            title_prefix=action,
+            text=text,
+            color=color,
+            mention=mention,
+            preserve_blocks=preserve_blocks,
+            **kwargs,
+        )
+
+    @classmethod
     def success(cls, title: Optional[str] = None, **kwargs) -> "Embed":
         return cls._base(title=title or "Успешно!", emoji=Emojis.SUCCESS, color=Colors.SUCCESS, **kwargs)
+    @classmethod
+    def exception(
+        cls,
+        *,
+        error: Exception,
+        user: Optional[UserTarget] = None,
+        title: Optional[str] = None,
+        color: Optional[int] = None,
+        **kwargs,
+    ) -> "Embed":
+        from Niludetsu.Exceptions import NiludetsuException
+        import discord
+        from discord.ext import commands
+
+        match error:
+            case NiludetsuException():
+                desc = getattr(error, "message", str(error))
+                title = title or "Ошибка валидации"
+                if type(error).__name__ in ("ActiveGameExists", "NotEnoughMoney", "BetTooLow"):
+                    title = title or "Ошибка экономики"
+            case commands.CommandOnCooldown():
+                title = title or "Подождите"
+                desc = f"Команда на перезарядке. Попробуйте снова через {error.retry_after:.2f} сек."
+            case commands.MissingPermissions():
+                title = title or "Недостаточно прав"
+                desc = f"Необходимые права: {', '.join(error.missing_permissions)}"
+            case commands.BotMissingPermissions():
+                title = title or "Ошибка бота"
+                desc = f"Боту не хватает прав: {', '.join(error.missing_permissions)}"
+            case discord.Forbidden():
+                title = title or "Нет доступа"
+                desc = "Боту не хватает прав для выполнения этого действия, либо у пользователя закрыта личка."
+            case _:
+                title = title or "Произошла ошибка!"
+                desc = str(error)
+
+        color = color or Colors.ERROR
+        emoji = kwargs.pop("emoji", Emojis.ERROR)
+
+        embed = cls._base(title=title, description=desc, emoji=emoji, color=color, **kwargs)
+        if user:
+            embed.set_thumbnail(url=user.display_avatar.url)
+
+        return embed
+
+
 
     @classmethod
     def error(cls, title: Optional[str] = None, **kwargs) -> "Embed":

@@ -7,7 +7,7 @@ import psutil
 from discord.ext import commands
 from discord.utils import snowflake_time
 
-from Niludetsu import Colors, Emojis
+from Niludetsu import Colors, Emojis, safe_fetch_user
 
 OWNER_ONLY_INFO_ID = 636570363605680139
 
@@ -43,11 +43,9 @@ class InfoCommands(commands.Cog):
 
         if target_id:
             # Юзер?
-            try:
-                user = await self.bot.fetch_user(target_id)
+            user = await safe_fetch_user(self.bot, target_id)
+            if user:
                 return "user", user
-            except:
-                pass
             
             # Если на сервере, ищем роли/каналы
             if ctx.guild:

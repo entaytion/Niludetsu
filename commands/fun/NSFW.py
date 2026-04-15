@@ -6,35 +6,51 @@ from selectolax.parser import HTMLParser
 class BooruFetcher:
     """Универсальный фетчер для booru-сайтов."""
 
-    def __init__(self):
+    def __init__(self, session: aiohttp.ClientSession | None = None):
         self.headers = {
             "User-Agent": "Niludetsu/1.0 (by Entaytion on Discord)"
         }
         # Лимит размера файла для скачивания (25 МБ — лимит Discord)
         self.max_file_size = 24 * 1024 * 1024
+        self.session = session
+
+    def bind_session(self, session: aiohttp.ClientSession | None) -> None:
+        self.session = session
 
     async def _get_json(self, url: str) -> list | dict | None:
         """GET-запрос, вернуть JSON или None."""
+        if self.session is None or self.session.closed:
+            return None
+
         try:
-            async with aiohttp.ClientSession(headers=self.headers) as session:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                    if resp.status != 200:
-                        return None
-                    text = await resp.text()
-                    if not text or text.strip() in ("", "[]", "{}"):
-                        return None
-                    return json.loads(text)
+            async with self.session.get(
+                url,
+                headers=self.headers,
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                if resp.status != 200:
+                    return None
+                text = await resp.text()
+                if not text or text.strip() in ("", "[]", "{}"):
+                    return None
+                return json.loads(text)
         except Exception:
             return None
 
     async def _get_html(self, url: str) -> str | None:
         """GET-запрос, вернуть HTML или None."""
+        if self.session is None or self.session.closed:
+            return None
+
         try:
-            async with aiohttp.ClientSession(headers=self.headers) as session:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                    if resp.status != 200:
-                        return None
-                    return await resp.text()
+            async with self.session.get(
+                url,
+                headers=self.headers,
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                if resp.status != 200:
+                    return None
+                return await resp.text()
         except Exception:
             return None
 
@@ -43,36 +59,42 @@ class BooruFetcher:
         Скачать файл в память (BytesIO).
         Возвращает (BytesIO, filename) или None если файл слишком большой / ошибка.
         """
+        if self.session is None or self.session.closed:
+            return None
+
         try:
-            async with aiohttp.ClientSession(headers=self.headers) as session:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
-                    if resp.status != 200:
+            async with self.session.get(
+                url,
+                headers=self.headers,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                if resp.status != 200:
+                    return None
+
+                # Проверяем размер если сервер его отдает
+                content_length = resp.headers.get("Content-Length")
+                if content_length and int(content_length) > self.max_file_size:
+                    return None
+
+                # Читаем файл чанками чтобы не взорвать память
+                data = io.BytesIO()
+                total = 0
+                async for chunk in resp.content.iter_chunked(1024 * 64):
+                    total += len(chunk)
+                    if total > self.max_file_size:
                         return None
+                    data.write(chunk)
 
-                    # Проверяем размер если сервер его отдает
-                    content_length = resp.headers.get("Content-Length")
-                    if content_length and int(content_length) > self.max_file_size:
-                        return None
+                data.seek(0)
 
-                    # Читаем файл чанками чтобы не взорвать память
-                    data = io.BytesIO()
-                    total = 0
-                    async for chunk in resp.content.iter_chunked(1024 * 64):
-                        total += len(chunk)
-                        if total > self.max_file_size:
-                            return None
-                        data.write(chunk)
+                # Определяем имя файла из URL
+                path = urllib.parse.urlparse(url).path
+                filename = path.split("/")[-1] or "file.jpg"
+                # Убираем query-параметры из имени
+                if "?" in filename:
+                    filename = filename.split("?")[0]
 
-                    data.seek(0)
-
-                    # Определяем имя файла из URL
-                    path = urllib.parse.urlparse(url).path
-                    filename = path.split("/")[-1] or "file.jpg"
-                    # Убираем query-параметры из имени
-                    if "?" in filename:
-                        filename = filename.split("?")[0]
-
-                    return data, filename
+                return data, filename
         except Exception:
             return None
 
@@ -180,7 +202,10 @@ class BooruFetcher:
 class NSFW(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.fetcher = BooruFetcher()
+        self.fetcher = BooruFetcher(getattr(bot, "http_session", None))
+
+    async def cog_load(self):
+        self.fetcher.bind_session(getattr(self.bot, "http_session", None))
 
     async def _send_posts(self, ctx, source_name: str, fetch_func, count: int, tags: str):
         """Общая логика: фетчим посты, скачиваем файлы, отправляем как аттачменты."""

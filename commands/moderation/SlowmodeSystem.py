@@ -5,6 +5,7 @@ from Niludetsu.moderation.checks import moderationcommand
 from Niludetsu import send
 from Niludetsu.moderation.system.slowmode import SlowmodeSystem
 from Niludetsu.tools.Embed import Embed
+from Niludetsu.tools.Emojis import Emojis
 from typing import Optional
 
 class SlowmodeCog(commands.Cog):
@@ -73,7 +74,7 @@ class SlowmodeCog(commands.Cog):
             # Создаём итоговый embed
             if success_channels:
                 description = (
-                    f"{Emoji.SUCCESS} Медленный режим установлен на **{duration}** "
+                    f"{Emojis.SUCCESS} Медленный режим установлен на **{duration}** "
                     f"в **{len(success_channels)}** каналах"
                 )
                 if failed_channels:

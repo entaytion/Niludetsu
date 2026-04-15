@@ -100,129 +100,132 @@ class LevelCardRenderer:
         profile: Dict[str, int],
     ) -> bytes:
         """Строит карточку и возвращает PNG в виде байтов."""
-        # Загружаем фоновое изображение
-        background = Image.open(str(self.background_path)).convert("RGBA")
-
-        level = int(profile.get("level", 1))
-        exp = max(0, int(profile.get("experience", 0)))
-        needed = max(1, self.levels.next_level_xp(level))
-        progress_ratio = min(1.0, exp / needed) if needed else 0.0
-
-        # Загрузка и обработка аватара
+        import asyncio
         avatar_url = member.display_avatar.replace(size=512).url
         avatar = await self._load_image_async(avatar_url)
 
-        if avatar:
-            # Большой полупрозрачный аватар на фоне
-            large_avatar = avatar.resize((500, 500), Image.LANCZOS)
-            translucent = self._apply_opacity(large_avatar, 128)
+        def render_sync() -> bytes:
+            # Загружаем фоновое изображение
+            background = Image.open(str(self.background_path)).convert("RGBA")
 
-            gradient_overlay = self._create_vertical_gradient(
-                (500, 500),
-                "#000000",
-                "#212121",
-                start_alpha=0,
-                end_alpha=255,
+            level = int(profile.get("level", 1))
+            exp = max(0, int(profile.get("experience", 0)))
+            needed = max(1, self.levels.next_level_xp(level))
+            progress_ratio = min(1.0, exp / needed) if needed else 0.0
+
+            if avatar:
+                # Большой полупрозрачный аватар на фоне
+                large_avatar = avatar.resize((500, 500), Image.LANCZOS)
+                translucent = self._apply_opacity(large_avatar, 128)
+
+                gradient_overlay = self._create_vertical_gradient(
+                    (500, 500),
+                    "#000000",
+                    "#212121",
+                    start_alpha=0,
+                    end_alpha=255,
+                )
+                blended = Image.alpha_composite(translucent, gradient_overlay)
+                mask = self._create_top_rounded_mask((500, 500), 50)
+                blended_alpha = blended.split()[3]
+                blended.putalpha(ImageChops.multiply(blended_alpha, mask))
+                background.paste(blended, (26, 68), blended)
+
+                # Круглый аватар поверх
+                circle_avatar = self._make_circle_image(avatar.copy().resize((300, 300), Image.LANCZOS))
+                background.paste(circle_avatar, (126, 168), circle_avatar)
+
+            display_name = self._truncate(member.display_name, 14)
+            username = self._truncate(f"@{member.name}", 26)
+            level_next = level + 1
+
+            # Отрисовка текста
+            self._draw_centered_text(
+                background,
+                display_name,
+                box=(26, 488, 500, 78),
+                font=self._get_font(700, 64),
+                color=self.TEXT_PRIMARY,
+                spacing=-0.05,
             )
-            blended = Image.alpha_composite(translucent, gradient_overlay)
-            mask = self._create_top_rounded_mask((500, 500), 50)
-            blended_alpha = blended.split()[3]
-            blended.putalpha(ImageChops.multiply(blended_alpha, mask))
-            background.paste(blended, (26, 68), blended)
 
-            # Круглый аватар поверх
-            circle_avatar = self._make_circle_image(avatar.copy().resize((300, 300), Image.LANCZOS))
-            background.paste(circle_avatar, (126, 168), circle_avatar)
-
-        display_name = self._truncate(member.display_name, 14)
-        username = self._truncate(f"@{member.name}", 26)
-        level_next = level + 1
-
-        # Отрисовка текста
-        self._draw_centered_text(
-            background,
-            display_name,
-            box=(26, 488, 500, 78),
-            font=self._get_font(700, 64),
-            color=self.TEXT_PRIMARY,
-            spacing=-0.05,
-        )
-
-        self._draw_centered_text(
-            background,
-            username,
-            box=(26, 556, 500, 36),
-            font=self._get_font(500, 32),
-            color=self.TEXT_SECONDARY,
-            spacing=-0.05,
-        )
-
-        self._draw_centered_text(
-            background,
-            str(level),
-            box=(566, 214, 550, 256),
-            font=self._get_font(700, 256),
-            color=self.TEXT_ACCENT,
-        )
-
-        self._draw_centered_text(
-            background,
-            str(level),
-            box=(591, 473, 67, 55),
-            font=self._get_font(500, 40),
-            color=self.TEXT_ACCENT,
-        )
-
-        self._draw_centered_text(
-            background,
-            str(level_next),
-            box=(1027, 473, 67, 55),
-            font=self._get_font(500, 40),
-            color=self.TEXT_ACCENT,
-        )
-
-        self._draw_centered_text(
-            background,
-            f"{exp:,}".replace(",", " "),
-            box=(1156, 166, 724, 353),
-            font=self._get_font(700, 256),
-            color=self.EXP_TEXT_COLOR,
-        )
-
-        # Прогресс-бар
-        bar_x, bar_y = 591, 535
-        bar_w, bar_h = 500, 40
-        radius = 60
-
-        # Фон прогресс-бара
-        self._draw_rounded_rectangle(
-            background,
-            (bar_x, bar_y),
-            (bar_w, bar_h),
-            self.PROGRESS_BG,
-            radius
-        )
-
-        # Заполнение прогресс-бара
-        fill_w = int(bar_w * progress_ratio)
-        if fill_w > 0:
-            # Создаем полный прогресс-бар
-            fill_layer = Image.new("RGBA", (bar_w, bar_h), (0, 0, 0, 0))
-            draw = ImageDraw.Draw(fill_layer)
-            draw.rounded_rectangle(
-                [(0, 0), (bar_w, bar_h)],
-                radius=radius,
-                fill=self.PROGRESS_COLOR
+            self._draw_centered_text(
+                background,
+                username,
+                box=(26, 556, 500, 36),
+                font=self._get_font(500, 32),
+                color=self.TEXT_SECONDARY,
+                spacing=-0.05,
             )
-            # Обрезаем до нужной ширины
-            cropped = fill_layer.crop((0, 0, fill_w, bar_h))
-            background.paste(cropped, (bar_x, bar_y), cropped)
 
-        # Сохранение в буфер
-        buffer = io.BytesIO()
-        background.save(buffer, format="PNG")
-        buffer.seek(0)
-        return buffer.getvalue()
+            self._draw_centered_text(
+                background,
+                str(level),
+                box=(566, 214, 550, 256),
+                font=self._get_font(700, 256),
+                color=self.TEXT_ACCENT,
+            )
+
+            self._draw_centered_text(
+                background,
+                str(level),
+                box=(591, 473, 67, 55),
+                font=self._get_font(500, 40),
+                color=self.TEXT_ACCENT,
+            )
+
+            self._draw_centered_text(
+                background,
+                str(level_next),
+                box=(1027, 473, 67, 55),
+                font=self._get_font(500, 40),
+                color=self.TEXT_ACCENT,
+            )
+
+            self._draw_centered_text(
+                background,
+                f"{exp:,}".replace(",", " "),
+                box=(1156, 166, 724, 353),
+                font=self._get_font(700, 256),
+                color=self.EXP_TEXT_COLOR,
+            )
+
+            # Прогресс-бар
+            bar_x, bar_y = 591, 535
+            bar_w, bar_h = 500, 40
+            radius = 60
+
+            # Фон прогресс-бара
+            self._draw_rounded_rectangle(
+                background,
+                (bar_x, bar_y),
+                (bar_w, bar_h),
+                self.PROGRESS_BG,
+                radius
+            )
+
+            # Заполнение прогресс-бара
+            fill_w = int(bar_w * progress_ratio)
+            if fill_w > 0:
+                # Создаем полный прогресс-бар
+                fill_layer = Image.new("RGBA", (bar_w, bar_h), (0, 0, 0, 0))
+                draw = ImageDraw.Draw(fill_layer)
+                draw.rounded_rectangle(
+                    [(0, 0), (bar_w, bar_h)],
+                    radius=radius,
+                    fill=self.PROGRESS_COLOR
+                )
+                # Обрезаем до нужной ширины
+                cropped = fill_layer.crop((0, 0, fill_w, bar_h))
+                background.paste(cropped, (bar_x, bar_y), cropped)
+
+            # Сохранение в буфер
+            buffer = io.BytesIO()
+            background.save(buffer, format="PNG")
+            buffer.seek(0)
+            return buffer.getvalue()
+            
+        return await asyncio.to_thread(render_sync)
 
     def _create_top_rounded_mask(self, size: Tuple[int, int], radius: int) -> Image.Image:
         width, height = size

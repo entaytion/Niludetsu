@@ -2,7 +2,7 @@ import discord
 from discord import app_commands, Interaction
 from discord.ext import commands
 from discord.ui import Button, Select, View
-from Niludetsu import Embed, Time, config, Emojis
+from Niludetsu import Embed, Time, config, Emojis, resolve_member, safe_fetch_user
 from Niludetsu.database.supabase_database import database
 from typing import Dict, List, Optional
 
@@ -445,19 +445,8 @@ class Leaderboard(commands.Cog):
         self.bot = bot
 
     async def get_member_display(self, user_id: int) -> str:
-        guild = self.bot.get_guild(int(MAIN_GUILD_ID))
-        if guild:
-            member = guild.get_member(user_id)
-            if member:
-                return member.display_name
-
-        try:
-            user = await self.bot.fetch_user(user_id)
-            return user.name
-        except discord.NotFound:
-            return f"Пользователь #{user_id}"
-        except discord.HTTPException:
-            return f"Пользователь #{user_id}"
+        member = await resolve_member(self.bot, user_id, MAIN_GUILD_ID)
+        return getattr(member, "display_name", getattr(member, "name", f"Пользователь #{user_id}"))
 
     @app_commands.command(name="leaderboard", description="Показать топы сервера")
     async def leaderboard(self, interaction: Interaction) -> None:

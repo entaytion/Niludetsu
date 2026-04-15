@@ -58,8 +58,6 @@ class Slut(commands.Cog):
                 await ctx.reply(embed=EconomyEmbed.error(message), ephemeral=True)
                 return
 
-            wallet = await self.economy.get_wallet(user_id, guild_id)
-
             embed = EconomyEmbed.result(
                 action="Рискованный заработок",
                 user=ctx.author,
@@ -67,19 +65,16 @@ class Slut(commands.Cog):
                     f"вы {random.choice(SLUT_SUCCESS_MESSAGES)}. "
                     f"Вы получили **{reward:,}** {Emojis.MONEY}!"
                 ),
-                balance=wallet,
             )
         else:
             penalty = random.randint(SLUT_PENALTY_MIN, SLUT_PENALTY_MAX)
-            current_wallet = await self.economy.get_wallet(user_id, guild_id)
-            actual_penalty = min(current_wallet, penalty)
+            wallet_balance = await self.economy.get_wallet(user_id, guild_id)
+            actual_penalty = min(wallet_balance, penalty)
 
             if actual_penalty > 0:
                 await self.economy.remove_money(
                     user_id, guild_id, actual_penalty, event="slut_penalty"
                 )
-
-            wallet = await self.economy.get_wallet(user_id, guild_id)
 
             embed = EconomyEmbed.result(
                 action="Рискованный заработок",
@@ -88,7 +83,6 @@ class Slut(commands.Cog):
                     f"{random.choice(SLUT_FAIL_MESSAGES)}. "
                     f"Вы потеряли **{actual_penalty:,}** {Emojis.MONEY}."
                 ),
-                balance=wallet,
             )
 
         await ctx.reply(embed=embed, mention_author=False)

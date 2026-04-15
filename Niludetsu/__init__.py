@@ -10,8 +10,10 @@ from .tools.InfoCard import InfoCard
 from .tools.Loader import Loader
 from .tools.Time import TimeService
 from .tools.SendHybrid import send, defer, send_moderation
+from .tools.Discord import resolve_member, safe_edit, safe_delete, safe_fetch_user, safe_fetch_message, delete_after, owner_check
+from .tools.GameView import GameView
 
-__version__ = "agrentez-8"
+__version__ = "agrentez-9"
 __author__ = "Entaytion"
 __license__ = "MIT"
 
@@ -19,11 +21,14 @@ Database = SupabaseDatabase  # ← алиас, чтобы импорт выгл�
 Time = TimeService
 Loader = Loader
 
+import Niludetsu.Exceptions as Exceptions
+
 __all__ = [
     "database",
     "Database",
     "Time",
     "Loader",
+    "Exceptions",
     "Embed",
     "Colors",
     "Emojis",
@@ -31,5 +36,13 @@ __all__ = [
     "send",
     "defer",
     "send_moderation",
+    "resolve_member",
+    "safe_edit",
+    "safe_delete",
+    "safe_fetch_user",
+    "safe_fetch_message",
+    "delete_after",
+    "owner_check",
+    "GameView",
 ]
 

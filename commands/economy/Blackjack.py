@@ -2,7 +2,7 @@ import asyncio, discord, random, uuid
 from dataclasses import dataclass, field
 from discord import app_commands
 from discord.ext import commands
-from Niludetsu import Emojis, Embed
+from Niludetsu import Emojis, Embed, resolve_member, safe_edit, GameView
 from Niludetsu.database.supabase_database import database
 from Niludetsu.economy.manager import EconomyManager
 from Niludetsu.economy.validators import EconomyValidator
@@ -78,7 +78,7 @@ def _build_deck() -> List[str]:
     return deck
 
 
-class BlackjackView(discord.ui.View):
+class BlackjackView(GameView):
     def __init__(self, cog: "Blackjack", game_id: str, owner_id: int, *, timeout: float = 45.0):
         super().__init__(timeout=timeout)
         self.cog = cog
@@ -97,18 +97,8 @@ class BlackjackView(discord.ui.View):
     async def on_timeout(self) -> None:
         if game := await self.cog.fetch_game(self.game_id):
             embed = await self.cog.finish_game(game, reason="timeout")
-            await self._safe_edit(embed, view=None)
-        for child in self.children:
-            if isinstance(child, discord.ui.Button):
-                child.disabled = True
-
-    async def _safe_edit(self, embed: Embed, view: Optional[discord.ui.View]) -> None:
-        if not self.message:
-            return
-        try:
-            await self.message.edit(embed=embed, view=view)
-        except discord.HTTPException:
-            pass
+            await safe_edit(self.message, embed=embed, view=None)
+        await self.disable_all()
 
     @discord.ui.button(label="Взять карту", style=discord.ButtonStyle.success, emoji="🎯")
     async def hit(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
@@ -120,7 +110,7 @@ class BlackjackView(discord.ui.View):
         await interaction.response.defer()
         embed, finished = await self.cog.handle_hit(game)
         if finished:
-            await self._safe_edit(embed, view=None)
+            await safe_edit(self.message, embed=embed, view=None)
         else:
             await interaction.message.edit(embed=embed, view=self)
 
@@ -133,7 +123,7 @@ class BlackjackView(discord.ui.View):
 
         await interaction.response.defer()
         embed = await self.cog.finish_game(game, reason="stand")
-        await self._safe_edit(embed, view=None)
+        await safe_edit(self.message, embed=embed, view=None)
 
 
 class Blackjack(commands.Cog):
@@ -189,14 +179,6 @@ class Blackjack(commands.Cog):
         )
         return embed
 
-    async def _resolve_member(self, user_id: str, guild_id: str):
-        uid = int(user_id)
-        guild = self.bot.get_guild(int(guild_id))
-        if guild:
-            member = guild.get_member(uid)
-            if member:
-                return member
-        return await self.bot.fetch_user(uid)
 
     async def _start_game(self, user_id: str, guild_id: str, bet: int) -> BlackjackGameState:
         deck = _build_deck()
@@ -225,7 +207,7 @@ class Blackjack(commands.Cog):
             embed = await self.finish_game(game, reason="bust")
             return embed, True
 
-        member = await self._resolve_member(game.user_id, game.guild_id)
+        member = await resolve_member(self.bot, game.user_id, game.guild_id)
         embed = self._format_state_embed(
             game,
             hide_dealer=True,
@@ -283,8 +265,7 @@ class Blackjack(commands.Cog):
         else:
             text = f"вы проиграли **{game.bet:,}** {Emojis.MONEY}, потому что {explanation}"
 
-        wallet = await self.economy.get_wallet(game.user_id, game.guild_id)
-        member = await self._resolve_member(game.user_id, game.guild_id)
+        member = await resolve_member(self.bot, game.user_id, game.guild_id)
 
         cards_text = (
             f"\n\n**Ваша рука:** {_format_cards(game.player_hand)} (сумма: **{player_total}**)"
@@ -295,7 +276,6 @@ class Blackjack(commands.Cog):
             action="Блекджек",
             user=member,
             text=f"{text}{cards_text}",
-            balance=wallet,
         )
         return embed
 

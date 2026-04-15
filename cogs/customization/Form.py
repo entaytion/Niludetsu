@@ -4,6 +4,8 @@ from discord.ui import Modal, TextInput, View, Button, Select
 from Niludetsu import Embed, Emojis
 from Niludetsu.config import SERVERS, NOTIFICATION_CHANNEL_ID, SERVER_TEAM_ID, JUNIOR_MODERATOR_ID, MODER_TEAM_ID, PARTNER_MANAGER_ID, PM_TEAM_ID, EVENT_MANAGER_ID, EVENT_TEAM_ID
 
+FORM_VIEWS_FLAG = "_form_views_registered"
+
 # Маппинг должностей на роли
 POSITION_ROLES = {
     "helper": {
@@ -28,19 +30,19 @@ class PositionSelect(Select):
         options = [
             discord.SelectOption(
                 label="Младший модератор",
-                description="Поддержание порядка и помощь участникам",
+                description="Следить за порядком и не дать комнате развалиться",
                 emoji=Emojis.ICON_ROLE_MOD, 
                 value="helper"
             ),
             discord.SelectOption(
                 label="Партнёр-менеджер",
-                description="Продвижение и реклама сервера", 
+                description="Таскать сервер наружу и договариваться с людьми", 
                 emoji=Emojis.ICON_ROLE_PM,
                 value="partner-manager"
             ),
             discord.SelectOption(
                 label="Ивент-менеджер",
-                description="Организация и проведение мероприятий",
+                description="Собирать движ и не дать ему умереть по дороге",
                 emoji=Emojis.ICON_ROLE_EVENT,
                 value="event-manager"
             ),
@@ -72,17 +74,22 @@ class FormButton(View):
     async def submit(self, interaction: discord.Interaction, button: Button):
         view = View(timeout=None)
         view.add_item(PositionSelect())
-        await interaction.response.send_message("Выберите должность:", view=view, ephemeral=True)
+        await interaction.response.send_message(
+            "Выбери, куда именно хочешь влезть.",
+            view=view,
+            ephemeral=True,
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
 
 class FormModal(Modal):
     def __init__(self, position: str):
         position_data = POSITION_ROLES.get(position, {})
-        super().__init__(title=f"Заявка на должность {position_data.get('name', 'Unknown')}")
+        super().__init__(title=f"Анкета: {position_data.get('name', 'Unknown')}")
         self.position = position
 
         self.name_input = TextInput(
             label="Имя",
-            placeholder="Ваше имя...",
+            placeholder="Как тебя называть в этой комнате?",
             style=discord.TextStyle.short,
             required=True,
             max_length=50
@@ -90,7 +97,7 @@ class FormModal(Modal):
 
         self.age_input = TextInput(
             label="Возраст",
-            placeholder="Ваш возраст...",
+            placeholder="Сколько тебе лет?",
             style=discord.TextStyle.short,
             required=True,
             max_length=3
@@ -98,7 +105,7 @@ class FormModal(Modal):
 
         self.experience_input = TextInput(
             label="Опыт",
-            placeholder="Ваш опыт работы...",
+            placeholder="Что ты уже умеешь и где с этим сталкивался?",
             style=discord.TextStyle.paragraph,
             required=True,
             max_length=1000
@@ -106,7 +113,7 @@ class FormModal(Modal):
 
         self.about_input = TextInput(
             label="О себе",
-            placeholder="Расскажите о себе...",
+            placeholder="Коротко расскажи, кто ты и почему мы должны пустить тебя глубже.",
             style=discord.TextStyle.paragraph,
             required=True,
             max_length=1000
@@ -172,8 +179,14 @@ class FormActionsView(View):
 class Form(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.bot.add_view(FormButton(bot))
-        self.bot.add_view(FormActionsView(bot))
+
+    async def cog_load(self) -> None:
+        if getattr(self.bot, FORM_VIEWS_FLAG, False):
+            return
+
+        self.bot.add_view(FormButton(self.bot))
+        self.bot.add_view(FormActionsView(self.bot))
+        setattr(self.bot, FORM_VIEWS_FLAG, True)
 
     def is_admin(self, member: discord.Member) -> bool:
         """Проверяет, является ли пользователь администратором."""
@@ -196,8 +209,11 @@ class Form(commands.Cog):
         pos_emoji = position_data.get("emoji", "")
 
         embed = Embed.default(
-            title=f"{pos_emoji} Новая анкета на должность {pos_name}",
-            description=f"Заявка от пользователя {interaction.user.mention} ({interaction.user.id})"
+            title=f"{pos_emoji} Новая анкета: {pos_name}",
+            description=(
+                f"Кандидат: **{discord.utils.escape_markdown(str(interaction.user))}**\n"
+                f"ID: `{interaction.user.id}`"
+            ),
         )
         embed.add_field(
             name=f"> {Emojis.NAME} Имя",
@@ -220,7 +236,12 @@ class Form(commands.Cog):
             inline=False
         )
         embed.set_thumbnail(url=interaction.user.display_avatar.url)
-        await notification_channel.send(embed=embed, view=FormActionsView(self.bot))
+        embed.set_footer(text="nullthe.re смотрит молча, но всё записывает.")
+        await notification_channel.send(
+            embed=embed,
+            view=FormActionsView(self.bot),
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
 
     async def handle_form_submit(
         self, 
@@ -236,16 +257,18 @@ class Form(commands.Cog):
         if position not in POSITION_ROLES:
             return await interaction.response.send_message(
                 embed=Embed.error(description="Неизвестная должность!"),
-                ephemeral=True
+                ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
 
         # Отправляем сообщение об успешной отправке
         await interaction.response.send_message(
             embed=Embed.success(
-                title=f"Успешно",
-                description="Ваша анкета успешно отправлена на рассмотрение!"
+                title="Анкета отправлена",
+                description="Комната услышала тебя. Заявка ушла на рассмотрение."
             ),
-            ephemeral=True
+            ephemeral=True,
+            allowed_mentions=discord.AllowedMentions.none(),
         )
 
         # Отправляем анкету в канал уведомлений
@@ -261,11 +284,14 @@ class Form(commands.Cog):
                 raise ValueError("Команда доступна только на основном сервере.")
 
             embed = interaction.message.embeds[0]
-            description = embed.description
+            description = embed.description or ""
             title = embed.title
 
             # Извлекаем ID пользователя
-            user_id_match = re.search(r'\((\d+)\)', description)
+            user_id_match = (
+                re.search(r'\((\d+)\)', description)
+                or re.search(r'ID:\s*`?(\d+)`?', description)
+            )
             if not user_id_match:
                 raise ValueError("Не удалось извлечь ID пользователя из анкеты.")
             user_id = int(user_id_match.group(1))
@@ -310,13 +336,19 @@ class Form(commands.Cog):
 
                 # Отправляем сообщение пользователю
                 await user.send(embed=Embed.success(
-                    title=f"Заявка принята",
-                    description=f"Поздравляем! Ваша заявка на должность **{pos_name}** была одобрена."
+                    title="Заявка принята",
+                    description=(
+                        f"Твоя заявка на должность **{pos_name}** одобрена.\n"
+                        "Похоже, дверь действительно открылась."
+                    ),
                 ))
             else:  # reject
                 await user.send(embed=Embed.error(
-                    title=f"Заявка отклонена",
-                    description=f"К сожалению, ваша заявка на должность **{pos_name}** была отклонена."
+                    title="Заявка отклонена",
+                    description=(
+                        f"Заявка на должность **{pos_name}** отклонена.\n"
+                        "Не конец света. Просто эта дверь сегодня не твоя."
+                    ),
                 ))
 
             # Обновляем embed с результатом
@@ -324,7 +356,10 @@ class Form(commands.Cog):
             new_embed = message.embeds[0].copy()
             new_embed.add_field(
                 name="> Результат",
-                value=f"- **{'Принята' if action == 'accept' else 'Отклонена'}** администратором {interaction.user.mention}",
+                value=(
+                    f"- **{'Принята' if action == 'accept' else 'Отклонена'}**\n"
+                    f"- Решение: **{discord.utils.escape_markdown(str(interaction.user))}** (`{interaction.user.id}`)"
+                ),
                 inline=False
             )
 
@@ -332,7 +367,8 @@ class Form(commands.Cog):
 
         except (ValueError, discord.HTTPException) as e:
             await interaction.followup.send(
-                embed=Embed.error(description=f"Ошибка при обработке анкеты: {e}")
+                embed=Embed.error(description=f"Ошибка при обработке анкеты: {e}"),
+                allowed_mentions=discord.AllowedMentions.none(),
             )
 
 async def setup(bot):

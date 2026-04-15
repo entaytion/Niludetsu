@@ -1,5 +1,7 @@
-import asyncio, discord, os, time
-from cogs.customization.Banner import Banner
+import asyncio, os, time
+
+import aiohttp
+import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 from Niludetsu import config
@@ -25,6 +27,8 @@ class NiludetsuBot(commands.Bot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tree.on_error = self._on_app_command_error
+        self._status_task: asyncio.Task | None = None
+        self.http_session: aiohttp.ClientSession | None = None
 
     async def on_command_error(self, ctx: commands.Context, error: Exception) -> None:
         if isinstance(error, commands.CommandNotFound):
@@ -105,6 +109,9 @@ class NiludetsuBot(commands.Bot):
         await setup_error_handling(self)
         self.db = database
         self.db.set_bot(self)
+        self.http_session = aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=20)
+        )
 
         self.access = AccessGuard(self)
         self.command_manager = self.access
@@ -117,9 +124,6 @@ class NiludetsuBot(commands.Bot):
         self.loader = Loader(self, command_dirs=["commands", "cogs"])
         await self.loader.load_everything()
         await self.access.bootstrap()
-
-        self.banner = Banner(self)
-        await self.banner.cog_load()
 
         self.quest_tracker = QuestTracker(self)
 
@@ -143,7 +147,7 @@ class NiludetsuBot(commands.Bot):
         await self._report_error(f"interaction: {command_name}", error, None, interaction=interaction)
 
     async def update_status(self):
-        while True:
+        while not self.is_closed():
             try:
                 main_guild = self.get_guild(config.SERVERS["MAIN_ID"])
                 if main_guild:
@@ -154,13 +158,16 @@ class NiludetsuBot(commands.Bot):
                             name=f"{member_count:,} nullther's",
                         )
                     )
+            except asyncio.CancelledError:
+                raise
             except Exception as exc:
                 await self._report_error("background: update_status", exc, "update_status")
             await asyncio.sleep(300)
 
     async def on_ready(self):
         logger.success("✅ Бот {} успешно запущен!", self.user)
-        asyncio.create_task(self.update_status())
+        if self._status_task is None or self._status_task.done():
+            self._status_task = asyncio.create_task(self.update_status())
 
     async def on_message(self, message):
         if message.author.bot or not message.guild:
@@ -195,7 +202,20 @@ class NiludetsuBot(commands.Bot):
                 self.quest_tracker.on_message(str(message.guild.id), str(message.author.id))
             )
 
-allowed = discord.AllowedMentions(users=True, everyone=False, roles=False)
+    async def close(self) -> None:
+        if self._status_task and not self._status_task.done():
+            self._status_task.cancel()
+            try:
+                await self._status_task
+            except asyncio.CancelledError:
+                pass
+
+        if self.http_session and not self.http_session.closed:
+            await self.http_session.close()
+
+        await super().close()
+
+allowed = discord.AllowedMentions(users=True, everyone=False, roles=True)
 bot = NiludetsuBot(command_prefix=get_prefix, intents=intents, allowed_mentions=allowed)
 bot.start_time = time.time()
 load_dotenv()

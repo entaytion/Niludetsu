@@ -1,7 +1,7 @@
 import asyncio, discord
 from discord import app_commands
 from discord.ext import commands
-from Niludetsu import Embed, Colors, Emojis
+from Niludetsu import Embed, Colors, Emojis, safe_edit
 from Niludetsu.database.supabase_database import database
 from Niludetsu.economy.manager import EconomyManager
 from typing import Dict, Optional, Tuple
@@ -235,12 +235,7 @@ class RPSGame:
             color=color,
         )
 
-        if self._challenge_message:
-            try:
-                await self._challenge_message.edit(embed=embed, view=None)
-            except discord.HTTPException:
-                pass
-
+        await safe_edit(self._challenge_message, embed=embed, view=None)
         await self.cleanup()
 
     async def handle_timeout(self, player_id: int) -> None:
@@ -250,34 +245,22 @@ class RPSGame:
             self._resolved = True
 
         name = self.challenger_name if player_id == self.challenger_id else self.target_name
-        if self._challenge_message:
-            try:
-                await self._challenge_message.edit(
-                    embed=Embed(
-                        description=f"⏳ **{name}** не успел выбрать. Игра отменена.",
-                        color=Colors.ERROR,
-                    ),
-                    view=None,
-                )
-            except discord.HTTPException:
-                pass
+        await safe_edit(
+            self._challenge_message,
+            embed=Embed(description=f"⏳ **{name}** не успел выбрать. Игра отменена.", color=Colors.ERROR),
+            view=None,
+        )
         await self.cleanup()
 
     async def handle_challenge_timeout(self) -> None:
         if self._resolved:
             return
         self._resolved = True
-        if self._challenge_message:
-            try:
-                await self._challenge_message.edit(
-                    embed=Embed(
-                        description=f"⏳ <@{self.target_id}> не ответил на вызов.",
-                        color=Colors.ERROR,
-                    ),
-                    view=None,
-                )
-            except discord.HTTPException:
-                pass
+        await safe_edit(
+            self._challenge_message,
+            embed=Embed(description=f"⏳ <@{self.target_id}> не ответил на вызов.", color=Colors.ERROR),
+            view=None,
+        )
         await self.cleanup()
 
     async def cleanup(self) -> None:
