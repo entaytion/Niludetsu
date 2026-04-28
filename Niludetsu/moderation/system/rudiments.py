@@ -1,12 +1,14 @@
+from ...tools.Embed import Embed
+from ...tools.Emojis import Emojis
+from ...tools.Time import TimeService
 """Универсальная система для просмотра наказаний (rudiments)."""
 
 import discord, math
+
 from dataclasses import dataclass
 from Niludetsu.moderation.config import ActionType
 from Niludetsu.moderation.manager import ModerationManager
-from Niludetsu.tools.Embed import Embed
-from Niludetsu.tools.Emojis import Emojis
-from Niludetsu.tools.Time import TimeService
+
 from typing import Dict, Iterable, List, Optional
 
 _time = TimeService()

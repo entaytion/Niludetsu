@@ -1,4 +1,4 @@
-from Niludetsu.database.supabase_database import database
+from Niludetsu.database import database
 from Niludetsu.marriage.marriage_manager import MarriageManager
 from typing import Dict, Optional, Any
 
@@ -16,7 +16,7 @@ class AdoptionManager:
             ],
         )
         for marriage in rows:
-            kids = await self.db.fetch_children(marriage["id"])
+            kids = await self.db.get_rows("user_marriage_children", marriage_id=marriage["id"])
             if any(str(k["user_id"]) == str(user_id) for k in kids):
                 return True
         return False

@@ -1,17 +1,14 @@
 import discord
+from Niludetsu import EconomyManager, Embed, Emojis, config
 from discord.ext import commands
 from typing import Optional, Dict, Any
-from Niludetsu.config import SERVERS
-from Niludetsu.database.supabase_database import database, SupabaseDatabase
-from Niludetsu.economy.manager import EconomyManager
-from Niludetsu.tools.Embed import Embed
-from Niludetsu.tools.Emojis import Emojis
+from Niludetsu.database import Database, database
 
-MAIN_SERVER_ID = SERVERS["MAIN_ID"]
+MAIN_SERVER_ID = config.SERVERS["MAIN_ID"]
 NEWS_CHANNEL_ID = 1125546966076625038  # Канал новостей
 BOOST_REWARD = 10000  # Награда за буст
 
-async def get_booster_role_item(db: SupabaseDatabase, user_id: str, guild_id: str) -> Optional[Dict[str, Any]]:
+async def get_booster_role_item(db: Database, user_id: str, guild_id: str) -> Optional[Dict[str, Any]]:
     """Получает запись о бустерской роли из инвентаря"""
     try:
         items = await db.fetch_inventory_items(user_id, guild_id)
@@ -22,7 +19,7 @@ async def get_booster_role_item(db: SupabaseDatabase, user_id: str, guild_id: st
         print(f"[Booster] Ошибка получения бустерской роли: {e}")
     return None
 
-async def delete_booster_role(db: SupabaseDatabase, member: discord.Member, guild: discord.Guild, booster_item: Dict[str, Any]) -> bool:
+async def delete_booster_role(db: Database, member: discord.Member, guild: discord.Guild, booster_item: Dict[str, Any]) -> bool:
     """Удаляет бустерскую роль"""
     try:
         role_id = int(booster_item.get("meta", {}).get("role_id"))
@@ -73,7 +70,7 @@ class Booster(commands.Cog):
             return
 
         embed = Embed(
-            title="🚀 Новый буст на сервере!",
+            title="Новый буст на сервере!",
             description=(
                 f"> {member.mention} бустанул сервер! Мы очень благодарны!\n"
                 f"> За это награда в размере **{BOOST_REWARD:,} {Emojis.MONEY}**!"

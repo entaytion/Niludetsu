@@ -3,7 +3,7 @@ from discord import app_commands, Interaction
 from discord.ext import commands
 from discord.ui import Button, Select, View
 from Niludetsu import Embed, Time, config, Emojis, resolve_member, safe_fetch_user
-from Niludetsu.database.supabase_database import database
+from Niludetsu.database import database
 from typing import Dict, List, Optional
 
 MAIN_GUILD_ID = str(config.SERVERS["MAIN_ID"])
@@ -80,34 +80,18 @@ class LeaderboardView(View):
         rows: List[Dict] = []
         offset = 0
         while True:
-            t = await database._atable(table)
-            query = t.select(", ".join(columns) if columns else "*")
-
-            if filters:
-                for flt in filters:
-                    op = flt.get("op", "eq")
-                    column = flt["column"]
-                    value = flt["value"]
-                    if op == "is":
-                        query = query.is_(column, value)
-                    else:
-                        query = getattr(query, op)(column, value)
-
-            if order:
-                for rule in order:
-                    query = query.order(
-                        rule["column"],
-                        desc=not rule.get("ascending", True),
-                        nullsfirst=rule.get("nulls_first", False),
-                    )
-
-            response = await query.range(offset, offset + chunk_size - 1).execute()
-            batch = response.data or []
+            batch = await database.where(
+                table,
+                columns=columns,
+                filters=filters,
+                order=order,
+                limit=chunk_size,
+                offset=offset,
+            )
             rows.extend(batch)
             if len(batch) < chunk_size:
                 break
             offset += chunk_size
-
         return rows
 
     async def _load_levels(self) -> None:
@@ -335,7 +319,7 @@ class LeaderboardView(View):
 
     async def create_embed(self) -> Embed:
         embed = Embed(
-            title=f"📊 Топ по {self.category_title}",
+            title=f"Топ по {self.category_title}",
             description=f"{Emojis.UNKNOWN} Страница {self.current_page} из {self.total_pages}",
         )
 

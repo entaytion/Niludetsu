@@ -1,117 +1,73 @@
+from ..tools.Emojis import Emojis
+from ..tools.Time import TimeService
+
 import asyncio
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
+from Niludetsu.database import database
 
-from Niludetsu.database.supabase_database import SupabaseDatabase
-from Niludetsu.tools.Embed import Embed
-from Niludetsu.tools.Emojis import Emojis
-from Niludetsu.tools.Time import TimeService
+class EconomyResult:
+    """Результат операции экономии для удобной обработки в match/case."""
+    __slots__ = ("status", "message", "data")
 
+    def __init__(self, status: str, message: str = "", data: Optional[Dict] = None):
+        self.status = status # 'success', 'error', 'insufficient_funds', 'cooldown'
+        self.message = message
+        self.data = data or {}
+
+    @property
+    def ok(self) -> bool:
+        return self.status == "success"
+
+    def __bool__(self) -> bool:
+        return self.ok
+
+    def __iter__(self):
+        yield self.ok
+        yield self.message
 
 class EconomyManager:
-    """Единая точка входа: балансы, депозиты, семейные счета, кулдауны."""
+    """Менеджер экономики. Динамические настройки из БД + атомарные операции."""
 
-    # КОНСТАНТЫ КУЛДАУНОВ (в минутах)
-    COOLDOWNS = {
-        "daily": 24 * 60,  # 24 часа
-        "work": 60,  # 1 час
-        "rob": 6 * 60,  # 6 часов
-        "crime": 2 * 60,  # 2 часа
-        "slut": 2 * 60,  # 2 часа
+    # Дефолтные значения (если в БД пусто)
+    DEFAULT_CONFIG = {
+        "cooldowns": {"daily": 1440, "work": 60, "rob": 360, "crime": 120, "slut": 120},
+        "cooldown_fields": {"daily": "last_daily", "work": "last_work", "rob": "last_rob", "slut": "last_slut"},
+        "rewards": {"work": [120, 260], "daily": [500, 1000]}
     }
 
-    # Маппинг команда -> поле в БД
-    COOLDOWN_FIELDS = {
-        "daily": "last_daily",
-        "work": "last_work",
-        "rob": "last_rob",
-        "slut": "last_slut",
-        # Для остальных команд используем cooldowns (jsonb)
-    }
-
-    def __init__(self, db: SupabaseDatabase):
-        self.db = db
+    def __init__(self, db=None):
+        self.db = db or database
         self.time = TimeService()
 
-    # 1. Доступ к данным
-    async def _ensure_bundle(self, user_id: str, guild_id: str) -> Dict[str, Any]:
-        return await self.db.ensure_user(str(user_id), str(guild_id))
+    @staticmethod
+    def _normalize_account(account: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if not account:
+            return None
+        for field in ("balance", "deposit", "spousal_balance"):
+            account[field] = int(account.get(field) or 0)
+        return account
 
-    async def _get_economy(self, user_id: str, guild_id: str) -> Dict[str, Any]:
-        bundle = await self._ensure_bundle(user_id, guild_id)
-        economy: Dict[str, Any] = bundle.get("economy") or {}
+    @staticmethod
+    def _invalid_amount_result() -> EconomyResult:
+        return EconomyResult("error", "Сумма должна быть больше 0")
 
-        economy.setdefault("balance", 0)
-        economy.setdefault("deposit", 0)
-        economy.setdefault("spousal_balance", 0)
-        economy.setdefault("spousal_enabled", False)
-        economy.setdefault("last_daily", None)
-        economy.setdefault("last_work", None)
-        economy.setdefault("last_rob", None)
-        economy.setdefault("last_slut", None)
-        economy.setdefault("cooldowns", {})
+    async def _store_account(self, user_id: str, guild_id: str, account: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        account = self._normalize_account(account)
+        if account:
+            await self.db.update_user_cache(str(user_id), str(guild_id), "economy", account)
+        return account
 
-        economy["balance"] = int(economy["balance"] or 0)
-        economy["deposit"] = int(economy["deposit"] or 0)
-        economy["spousal_balance"] = int(economy["spousal_balance"] or 0)
+    async def _fetch_updated_account(self, query: str, *params: Any) -> Optional[Dict[str, Any]]:
+        row = await self.db._neon.fetchrow(query, *params)
+        return self._normalize_account(dict(row)) if row else None
 
-        return economy
-
-    async def _update_economy(
-        self,
-        user_id: str,
-        guild_id: str,
-        *,
-        balance: Optional[int] = None,
-        deposit: Optional[int] = None,
-        spousal_balance: Optional[int] = None,
-        extra: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        payload: Dict[str, Any] = {}
-        if balance is not None:
-            payload["balance"] = int(balance)
-        if deposit is not None:
-            payload["deposit"] = int(deposit)
-        if spousal_balance is not None:
-            payload["spousal_balance"] = int(spousal_balance)
-        if extra:
-            payload.update(extra)
-
-        if not payload:
-            return await self._get_economy(user_id, guild_id)
-
-        updated = await self.db.update_economy(
-            str(user_id),
-            str(guild_id),
-            payload,
-        )
-        return updated or await self._get_economy(user_id, guild_id)
-
-    # 2. Получение данных
-    async def get_account(self, user_id: str, guild_id: str) -> Dict[str, Any]:
-        return await self._get_economy(user_id, guild_id)
-
-    async def get_wallet(self, user_id: str, guild_id: str) -> int:
-        economy = await self._get_economy(user_id, guild_id)
-        return int(economy.get("balance", 0))
-
-    async def get_bank(self, user_id: str, guild_id: str) -> int:
-        economy = await self._get_economy(user_id, guild_id)
-        return int(economy.get("deposit", 0))
-
-    async def get_spousal_balance(self, user_id: str, guild_id: str) -> int:
-        economy = await self._get_economy(user_id, guild_id)
-        return int(economy.get("spousal_balance", 0))
-
-    # Логирование транзакций (fire-and-forget)
-    def _log_tx(
+    def _schedule_transaction(
         self,
         user_id: str,
         guild_id: str,
         event: str,
         amount: int,
-        balance_after: int,
-        *,
-        related_user_id: Optional[str] = None,
+        balance: int,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         if not event:
@@ -122,318 +78,213 @@ class EconomyManager:
                 guild_id,
                 event,
                 amount,
-                balance_after,
-                related_user_id=related_user_id,
+                balance,
                 metadata=metadata,
             )
         )
 
-    # 3. Операции с деньгами
+    async def get_config(self) -> Dict[str, Any]:
+        """Получает конфигурацию из настроек БД."""
+        return await self.db.get_settings("economy_config", self.DEFAULT_CONFIG)
+
+    async def get_account(self, user_id: str, guild_id: str) -> Dict[str, Any]:
+        user_data = await self.db.get_user(str(user_id), str(guild_id))
+        return self._normalize_account(user_data["economy"])
+
     async def add_money(
         self,
         user_id: str,
         guild_id: str,
         amount: int,
-        *,
-        share_spousal: bool = True,
         event: str = "",
-        related_user_id: Optional[str] = None,
+        share_spousal: bool = True,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[bool, str]:
-        economy = await self._get_economy(user_id, guild_id)
-        wallet = int(economy["balance"])
-        spousal_enabled = bool(economy.get("spousal_enabled"))
-
-        spousal_balance_raw = economy.get("spousal_balance")
-        spousal_balance = (
-            int(spousal_balance_raw) if spousal_balance_raw is not None else 0
-        )
-
-        if share_spousal and spousal_enabled:
+    ) -> EconomyResult:
+        if amount <= 0: return self._invalid_amount_result()
+        
+        acc = await self.get_account(user_id, guild_id)
+        
+        if share_spousal and acc.get("spousal_enabled"):
             share = int(amount * 0.1)
-            personal_amount = amount - share
-
-            new_balance = wallet + personal_amount
-            await self._update_economy(
-                user_id,
-                guild_id,
-                balance=new_balance,
-                spousal_balance=spousal_balance + share,
-            )
-            self._log_tx(
-                user_id,
-                guild_id,
-                event,
+            personal = amount - share
+            query = """
+                UPDATE public.user_economy 
+                SET balance = balance + $3, spousal_balance = spousal_balance + $4, updated_at = now()
+                WHERE user_id = $1 AND guild_id = $2
+                RETURNING *
+            """
+            new_acc = await self._fetch_updated_account(query, str(user_id), str(guild_id), personal, share)
+            msg = f"Получено **{personal:,}** {Emojis.MONEY} (**{share:,}** {Emojis.MONEY} в семью)"
+        else:
+            new_acc = await self.db.increment_field(
+                "user_economy",
+                {"user_id": str(user_id), "guild_id": str(guild_id)},
+                "balance",
                 amount,
-                new_balance,
-                related_user_id=related_user_id,
-                metadata=metadata,
             )
+            msg = f"Получено **{amount:,}** {Emojis.MONEY}"
 
-            message = (
-                f"{personal_amount:,} {Emojis.MONEY} на личный счёт | "
-                f"{share:,} {Emojis.MONEY} в семейный бюджет"
-            )
-            return True, message
+        if new_acc := await self._store_account(user_id, guild_id, new_acc):
+            self._schedule_transaction(user_id, guild_id, event, amount, new_acc["balance"], metadata=metadata)
+            return EconomyResult("success", msg, data=new_acc)
+        
+        return EconomyResult("error", "Не удалось обновить баланс")
 
-        new_balance = wallet + amount
-        await self._update_economy(
-            user_id,
-            guild_id,
-            balance=new_balance,
-        )
-        self._log_tx(
-            user_id,
-            guild_id,
-            event,
-            amount,
-            new_balance,
-            related_user_id=related_user_id,
-            metadata=metadata,
-        )
-        return True, f"{amount:,} {Emojis.MONEY}"
+    async def remove_money(self, user_id: str, guild_id: str, amount: int, event: str = "") -> EconomyResult:
+        if amount <= 0: return self._invalid_amount_result()
+        
+        query = """
+            UPDATE public.user_economy 
+            SET balance = balance - $3, updated_at = now()
+            WHERE user_id = $1 AND guild_id = $2 AND balance >= $3
+            RETURNING *
+        """
+        new_acc = await self._fetch_updated_account(query, str(user_id), str(guild_id), amount)
+        
+        if new_acc := await self._store_account(user_id, guild_id, new_acc):
+            self._schedule_transaction(user_id, guild_id, event, -amount, new_acc["balance"])
+            return EconomyResult("success", f"Снято **{amount:,}** {Emojis.MONEY}", data=new_acc)
+        
+        return EconomyResult("insufficient_funds", "Недостаточно средств")
 
-    async def remove_money(
+    async def transfer_money(self, sender_id: str, target_id: str, guild_id: str, amount: int, event: str = "transfer") -> EconomyResult:
+        res = await self.remove_money(sender_id, guild_id, amount, event=f"{event}_out")
+        if not res:
+            return res
+        
+        add_res = await self.add_money(target_id, guild_id, amount, event=f"{event}_in", share_spousal=False)
+        if not add_res:
+            await self.add_money(sender_id, guild_id, amount, event=f"{event}_refund", share_spousal=False)
+            return add_res
+
+        return EconomyResult("success", f"Переведено **{amount:,}** {Emojis.MONEY}")
+
+    async def deposit_money(self, user_id: str, guild_id: str, amount: int) -> EconomyResult:
+        if amount <= 0: return self._invalid_amount_result()
+        
+        query = """
+            UPDATE public.user_economy 
+            SET balance = balance - $3, deposit = deposit + $3, updated_at = now()
+            WHERE user_id = $1 AND guild_id = $2 AND balance >= $3
+            RETURNING *
+        """
+        new_acc = await self._fetch_updated_account(query, str(user_id), str(guild_id), amount)
+        if new_acc := await self._store_account(user_id, guild_id, new_acc):
+            return EconomyResult("success", "Деньги внесены на депозит", data=new_acc)
+        return EconomyResult("insufficient_funds", "Недостаточно наличных")
+
+    async def withdraw_money(self, user_id: str, guild_id: str, amount: int) -> EconomyResult:
+        if amount <= 0: return self._invalid_amount_result()
+        
+        query = """
+            UPDATE public.user_economy 
+            SET balance = balance + $3, deposit = deposit - $3, updated_at = now()
+            WHERE user_id = $1 AND guild_id = $2 AND deposit >= $3
+            RETURNING *
+        """
+        new_acc = await self._fetch_updated_account(query, str(user_id), str(guild_id), amount)
+        if new_acc := await self._store_account(user_id, guild_id, new_acc):
+            return EconomyResult("success", "Деньги сняты с депозита", data=new_acc)
+        return EconomyResult("insufficient_funds", "Недостаточно средств в банке")
+
+    async def withdraw_spousal(self, user_id: str, guild_id: str, amount: int = None) -> EconomyResult:
+        acc = await self.get_account(user_id, guild_id)
+        available = acc["spousal_balance"]
+        if amount is None: amount = available
+        if amount <= 0: return self._invalid_amount_result()
+        
+        query = """
+            UPDATE public.user_economy 
+            SET balance = balance + $3, spousal_balance = spousal_balance - $3, updated_at = now()
+            WHERE user_id = $1 AND guild_id = $2 AND spousal_balance >= $3
+            RETURNING *
+        """
+        new_acc = await self._fetch_updated_account(query, str(user_id), str(guild_id), amount)
+        if new_acc := await self._store_account(user_id, guild_id, new_acc):
+            return EconomyResult("success", f"Снято **{amount:,}** {Emojis.MONEY} с семейного счета", data=new_acc)
+        return EconomyResult("insufficient_funds", "Недостаточно средств на семейном счету")
+
+    async def check_cooldown(
         self,
         user_id: str,
         guild_id: str,
-        amount: int,
+        command: str,
         *,
-        event: str = "",
-        related_user_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[bool, str]:
-        balance = await self.get_wallet(user_id, guild_id)
-        if balance < amount:
-            return False, "Недостаточно средств"
+        config: Optional[Dict[str, Any]] = None,
+        account: Optional[Dict[str, Any]] = None,
+    ) -> EconomyResult:
+        """Перевіряє кулдаун. Приймає pre-fetched config/account щоб уникнути зайвих DB-запитів."""
+        if config is None:
+            config = await self.get_config()
+        cooldowns = config.get("cooldowns", self.DEFAULT_CONFIG["cooldowns"])
 
-        new_balance = balance - amount
-        await self._update_economy(
-            user_id,
-            guild_id,
-            balance=new_balance,
-        )
-        self._log_tx(
-            user_id,
-            guild_id,
-            event,
-            -amount,
-            new_balance,
-            related_user_id=related_user_id,
-            metadata=metadata,
-        )
-        return True, f"Списано {amount:,} {Emojis.MONEY}"
+        mins = cooldowns.get(command)
+        if not mins:
+            return EconomyResult("success")
 
-    async def transfer_money(
-        self,
-        from_user_id: str,
-        to_user_id: str,
-        guild_id: str,
-        amount: int,
-        *,
-        event: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[bool, str]:
-        sender_balance = await self.get_wallet(from_user_id, guild_id)
-        if sender_balance < amount:
-            return False, "Недостаточно средств"
+        if account is None:
+            account = await self.get_account(user_id, guild_id)
+        cooldown_fields = config.get("cooldown_fields", self.DEFAULT_CONFIG["cooldown_fields"])
+        field = cooldown_fields.get(command)
+        last_raw = account.get(field) or (account.get("cooldowns") or {}).get(command)
 
-        receiver_balance = await self.get_wallet(to_user_id, guild_id)
+        last_dt = self.time.ensure_datetime(last_raw)
+        if not last_dt:
+            return EconomyResult("success")
 
-        new_sender = sender_balance - amount
-        await self._update_economy(
-            from_user_id,
-            guild_id,
-            balance=new_sender,
-        )
-        self._log_tx(
-            from_user_id,
-            guild_id,
-            event,
-            -amount,
-            new_sender,
-            related_user_id=to_user_id,
-            metadata=metadata,
-        )
-
-        new_receiver = receiver_balance + amount
-        await self._update_economy(
-            to_user_id,
-            guild_id,
-            balance=new_receiver,
-        )
-        self._log_tx(
-            to_user_id,
-            guild_id,
-            event,
-            amount,
-            new_receiver,
-            related_user_id=from_user_id,
-            metadata=metadata,
-        )
-
-        return True, f"Перевод {amount:,} {Emojis.MONEY} выполнен"
-
-    # 4. Операции с банком и семейным счётом
-    async def deposit_money(
-        self, user_id: str, guild_id: str, amount: int
-    ) -> Tuple[bool, str]:
-        balance = await self.get_wallet(user_id, guild_id)
-        if balance < amount:
-            return False, "Недостаточно средств"
-
-        new_balance = balance - amount
-        bank = await self.get_bank(user_id, guild_id)
-        await self._update_economy(
-            user_id,
-            guild_id,
-            balance=new_balance,
-            deposit=bank + amount,
-        )
-        self._log_tx(user_id, guild_id, "deposit", -amount, new_balance)
-        return True, f"Внесено {amount:,} {Emojis.MONEY} в банк"
-
-    async def withdraw_money(
-        self, user_id: str, guild_id: str, amount: int
-    ) -> Tuple[bool, str]:
-        bank = await self.get_bank(user_id, guild_id)
-        if bank < amount:
-            return False, "Недостаточно средств на депозите"
-
-        balance = await self.get_wallet(user_id, guild_id)
-        new_balance = balance + amount
-        await self._update_economy(
-            user_id,
-            guild_id,
-            balance=new_balance,
-            deposit=bank - amount,
-        )
-        self._log_tx(user_id, guild_id, "withdraw", amount, new_balance)
-        return True, f"Снято {amount:,} {Emojis.MONEY} с депозита"
-
-    async def withdraw_spousal(
-        self, user_id: str, guild_id: str, amount: Optional[int]
-    ) -> Tuple[bool, Embed]:
-        economy = await self._get_economy(user_id, guild_id)
-        family_balance = int(economy.get("spousal_balance", 0))
-
-        if family_balance <= 0:
-            return False, Embed.error("На семейном счёте нет средств")
-
-        amount_to_withdraw = family_balance if amount is None else int(amount)
-        if amount_to_withdraw <= 0:
-            return False, Embed.error("Сумма должна быть положительной")
-        if family_balance < amount_to_withdraw:
-            return False, Embed.error(
-                f"Недостаточно средств: доступно {family_balance:,} {Emojis.MONEY}"
-            )
-
-        new_balance = int(economy["balance"]) + amount_to_withdraw
-        await self._update_economy(
-            user_id,
-            guild_id,
-            balance=new_balance,
-            spousal_balance=family_balance - amount_to_withdraw,
-        )
-        self._log_tx(
-            user_id, guild_id, "withdraw_family", amount_to_withdraw, new_balance
-        )
-
-        return True, Embed.success(
-            f"Снято {amount_to_withdraw:,} {Emojis.MONEY} с семейного счёта"
-        )
-
-    # 5. КУЛДАУНЫ (новая логика вместо Cooldown.py)
-    async def check_cooldown(
-        self, user_id: str, guild_id: str, command: str
-    ) -> Tuple[bool, Optional[str]]:
-        """
-        Проверяет кулдаун команды экономики.
-
-        Returns:
-            (can_use, error_message)
-            - can_use: True если можно использовать
-            - error_message: Сообщение об ошибке (если кулдаун активен)
-        """
-        cooldown_minutes = self.COOLDOWNS.get(command)
-        if not cooldown_minutes:
-            return True, None
-
-        economy = await self._get_economy(user_id, guild_id)
-        field = self.COOLDOWN_FIELDS.get(command)
-
-        # Если есть отдельное поле (last_daily, last_work, last_rob)
-        if field:
-            last_used_raw = economy.get(field)
-        else:
-            # Иначе проверяем в cooldowns (jsonb)
-            cooldowns = economy.get("cooldowns") or {}
-            last_used_raw = cooldowns.get(command)
-
-        # Обрабатываем timestamp (может быть int/float или ISO string)
-        if isinstance(last_used_raw, (int, float)):
-            last_used = self.time.from_timestamp(last_used_raw)
-        else:
-            last_used = self.time.ensure_datetime(last_used_raw)
-
-        if not last_used:
-            return True, None
-
+        end = last_dt.add(minutes=mins)
         now = self.time.now()
-        cooldown_end = last_used.add(minutes=cooldown_minutes)
+        if end > now:
+            return EconomyResult("cooldown", self.time.format_duration(int((end - now).total_seconds())))
+        return EconomyResult("success")
 
-        if cooldown_end > now:
-            remaining = int((cooldown_end - now).total_seconds())
-            pretty = self.time.format_duration(remaining)
-            return False, pretty
-
-        return True, None
-
-    async def update_cooldown(self, user_id: str, guild_id: str, command: str) -> None:
-        """Обновляет время последнего использования команды"""
-        now_iso = self.time.now().to_iso8601_string()
-        field = self.COOLDOWN_FIELDS.get(command)
+    async def update_cooldown(
+        self,
+        user_id: str,
+        guild_id: str,
+        command: str,
+        *,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Оновлює кулдаун. Приймає pre-fetched config щоб уникнути зайвого DB-запиту."""
+        now = self.time.now()
+        if config is None:
+            config = await self.get_config()
+        cooldown_fields = config.get("cooldown_fields", self.DEFAULT_CONFIG["cooldown_fields"])
+        field = cooldown_fields.get(command)
 
         if field:
-            # Обновляем отдельное поле (last_daily, last_work, last_rob)
-            await self._update_economy(user_id, guild_id, extra={field: now_iso})
-        else:
-            # Обновляем в cooldowns (jsonb)
-            economy = await self._get_economy(user_id, guild_id)
-            cooldowns = dict(economy.get("cooldowns") or {})
-            cooldowns[command] = now_iso
-            await self._update_economy(
-                user_id, guild_id, extra={"cooldowns": cooldowns}
+            new_acc = await self.db.update_record(
+                "user_economy",
+                {"user_id": str(user_id), "guild_id": str(guild_id)},
+                {field: now},
             )
-
-    # 6. Форматирование
-    @staticmethod
-    def format_money(value: int) -> str:
-        return f"**``{value:,}``** {Emojis.MONEY}"
-
-    # 7. Информация о доступных наградах
-    async def get_rewards_info(self, user_id: str, guild_id: str) -> str:
-        """Возвращает информацию о доступных наградах и их статусе"""
-        rewards = []
-
-        # Подработка /work
-        can_work, work_msg = await self.check_cooldown(user_id, guild_id, "work")
-        if can_work:
-            rewards.append("- **``/work``** — доступно")
         else:
-            rewards.append(f"- **``/work``** — будет доступно через {work_msg}")
+            query = """
+                UPDATE public.user_economy
+                SET cooldowns = jsonb_set(COALESCE(cooldowns, '{}'::jsonb), ARRAY[$3], $4::jsonb),
+                    updated_at = now()
+                WHERE user_id = $1 AND guild_id = $2
+                RETURNING *
+            """
+            now_json = f'"{now.to_iso8601_string()}"'
+            new_acc = await self._fetch_updated_account(query, str(user_id), str(guild_id), command, now_json)
 
-        # Ежедневный бонус /daily (timely)
-        can_daily, daily_msg = await self.check_cooldown(user_id, guild_id, "daily")
-        if can_daily:
-            rewards.append("- **``/daily``** — доступно")
-        else:
-            rewards.append(f"- **``/daily``** — будет доступно через {daily_msg}")
+        await self._store_account(user_id, guild_id, new_acc)
 
-        # Половая жизнь /slut
-        can_slut, slut_msg = await self.check_cooldown(user_id, guild_id, "slut")
-        if can_slut:
-            rewards.append("- **``/slut``** — доступно")
-        else:
-            rewards.append(f"- **``/slut``** — будет доступно через {slut_msg}")
-        return "\n".join(rewards)
+    async def check_and_update_cooldown(
+        self,
+        user_id: str,
+        guild_id: str,
+        command: str,
+    ) -> tuple[EconomyResult, Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        """
+        Перевіряє і оновлює кулдаун за один DB-цикл.
+        Повертає (result, config, account) — можна використовувати далі без зайвих запитів.
+        """
+        config = await self.get_config()
+        account = await self.get_account(user_id, guild_id)
+        result = await self.check_cooldown(user_id, guild_id, command, config=config, account=account)
+        if result.ok:
+            await self.update_cooldown(user_id, guild_id, command, config=config)
+        return result, config, account

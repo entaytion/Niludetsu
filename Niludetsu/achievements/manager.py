@@ -1,14 +1,16 @@
 import discord
+from ..tools.Time import TimeService
+
 from Niludetsu.achievements.config import ACHIEVEMENTS
-from Niludetsu.database.supabase_database import database
+from Niludetsu.database import database
 from Niludetsu.economy.manager import EconomyManager
-from Niludetsu.tools.Embed import Embed, Colors
-from Niludetsu.tools.Emojis import Emojis
-from Niludetsu.tools.Time import TimeService
+
 from Niludetsu.embeds.Achievements import AchievementEmbed
 from typing import Dict, Iterable, List, Optional, Set
 
 class AchievementsManager:
+    """Менеджер достижений. Оптимизирован под новую структуру БД."""
+    
     def __init__(self):
         self.db = database
         self.economy = EconomyManager(self.db)
@@ -16,6 +18,19 @@ class AchievementsManager:
 
     def list_definitions(self) -> Dict[str, Dict]:
         return ACHIEVEMENTS
+
+    async def get_user_summary(self, guild_id: str, user_id: str) -> Dict[str, Dict]:
+        """Возвращает все определения достижений с пометкой о разблокировке юзером."""
+        existing_rows = await self.db.list_achievements(guild_id, user_id)
+        unlocked_ids = {row["achievement_id"] for row in existing_rows}
+
+        summary = {}
+        for aid, data in ACHIEVEMENTS.items():
+            summary[aid] = {
+                **data,
+                "unlocked": aid in unlocked_ids
+            }
+        return summary
 
     async def has_achievement(self, guild_id: str, user_id: str, achievement_id: str) -> bool:
         existing = await self.db.get_row(
@@ -50,31 +65,29 @@ class AchievementsManager:
             if already:
                 return False
 
-        # Переконуємося, що користувач існує в таблиці users
-        await self.db.ensure_user(user_id, guild_id)
-
-        record = await self.db.ensure_achievement(
-            guild_id,
-            user_id,
-            achievement_id,
-            metadata=metadata,
+        # Атомарная вставка достижения
+        record = await self.db.ensure_record(
+            "user_achievements",
+            guild_id=str(guild_id),
+            user_id=str(user_id),
+            achievement_id=str(achievement_id),
+            metadata=metadata or {},
         )
 
         if existing is not None:
             existing.add(achievement_id)
 
-        await self.db.update_record(
-            "user_economy",
-            {"user_id": str(user_id), "guild_id": str(guild_id)},
-            {"spousal_balance": None},  # небольшая no-op чтобы ensure_user проглотил
-        )
-
+        # Выдаем награду
         await self.economy.add_money(
             user_id,
             guild_id,
             data["reward"],
+            event=f"achievement_{achievement_id}",
             share_spousal=True,
         )
+
+        # Инвалидируем кеш бандла юзера, так как достижения изменились
+        await self.db.invalidate_user_cache(str(user_id), str(guild_id))
 
         if channel and send_embed:
             if not user:
@@ -88,56 +101,6 @@ class AchievementsManager:
                 await channel.send(embed=embed)
 
         return True
-
-    async def get_user_summary(self, guild_id: str, user_id: str) -> Dict[str, Dict]:
-        rows = await self.db.list_achievements(guild_id, user_id)
-        summary = {}
-        for ach_id, definition in ACHIEVEMENTS.items():
-            unlocked = next(
-                (row for row in rows if row["achievement_id"] == ach_id),
-                None,
-            )
-            summary[ach_id] = {
-                **definition,
-                "unlocked": unlocked is not None,
-                "unlocked_at": unlocked["unlocked_at"] if unlocked else None,
-                "metadata": unlocked["metadata"] if unlocked else {},
-            }
-        return summary
-
-    async def check_and_unlock(
-        self,
-        guild_id: str,
-        user_id: str,
-        achievement_id: str,
-        *,
-        channel: Optional[discord.abc.Messageable] = None,
-        metadata: Optional[Dict] = None,
-    ) -> bool:
-        """
-        Проверяет и разблокирует достижение, если оно ещё не получено.
-
-        Args:
-            guild_id: ID гильдии
-            user_id: ID пользователя
-            achievement_id: ID достижения
-            channel: Канал для уведомления
-            metadata: Метаданные
-
-        Returns:
-            True если достижение было разблокировано
-        """
-        already_unlocked = await self.has_achievement(guild_id, user_id, achievement_id)
-        if already_unlocked:
-            return False
-
-        return await self.unlock(
-            guild_id,
-            user_id,
-            achievement_id,
-            channel=channel,
-            metadata=metadata,
-        )
 
     async def evaluate_requirements(
         self,
@@ -158,40 +121,22 @@ class AchievementsManager:
         if not candidates:
             return []
 
+        # Отримуємо досягнення юзера з бази (бажано з кешу бандла, але тут беремо список)
         existing_rows = await self.db.list_achievements(guild_id, user_id)
         unlocked_ids: Set[str] = {row["achievement_id"] for row in existing_rows}
 
-        required_keys: Set[str] = set()
-        for data in candidates.values():
-            requirements = data.get("requirements") or {}
-            required_keys.update(requirements.keys())
-
-        need_stats = any(key in {"messages_clean", "voice_hours"} for key in required_keys)
-        need_profile = "level" in required_keys
-
-        if stats is None and need_stats:
-            from Niludetsu.analytics.manager import AnalyticsManager
-
-            stats = await AnalyticsManager().get_user_stats(guild_id, user_id)
-
-        if profile is None and need_profile:
-            from Niludetsu.levels.manager import LevelManager
-
-            profile = await LevelManager().get_profile(guild_id, user_id)
-
         metrics: Dict[str, float] = {}
-        if stats is not None:
-            total_messages = stats.get("messages", {}).get("total", 0)
-            deleted_messages = stats.get("messages", {}).get("deleted", 0)
-            metrics["messages_clean"] = max(0, int(total_messages) - int(deleted_messages))
+        if stats:
+            total = stats.get("messages", {}).get("total", 0)
+            deleted = stats.get("messages", {}).get("deleted", 0)
+            metrics["messages_clean"] = max(0, int(total) - int(deleted))
             metrics["voice_hours"] = stats.get("voice", {}).get("total_seconds", 0) / 3600
 
-        if profile is not None:
+        if profile:
             metrics["level"] = int(profile.get("level", 0))
 
         newly_unlocked: List[str] = []
         newly_unlocked_data: List[Dict] = []
-        user_obj: Optional[discord.Member | discord.User] = None
 
         for achievement_id, data in candidates.items():
             if achievement_id in unlocked_ids:
@@ -201,32 +146,14 @@ class AchievementsManager:
             if not requirements:
                 continue
 
-            meets_all = True
-            for key, threshold in requirements.items():
-                value = metrics.get(key)
-                if value is None or value < threshold:
-                    meets_all = False
-                    break
-
-            if not meets_all:
-                continue
-
-            # Розблоковуємо без надсилання ембеду тут
-            unlocked = await self.unlock(
-                guild_id,
-                user_id,
-                achievement_id,
-                channel=channel,
-                metadata=None,
-                existing=unlocked_ids,
-                send_embed=False,
-            )
-
-            if unlocked:
-                newly_unlocked.append(achievement_id)
-                newly_unlocked_data.append(ACHIEVEMENTS[achievement_id])
+            if all(metrics.get(k, 0) >= v for k, v in requirements.items()):
+                # Розблоковуємо без надсилання ембеду тут (зробимо одним паком в кінці)
+                if await self.unlock(guild_id, user_id, achievement_id, send_embed=False):
+                    newly_unlocked.append(achievement_id)
+                    newly_unlocked_data.append(data)
 
         if newly_unlocked_data and channel:
+            user_obj = None
             if hasattr(channel, "guild"):
                 user_obj = channel.guild.get_member(int(user_id)) or await channel.guild.fetch_member(int(user_id))
             
@@ -235,4 +162,3 @@ class AchievementsManager:
                 await channel.send(embed=embed)
 
         return newly_unlocked
-

@@ -1,8 +1,7 @@
 from typing import Optional
+from ..tools.Embed import Colors, Embed
 
 import discord
-
-from Niludetsu.tools.Embed import Colors, Embed
 
 SYSTEM_NAME = "Æther! System"
 SYSTEM_ICON = "https://cdn.discordapp.com/emojis/1355956973006225490.webp?size=160"
@@ -12,7 +11,6 @@ PUNISHMENT_NAMES = {
     "warn": "Предупреждение",
     "timeout": "Тайм-аут",
 }
-
 
 def format_duration(minutes: int) -> str:
     """Конвертирует минуты в читаемый формат времени."""
@@ -32,11 +30,9 @@ def format_duration(minutes: int) -> str:
     months, remaining_days = divmod(days, 30)
     return f"{months} мес." if remaining_days == 0 else f"{months} мес. {remaining_days} д."
 
-
 def _resolve_punishment_name(punishment_type: str) -> str:
     base_type = punishment_type[2:] if punishment_type.lower().startswith("un") else punishment_type
     return PUNISHMENT_NAMES.get(base_type.lower(), base_type.capitalize())
-
 
 def _build_description(
     *,
@@ -61,11 +57,9 @@ def _build_description(
         )
     return f"<@{target_user.id}> получает за нарушение правил сервера: **``{punishment_name}``**."
 
-
 def _moderator_name(moderator: discord.Member | discord.User) -> str:
     discriminator = getattr(moderator, "discriminator", "0")
     return f"{moderator.name}#{discriminator}" if discriminator != "0" else moderator.name
-
 
 def moderationembed(
     punishment_type: str,

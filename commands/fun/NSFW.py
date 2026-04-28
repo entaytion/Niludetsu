@@ -17,8 +17,8 @@ class BooruFetcher:
     def bind_session(self, session: aiohttp.ClientSession | None) -> None:
         self.session = session
 
-    async def _get_json(self, url: str) -> list | dict | None:
-        """GET-запрос, вернуть JSON или None."""
+    async def _request_text(self, url: str, *, timeout: int = 15) -> str | None:
+        """Shared safe GET helper for booru endpoints."""
         if self.session is None or self.session.closed:
             return None
 
@@ -26,33 +26,30 @@ class BooruFetcher:
             async with self.session.get(
                 url,
                 headers=self.headers,
-                timeout=aiohttp.ClientTimeout(total=15),
+                timeout=aiohttp.ClientTimeout(total=timeout),
             ) as resp:
                 if resp.status != 200:
                     return None
                 text = await resp.text()
                 if not text or text.strip() in ("", "[]", "{}"):
                     return None
-                return json.loads(text)
+                return text
+        except Exception:
+            return None
+
+    async def _get_json(self, url: str) -> list | dict | None:
+        """GET-запрос, вернуть JSON или None."""
+        text = await self._request_text(url)
+        if text is None:
+            return None
+        try:
+            return json.loads(text)
         except Exception:
             return None
 
     async def _get_html(self, url: str) -> str | None:
         """GET-запрос, вернуть HTML или None."""
-        if self.session is None or self.session.closed:
-            return None
-
-        try:
-            async with self.session.get(
-                url,
-                headers=self.headers,
-                timeout=aiohttp.ClientTimeout(total=15),
-            ) as resp:
-                if resp.status != 200:
-                    return None
-                return await resp.text()
-        except Exception:
-            return None
+        return await self._request_text(url)
 
     async def download_file(self, url: str) -> tuple[io.BytesIO, str] | None:
         """
@@ -338,11 +335,11 @@ class NSFW(commands.Cog):
 
     # --- Команды ---
 
-    @commands.command(name="nsfw", description="🔞 NSFW контент (аниме/хентай)")
+    @commands.command(name="nsfw", description="NSFW контент (аниме/хентай)")
     async def nsfw(self, ctx: commands.Context, count: typing.Optional[int] = 3, *, tags: str = None):
         await self._send_posts(ctx, "Xbooru", self.fetcher.fetch_xbooru, count, tags)
 
-    @commands.command(name="rnsfw", aliases=["nsfwreal"], description="🔞 Реальный NSFW контент")
+    @commands.command(name="rnsfw", aliases=["nsfwreal"], description="Реальный NSFW контент")
     async def rnsfw(self, ctx: commands.Context, count: typing.Optional[int] = 3, *, tags: str = None):
         await self._send_posts(ctx, "Realbooru", self.fetcher.fetch_realbooru, count, tags)
 

@@ -13,7 +13,7 @@ class Avatar(commands.Cog):
     @commands.hybrid_command(
         name="avatar",
         aliases=["аватар"],
-        description="🖼️ Показать аватар пользователя"
+        description="Показать аватар пользователя"
     )
     @app_commands.describe(
         user="👤 Пользователь, чей аватар показать",

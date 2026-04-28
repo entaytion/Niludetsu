@@ -1,4 +1,5 @@
-from Niludetsu import Time
+from ..tools.Time import TimeService as Time
+
 from Niludetsu.analytics.repository import AnalyticsRepository
 from typing import Any, Dict, List, Tuple
 

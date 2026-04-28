@@ -107,7 +107,7 @@ class Currency(commands.Cog):
 
             embed = Embed(
                 title="Конвертация валют",
-                description=f"💱 **{total_amount:.2f} {self.currency_api.get_currency_name(from_currency)}:**\n" + "\n".join(conversions)
+                description=f"**{total_amount:.2f} {self.currency_api.get_currency_name(from_currency)}:**\n" + "\n".join(conversions)
             )
             await message.reply(embed=embed, mention_author=False, delete_after=5)
 
@@ -130,7 +130,7 @@ class Currency(commands.Cog):
             return
 
         rates = data["conversion_rates"]
-        description = f"💰 Курсы валют относительно {self.currency_api.get_currency_name(base_currency)}"
+        description = f"Курсы валют относительно {self.currency_api.get_currency_name(base_currency)}"
         if сумма:
             description += f" (для суммы {сумма:,.2f})"
         description += ":\n\n"
@@ -145,7 +145,7 @@ class Currency(commands.Cog):
                     description += f"{Emojis.DOT} **{name}:** `{rate:.2f}`\n"
 
         embed = Embed(
-            title=f"💱 Курсы валют",
+            title=f"Курсы валют",
             description=description,
             footer={"text": f"Данные предоставлены ExchangeRate-API • {data['time_last_update_utc'][:10]}"}
         )

@@ -1,11 +1,11 @@
 import discord
 from discord.ext import commands
-from Niludetsu import config, Embed, Colors, Emojis
-from Niludetsu.config import SERVERS
-from Niludetsu.database.supabase_database import database
+from Niludetsu import Embed, Colors, Emojis
+from Niludetsu.settings import settings
+from Niludetsu.database import database
 from typing import List
 
-MAIN_SERVER_ID = SERVERS["MAIN_ID"]
+MAIN_SERVER_ID = settings.SERVERS["MAIN_ID"]
 
 # Роли для выдачи
 ROLE_BASE = 1126146184482930740       # Базовая роль участника
@@ -117,8 +117,8 @@ class AutoRole(commands.Cog):
         # Проверка на whitelist (join_count > 1) через таблицу invites
         # Если пользователь уже был на сервере (join_count > 1), мы ему доверяем
         if not member.bot and not has_ban:
-            # Если верификация отключена в конфиге — выдаём все роли сразу
-            if not getattr(config, "VERIFICATION_ENABLED", True):
+            # Якщо верифікація відключена в settings — видаємо всі ролі одразу
+            if not getattr(settings, "VERIFICATION_ENABLED", True):
                 base_role = guild.get_role(ROLE_BASE)
                 news_role = guild.get_role(ROLE_NEWS)
                 giveaways_role = guild.get_role(ROLE_GIVEAWAYS)
@@ -146,7 +146,7 @@ class AutoRole(commands.Cog):
                            channel = guild.get_channel(VERIFICATION_CHANNEL_ID)
                            if channel:
                                embed = Embed(
-                                   title="🛡️ Автоматическая верификация",
+                                   title="Автоматическая верификация",
                                    description=f"Пользователь {member.mention} автоматический верифицирован (WhiteList).",
                                    color=Colors.SUCCESS
                                )
@@ -198,9 +198,8 @@ class AutoRole(commands.Cog):
     @commands.command(name="enableverify")
     @commands.has_permissions(administrator=True)
     async def enable_verify(self, ctx):
-        """Включить систему верификации."""
-        config.VERIFICATION_ENABLED = True
-        self._update_config_file(True)
+        """Включити систему верифікації."""
+        await settings.set("VERIFICATION_ENABLED", True)
         unverified_role = ctx.guild.get_role(ROLE_UNVERIFIED)
         role_name = unverified_role.name if unverified_role else "Unknown"
         await ctx.send(f"{Emojis.SUCCESS} Верификация **включена**. Теперь новые пользователи будут получать роль `{role_name}`.")
@@ -208,47 +207,9 @@ class AutoRole(commands.Cog):
     @commands.command(name="disableverify")
     @commands.has_permissions(administrator=True)
     async def disable_verify(self, ctx):
-        """Отключить систему верификации."""
-        config.VERIFICATION_ENABLED = False
-        self._update_config_file(False)
+        """Відключити систему верифікації."""
+        await settings.set("VERIFICATION_ENABLED", False)
         await ctx.send(f"{Emojis.SUCCESS} Верификация **отключена**. Теперь новые пользователи будут получать все роли сразу.")
-
-    def _update_config_file(self, value: bool):
-        """Обновляет значение в config.py для сохранения после перезагрузки."""
-        try:
-            import re
-            import os
-            
-            # Динамически вычисляем путь к config.py относительно корня проекта
-            # Структура: корень/commands/utilities/AutoRole.py -> корень/Niludetsu/config.py
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
-            file_path = os.path.join(project_root, "Niludetsu", "config.py")
-            
-            if not os.path.exists(file_path):
-                # Попробуем еще один вариант, если структура иная (Niludetsu/config.py напрямую в корне)
-                file_path_alt = os.path.join(project_root, "config.py")
-                if os.path.exists(file_path_alt):
-                    file_path = file_path_alt
-                else:
-                    print(f"[AutoRole] Config file not found. Tried paths:\n1. {file_path}\n2. {file_path_alt}")
-                    return
-
-            with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read()
-            
-            # Ищем переменную и заменяем её значение
-            if "VERIFICATION_ENABLED =" in content:
-                new_content = re.sub(r"VERIFICATION_ENABLED = (True|False)", f"VERIFICATION_ENABLED = {value}", content)
-            else:
-                # Если вдруг нет (хотя я её добавил), добавим в конец секции настроек
-                new_content = content.replace("# Настройки", f"# Настройки\nVERIFICATION_ENABLED = {value}")
-            
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(new_content)
-                
-        except Exception as e:
-            print(f"[AutoRole] Ошибка обновления config.py: {e}")
 
 async def setup(bot):
     await bot.add_cog(AutoRole(bot))

@@ -7,14 +7,11 @@ from typing import Optional
 import discord
 from discord.ext import commands
 
-from Niludetsu import Colors, Emojis, InfoCard, TimeService, safe_fetch_user
+from Niludetsu import Colors, Emojis, InfoCard, TimeService, safe_fetch_user, logger, config
 from Niludetsu.ai.models import WelcomeQuestionGenerator
-from Niludetsu.config import SERVERS
 from Niludetsu.database import database
-from Niludetsu.logging import logger
 
-MAIN_SERVER_ID = SERVERS["MAIN_ID"]
-INVITES_CHANNEL_ID = 1130114236673171476
+MAIN_SERVER_ID = config.SERVERS["MAIN_ID"]
 WELCOME_CHANNEL_ID = 1125546968517726228
 RULES_CHANNEL_ID = 1261069675098279996
 DISCORD_INVITE_URL = "https://discord.gg/HxwZ6ceKKj"
@@ -33,12 +30,10 @@ WELCOME_GREETINGS = (
 
 _time = TimeService()
 
-
 class AccountType:
     NORMAL = "NORMAL"
     NEW = "NEW"
     SUSPICIOUS = "SUSPICIOUS"
-
 
 class InviteSource:
     UNKNOWN = "UNKNOWN"
@@ -58,7 +53,6 @@ class InviteSource:
     @staticmethod
     def get_emoji(source: str) -> str:
         return InviteSource.EMOJI_MAP.get(source.upper(), "❓")
-
 
 class InviteManager:
     """Caches invites and determines how a member joined."""
@@ -187,7 +181,6 @@ class InviteManager:
         if invite.inviter and invite.inviter.bot:
             return InviteSource.INTEGRATION
         return InviteSource.SERVER
-
 
 class MemberEventHandler:
     def __init__(self, bot: commands.Bot, invite_manager: InviteManager):
@@ -590,7 +583,7 @@ class MemberEventHandler:
         *,
         dm_sent: bool,
     ) -> None:
-        channel = self.bot.get_channel(INVITES_CHANNEL_ID)
+        channel = self.bot.get_channel(config.INVITES_CHANNEL_ID)
         if not channel:
             return
         await channel.send(
@@ -605,7 +598,7 @@ class MemberEventHandler:
         *,
         dm_sent: bool,
     ) -> None:
-        channel = self.bot.get_channel(INVITES_CHANNEL_ID)
+        channel = self.bot.get_channel(config.INVITES_CHANNEL_ID)
         if not channel:
             return
         card = await self._build_leave_log_card(member, invite_data, dm_sent=dm_sent)
@@ -659,7 +652,6 @@ class MemberEventHandler:
         )
         self._log_step_errors("leave", member.id, leave_steps)
 
-
 class InviteTracker(commands.Cog):
     """Tracks invites and sends welcome/leave cards."""
 
@@ -704,7 +696,6 @@ class InviteTracker(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_update(self, before: discord.Guild, after: discord.Guild) -> None:
         await self.invite_manager.track_guild_update(before, after)
-
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(InviteTracker(bot))

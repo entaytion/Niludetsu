@@ -1,10 +1,11 @@
+from ..tools.Embed import Embed
 """
 Модуль для взаимодействия с TheColorAPI
 """
 
 import aiohttp, discord, re
 from discord.ext import commands
-from Niludetsu import Embed
+
 from typing import Dict, Any, Optional, Union
 
 class ColorAPI:

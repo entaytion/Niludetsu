@@ -1,12 +1,10 @@
 import asyncio, discord, re
 from discord.ext import commands, tasks
-from Niludetsu import config
+from Niludetsu import config, EconomyManager, QuestTracker
 from Niludetsu import Emojis, Embed, Time
-from Niludetsu.database.supabase_database import SupabaseDatabase
-from Niludetsu.economy.manager import EconomyManager
-from typing import Optional, Dict, Tuple, Any
+from Niludetsu.database import Database, database
 
-from Niludetsu.quests.tracker import QuestTracker
+from typing import Optional, Dict, Tuple, Any
 
 _time = Time()
 
@@ -100,7 +98,7 @@ class MonitoringBotsManager:
 class BumpProcessor:
     """Обработка бамп-сообщений и взаимодействие с базой"""
 
-    def __init__(self, bot: commands.Bot, db: SupabaseDatabase) -> None:
+    def __init__(self, bot: commands.Bot, db: Database) -> None:
         self.bot = bot
         self.db = db
         self.economy = EconomyManager(self.db)
@@ -125,8 +123,8 @@ class BumpProcessor:
             delay = bot_config.get("delay", 4) if bot_config else 4
             next_bump = _time.add_duration(now, hours=delay)
 
-        last_bump_iso = now.to_iso8601_string()
-        next_bump_iso = next_bump.to_iso8601_string()
+        last_bump_iso = _time.to_iso(now)
+        next_bump_iso = _time.to_iso(next_bump)
 
         where = {"guild_id": str(guild_id), "bot_id": str(bot_id)}
         current = await self.db.get_row("bump_reminders", **where)
@@ -311,58 +309,74 @@ class BumpProcessor:
 
         return None
 
+    async def _refetch_message(self, message: discord.Message) -> Optional[discord.Message]:
+        try:
+            return await message.channel.fetch_message(message.id)
+        except discord.NotFound:
+            return None
+
+    async def _update_bump_time_from_message(self, message: discord.Message):
+        next_bump = self.process_bump_message(message)
+        if not next_bump:
+            return None
+
+        await self.update_bump_time(message.author.id, message.guild.id, next_bump)
+        return next_bump
+
+    async def _get_reward_context(self, message: discord.Message):
+        user_id = await self.get_interaction_user_id(message)
+        if not user_id or int(message.guild.id) != config.SERVERS["MAIN_ID"]:
+            return None, None
+
+        bot_config = self.bots_manager.get_bot(message.author.id)
+        if not bot_config:
+            return None, None
+
+        return user_id, bot_config
+
+    async def award_bump_reward(self, message: discord.Message, action_name: str) -> bool:
+        user_id, bot_config = await self._get_reward_context(message)
+        if not user_id or not bot_config:
+            return False
+
+        reward = bot_config.get("reward", 50)
+        emoji = bot_config.get("emoji", "")
+        bot_name = bot_config.get("name", "")
+
+        success = await self.economy.add_money(
+            user_id, str(message.guild.id), reward,
+            event="bump", metadata={"bot": bot_name},
+        )
+        if not success:
+            return False
+
+        embed = Embed(
+            title=f"{emoji} Благодарим за {action_name} на {bot_name}!",
+            description=f"<@{user_id}>, вам зачислено {reward} {Emojis.MONEY} на ваш баланс!",
+        )
+
+        member = message.guild.get_member(int(user_id))
+        if member:
+            embed.set_thumbnail(url=member.display_avatar.url)
+
+        await message.channel.send(embed=embed)
+        asyncio.create_task(
+            self.quest_tracker.on_bump(str(message.guild.id), user_id)
+        )
+        return True
+
     async def process_message_with_delay(self, message: discord.Message):
         await asyncio.sleep(3)
 
         try:
-            try:
-                message = await message.channel.fetch_message(message.id)
-            except discord.NotFound:
+            message = await self._refetch_message(message)
+            if not message:
                 return
 
-            next_bump = self.process_bump_message(message)
-            if not next_bump:
+            if not await self._update_bump_time_from_message(message):
                 return
 
-            await self.update_bump_time(message.author.id, message.guild.id, next_bump)
-
-            user_id = await self.get_interaction_user_id(message)
-            if (
-                not user_id
-                or int(message.guild.id) != config.SERVERS["MAIN_ID"]
-            ):
-                return
-
-            bot_config = self.bots_manager.get_bot(message.author.id)
-            if not bot_config:
-                return
-
-            reward = bot_config.get("reward", 50)
-            emoji = bot_config.get("emoji", "")
-            bot_name = bot_config.get("name", "")
-
-            success = await self.economy.add_money(
-                user_id, str(message.guild.id), reward,
-                event="bump", metadata={"bot": bot_name},
-            )
-            if not success:
-                return
-
-            reward_embed = Embed(
-                title=f"{emoji} Благодарим за бамп на {bot_name}!",
-                description=f"<@{user_id}>, вам зачислено {reward} {Emojis.MONEY} на ваш баланс!",
-            )
-
-            member = message.guild.get_member(int(user_id))
-            if member:
-                reward_embed.set_thumbnail(url=member.display_avatar.url)
-
-            await message.channel.send(embed=reward_embed)
-
-            # Quest bump tracking
-            asyncio.create_task(
-                self.quest_tracker.on_bump(str(message.guild.id), user_id)
-            )
+            await self.award_bump_reward(message, "бамп")
         except Exception as exc:
             print(f"Ошибка при обработке сообщения: {exc}")
 
@@ -437,7 +451,7 @@ class BumpReminder(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.db = SupabaseDatabase()
+        self.db = database
         self.processor = BumpProcessor(bot, self.db)
         self.check_bumps.start()
 
@@ -487,64 +501,34 @@ class BumpReminder(commands.Cog):
                 return
             await asyncio.sleep(check_interval)
 
+    def _matches_special_bump_embed(self, message: discord.Message, phrase: str) -> bool:
+        for embed in message.embeds:
+            title = (embed.title or "").lower()
+            description = (embed.description or "").lower()
+            if phrase in title or phrase in description:
+                return True
+        return False
+
+    async def _handle_special_bot(self, message: discord.Message, expected_phrase: str, action_name: str):
+        if not self._matches_special_bump_embed(message, expected_phrase):
+            return False
+
+        await self._finalize_special_bump(message, action_name)
+        return True
+
     async def handle_special_bump(self, message: discord.Message):
         if message.author.id == 1327714529223901186:
-            for embed in message.embeds:
-                title = (embed.title or "").lower()
-                description = (embed.description or "").lower()
-                if "сервер успешно бампнут" in title or "сервер успешно бампнут" in description:
-                    await self._finalize_special_bump(message, "бамп")
-                    return
+            if await self._handle_special_bot(message, "сервер успешно бампнут", "бамп"):
+                return
 
         if message.author.id == 789751844821401630:
-            for embed in message.embeds:
-                title = (embed.title or "").lower()
-                description = (embed.description or "").lower()
-                if "объявление рассылается" in title or "объявление рассылается" in description:
-                    await self._finalize_special_bump(message, "рассылку")
-                    return
+            await self._handle_special_bot(message, "объявление рассылается", "рассылку")
 
     async def _finalize_special_bump(self, message: discord.Message, action_name: str):
-        next_bump = self.processor.process_bump_message(message)
-        if not next_bump:
+        if not await self.processor._update_bump_time_from_message(message):
             return
 
-        await self.processor.update_bump_time(message.author.id, message.guild.id, next_bump)
-
-        user_id = await self.processor.get_interaction_user_id(message)
-        if not user_id or int(message.guild.id) != config.SERVERS["MAIN_ID"]:
-            return
-
-        bot_config = self.processor.bots_manager.get_bot(message.author.id)
-        if not bot_config:
-            return
-
-        reward = bot_config.get("reward", 50)
-        emoji = bot_config.get("emoji", "")
-        bot_name = bot_config.get("name", "")
-
-        success = await self.processor.economy.add_money(
-            user_id, str(message.guild.id), reward,
-            event="bump", metadata={"bot": bot_name},
-        )
-        if not success:
-            return
-
-        embed = Embed(
-            title=f"{emoji} Благодарим за {action_name} на {bot_name}!",
-            description=f"<@{user_id}>, вам зачислено {reward} {Emojis.MONEY} на ваш баланс!",
-        )
-
-        member = message.guild.get_member(int(user_id))
-        if member:
-            embed.set_thumbnail(url=member.display_avatar.url)
-
-        await message.channel.send(embed=embed)
-
-        # Quest bump tracking
-        asyncio.create_task(
-            self.processor.quest_tracker.on_bump(str(message.guild.id), user_id)
-        )
+        await self.processor.award_bump_reward(message, action_name)
 
     @tasks.loop(minutes=1)
     async def check_bumps(self):
@@ -590,12 +574,12 @@ class BumpReminder(commands.Cog):
                 if is_ready and not notified:
                     status = f"**Доступен для бампа**\nКоманда: {slash_cmd}"
                 elif is_ready and notified:
-                    parsed_next = _time.parse(next_bump)
-                    next_available = _time.add_hours(parsed_next, cfg["delay"])
+                    parsed_next = _time.ensure_datetime(next_bump)
+                    next_available = _time.add_duration(parsed_next, hours=cfg["delay"])
                     ts = int(next_available.timestamp())
                     status = f"Доступен <t:{ts}:R> (<t:{ts}:f>)\nКоманда: {slash_cmd}"
                 else:
-                    parsed = _time.parse(next_bump)
+                    parsed = _time.ensure_datetime(next_bump)
                     ts = int(parsed.timestamp())
                     status = f"Доступен <t:{ts}:R> (<t:{ts}:f>)\nКоманда: {slash_cmd}"
 

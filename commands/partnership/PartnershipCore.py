@@ -1,10 +1,29 @@
 import asyncio, time
 from collections import defaultdict
+from dataclasses import dataclass
 from Niludetsu import TimeService
-from Niludetsu.database.supabase_database import database
+from Niludetsu.database import database
 from typing import Dict, List, Optional, Tuple, Any
 
 _time = TimeService()
+
+
+@dataclass
+class PartnershipProcessResult:
+    success: bool = False
+    is_new: bool = False
+    points: int = 0
+    message: str = ""
+    error: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "success": self.success,
+            "is_new": self.is_new,
+            "points": self.points,
+            "message": self.message,
+            "error": self.error
+        }
 
 class InviteCache:
     """Кеш инвайтов для минимизации запросов к Discord API"""
@@ -264,20 +283,9 @@ class PartnershipManager:
         Получает информацию об инвайте: БД → Кеш → Discord API
         """
         # 1️⃣ БД (самый быстрый)
-        db_rows = await self.db.where(
-            "partnership",
-            filters=[{"column": "invite_code", "value": invite_code}],
-            limit=1
-        )
-
-        if db_rows:
-            p = db_rows[0]
-            info = {
-                "server_id": p["server_id"],
-                "server_name": p["server_name"],
-                "invite_code": invite_code,
-                "from_db": True
-            }
+        partnership = await self._get_partnership_by_invite_code(invite_code)
+        if partnership:
+            info = self._build_db_invite_info(partnership, invite_code)
             self.invite_cache.set(invite_code, info)
             return info
 
@@ -310,128 +318,58 @@ class PartnershipManager:
     async def process_partnership(self, server_id: str, server_name: str, 
                                  invite_code: str, manager_id: str) -> Dict[str, Any]:
         """Обрабатывает создание/обновление партнёрства"""
-        result = {
-            "success": False,
-            "is_new": False,
-            "points": 0,
-            "message": "",
-            "error": None
-        }
+        validation_error = await self._validate_partnership(server_id, server_name)
+        if validation_error:
+            return validation_error.to_dict()
 
-        # Проверка на самоинвайт
-        is_self, msg = self.scoring.check_self_invite(server_id)
-        if is_self:
-            result["error"] = "self_invite"
-            result["message"] = msg
-            return result
-
-        # Проверка чёрного списка
-        blacklist_check = await self.blacklist.check_message(server_id, server_name)
-        if blacklist_check:
-            result["error"] = "blacklisted"
-            result["message"] = blacklist_check["description"]
-            return result
-
-        # Проверяем существующее партнёрство
-        existing_rows = await self.db.where(
-            "partnership",
-            filters=[{"column": "server_id", "value": server_id}],
-            limit=1
-        )
-
-        existing = existing_rows[0] if existing_rows else None
-
+        existing = await self._get_partnership_by_server_id(server_id)
         if existing:
-            # ОБНОВЛЕНИЕ
-            last_renewal_ts = int(_time.ensure_datetime(existing["last_renewal"]).timestamp())
-            points, msg = self.scoring.calculate_renewal_points(last_renewal_ts)
-
-            now_dt = _time.now()
-            await self.db.update_record(
-                "partnership",
-                {"server_id": server_id},
-                {
-                    "server_name": server_name,
-                    "invite_code": invite_code,
-                    "manager_id": manager_id,
-                    "last_renewal": now_dt.format("YYYY-MM-DDTHH:mm:ssZ"),
-                    "renewed_count": existing["renewed_count"] + (1 if points > 0 else 0)
-                }
+            result = await self._process_existing_partnership(
+                existing,
+                server_id,
+                server_name,
+                invite_code,
+                manager_id
+            )
+        else:
+            result = await self._process_new_partnership(
+                server_id,
+                server_name,
+                invite_code,
+                manager_id
             )
 
-            self.invite_cache.invalidate(invite_code)
-
-            if points > 0:
-                await self._update_manager_stats(manager_id, renewal_points=points)
-
-            result["success"] = True
-            result["is_new"] = False
-            result["points"] = points
-            result["message"] = msg
-
-        else:
-            # НОВОЕ ПАРТНЁРСТВО
-            points = self.scoring.calculate_new_points()
-            now_dt = _time.now()
-
-            await self.db.insert("partnership", {
-                "server_id": server_id,
-                "server_name": server_name,
-                "invite_code": invite_code,
-                "manager_id": manager_id,
-                "created_at": now_dt.format("YYYY-MM-DDTHH:mm:ssZ"),
-                "renewed_count": 0,
-                "last_renewal": now_dt.format("YYYY-MM-DDTHH:mm:ssZ"),
-                "is_blacklisted": False
-            })
-
-            await self._update_manager_stats(manager_id, new_points=points)
-
-            result["success"] = True
-            result["is_new"] = True
-            result["points"] = points
-            result["message"] = f"✅ Начислено **{points}** балла за новое партнёрство!"
-
         await self.stats_cache.invalidate(manager_id)
-        return result
+        return result.to_dict()
 
     async def _update_manager_stats(self, manager_id: str, new_points: int = 0, 
                                    renewal_points: int = 0):
-        """Обновляет статистику менеджера"""
+        """Обновляет статистику менеджера (атомарно)"""
         await self._ensure_manager(manager_id)
 
-        current_rows = await self.db.where(
-            "partnermanager",
-            filters=[{"column": "id", "value": manager_id}],
-            limit=1
-        )
-        current = current_rows[0] if current_rows else None
-
-        if not current:
-            return
-
-        update = {}
+        points_delta = new_points + renewal_points
+        sets = []
+        params = [str(manager_id)]
+ 
+        if points_delta > 0:
+            sets.append(f"points = points + ${len(params)+1}")
+            params.append(points_delta)
 
         if new_points > 0:
-            update["points"] = current["points"] + new_points
-            update["new_partnerships"] = current["new_partnerships"] + 1
+            sets.append("new_partnerships = new_partnerships + 1")
 
         if renewal_points > 0:
-            update["points"] = current.get("points", current["points"]) + renewal_points
-            update["renewed_partnerships"] = current["renewed_partnerships"] + 1
+            sets.append("renewed_partnerships = renewed_partnerships + 1")
 
-        if update:
-            await self.db.update_record("partnermanager", {"id": manager_id}, update)
+        if not sets:
+            return
+
+        query = f"UPDATE public.partnermanager SET {', '.join(sets)} WHERE id = $1 RETURNING *"
+        await self.db._neon.fetchrow(query, *params)
 
     async def _ensure_manager(self, manager_id: str):
         """Создаёт запись менеджера если не существует"""
-        rows = await self.db.where(
-            "partnermanager",
-            filters=[{"column": "id", "value": manager_id}],
-            limit=1
-        )
-
-        if not rows:
+        if not await self._get_manager_row(manager_id):
             await self.db.insert("partnermanager", {
                 "id": manager_id,
                 "points": 0,
@@ -447,39 +385,12 @@ class PartnershipManager:
             if cached:
                 return cached
 
-        await self._ensure_manager(manager_id)
-
-        manager_rows = await self.db.where(
-            "partnermanager",
-            filters=[{"column": "id", "value": manager_id}],
-            limit=1
-        )
-        manager = manager_rows[0] if manager_rows else None
-
+        manager = await self._get_or_create_manager(manager_id)
         partnerships = await self.db.where(
             "partnership",
             filters=[{"column": "manager_id", "value": manager_id}]
         )
-
-        servers = []
-        for p in partnerships:
-            last_renewal_dt = _time.ensure_datetime(p["last_renewal"])
-            servers.append({
-                "server_id": p["server_id"],
-                "server_name": p["server_name"],
-                "last_renewal": int(last_renewal_dt.timestamp()),
-                "renewed_count": p["renewed_count"]
-            })
-
-        servers.sort(key=lambda x: x["last_renewal"], reverse=True)
-
-        stats = {
-            "points": manager["points"],
-            "new_partnerships": manager["new_partnerships"],
-            "renewed_partnerships": manager["renewed_partnerships"],
-            "partnerships_count": len(partnerships),
-            "servers": servers
-        }
+        stats = self._build_manager_stats(manager, partnerships)
 
         if use_cache:
             await self.stats_cache.set(manager_id, stats)
@@ -488,25 +399,14 @@ class PartnershipManager:
 
     async def get_user_points(self, user_id: str) -> int:
         """Получает баллы пользователя"""
-        await self._ensure_manager(user_id)
-        rows = await self.db.where(
-            "partnermanager",
-            filters=[{"column": "id", "value": user_id}],
-            limit=1
-        )
-        return rows[0]["points"] if rows else 0
+        manager = await self._get_or_create_manager(user_id)
+        return manager["points"] if manager else 0
 
     async def update_pm_stats(self, user_id: str, points: int = 0):
         """Обновляет баллы (для системы наград)"""
-        await self._ensure_manager(user_id)
-        rows = await self.db.where(
-            "partnermanager",
-            filters=[{"column": "id", "value": user_id}],
-            limit=1
-        )
-
-        if rows:
-            new_points = rows[0]["points"] + points
+        manager = await self._get_or_create_manager(user_id)
+        if manager:
+            new_points = manager["points"] + points
             await self.db.update_record(
                 "partnermanager",
                 {"id": user_id},
@@ -531,6 +431,190 @@ class PartnershipManager:
             "renewed_partnerships": row["renewed_partnerships"],
             "partnerships_count": row["new_partnerships"]
         } for row in rows]
+
+    async def _validate_partnership(
+        self,
+        server_id: str,
+        server_name: str
+    ) -> Optional[PartnershipProcessResult]:
+        is_self, message = self.scoring.check_self_invite(server_id)
+        if is_self:
+            return PartnershipProcessResult(
+                error="self_invite",
+                message=message
+            )
+
+        blacklist_check = await self.blacklist.check_message(server_id, server_name)
+        if blacklist_check:
+            return PartnershipProcessResult(
+                error="blacklisted",
+                message=blacklist_check["description"]
+            )
+
+        return None
+
+    async def _process_existing_partnership(
+        self,
+        existing: Dict[str, Any],
+        server_id: str,
+        server_name: str,
+        invite_code: str,
+        manager_id: str
+    ) -> PartnershipProcessResult:
+        points, message = self._calculate_renewal(existing)
+        await self._update_existing_partnership(
+            existing,
+            server_id,
+            server_name,
+            invite_code,
+            manager_id,
+            points
+        )
+        self.invite_cache.invalidate(invite_code)
+
+        if points > 0:
+            await self._update_manager_stats(manager_id, renewal_points=points)
+
+        return PartnershipProcessResult(
+            success=True,
+            is_new=False,
+            points=points,
+            message=message
+        )
+
+    async def _process_new_partnership(
+        self,
+        server_id: str,
+        server_name: str,
+        invite_code: str,
+        manager_id: str
+    ) -> PartnershipProcessResult:
+        points = self.scoring.calculate_new_points()
+        await self._create_partnership(server_id, server_name, invite_code, manager_id)
+        await self._update_manager_stats(manager_id, new_points=points)
+        return PartnershipProcessResult(
+            success=True,
+            is_new=True,
+            points=points,
+            message=f"✅ Начислено **{points}** балла за новое партнёрство!"
+        )
+
+    def _calculate_renewal(self, existing: Dict[str, Any]) -> Tuple[int, str]:
+        last_renewal_ts = int(_time.ensure_datetime(existing["last_renewal"]).timestamp())
+        return self.scoring.calculate_renewal_points(last_renewal_ts)
+
+    async def _update_existing_partnership(
+        self,
+        existing: Dict[str, Any],
+        server_id: str,
+        server_name: str,
+        invite_code: str,
+        manager_id: str,
+        points: int
+    ):
+        now_str = self._now_formatted()
+        await self.db.update_record(
+            "partnership",
+            {"server_id": server_id},
+            {
+                "server_name": server_name,
+                "invite_code": invite_code,
+                "manager_id": manager_id,
+                "last_renewal": now_str,
+                "renewed_count": existing["renewed_count"] + (1 if points > 0 else 0)
+            }
+        )
+
+    async def _create_partnership(
+        self,
+        server_id: str,
+        server_name: str,
+        invite_code: str,
+        manager_id: str
+    ):
+        now_str = self._now_formatted()
+        await self.db.insert("partnership", {
+            "server_id": server_id,
+            "server_name": server_name,
+            "invite_code": invite_code,
+            "manager_id": manager_id,
+            "created_at": now_str,
+            "renewed_count": 0,
+            "last_renewal": now_str,
+            "is_blacklisted": False
+        })
+
+    def _build_manager_stats(
+        self,
+        manager: Dict[str, Any],
+        partnerships: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        servers = sorted(
+            (self._build_server_stats(partnership) for partnership in partnerships),
+            key=lambda server: server["last_renewal"],
+            reverse=True
+        )
+        return {
+            "points": manager["points"],
+            "new_partnerships": manager["new_partnerships"],
+            "renewed_partnerships": manager["renewed_partnerships"],
+            "partnerships_count": len(partnerships),
+            "servers": servers
+        }
+
+    def _build_server_stats(self, partnership: Dict[str, Any]) -> Dict[str, Any]:
+        last_renewal_dt = _time.ensure_datetime(partnership["last_renewal"])
+        return {
+            "server_id": partnership["server_id"],
+            "server_name": partnership["server_name"],
+            "last_renewal": int(last_renewal_dt.timestamp()),
+            "renewed_count": partnership["renewed_count"]
+        }
+
+    def _build_db_invite_info(
+        self,
+        partnership: Dict[str, Any],
+        invite_code: str
+    ) -> Dict[str, Any]:
+        return {
+            "server_id": partnership["server_id"],
+            "server_name": partnership["server_name"],
+            "invite_code": invite_code,
+            "from_db": True
+        }
+
+    async def _get_partnership_by_server_id(self, server_id: str) -> Optional[Dict[str, Any]]:
+        return await self._get_single_row(
+            "partnership",
+            [{"column": "server_id", "value": server_id}]
+        )
+
+    async def _get_partnership_by_invite_code(self, invite_code: str) -> Optional[Dict[str, Any]]:
+        return await self._get_single_row(
+            "partnership",
+            [{"column": "invite_code", "value": invite_code}]
+        )
+
+    async def _get_manager_row(self, manager_id: str) -> Optional[Dict[str, Any]]:
+        return await self._get_single_row(
+            "partnermanager",
+            [{"column": "id", "value": manager_id}]
+        )
+
+    async def _get_or_create_manager(self, manager_id: str) -> Optional[Dict[str, Any]]:
+        await self._ensure_manager(manager_id)
+        return await self._get_manager_row(manager_id)
+
+    async def _get_single_row(
+        self,
+        table: str,
+        filters: List[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
+        rows = await self.db.where(table, filters=filters, limit=1)
+        return rows[0] if rows else None
+
+    def _now_formatted(self) -> str:
+        return _time.now().format("YYYY-MM-DDTHH:mm:ssZ")
 
 async def setup(bot):
     """Пустой setup для совместимости"""

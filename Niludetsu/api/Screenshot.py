@@ -1,3 +1,4 @@
+from ..tools.Embed import Embed
 """
 Модуль для создания скриншотов веб-страниц
 Использует screenshotmachine.com API
@@ -5,7 +6,7 @@
 
 import aiohttp, discord, os, re
 from io import BytesIO
-from Niludetsu import Embed
+
 from typing import Optional
 
 class ScreenshotAPI:

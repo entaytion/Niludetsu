@@ -1,219 +1,141 @@
 """
-Менеджер для работы с настройками автомодерации в Supabase
+Менеджер автомодерації — читання/запис налаштувань з БД.
+Кешує налаштування в пам'яті (TTL 60s) щоб не бити БД на кожному повідомленні.
 """
-from Niludetsu import database
-from Niludetsu.config import SERVERS
-from typing import Dict
+from __future__ import annotations
 
-MAIN_SERVER_ID = str(SERVERS["MAIN_ID"])
+import time
+from typing import Any
 
-# Дефолтные настройки для всех правил автомода
-DEFAULT_RULES = {
-    "bad_words": {
-        "is_enabled": False,
-        "whitelist": [],
-        "ignored_channels": [],
-        "action": "warn"
-    },
-    "caps_lock": {
-        "is_enabled": False,
-        "whitelist": [],
-        "ignored_channels": [],
-        "limit": 70,
-        "action": "warn"
-    },
-    "custom_words": {
-        "is_enabled": False,
-        "whitelist": [],
-        "ignored_channels": [],
-        "words": [],
-        "action": "warn"
-    },
-    "invites": {
-        "is_enabled": False,
-        "whitelist": [],
-        "ignored_channels": [],
-        "action": "ban"
-    },
-    "links": {
-        "is_enabled": False,
-        "whitelist": [],
-        "ignored_channels": [],
-        "action": "warn"
-    },
-    "repeated_text": {
-        "is_enabled": False,
-        "whitelist": [],
-        "ignored_channels": [],
-        "limit": 5,
-        "action": "warn"
-    },
-    "spam": {
-        "is_enabled": False,
-        "whitelist": [],
-        "ignored_channels": [],
-        "limit": 5,
-        "action": "warn"
-    }
+from ...database import database
+from ...config import SERVERS
+from .rules import AutoModRuleType, RuleConfig, AutoModRule, build_rule
+
+MAIN_GUILD_ID = str(SERVERS["MAIN_ID"])
+
+# ── Дефолтні налаштування ─────────────────────────────────────────────────────
+
+DEFAULT_RULES: dict[str, dict[str, Any]] = {
+    AutoModRuleType.BAD_WORDS.value:     {"is_enabled": False, "whitelist": [], "ignored_channels": [], "action": "warn"},
+    AutoModRuleType.CAPS_LOCK.value:     {"is_enabled": False, "whitelist": [], "ignored_channels": [], "action": "warn",  "limit": 70},
+    AutoModRuleType.CUSTOM_WORDS.value:  {"is_enabled": False, "whitelist": [], "ignored_channels": [], "action": "warn"},
+    AutoModRuleType.INVITES.value:       {"is_enabled": False, "whitelist": [], "ignored_channels": [], "action": "ban"},
+    AutoModRuleType.LINKS.value:         {"is_enabled": False, "whitelist": [], "ignored_channels": [], "action": "warn"},
+    AutoModRuleType.REPEATED_TEXT.value: {"is_enabled": False, "whitelist": [], "ignored_channels": [], "action": "warn", "limit": 5},
+    AutoModRuleType.SPAM.value:          {"is_enabled": False, "whitelist": [], "ignored_channels": [], "action": "warn", "limit": 5},
 }
 
+
+def _to_config(data: dict[str, Any]) -> RuleConfig:
+    return RuleConfig(
+        is_enabled=data.get("is_enabled", False),
+        whitelist=data.get("whitelist", []),
+        ignored_channels=data.get("ignored_channels", []),
+        action=data.get("action", "warn"),
+        limit=data.get("limit", 5),
+    )
+
+
 class AutoModManager:
-    """Менеджер для работы с настройками автомодерации"""
+    """Менеджер налаштувань автомодерації з кешуванням."""
 
-    def __init__(self):
+    _CACHE_TTL = 60.0  # секунд
+
+    def __init__(self, guild_id: str = MAIN_GUILD_ID) -> None:
         self.db = database
-        self.guild_id = MAIN_SERVER_ID
+        self.guild_id = guild_id
+        self._cache: dict[str, Any] | None = None
+        self._cache_ts: float = 0.0
 
-    async def get_settings(self) -> Dict:
-        """
-        Получает все настройки автомодерации для гильдии
-        Возвращает словарь с настройками всех правил
-        """
+    # ── Внутрішнє ─────────────────────────────────────────────────────────────
+
+    def _is_stale(self) -> bool:
+        return self._cache is None or (time.monotonic() - self._cache_ts) > self._CACHE_TTL
+
+    def invalidate(self) -> None:
+        """Примусово скидає кеш."""
+        self._cache = None
+        self._cache_ts = 0.0
+
+    async def _load(self) -> dict[str, Any]:
         row = await self.db.get_row("automoderation", guild_id=self.guild_id, key="settings")
-
-        if row and row.get('value'):
-            # Если данные есть в БД, возвращаем их
-            return dict(row['value'])
+        if row and row.get("value"):
+            raw: dict = dict(row["value"])
+            # Доповнюємо відсутніми правилами з дефолтів
+            for k, v in DEFAULT_RULES.items():
+                raw.setdefault(k, v.copy())
+            self._cache = raw
         else:
-            # Если данных нет, создаем дефолтные настройки
-            await self.create_default_settings()
-            return DEFAULT_RULES.copy()
+            self._cache = DEFAULT_RULES.copy()
+            await self._save(self._cache)
+        self._cache_ts = time.monotonic()
+        return self._cache
 
-    async def get_rule(self, rule_name: str) -> Dict:
-        """
-        Получает настройки конкретного правила
-
-        Args:
-            rule_name: Название правила (bad_words, caps_lock, и т.д.)
-
-        Returns:
-            Словарь с настройками правила
-        """
-        settings = await self.get_settings()
-        return settings.get(rule_name, DEFAULT_RULES.get(rule_name, {}))
-
-    async def update_rule(self, rule_name: str, rule_data: Dict) -> bool:
-        """
-        Обновляет настройки конкретного правила
-
-        Args:
-            rule_name: Название правила
-            rule_data: Новые данные правила
-
-        Returns:
-            True если обновление успешно
-        """
-        # Получаем текущие настройки
-        settings = await self.get_settings()
-
-        # Обновляем конкретное правило
-        settings[rule_name] = rule_data
-
-        # Сохраняем обратно в БД
-        return await self.save_settings(settings)
-
-    async def save_settings(self, settings: Dict) -> bool:
-        """
-        Сохраняет все настройки автомодерации
-
-        Args:
-            settings: Полный словарь настроек всех правил
-
-        Returns:
-            True если сохранение успешно
-        """
+    async def _save(self, data: dict[str, Any]) -> bool:
         try:
-            # Используем upsert для вставки или обновления
             await self.db.upsert(
                 "automoderation",
-                {
-                    "guild_id": self.guild_id,
-                    "key": "settings",
-                    "value": settings
-                },
-                on_conflict="guild_id"
+                {"guild_id": self.guild_id, "key": "settings", "value": data},
+                on_conflict="guild_id",
             )
             return True
         except Exception as e:
-            print(f"❌ Ошибка сохранения настроек автомода: {e}")
+            print(f"AutoMod save error: {e}")
             return False
 
-    async def create_default_settings(self) -> bool:
-        """
-        Создает дефолтные настройки автомодерации в БД
+    # ── Публічне API ──────────────────────────────────────────────────────────
 
-        Returns:
-            True если создание успешно
-        """
-        return await self.save_settings(DEFAULT_RULES.copy())
+    async def get_settings(self) -> dict[str, Any]:
+        if self._is_stale():
+            await self._load()
+        return dict(self._cache)  # type: ignore[arg-type]
 
-    async def toggle_rule(self, rule_name: str) -> bool:
-        """
-        Переключает состояние правила (включено/выключено)
+    async def get_rule(self, name: str) -> dict[str, Any]:
+        s = await self.get_settings()
+        return s.get(name, DEFAULT_RULES.get(name, {}))
 
-        Args:
-            rule_name: Название правила
+    async def update_rule(self, name: str, data: dict[str, Any]) -> bool:
+        s = await self.get_settings()
+        s[name] = data
+        self._cache = s
+        return await self._save(s)
 
-        Returns:
-            Новое состояние правила (True = включено)
-        """
-        rule_data = await self.get_rule(rule_name)
-        rule_data['is_enabled'] = not rule_data.get('is_enabled', False)
-        await self.update_rule(rule_name, rule_data)
-        return rule_data['is_enabled']
+    async def toggle_rule(self, name: str) -> bool:
+        rule = await self.get_rule(name)
+        rule["is_enabled"] = not rule.get("is_enabled", False)
+        await self.update_rule(name, rule)
+        return rule["is_enabled"]
 
-    async def add_ignored_channel(self, rule_name: str, channel_id: str) -> bool:
-        """
-        Добавляет канал в список игнорируемых для правила
-
-        Args:
-            rule_name: Название правила
-            channel_id: ID канала
-
-        Returns:
-            True если добавление успешно
-        """
-        rule_data = await self.get_rule(rule_name)
-
-        if 'ignored_channels' not in rule_data:
-            rule_data['ignored_channels'] = []
-
-        if channel_id not in rule_data['ignored_channels']:
-            rule_data['ignored_channels'].append(channel_id)
-            return await self.update_rule(rule_name, rule_data)
-
+    async def add_ignored_channel(self, name: str, channel_id: str) -> bool:
+        rule = await self.get_rule(name)
+        channels = rule.setdefault("ignored_channels", [])
+        if channel_id not in channels:
+            channels.append(channel_id)
+            return await self.update_rule(name, rule)
         return False
 
-    async def remove_ignored_channel(self, rule_name: str, channel_id: str) -> bool:
-        """
-        Удаляет канал из списка игнорируемых для правила
-
-        Args:
-            rule_name: Название правила
-            channel_id: ID канала
-
-        Returns:
-            True если удаление успешно
-        """
-        rule_data = await self.get_rule(rule_name)
-
-        if 'ignored_channels' in rule_data and channel_id in rule_data['ignored_channels']:
-            rule_data['ignored_channels'].remove(channel_id)
-            return await self.update_rule(rule_name, rule_data)
-
+    async def remove_ignored_channel(self, name: str, channel_id: str) -> bool:
+        rule = await self.get_rule(name)
+        channels = rule.get("ignored_channels", [])
+        if channel_id in channels:
+            channels.remove(channel_id)
+            return await self.update_rule(name, rule)
         return False
 
-    async def get_enabled_rules(self) -> Dict:
-        """
-        Получает только включенные правила
+    async def get_enabled_rules(self) -> dict[str, Any]:
+        s = await self.get_settings()
+        return {k: v for k, v in s.items() if v.get("is_enabled")}
 
-        Returns:
-            Словарь с включенными правилами
-        """
-        all_settings = await self.get_settings()
-        return {
-            rule_name: rule_data 
-            for rule_name, rule_data in all_settings.items() 
-            if rule_data.get('is_enabled', False)
-        }
+    # ── Фабрика активних правил ───────────────────────────────────────────────
 
+    async def build_active_rules(self) -> list[AutoModRule]:
+        """Повертає список готових екземплярів правил для активних налаштувань."""
+        enabled = await self.get_enabled_rules()
+        rules: list[AutoModRule] = []
+        for key, data in enabled.items():
+            try:
+                rt = AutoModRuleType(key)
+                rules.append(build_rule(rt, _to_config(data)))
+            except (ValueError, KeyError):
+                pass
+        return rules

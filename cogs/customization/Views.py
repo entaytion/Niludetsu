@@ -1,9 +1,8 @@
 import discord
 from discord.ui import View
 from typing import Optional, Dict, Any
-from Niludetsu import Emojis, Embed
-from Niludetsu.config import GENDER_ROLES, COLOR_ROLES, OPTIONAL_ROLES, SERVERS
-from Niludetsu.database.supabase_database import SupabaseDatabase
+from Niludetsu import Emojis, Embed, config
+from Niludetsu.database import Database
 
 PROFILE_VIEWS_FLAG = "_profile_views_registered"
 
@@ -42,10 +41,10 @@ class ProfileButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         if self.custom_id == "profile_color":
-            if COLOR_ROLES:
+            if config.COLOR_ROLES:
                 await interaction.response.send_message(
                     content="Выбери цвет, в который хочешь себя перекрасить.",
-                    view=ColorSelectView(COLOR_ROLES),
+                    view=ColorSelectView(config.COLOR_ROLES),
                     ephemeral=True,
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
@@ -57,10 +56,10 @@ class ProfileButton(discord.ui.Button):
                 )
 
         elif self.custom_id == "profile_gender":
-            if GENDER_ROLES:
+            if config.GENDER_ROLES:
                 await interaction.response.send_message(
                     content="Выбери роль, которая описывает тебя точнее.",
-                    view=GenderSelectView(GENDER_ROLES),
+                    view=GenderSelectView(config.GENDER_ROLES),
                     ephemeral=True,
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
@@ -103,7 +102,7 @@ class OptionalRolesSelect(discord.ui.Select):
                 description=role.get("description", ""),
                 emoji=role.get("emoji")
             )
-            for role in OPTIONAL_ROLES
+            for role in config.OPTIONAL_ROLES
         ]
         super().__init__(
             placeholder="Выберите роли...",
@@ -333,8 +332,8 @@ class GenderSelectView(View):
 async def show_booster_panel(interaction: discord.Interaction) -> None:
     """Показывает панель управления бустерской ролью"""
     
-    db: SupabaseDatabase = interaction.client.db
-    main_server_id = SERVERS["MAIN_ID"]
+    db: Database = interaction.client.db
+    main_server_id = config.SERVERS["MAIN_ID"]
     
     # Проверяем, бустит ли пользователь сервер
     member = interaction.user
@@ -386,7 +385,7 @@ async def show_booster_panel(interaction: discord.Interaction) -> None:
     )
 
 
-async def get_booster_role_item(db: SupabaseDatabase, user_id: str, guild_id: str) -> Optional[Dict[str, Any]]:
+async def get_booster_role_item(db: Database, user_id: str, guild_id: str) -> Optional[Dict[str, Any]]:
     """Получает запись о бустерской роли из инвентаря"""
     try:
         items = await db.fetch_inventory_items(user_id, guild_id)
@@ -398,7 +397,7 @@ async def get_booster_role_item(db: SupabaseDatabase, user_id: str, guild_id: st
     return None
 
 
-async def create_booster_role(db: SupabaseDatabase, member: discord.Member, guild: discord.Guild) -> Optional[discord.Role]:
+async def create_booster_role(db: Database, member: discord.Member, guild: discord.Guild) -> Optional[discord.Role]:
     """Создаёт новую бустерскую роль"""
     try:
         # Проверяем, есть ли уже бустерская роль
@@ -437,7 +436,7 @@ async def create_booster_role(db: SupabaseDatabase, member: discord.Member, guil
 
 
 async def update_booster_role(
-    db: SupabaseDatabase,
+    db: Database,
     member: discord.Member,
     guild: discord.Guild,
     booster_item: Dict[str, Any],
@@ -467,9 +466,7 @@ async def update_booster_role(
         if color:
             meta["role_color"] = str(color)
         
-        db.client.table("user_inventory").update({
-            "meta": meta
-        }).eq("id", booster_item["id"]).execute()
+        await db.update_record("user_inventory", {"id": booster_item["id"]}, {"meta": meta})
         
         return True
     except Exception as e:
@@ -477,7 +474,7 @@ async def update_booster_role(
         return False
 
 
-async def delete_booster_role(db: SupabaseDatabase, member: discord.Member, guild: discord.Guild, booster_item: Dict[str, Any]) -> bool:
+async def delete_booster_role(db: Database, member: discord.Member, guild: discord.Guild, booster_item: Dict[str, Any]) -> bool:
     """Удаляет бустерскую роль"""
     try:
         role_id = int(booster_item.get("meta", {}).get("role_id"))
@@ -502,7 +499,7 @@ async def delete_booster_role(db: SupabaseDatabase, member: discord.Member, guil
 class BoosterRoleView(discord.ui.View):
     """View с кнопками управления бустерской ролью"""
 
-    def __init__(self, db: SupabaseDatabase, member: discord.Member, guild: discord.Guild, booster_item: Optional[Dict[str, Any]]):
+    def __init__(self, db: Database, member: discord.Member, guild: discord.Guild, booster_item: Optional[Dict[str, Any]]):
         super().__init__(timeout=300)
         self.db = db
         self.member = member
@@ -614,7 +611,7 @@ class BoosterRoleView(discord.ui.View):
 class EditBoosterRoleModal(discord.ui.Modal):
     """Модальное окно для редактирования бустерской роли"""
     
-    def __init__(self, db: SupabaseDatabase, member: discord.Member, guild: discord.Guild, booster_item: Dict[str, Any]):
+    def __init__(self, db: Database, member: discord.Member, guild: discord.Guild, booster_item: Dict[str, Any]):
         super().__init__(title="Редактирование бустерской роли", timeout=300)
         self.db = db
         self.member = member

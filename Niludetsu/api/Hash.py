@@ -1,10 +1,11 @@
+from ..tools.Embed import Embed
 """
 Модуль для генерации хешей из текста
 Поддерживает MD5, SHA1, SHA256, SHA512
 """
 
 import hashlib
-from Niludetsu import Embed
+
 from typing import Optional
 
 class HashAPI:

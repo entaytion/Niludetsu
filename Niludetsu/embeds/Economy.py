@@ -1,3 +1,5 @@
+from ..tools.Embed import Colors, Embed
+from ..tools.Emojis import Emojis
 """Унифицированные эмбеды для экономических команд.
 
 Формат:
@@ -12,10 +14,6 @@
 from typing import Optional
 
 import discord
-
-from Niludetsu.tools.Embed import Colors, Embed
-from Niludetsu.tools.Emojis import Emojis
-
 
 class EconomyEmbed:
     """Фабрика embed'ов для экономики."""

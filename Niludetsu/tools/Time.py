@@ -1,5 +1,4 @@
 import pendulum, re
-from datetime import timedelta
 from typing import Optional, Union, Dict, Tuple
 
 KYIV_TIMEZONE = "Europe/Kiev"
@@ -45,59 +44,6 @@ class TimeService:
             return None
         return dt.in_timezone(self.timezone)
 
-    def parse(self, value: DateLike) -> Optional[pendulum.DateTime]:
-        return self.ensure_datetime(value)
-
-    def parse_duration(self, duration_str: str) -> Optional[timedelta]:
-        """
-        Парсит строку длительности в timedelta.
-
-        Поддерживаемые форматы:
-        - 30s, 5m, 2h, 7d, 1w
-
-        Parameters
-        ----------
-        duration_str : str
-            Строка длительности
-
-        Returns
-        -------
-        Optional[timedelta]
-            timedelta или None, если не удалось распарсить
-        """
-        if not duration_str:
-            return None
-
-        # Регулярка для парсинга (30s, 5m, 2h, 7d, 1w)
-        pattern = r'^(\d+)([smhdwсмчдн]+)$'  
-        match = re.match(pattern, duration_str.lower().strip())
-
-        if not match:
-            return None
-
-        value = int(match.group(1))
-        unit = match.group(2)
-
-        unit_mapping = {
-            's': 'seconds', 'sec': 'seconds',
-            'm': 'minutes', 'min': 'minutes',
-            'h': 'hours', 'hr': 'hours',
-            'd': 'days',
-            'w': 'weeks',
-            # Русские
-            'с': 'seconds', 'сек': 'seconds',
-            'м': 'minutes', 'мин': 'minutes',
-            'ч': 'hours',
-            'д': 'days',
-            'н': 'weeks',
-        }
-
-        unit_key = unit_mapping.get(unit)
-        if not unit_key:
-            return None
-
-        return timedelta(**{unit_key: value})
-
     def from_timestamp(self, value: Union[int, float]) -> pendulum.DateTime:
         return pendulum.from_timestamp(float(value), tz=self.timezone)
 
@@ -135,12 +81,6 @@ class TimeService:
             seconds=seconds,
         )
 
-    def add_hours(self, base: DateLike = None, hours: int = 1) -> pendulum.DateTime:
-        return self.add_duration(base, hours=hours)
-
-    def add_minutes(self, base: DateLike = None, minutes: int = 1) -> pendulum.DateTime:
-        return self.add_duration(base, minutes=minutes)
-
     def diff(
         self,
         end: Union[str, pendulum.DateTime],
@@ -154,16 +94,13 @@ class TimeService:
             raise ValueError("Нельзя вычислить diff: конечное время не распознано")
         return start_dt.diff(end_dt, abs=absolute)
 
-    def seconds_between(
+    def validate(
         self,
-        end: Union[str, pendulum.DateTime],
-        start: Optional[Union[str, pendulum.DateTime]] = None,
-        *,
-        absolute: bool = True,
-    ) -> int:
-        return int(self.diff(end, start, absolute=absolute).total_seconds())
-
-    def validate_duration(self, duration: Union[str, int], max_days: int = 30, min_seconds: int = 5) -> DurationResult:
+        duration: Union[str, int],
+        max_days: int = 30,
+        min_seconds: int = 5,
+        max_seconds: Optional[int] = None,
+    ) -> DurationResult:
         if isinstance(duration, int):
             seconds = duration
         else:
@@ -186,8 +123,10 @@ class TimeService:
             return None, None, "Время должно быть больше 0"
         if seconds < min_seconds:
             return None, None, f"Минимальное время — {min_seconds} секунд"
-        max_seconds = max_days * 86400
-        if seconds > max_seconds:
+        limit_seconds = max_seconds if max_seconds is not None else max_days * 86400
+        if seconds > limit_seconds:
+            if max_seconds is not None:
+                return None, None, f"Максимальное время — {self.format_duration(max_seconds)}"
             return None, None, f"Максимальное время — {max_days} дней"
 
         return seconds, self.format_duration(seconds), None
@@ -218,18 +157,6 @@ class TimeService:
             return False
         return dt <= self.now()
 
-    def format_remaining_time(self, target: DateLike) -> Tuple[int, str]:
-        dt = self.ensure_datetime(target)
-        if not dt:
-            return 0, "**0** секунд"
-        now = self.now()
-        if dt <= now:
-            return 0, "**0** секунд"
-
-        diff = now.diff(dt, abs=False)
-        seconds = int(diff.total_seconds())
-        return seconds, self.format_duration(seconds)
-
     @staticmethod
     def _pluralize(value: int, singular: str, few: str, many: str) -> str:
         mod10, mod100 = value % 10, value % 100
@@ -250,4 +177,5 @@ class TimeService:
 
     def clear_cooldown(self, key: str) -> None:
         self._cooldowns.pop(key, None)
+
 

@@ -1,8 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from Niludetsu import Embed, Colors, Time
-from Niludetsu.achievements.manager import AchievementsManager
+from Niludetsu import Embed, Colors, Time, AchievementsManager
 
 _time = Time()
 

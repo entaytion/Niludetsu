@@ -1,10 +1,11 @@
+from ..tools.Embed import Colors, Embed
 """
 Модуль для безопасных математических вычислений
 """
 
 import ast, math, operator, re
 from discord.ext import commands
-from Niludetsu import Embed, Colors
+
 from typing import Union, Tuple
 
 class MathCalculatorAPI:

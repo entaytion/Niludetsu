@@ -1,8 +1,8 @@
 import discord
-from Niludetsu import Emojis
+from ..tools.Emojis import Emojis
+
 from Niludetsu.webhooks.base import BaseLogger
 from Niludetsu.webhooks.constants import PERMISSION_NAMES
-
 
 class ChannelLogger(BaseLogger):
     """Логгер для событий каналов (создание, удаление, обновление, пермишены, пины)."""

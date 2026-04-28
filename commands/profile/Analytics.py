@@ -1,13 +1,9 @@
 import discord
 from discord.ext import commands
 
-from Niludetsu import Embed, Emojis, TimeService, config
-from Niludetsu.achievements.manager import AchievementsManager
-from Niludetsu.analytics.manager import AnalyticsManager
-from Niludetsu.analytics.tracker import AnalyticsTracker
+from Niludetsu import Embed, Emojis, TimeService, config, AchievementsManager, AnalyticsManager, AnalyticsTracker, LevelTracker
 
 _time = TimeService()
-
 
 class Analytics(commands.Cog):
     """Команды и слушатели аналитики."""
@@ -155,7 +151,7 @@ class Analytics(commands.Cog):
         await self.tracker.track_voice_leave(member)
 
     @commands.hybrid_command(
-        name="analytics", description="📊 Показать статистику пользователя"
+        name="analytics", description="Показать статистику пользователя"
     )
     @discord.app_commands.describe(user="👤 Кого показать статистику")
     async def analytics(
@@ -173,6 +169,7 @@ class Analytics(commands.Cog):
             return
 
         # Получаем статистику
+        await self.tracker.flush_user(str(guild.id), str(target.id))
         stats = await self.manager.get_user_stats(str(guild.id), str(target.id))
 
         if not stats["messages"]["total"] and not stats["voice"]["total_seconds"]:
@@ -286,7 +283,6 @@ class Analytics(commands.Cog):
             lines.append(f"🪄 Временные каналы — {_time.format_duration(temp_total)}")
 
         return "\n".join(lines) if lines else "> Пока нет данных"
-
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Analytics(bot))

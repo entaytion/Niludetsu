@@ -1,9 +1,9 @@
+from ..tools.Embed import Embed
 """
 Модуль для генерации ASCII арта из текста
 Использует библиотеку pyfiglet
 """
 
-from Niludetsu import Embed
 from pyfiglet import Figlet
 from typing import Optional
 

@@ -1,9 +1,8 @@
 import discord
 from discord.ext import commands, tasks
-from Niludetsu import safe_fetch_user
-from Niludetsu.database.supabase_database import database
-from Niludetsu.tools.Embed import Embed
-from Niludetsu.tools.Time import TimeService
+from Niludetsu import safe_fetch_user, Embed, TimeService
+from Niludetsu.database import database
+
 from typing import Optional
 
 _time = TimeService()
@@ -59,7 +58,8 @@ class Reminder(commands.GroupCog, group_name="reminder"):
         message: str,
         remind_at,
     ):
-        await self.db.ensure_user(
+        await self.db.ensure_record(
+            "users",
             user_id=str(user_id),
             guild_id=str(guild_id or "0"),
         )
@@ -86,7 +86,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
         return created["id"] if created else None
 
     async def complete_reminder(self, reminder_id: int) -> None:
-        await self.db.update("user_reminders", {"id": reminder_id}, {"completed": True})
+        await self.db.update_record("user_reminders", {"id": reminder_id}, {"completed": True})
 
     async def delete_reminder(self, reminder_id: int, user_id: int):
         deleted = await self.db.delete(
@@ -156,7 +156,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
                         except discord.HTTPException:
                             channel = None
 
-            embed = Embed(title="⏰ Напоминание", description=reminder["message"])
+            embed = Embed(title="Напоминание", description=reminder["message"])
             try:
                 if channel:
                     await channel.send(f"{user.mention}", embed=embed)
@@ -178,7 +178,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
 
     @discord.app_commands.command(
         name="create",
-        description="⌛ Создать новое напоминание",
+        description="Создать новое напоминание",
     )
     @discord.app_commands.describe(
         time="⏰ Время напоминания. Например: 30с, 15 минут, 2ч, 1 день и т.д.",
@@ -190,7 +190,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
         time: str,
         message: str,
     ):
-        duration_seconds, duration_str, error = _time.validate_duration(time, max_days=7)
+        duration_seconds, duration_str, error = _time.validate(time, max_days=7)
         if error:
             await interaction.response.send_message(
                 embed=Embed.error(description=error),
@@ -218,7 +218,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
         if reminder_id:
             await interaction.response.send_message(
                 embed=Embed(
-                    title="⏰ Напоминание создано",
+                    title="Напоминание создано",
                     description=f"Напомню через **{duration_str}**:\n{message}",
                 )
             )
@@ -228,13 +228,13 @@ class Reminder(commands.GroupCog, group_name="reminder"):
                 ephemeral=True,
             )
 
-    @discord.app_commands.command(name="list", description="📋 Показать ваши напоминания")
+    @discord.app_commands.command(name="list", description="Показать ваши напоминания")
     async def list(self, interaction: discord.Interaction):
         reminders = await self.get_user_reminders(interaction.user.id)
         if not reminders:
             await interaction.response.send_message(
                 embed=Embed(
-                    title="📋 Ваши напоминания",
+                    title="Ваши напоминания",
                     description="У вас нет активных напоминаний.",
                 ),
                 ephemeral=True,
@@ -243,7 +243,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
 
         now = _time.now()
         embed = Embed(
-            title="📋 Ваши напоминания",
+            title="Ваши напоминания",
             description=f"Всего активных: {len(reminders)}",
         )
 
@@ -262,7 +262,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
         embed.set_footer(text="Удаление: /reminder delete [ID]")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @discord.app_commands.command(name="delete", description="❌ Удалить напоминание")
+    @discord.app_commands.command(name="delete", description="Удалить напоминание")
     @discord.app_commands.describe(reminder_id="🆔 ID напоминания (смотрите /reminder list)")
     async def delete(self, interaction: discord.Interaction, reminder_id: int):
         deleted = await self.delete_reminder(reminder_id, interaction.user.id)

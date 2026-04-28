@@ -1,11 +1,13 @@
+from ...tools.Embed import Embed
+from ...tools.Time import TimeService
 """
 Система управления медленным режимом (slowmode) в каналах.
 """
 import discord
-from Niludetsu.config import NOTIFICATION_CHANNEL_ID
+
+import Niludetsu.config as config
 from Niludetsu.moderation.exceptions import ModerationError
-from Niludetsu.tools.Embed import Embed
-from Niludetsu.tools.Time import TimeService
+
 from typing import List
 
 _time = TimeService()
@@ -50,7 +52,7 @@ class SlowmodeSystem:
             seconds = 0
             formatted = "отключен"
         else:
-            seconds, formatted, error = _time.validate_duration(
+            seconds, formatted, error = _time.validate(
                 duration,
                 max_seconds=21600,  # Максимум 6 часов (ограничение Discord)
                 min_seconds=0
@@ -110,7 +112,7 @@ class SlowmodeSystem:
         if duration == "0" or duration.lower() == "off":
             seconds = 0
         else:
-            seconds, formatted, error = _time.validate_duration(
+            seconds, formatted, error = _time.validate(
                 duration,
                 max_seconds=21600,
                 min_seconds=0
@@ -212,8 +214,8 @@ class SlowmodeSystem:
         log_channel = None
 
         # Сначала пробуем NOTIFICATION_CHANNEL_ID из конфига
-        if NOTIFICATION_CHANNEL_ID:
-            log_channel = guild.get_channel(int(NOTIFICATION_CHANNEL_ID))
+        if config.NOTIFICATION_CHANNEL_ID:
+            log_channel = guild.get_channel(int(config.NOTIFICATION_CHANNEL_ID))
 
         # Если не нашли, ищем канал "mod-logs" или "модерация"
         if not log_channel:

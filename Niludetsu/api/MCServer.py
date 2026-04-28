@@ -1,3 +1,4 @@
+from ..tools.Embed import Embed
 """
 Модуль для взаимодействия с Minecraft серверами
 """
@@ -5,7 +6,7 @@
 import datetime, discord, re
 from discord.ext import commands
 from mcstatus import JavaServer, BedrockServer
-from Niludetsu import Embed
+
 from typing import Optional, Dict, Any, Tuple
 
 class MinecraftServerAPI:

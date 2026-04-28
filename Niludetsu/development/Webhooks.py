@@ -1,7 +1,8 @@
 import asyncio
 import discord
-from Niludetsu.tools.Embed import Embed, Colors
-from Niludetsu.tools.Time import TimeService
+from ..tools.Embed import Colors, Embed
+from ..tools.Time import TimeService
+
 from typing import Iterable, Optional
 
 _WEBHOOK_NAME = "Æther!"

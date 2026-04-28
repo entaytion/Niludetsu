@@ -20,5 +20,5 @@ dependencies = [
     "python-whois>=0.9.6",
     "requests>=2.32.5",
     "selectolax>=0.4.6",
-    "supabase>=2.28.0",
+    "asyncpg>=0.31.0",
 ]

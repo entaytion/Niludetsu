@@ -1,12 +1,12 @@
 import aiohttp, asyncio, discord, re
 from discord.ext import commands
-from Niludetsu import TimeService, Embed, SupabaseDatabase, Emojis
+from Niludetsu import TimeService, Embed, Database, database, Emojis
 
 class EventCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.time = TimeService()
-        self.db = SupabaseDatabase()
+        self.db = database
 
         # Данные игр с описаниями и изображениями
         self.games = {
@@ -71,7 +71,7 @@ class EventCog(commands.Cog):
 
         # Шаг 1: Выбор игры
         base_embed = Embed.default(
-            title="🎮 Выбор игры для события",
+            title="Выбор игры для события",
             description="Выберите игру из списка ниже:"
         )
 
@@ -122,7 +122,7 @@ class EventCog(commands.Cog):
 
         # Шаг 2: Ввод времени
         time_embed = Embed.default(
-            title="⏰ Время проведения",
+            title="Время проведения",
             description="Введите время проведения события:",
             fields=[{
                 "name": "Примеры форматов:",
@@ -150,7 +150,7 @@ class EventCog(commands.Cog):
         prize_list = "\n".join(f"{num}️⃣ {prize_type}" for num, prize_type in self.prize_types.items())
 
         prize_embed = Embed.default(
-            title="🎁 Выбор приза",
+            title="Выбор приза",
             description="Выберите тип приза для события:",
             fields=[{
                 "name": "Типы призов:",
@@ -266,7 +266,7 @@ class EventCog(commands.Cog):
         for member in members:
             # Добавляем каждый бокс как отдельную запись в инвентарь
             for i in range(count_per_user):
-                now_iso = self.time.now().to_iso8601_string()
+                now_iso = self.time.to_iso()
                 await self.db.ensure_inventory_item(
                     user_id=str(member.id),
                     guild_id=str(ctx.guild.id),
@@ -332,7 +332,7 @@ class EventCog(commands.Cog):
         full_datetime_str = f"{date_obj.format('YYYY-MM-DD')} {time_part}:00"
 
         try:
-            return self.time.parse(full_datetime_str)
+            return self.time.ensure_datetime(full_datetime_str)
         except Exception as e:
             print(f"Ошибка парсинга времени '{full_datetime_str}': {e}")
             return None
@@ -391,7 +391,7 @@ class EventCog(commands.Cog):
 
         # Формируем эмбед
         embed = Embed.default(
-            title=f"🔔 {game['name']}!",
+            title=f"{game['name']}!",
             fields=[
                 {"name": "> Ведущий:", "value": ctx.author.mention, "inline": True},
                 {"name": "> Время:", "value": f"<t:{discord_timestamp}:F>", "inline": True},

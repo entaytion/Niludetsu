@@ -3,9 +3,9 @@ from discord import app_commands
 from discord.ext import commands
 import aiohttp
 import discord
+from Niludetsu import MarriageManager, Embed
 from Niludetsu.api.Gifs import GifsAPI
-from Niludetsu.marriage.marriage_manager import MarriageManager
-from Niludetsu.tools.Embed import Embed
+
 from typing import Optional
 
 class ReactionSystem(commands.Cog):
@@ -468,7 +468,7 @@ class ReactionSystem(commands.Cog):
     async def solo(self, ctx: commands.Context):
         await self._handle_reaction(ctx, "solo")
 
-    @commands.hybrid_command(name="rp", description="🎭 Выполнить ролевую реакцию")
+    @commands.hybrid_command(name="rp", description="Выполнить ролевую реакцию")
     @app_commands.describe(action="🎭 Выберите действие", user="👤 Пользователь (если нужен)")
     @app_commands.choices(action=[
         app_commands.Choice(name="🦷 Укусить", value="bite"),

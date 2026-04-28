@@ -2,7 +2,7 @@ import discord
 from .RewardSystem import RewardSystem, AdRedeemView
 from discord.ext import commands
 from Niludetsu import Embed, Colors
-from Niludetsu.database.supabase_database import database
+from Niludetsu.database import database
 from typing import Optional
 
 class PMCommands(commands.Cog):
@@ -36,7 +36,7 @@ class PMCommands(commands.Cog):
         if not top_managers:
             await ctx.reply(
                 embed=Embed.info(
-                    title="📊 Топ партнер-менеджеров",
+                    title="Топ партнер-менеджеров",
                     description="Пока нет партнер-менеджеров с баллами."
                 ),
                 mention_author=False
@@ -58,7 +58,7 @@ class PMCommands(commands.Cog):
             )
 
         embed = Embed.default(
-            title="📊 Топ партнер-менеджеров по баллам",
+            title="Топ партнер-менеджеров по баллам",
             description=description.strip()
         )
         embed.set_footer(text="2 балла за новое партнерство, 1 балл за обновление после 12 часов")
@@ -147,7 +147,7 @@ class PMCommands(commands.Cog):
         status = "✅ Доступно" if user_points >= reward["cost"] else f"❌ Не хватает {reward['cost'] - user_points} баллов"
 
         embed = Embed.default(
-            title="🎁 Награда за баллы партнёрств",
+            title="Награда за баллы партнёрств",
             description=f"У вас **{user_points}** баллов",
         )
 

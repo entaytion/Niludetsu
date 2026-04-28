@@ -1,9 +1,8 @@
 import discord
 from datetime import timedelta
 from discord.ext import commands
-from Niludetsu import Embed, Time
-from Niludetsu.database.supabase_database import database
-from Niludetsu.levels.manager import LevelManager
+from Niludetsu import Embed, Time, LevelManager
+from Niludetsu.database import database
 
 THUMBS_UP = {"👍", "👍🏻", "👍🏼", "👍🏽", "👍🏾", "👍🏿"}
 THUMBS_DOWN = {"👎", "👎🏻", "👎🏼", "👎🏽", "👎🏾", "👎🏿"}
@@ -69,7 +68,7 @@ class Reputation(commands.Cog):
                 cooldown_end = last_timestamp.add(seconds=int(COOLDOWN.total_seconds()))
                 now = _time.now()
                 if now < cooldown_end:
-                    _, pretty = _time.format_remaining_time(cooldown_end)
+                    pretty = _time.format_duration(int((cooldown_end - now).total_seconds()))
                     await message.reply(
                         Embed.warn(
                             title="Подожди чуть-чуть",
@@ -85,9 +84,9 @@ class Reputation(commands.Cog):
         delta = 1 if content in THUMBS_UP else -1
         profile = await self.levels.adjust_reputation(guild_id, target_id, delta)
 
-        await self.db.create_record(
+        await self.db.insert(
             "user_reputation_log",
-            values={
+            {
                 "guild_id": guild_id,
                 "target_id": target_id,
                 "actor_id": str(actor.id),

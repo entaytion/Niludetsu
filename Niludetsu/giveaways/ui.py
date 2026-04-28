@@ -1,14 +1,13 @@
 from typing import Any, Dict, Optional
+from ..tools.Embed import Embed
+from ..tools.Emojis import Emojis
+from ..tools.Time import TimeService
 
 import discord
 
 from Niludetsu.giveaways.conditions import GiveawayConditions
-from Niludetsu.tools.Embed import Embed
-from Niludetsu.tools.Emojis import Emojis
-from Niludetsu.tools.Time import TimeService
 
 _time = TimeService()
-
 
 class GiveawayConfigurator(discord.ui.View):
     """Единый мастер создания розыгрыша."""
@@ -124,7 +123,7 @@ class GiveawayConfigurator(discord.ui.View):
             name="Победители", value=str(self.config["winners"]), inline=True
         )
 
-        seconds, human, error = _time.validate_duration(
+        seconds, human, error = _time.validate(
             self.config["duration"], max_days=30
         )
         embed.add_field(
@@ -195,7 +194,6 @@ class GiveawayConfigurator(discord.ui.View):
             except discord.NotFound:
                 pass
 
-
 # Модалки
 class GiveawayBaseModal(discord.ui.Modal, title="Параметры розыгрыша"):
     def __init__(self, config: Dict[str, Any]):
@@ -248,7 +246,7 @@ class GiveawayBaseModal(discord.ui.Modal, title="Параметры розыгр
             )
             return
 
-        seconds, _, error = _time.validate_duration(
+        seconds, _, error = _time.validate(
             self.duration_input.value, max_days=30
         )
         if error:
@@ -279,7 +277,6 @@ class GiveawayBaseModal(discord.ui.Modal, title="Параметры розыгр
 
         await interaction.response.defer()
 
-
 class ConditionValueModal(discord.ui.Modal):
     def __init__(self, title: str, unit: str):
         super().__init__(title=title, timeout=300)
@@ -304,7 +301,6 @@ class ConditionValueModal(discord.ui.Modal):
         self.value = val
         await interaction.response.defer()
 
-
 class RoleModal(discord.ui.Modal, title="ID роли"):
     def __init__(self):
         super().__init__(timeout=300)
@@ -326,7 +322,6 @@ class RoleModal(discord.ui.Modal, title="ID роли"):
             return
         self.role_id = role.id
         await interaction.response.defer()
-
 
 # Селекты
 class _ChannelSelect(discord.ui.Select):
@@ -358,7 +353,6 @@ class _ChannelSelect(discord.ui.Select):
             return
         self.configurator.config["channel_id"] = int(self.values[0])
         await self.configurator.refresh(interaction)
-
 
 class _ConditionsSelect(discord.ui.Select):
     """Выпадающий список условий. За раз — одно условие, чтобы не путать модалки."""
@@ -444,7 +438,6 @@ class _ConditionsSelect(discord.ui.Select):
             "no_revote": "Запрет на повторное участие",
         }
         return mapping.get(key, key)
-
 
 class GiveawayParticipationView(discord.ui.View):
     """Бессрочная вьюха для участия в розыгрыше."""

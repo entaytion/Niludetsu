@@ -1,11 +1,9 @@
 import discord
+from Niludetsu import ModerationError, Embed, Emojis, config
 from discord import app_commands
 from discord.ext import commands
-from Niludetsu.config import NOTIFICATION_CHANNEL_ID
 from Niludetsu.moderation.checks import moderationcommand
-from Niludetsu.moderation.exceptions import ModerationError
-from Niludetsu.tools.Embed import Embed
-from Niludetsu.tools.Emojis import Emojis
+
 from typing import Optional
 
 class ClearCog(commands.Cog):
@@ -17,7 +15,7 @@ class ClearCog(commands.Cog):
     @commands.hybrid_command(
         name="clear",
         aliases=["очистить", "purge"],
-        description="🛡️ Очистить сообщения в канале"
+        description="Очистить сообщения в канале"
     )
     @app_commands.describe(
         amount="🔢 Количество сообщений для удаления (1-100)",
@@ -184,7 +182,7 @@ class ClearCog(commands.Cog):
             Пользователь, чьи сообщения удалены (если указан)
         """
         embed = Embed(
-            title="🗑️ Очистка сообщений",
+            title="Очистка сообщений",
             description=(
                 f"**Канал:** {channel.mention}\n"
                 f"**Модератор:** {moderator.mention} ({moderator.id})\n"
@@ -204,8 +202,8 @@ class ClearCog(commands.Cog):
         # Ищем канал для логов
         log_channel = None
 
-        if NOTIFICATION_CHANNEL_ID:
-            log_channel = guild.get_channel(int(NOTIFICATION_CHANNEL_ID))
+        if config.NOTIFICATION_CHANNEL_ID:
+            log_channel = guild.get_channel(int(config.NOTIFICATION_CHANNEL_ID))
 
         if not log_channel:
             log_channel = discord.utils.get(

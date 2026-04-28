@@ -1,11 +1,13 @@
-from Niludetsu.database.supabase_database import SupabaseDatabase
-from Niludetsu.tools.Time import TimeService
+from ..tools.Time import TimeService
+
+from Niludetsu.database import Database
+
 from typing import List, Optional, Dict, Any
 
 _time = TimeService()
 
 class GiveawayRepository:
-    def __init__(self, db: SupabaseDatabase):
+    def __init__(self, db: Database):
         self.db = db
 
     async def create_giveaway(self, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -32,7 +34,7 @@ class GiveawayRepository:
         )
 
     async def get_due(self) -> List[Dict[str, Any]]:
-        asap = _time.now().to_iso8601_string()
+        asap = _time.now()
         return await self.db.where(
             "giveaways",
             filters=[
@@ -48,8 +50,8 @@ class GiveawayRepository:
         payload = {
             "giveaway_id": giveaway_id,
             "user_id": user_id,
-            "joined_at": _time.now().to_iso8601_string(),
-            "left_at": _time.now().to_iso8601_string() if left else None,
+            "joined_at": _time.now(),
+            "left_at": _time.now() if left else None,
             "no_rejoin": no_rejoin,
         }
         return await self.db.upsert(

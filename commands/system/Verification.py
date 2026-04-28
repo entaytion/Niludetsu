@@ -2,12 +2,12 @@ import discord
 from discord.ext import commands
 from discord.ui import Modal, TextInput, View, Button
 
-from Niludetsu.config import SERVERS
-from Niludetsu.database.supabase_database import database
+from Niludetsu.tools.InfoCard import InfoCard
+from Niludetsu.database import database
 from Niludetsu.ai.verification_service import VerificationService
-from Niludetsu import Embed, Colors, Emojis
+from Niludetsu import Embed, Colors, Emojis, config
 
-MAIN_SERVER_ID = SERVERS["MAIN_ID"]
+MAIN_SERVER_ID = config.SERVERS["MAIN_ID"]
 VERIFICATION_CHANNEL_ID = 1414934353087303720
 ROLE_VERIFIED = 1126146184482930740
 ROLE_UNVERIFIED = 1452231718944903249
@@ -62,13 +62,13 @@ class VerificationModal(Modal, title="Верификация"):
         try:
             # Получаем данные о join_count из таблицы invites
             invite_record = await self.cog.db.get_row("invites", guild_id=str(user.guild.id), user_id=str(user.id))
-            join_count = invite_record.get("join_count", 0) if invite_record else 1 # Default 1 if new
+            leave_count = invite_record.get("leave_count", 0) if invite_record else 0
             
             user_meta = {
                 "id": str(user.id),
                 "created_at": str(user.created_at),
                 "has_avatar": user.avatar is not None,
-                "leave_count": join_count, # Используем join_count
+                "leave_count": leave_count,
                 "username": user.name
             }
 
@@ -109,24 +109,48 @@ class VerificationModal(Modal, title="Верификация"):
             )
 
 
-class VerificationView(View):
+class VerificationView(discord.ui.LayoutView):
     def __init__(self, cog: "Verification"):
         super().__init__(timeout=None)
         self.cog = cog
+        gallery = discord.ui.MediaGallery()
+        gallery.add_item(media="https://entaytion.vercel.app/ae/aeVerify.jpg")
 
-    @discord.ui.button(label="Автоматическая верификация (AI)", style=discord.ButtonStyle.blurple, custom_id="verify:auto", emoji="🤖")
-    async def auto_verify(self, interaction: discord.Interaction, button: Button):
-        if not self.cog.ai_enabled:
-             await interaction.response.send_message(
-                 "Автоматическая верификация временно отключена. Воспользуйтесь ручной.", 
-                 ephemeral=True
-             )
-             return
-        await interaction.response.send_modal(VerificationModal(self.cog, mode="auto"))
+        container = discord.ui.Container(
+            discord.ui.TextDisplay(
+                "# Ｎ Ｕ Ｌ Ｌ Ｔ Ｈ Ｅ ． Ｒ Ｅ\n"
+                "> ### **СИСТЕМА КОНТРОЛЯ БИОМАССЫ**"
+            ),
+            gallery,
+            discord.ui.Separator(),
+            discord.ui.TextDisplay(
+                "## > **ТЫ КТО ТАКОЙ?**\n"
+                "Если ты зашел просто поглазеть и висеть мертвым грузом в списке участников — **пошел нахуй**.\n\n"
+                "🛡️ **ПРАВИЛО nullthe.re:**\n"
+                "Здесь не коллекционируют циферки. Нам плевать на количество, нам важно качество.\n"
+                "Если твоя активность упадет до уровня плинтуса — мы будем кидать тебя на верификацию **каждый месяц**.\n\n"
+                "**Нам не нужны ебанные боты и аморфные существа.** Докажи, что ты живой."
+            ),
+            discord.ui.ActionRow(
+                discord.ui.Button(label="Автоматическая верификация (AI)", style=discord.ButtonStyle.blurple, custom_id="verify:auto", emoji="🤖"),
+                discord.ui.Button(label="Ручная верификация", style=discord.ButtonStyle.gray, custom_id="verify:manual", emoji="👤"),
+            ),
+            accent_colour=discord.Colour(0x000000),
+        )
+        self.add_item(container)
 
-    @discord.ui.button(label="Ручная верификация", style=discord.ButtonStyle.gray, custom_id="verify:manual", emoji="👤")
-    async def manual_verify(self, interaction: discord.Interaction, button: Button):
-        await interaction.response.send_modal(VerificationModal(self.cog, mode="manual"))
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        custom_id = interaction.data.get("custom_id")
+        if custom_id == "verify:auto":
+            if not self.cog.ai_enabled:
+                await interaction.response.send_message("Автоматическая верификация временно отключена. Воспользуйтесь ручной.", ephemeral=True)
+                return False
+            await interaction.response.send_modal(VerificationModal(self.cog, mode="auto"))
+            return False
+        elif custom_id == "verify:manual":
+            await interaction.response.send_modal(VerificationModal(self.cog, mode="manual"))
+            return False
+        return True
 
 
 class ManualReviewView(View):
@@ -209,7 +233,7 @@ class Verification(commands.Cog):
         user = interaction.user
         
         if status == "success":
-            title = "🛡️ Автоматическая верификация (AI)"
+            title = "Автоматическая верификация (AI)"
             color = Colors.SUCCESS
             content = None # No pings for success
             footer_text = "AI Верификация • Одобрено"
@@ -220,7 +244,7 @@ class Verification(commands.Cog):
             
             # Pings
             owner = interaction.guild.owner
-            specific_admin = interaction.guild.get_member(636570363605680139)
+            specific_admin = interaction.guild.get_member(config.OWNER_ID)
             pings = f"{owner.mention if owner else ''} "
             if specific_admin and specific_admin != owner:
                 pings += f"{specific_admin.mention}"
@@ -280,24 +304,8 @@ class Verification(commands.Cog):
     @commands.command(name="setupverify")
     @commands.has_permissions(administrator=True)
     async def setup_verify(self, ctx):
-        """Sends the verification embed to the channel."""
-        embed = Embed(
-            title="Верификация на Æther! 🛡️",
-            description=(
-                "> **Добро пожаловать в Империю!** 🖤\n\n"
-                "Чтобы получить доступ к серверу и стать частью нашего сообщества, "
-                "вам нужно пройти небольшую верификацию.\n\n"
-                "**Как это работает?**\n"
-                "1️⃣ Нажмите кнопку **Автоматическая верификация**.\n"
-                "2️⃣ Ответьте на один простой вопрос.\n"
-                "3️⃣ Если ответ ок — вы сразу получите доступ!\n\n"
-                "*Если что-то пойдет не так, мы проверим заявку вручную.*"
-            ),
-            color=0xF24862
-        )
-        embed.set_footer(text="Æther Verification System • Powered by Mistral AI")
-        embed.set_image(url="https://entaytion.vercel.app/ae/aeVerify.jpg")
-        await ctx.send(embed=embed, view=VerificationView(self))
+        """Отправляет шизофреническую верификацию nullthe.re."""
+        await ctx.send(view=VerificationView(self))
 
     @commands.command(name="roleverify")
     @commands.has_permissions(administrator=True)

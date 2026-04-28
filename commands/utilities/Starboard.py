@@ -1,24 +1,23 @@
 import discord
 from discord.ext import commands
-from Niludetsu import Embed, Time
-from Niludetsu.config import SERVERS, STARBOARD_CHANNEL_ID, STARBOARD_MIN_STARS, STARBOARD_EMOJI
+from Niludetsu import Embed, Time, config
 
 class Starboard(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.star_emoji = STARBOARD_EMOJI
-        self.min_stars = STARBOARD_MIN_STARS
+        self.star_emoji = config.STARBOARD_EMOJI
+        self.min_stars = config.STARBOARD_MIN_STARS
         self.time_service = Time()
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload):
         """Обработчик добавления реакций"""
         # Проверяем, что это ваш сервер
-        if payload.guild_id != SERVERS["MAIN_ID"]:
+        if payload.guild_id != config.SERVERS["MAIN_ID"]:
             return
 
         # Проверяем, что канал starboard настроен
-        if not STARBOARD_CHANNEL_ID:
+        if not config.STARBOARD_CHANNEL_ID:
             return
 
         if str(payload.emoji) != self.star_emoji:
@@ -39,7 +38,7 @@ class Starboard(commands.Cog):
             return
 
         # Получаем канал starboard
-        starboard_channel = self.bot.get_channel(STARBOARD_CHANNEL_ID)
+        starboard_channel = self.bot.get_channel(config.STARBOARD_CHANNEL_ID)
         if not starboard_channel:
             return
 
@@ -125,7 +124,7 @@ class Starboard(commands.Cog):
     @commands.Cog.listener()
     async def on_raw_reaction_remove(self, payload):
         """Обработчик удаления реакций"""
-        if not STARBOARD_CHANNEL_ID:
+        if not config.STARBOARD_CHANNEL_ID:
             return
 
         if str(payload.emoji) != self.star_emoji:
@@ -145,7 +144,7 @@ class Starboard(commands.Cog):
         star_count = star_reaction.count if star_reaction else 0
 
         # Получаем канал starboard
-        starboard_channel = self.bot.get_channel(STARBOARD_CHANNEL_ID)
+        starboard_channel = self.bot.get_channel(config.STARBOARD_CHANNEL_ID)
         if not starboard_channel:
             return
 

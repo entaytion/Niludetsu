@@ -1,11 +1,14 @@
-import asyncio, discord
+import asyncio
+import time as pytime
 from dataclasses import dataclass
+from typing import Dict, Optional, Tuple
+from ..logging import logger
+from ..tools.Time import TimeService as Time
+
+import discord
 from discord.ext import tasks
-from Niludetsu import Time
+
 from Niludetsu.analytics.repository import AnalyticsRepository
-from Niludetsu.temprooms.cache import TempRoomCache
-from Niludetsu.temprooms.repository import TempRoomsRepository
-from typing import Dict, Optional
 
 from Niludetsu.quests.tracker import QuestTracker
 
@@ -18,171 +21,169 @@ class VoiceState:
     joined_at_iso: str
 
 class AnalyticsTracker:
-    """Записывает сообщения и голосовую активность в user_analytics."""
+    """Оптимізований трекер: буферизує повідомлення для зменшення навантаження на БД."""
 
     def __init__(self, bot: discord.Client, *, main_guild_id: Optional[int] = None) -> None:
         self.bot = bot
         self.main_guild_id = main_guild_id
         self.repo = AnalyticsRepository()
         self.voice_states: Dict[int, VoiceState] = {}
-        self._lock = asyncio.Lock()
-        self.flush_voice_sessions.start()
-        self.temp_repo = TempRoomsRepository()
-        self.temp_cache = TempRoomCache(ttl=15.0)
+        
+        # Буфер повідомлень: (guild_id, user_id, channel_id) -> count
+        self._msg_buffer: Dict[Tuple[str, str, str], int] = {}
+        self._buffer_lock = asyncio.Lock()
+        
+        # Запуск періодичних задач
+        self.flush_tasks.start()
+        
         self.quest_tracker = QuestTracker()
-        self._voice_quest_accum: Dict[int, int] = {}  # user_id -> accumulated seconds
+        self._voice_quest_accum: Dict[int, int] = {}
 
     def cog_unload(self) -> None:
-        self.flush_voice_sessions.cancel()
-        self.voice_states.clear()
+        self.flush_tasks.cancel()
 
     async def track_message(self, guild_id: str, user_id: str, channel_id: str) -> None:
-        if self.main_guild_id and int(guild_id) != self.main_guild_id:
+        if not self._is_main_guild(guild_id):
             return
-        temp_key = await self._channel_key(channel_id)
-        await self.repo.upsert_user_row(
-            guild_id,
-            user_id,
-            add_messages=1,
-            message_channel=temp_key,
+
+        key = self._message_key(guild_id, user_id, channel_id)
+        async with self._buffer_lock:
+            self._msg_buffer[key] = self._msg_buffer.get(key, 0) + 1
+
+    @tasks.loop(seconds=30)
+    async def flush_tasks(self) -> None:
+        """Скидає буфери повідомлень та оновлює голосові сесії."""
+        await asyncio.gather(
+            self._flush_messages(),
+            self._flush_voice()
         )
 
-    async def track_message_delete(self, guild_id: str, user_id: str, channel_id: str) -> None:
-        if self.main_guild_id and int(guild_id) != self.main_guild_id:
-            return
-        temp_key = await self._channel_key(channel_id)
-        await self.repo.upsert_user_row(
-            guild_id,
-            user_id,
-            add_deleted=1,
-            add_messages=-1,
-            message_channel=temp_key,
-        )
+    async def _flush_messages(self) -> None:
+        async with self._buffer_lock:
+            if not self._msg_buffer:
+                return
+            current_buffer = self._msg_buffer.copy()
+            self._msg_buffer.clear()
 
-    async def track_voice_join(self, member: discord.Member, channel: discord.VoiceChannel) -> None:
-        if member.bot or (self.main_guild_id and member.guild.id != self.main_guild_id):
-            return
+        await self._flush_message_batch(current_buffer)
 
-        guild_id = str(member.guild.id)
-        user_id = str(member.id)
+    async def flush_user(self, guild_id: str, user_id: str) -> None:
+        target = (str(guild_id), str(user_id))
+        selected: Dict[Tuple[str, str, str], int] = {}
 
-        await self.repo.upsert_user_row(guild_id, user_id)
-        async with self._lock:
-            prev_state = self.voice_states.get(member.id)
-        if prev_state:
+        async with self._buffer_lock:
+            for key, count in list(self._msg_buffer.items()):
+                gid, uid, _ = key
+                if (gid, uid) != target:
+                    continue
+                selected[key] = count
+                del self._msg_buffer[key]
+
+        if selected:
+            await self._flush_message_batch(selected)
+
+    async def _flush_message_batch(
+        self,
+        batch: Dict[Tuple[str, str, str], int],
+    ) -> None:
+        for (gid, uid, cid), count in batch.items():
             try:
-                await self._commit_voice_time(member, prev_state)
-            finally:
-                async with self._lock:
-                    self.voice_states.pop(member.id, None)
+                await self.repo.upsert_user_row(
+                    gid,
+                    uid,
+                    add_messages=count,
+                    message_channel=cid,
+                )
+            except Exception as e:
+                logger.error(f"Error flushing analytics for {uid}: {e}")
 
-        joined = _time.now()
-        state = VoiceState(
-            channel_id=str(channel.id),
-            joined_at_ts=float(joined.timestamp()),
-            joined_at_iso=_time.to_iso(joined),
-        )
-        async with self._lock:
-            self.voice_states[member.id] = state
-
-        await self.repo.set_last_voice_join(guild_id, user_id, state.joined_at_iso)
-
-    async def track_voice_leave(self, member: discord.Member) -> None:
-        if member.bot:
+    async def _flush_voice(self) -> None:
+        if not self.voice_states:
             return
 
-        async with self._lock:
-            state = self.voice_states.pop(member.id, None)
+        snapshot = list(self.voice_states.items())
+        for user_id, state in snapshot:
+            member = self._find_member(user_id)
+            if not member or not member.voice or not member.voice.channel:
+                continue
+            await self._commit_voice_time(member, state)
 
-        if not state:
-            return
+    def _find_member(self, user_id: int) -> Optional[discord.Member]:
+        for guild in self.bot.guilds:
+            member = guild.get_member(user_id)
+            if member:
+                return member
+        return None
 
-        await self._commit_voice_time(member, state)
-        await self.repo.set_last_voice_join(str(member.guild.id), str(member.id), None)
+    def _is_main_guild(self, guild_id: str | int) -> bool:
+        return not self.main_guild_id or int(guild_id) == self.main_guild_id
 
-    async def _commit_voice_time(self, member: discord.Member, state: VoiceState) -> int:
-        now_dt = _time.now()
-        now_ts = float(now_dt.timestamp())
-        elapsed = max(now_ts - state.joined_at_ts, 0.0)
-        seconds = int(elapsed)
+    def _message_key(
+        self,
+        guild_id: str | int,
+        user_id: str | int,
+        channel_id: str | int,
+    ) -> Tuple[str, str, str]:
+        return str(guild_id), str(user_id), str(channel_id)
 
+    async def _commit_voice_time(self, member: discord.Member, state: VoiceState) -> None:
+        now_ts = pytime.time()
+        seconds = int(now_ts - state.joined_at_ts)
         if seconds <= 0:
-            return 0
+            return
 
-        channel_key = await self._channel_key(state.channel_id)
         await self.repo.upsert_user_row(
             str(member.guild.id),
             str(member.id),
             add_voice_seconds=seconds,
-            voice_channel=channel_key,
+            voice_channel=state.channel_id,
+        )
+        now_iso = _time.to_iso()
+        await self.repo.set_last_voice_join(
+            str(member.guild.id),
+            str(member.id),
+            now_iso,
         )
 
         state.joined_at_ts = now_ts
-        state.joined_at_iso = _time.to_iso(now_dt)
-
-        # Quest voice tracking: accumulate seconds, fire per full minute
+        state.joined_at_iso = now_iso
+        
+        # Квести
         accum = self._voice_quest_accum.get(member.id, 0) + seconds
         minutes = accum // 60
         if minutes > 0:
-            asyncio.create_task(
-                self.quest_tracker.on_voice_minute(
-                    str(member.guild.id), str(member.id), minutes,
-                )
-            )
+            asyncio.create_task(self.quest_tracker.on_voice_minute(str(member.guild.id), str(member.id), minutes))
         self._voice_quest_accum[member.id] = accum % 60
 
-        return seconds
+    async def track_voice_join(self, member: discord.Member, channel: discord.VoiceChannel) -> None:
+        if member.bot or not self._is_main_guild(member.guild.id):
+            return
+        
+        now_iso = _time.to_iso()
+        state = VoiceState(str(channel.id), pytime.time(), now_iso)
+        self.voice_states[member.id] = state
+        await self.repo.set_last_voice_join(str(member.guild.id), str(member.id), now_iso)
 
-    @tasks.loop(minutes=1)
-    async def flush_voice_sessions(self) -> None:
-        if not self.voice_states:
+    async def track_voice_leave(self, member: discord.Member) -> None:
+        state = self.voice_states.pop(member.id, None)
+        if state:
+            await self._commit_voice_time(member, state)
+            await self.repo.set_last_voice_join(str(member.guild.id), str(member.id), None)
+
+    async def track_message_delete(self, guild_id: str, user_id: str, channel_id: str) -> None:
+        if not self._is_main_guild(guild_id):
             return
 
-        async with self._lock:
-            snapshot = dict(self.voice_states)
+        try:
+            await self.repo.upsert_user_row(
+                str(guild_id),
+                str(user_id),
+                add_deleted=1,
+                message_channel=str(channel_id),
+            )
+        except Exception as e:
+            logger.error(f"Error tracking deleted message for {user_id}: {e}")
 
-        for user_id, state in snapshot.items():
-            member = None
-            for guild in self.bot.guilds:
-                member = guild.get_member(user_id)
-                if member:
-                    break
-
-            if not member or member.bot or not member.voice or not member.voice.channel:
-                continue
-
-            added = await self._commit_voice_time(member, state)
-            if added > 0:
-                async with self._lock:
-                    self.voice_states[user_id] = state
-
-    @flush_voice_sessions.before_loop
-    async def before_flush_voice_sessions(self) -> None:
+    @flush_tasks.before_loop
+    async def _before_flush_tasks(self) -> None:
         await self.bot.wait_until_ready()
-        await asyncio.sleep(1.0)
-
-    async def _channel_key(self, channel_id: str) -> str:
-        try:
-            is_temp = await self._is_temp_channel(channel_id)
-        except Exception:
-            return str(channel_id)
-        return f"temp_{channel_id}" if is_temp else str(channel_id)
-
-    async def _is_temp_channel(self, channel_id: str) -> bool:
-        cached = self.temp_cache.get(channel_id)
-        if cached is True:
-            return True
-        if cached is False:
-            return False
-
-        try:
-            row = await self.temp_repo.get_room_row(channel_id)
-        except Exception:
-            return False
-
-        if row:
-            self.temp_cache.set(channel_id, True)
-            return True
-
-        return False
-

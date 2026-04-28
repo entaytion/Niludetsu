@@ -1,7 +1,7 @@
 import discord
-from Niludetsu import Emojis
-from Niludetsu.webhooks.base import BaseLogger
+from ..tools.Emojis import Emojis
 
+from Niludetsu.webhooks.base import BaseLogger
 
 class ThreadLogger(BaseLogger):
     """Логгер для тредов (с детализацией Sapphire: archive/unarchive/lock/unlock)."""

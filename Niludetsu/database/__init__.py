@@ -1,6 +1,3 @@
-from .supabase_database import SupabaseDatabase, database
+from .database import Database, database
 
-Database = SupabaseDatabase  # ← даём алиас и тут тоже
-
-__all__ = ["SupabaseDatabase", "Database", "database"]
-
+__all__ = ["Database", "database"]

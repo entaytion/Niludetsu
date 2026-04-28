@@ -2,10 +2,12 @@ from __future__ import annotations
 import discord
 from dataclasses import dataclass
 from discord.utils import escape_markdown, get
-from Niludetsu import config
+from .. import config
+from ..tools.Time import TimeService
+
 from Niludetsu.temprooms.cache import TempRoomCache
 from Niludetsu.temprooms.repository import TempRoomsRepository
-from Niludetsu.tools.Time import TimeService
+
 from typing import Iterable, Optional
 
 _time = TimeService()

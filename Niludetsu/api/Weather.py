@@ -1,3 +1,4 @@
+from ..tools.Embed import Embed
 """
 Модуль для получения и отображения информации о погоде
 Использует OpenWeatherMap API (бесплатный)
@@ -5,7 +6,7 @@
 
 import aiohttp, os
 from dotenv import load_dotenv
-from Niludetsu import Embed
+
 from typing import Optional, Dict, Any
 
 class WeatherAPI:

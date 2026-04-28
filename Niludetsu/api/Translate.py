@@ -1,3 +1,4 @@
+from ..tools.Embed import Embed
 """
 Модуль для перевода текста на различные языки с помощью TranslateAPI
 """
@@ -6,7 +7,7 @@ import discord, os
 from deep_translator import GoogleTranslator
 from discord.ext import commands
 from dotenv import load_dotenv
-from Niludetsu import Embed
+
 from typing import Optional, Dict, List, Tuple
 
 class TranslateAPI:

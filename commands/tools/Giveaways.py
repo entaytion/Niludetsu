@@ -1,10 +1,9 @@
 import discord
+from Niludetsu import Embed, TimeService
 from discord import app_commands
 from discord.ext import commands, tasks
 from Niludetsu.giveaways import GiveawayManager
 from Niludetsu.giveaways.ui import GiveawayConfigurator
-from Niludetsu.tools.Embed import Embed
-from Niludetsu.tools.Time import TimeService
 
 _time = TimeService()
 
@@ -25,7 +24,7 @@ class Giveaways(commands.Cog):
     @tasks.loop(seconds=5)
     async def check_giveaways(self):
         if not self.manager.active:
-            return  # никаких запросов к Supabase, пока новых розыгрышей нет
+            return  # не ходим в БД, пока нет активных розыгрышей
 
         now = _time.now()
         due = await self.manager.repo.get_due()
@@ -44,11 +43,11 @@ class Giveaways(commands.Cog):
 
     giveaway_group = app_commands.Group(
         name="giveaway",
-        description="🎉 Управление розыгрышами",
+        description="Управление розыгрышами",
         guild_only=True,
     )
 
-    @giveaway_group.command(name="create", description="🥳 Создать новый розыгрыш")
+    @giveaway_group.command(name="create", description="Создать новый розыгрыш")
     async def giveaway_create(self, interaction: discord.Interaction):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("Ты не админ, иди нахуй!", ephemeral=True)
@@ -62,7 +61,7 @@ class Giveaways(commands.Cog):
         )
         view.message = await interaction.original_response()
 
-    @giveaway_group.command(name="reroll", description="🎉 Перерозыгрыш завершённого розыгрыша")
+    @giveaway_group.command(name="reroll", description="Перерозыгрыш завершённого розыгрыша")
     @app_commands.describe(giveaway_id="ID розыгрыша (из базы)")
     @app_commands.default_permissions(administrator=True)
     async def giveaway_reroll(self, interaction: discord.Interaction, giveaway_id: int):
@@ -84,7 +83,7 @@ class Giveaways(commands.Cog):
         description = "\n".join(f"🎉 {member.mention}" for member in winners)
         await interaction.followup.send(
             embed=Embed.success(
-                title="✨ Перерозыгрыш завершён!",
+                title="Перерозыгрыш завершён!",
                 description=description,
             )
         )

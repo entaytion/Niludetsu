@@ -1,9 +1,10 @@
+from ..tools.Embed import Embed
 """
 Модуль для генерации случайных чисел (API-версия)
 """
 
 import random
-from Niludetsu import Embed
+
 from typing import Optional
 
 class RandomAPI:

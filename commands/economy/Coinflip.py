@@ -1,175 +1,40 @@
-import asyncio, discord, random
-from dataclasses import dataclass
+import random
 from discord import app_commands
 from discord.ext import commands
-from Niludetsu import Emojis, Embed, resolve_member, safe_edit, safe_fetch_message, GameView
-from Niludetsu.embeds.Economy import EconomyEmbed
-from Niludetsu.database.supabase_database import database
-from Niludetsu.economy.manager import EconomyManager
-from Niludetsu.economy.validators import EconomyValidator
-from Niludetsu.economy.checks import ParseAmount, EnsureBalance, ClaimGame, DeductMoney
-from Niludetsu.tools.Validator import economy
-from typing import Dict, Optional
-
-GAME_NAME = "Монетка"
-
-@dataclass
-class CoinflipState:
-    user_id: str
-    guild_id: str
-    channel_id: int
-    bet: int
-    message_id: int
-    choice: Optional[str] = None
-
-class CoinflipView(GameView):
-    def __init__(self, cog: "Coinflip", game_id: int, owner_id: int, *, timeout: float = 30.0):
-        super().__init__(timeout=timeout)
-        self.cog = cog
-        self.game_id = game_id
-        self.owner_id = owner_id
-        self.message: Optional[discord.Message] = None
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.owner_id:
-            await interaction.response.send_message(
-                embed=Embed.error("Эта игра принадлежит другому игроку."),
-                ephemeral=True,
-            )
-            return False
-        return True
-
-    async def on_timeout(self) -> None:
-        await self.disable_all()
-        await self.cog.handle_timeout(self.game_id)
-
-    @discord.ui.button(label="Орёл", style=discord.ButtonStyle.secondary, emoji="🦅")
-    async def heads(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
-        await self.process_choice(interaction, "heads")
-
-    @discord.ui.button(label="Решка", style=discord.ButtonStyle.secondary, emoji="⚪")
-    async def tails(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
-        await self.process_choice(interaction, "tails")
-
-    async def process_choice(self, interaction: discord.Interaction, choice: str) -> None:
-        await interaction.response.defer()
-        await self.disable_all()
-        embed = await self.cog.resolve_game(self.game_id, choice)
-        if embed:
-            await safe_edit(self.message, embed=embed, view=None)
+from Niludetsu import EconomyManager, EconomyEmbed, Emojis, Embed, Colors
 
 class Coinflip(commands.Cog):
-    """🪙 Монетка: ставка х2 с учётом экономики и блокировкой мультисессий."""
-
-    def __init__(self, bot: commands.Bot) -> None:
+    def __init__(self, bot):
         self.bot = bot
-        self.db = database
-        self.economy = EconomyManager(self.db)
-        self.validator = EconomyValidator(self.economy)
+        self.economy = EconomyManager()
 
-        self._games: Dict[int, CoinflipState] = {}
-        self._lock = asyncio.Lock()
-
-    async def _store_game(self, message_id: int, state: CoinflipState) -> None:
-        async with self._lock:
-            self._games[message_id] = state
-
-    async def _pop_game(self, message_id: int) -> Optional[CoinflipState]:
-        async with self._lock:
-            return self._games.pop(message_id, None)
-
-    @commands.hybrid_command(
-        name="coinflip",
-        aliases=("монетка",),
-        description="🪙 Сыграть в монетку и удвоить ставку.",
-    )
-    @app_commands.describe(bet="🪙 Сумма ставки")
-    @economy(ParseAmount("bet"), EnsureBalance(), ClaimGame(GAME_NAME), DeductMoney("coinflip"))
-    async def coinflip(self, ctx: commands.Context, bet: Optional[str] = None) -> None:
-        user_id = str(ctx.author.id)
-        guild_id = str(ctx.guild.id)
-        bet_value = ctx.eco["amount"]
-
-        embed = EconomyEmbed.game_lobby(
-            action="🪙 Игра в монетку",
-            user=ctx.author,
-            bet=bet_value,
-            description="Выберите сторону: **Орёл** или **Решка**?",
-        )
-
-        message = await ctx.reply(embed=embed, mention_author=False)
-        view = CoinflipView(self, message.id, ctx.author.id)
-        view.message = message
-        await message.edit(view=view)
-
-        state = CoinflipState(
-            user_id=user_id,
-            guild_id=guild_id,
-            channel_id=message.channel.id,
-            bet=bet_value,
-            message_id=message.id,
-        )
-        await self._store_game(message.id, state)
-
-    async def resolve_game(self, message_id: int, choice: str) -> Optional[Embed]:
-        state = await self._pop_game(message_id)
-        if not state:
-            return Embed.error("Сессия монетки не найдена.")
-
-        result = random.choice(("heads", "tails"))
-        won = result == choice
-
-        if won:
-            await self.economy.add_money(state.user_id, state.guild_id, state.bet * 2, event="coinflip")
-            outcome = f"выиграли **{state.bet:,}** {Emojis.MONEY}"
+    @commands.hybrid_command(name="coinflip", aliases=("cf", "монетка"), description="Подбросить монетку на деньги")
+    @app_commands.describe(side="Орел или Решка", bet="Ставка")
+    async def coinflip(self, ctx, side: str, bet: str):
+        uid, gid = str(ctx.author.id), str(ctx.guild.id)
+        val = int(bet) if bet.isdigit() else 0
+        if val <= 0: return await ctx.reply("Ставка должна быть больше 0", ephemeral=True)
+        
+        side = side.lower()
+        if side not in ("орел", "решка", "о", "р"):
+            return await ctx.reply("Выберите: орел или решка", ephemeral=True)
+        
+        res = await self.economy.remove_money(uid, gid, val, event="cf_bet")
+        if res.status == "insufficient_funds":
+            return await ctx.reply(embed=EconomyEmbed.error("Недостаточно средств"), ephemeral=True)
+        elif res.status == "error":
+            return await ctx.reply(res.message, ephemeral=True)
+        
+        res_side = random.choice(["орел", "решка"])
+        win = (side.startswith(res_side[0]))
+        
+        if win:
+            payout = val * 2
+            await self.economy.add_money(uid, gid, payout, event="cf_win")
+            text = f"Выпало **{res_side.upper()}**! 🎉\nВы выиграли **{payout:,}** {Emojis.MONEY}!"
         else:
-            outcome = f"проиграли **{state.bet:,}** {Emojis.MONEY}"
+            text = f"Выпало **{res_side.upper()}**... 💥\nВы проиграли свою ставку."
 
-        member = await resolve_member(self.bot, state.user_id, state.guild_id)
+        await ctx.reply(embed=EconomyEmbed.result(action="Монетка", user=ctx.author, text=text, color=Colors.SUCCESS if win else Colors.ERROR))
 
-        choice_name = "орла" if choice == "heads" else "решку"
-        result_name = "орла" if result == "heads" else "решку"
-
-        embed = EconomyEmbed.result(
-            action="Монетка",
-            user=member,
-            text=(
-                f"вы выбрали **{choice_name}**, "
-                f"выпала **{result_name}**. Вы {outcome}."
-            ),
-        )
-
-        await self.validator.release_game(GAME_NAME, state.user_id, state.guild_id)
-        return embed
-
-    async def handle_timeout(self, message_id: int) -> None:
-        state = await self._pop_game(message_id)
-        if not state:
-            return
-
-        await self.economy.add_money(state.user_id, state.guild_id, state.bet)
-        await self.validator.release_game(GAME_NAME, state.user_id, state.guild_id)
-
-        channel = self.bot.get_channel(state.channel_id)
-        if not isinstance(channel, discord.TextChannel):
-            return
-
-        try:
-            message = await channel.fetch_message(state.message_id)
-        except discord.HTTPException:
-            return
-
-        member = await resolve_member(self.bot, state.user_id, state.guild_id)
-        embed = EconomyEmbed.result(
-            action="Монетка",
-            user=member,
-            text=f"время выбора вышло. Ставка возвращена.",
-        )
-        await safe_edit(message, embed=embed, view=None)
-
-
-    def cog_unload(self) -> None:
-        self._games.clear()
-
-async def setup(bot: commands.Bot) -> None:
-    await bot.add_cog(Coinflip(bot))
+async def setup(bot): await bot.add_cog(Coinflip(bot))

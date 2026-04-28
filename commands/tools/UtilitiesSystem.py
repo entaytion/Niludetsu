@@ -149,7 +149,7 @@ class UtilitiesSystem(commands.Cog):
         latency = round(self.bot.latency * 1000)
 
         embed = Embed.default(
-            title="🏓 Понг!",
+            title="Понг!",
             description=f"- Задержка бота: **`{latency}мс`**",
             color=Colors.SUCCESS if latency < 200 else Colors.WARNING if latency < 400 else Colors.ERROR
         )
@@ -267,7 +267,7 @@ class UtilitiesSystem(commands.Cog):
 
         # Создаем embed
         embed = Embed(
-            title="🔍 Проверка гильдий",
+            title="Проверка гильдий",
             description=f"Проверяю **{len(allowed_guilds)}** гильдий из `ALLOWED_ID`"
         )
 

@@ -1,10 +1,6 @@
 import discord
 from discord.ext import commands
-from Niludetsu import Embed
-from Niludetsu.tools.Emojis import Emojis
-from Niludetsu.config import SERVERS
-from Niludetsu.moderation.automod.manager import AutoModManager
-from Niludetsu.moderation.automod.rules import AutoModRuleType
+from Niludetsu import Embed, Emojis, AutoModManager, AutoModRuleType, config
 
 class RuleSelect(discord.ui.Select):
     def __init__(self, rules):
@@ -20,7 +16,7 @@ class RuleSelect(discord.ui.Select):
 
         options = [
             discord.SelectOption(
-                label=AutoModRuleType(rt).name,
+                label=AutoModRuleType(rt).label,
                 value=rt,
                 description=f"{Emojis.SUCCESS + ' Включено' if data['is_enabled'] else Emojis.ERROR + ' Выключено'}",
                 emoji=rule_emojis.get(rt, "⚙️"),
@@ -131,7 +127,7 @@ class RuleManageView(discord.ui.View):
         channels_text = "\n".join(ignored_channels_list) if ignored_channels_list else "Нет"
 
         embed = Embed(
-            title=f"Управление правилом: {AutoModRuleType(rule_type).name}",
+            title=f"Правило: {AutoModRuleType(rule_type).label}",
             description=f"Статус: {'Включено' if rule['is_enabled'] else 'Выключено'}\n**Игнорируемые каналы:**\n{channels_text}"
         )
         await interaction.response.edit_message(embed=embed, view=self)
@@ -272,10 +268,10 @@ class RuleManageView(discord.ui.View):
         self.add_item(RuleSelect(self.rules))
 
         desc = "\n".join([
-            f"**{AutoModRuleType(rt).name}**: {Emojis.SUCCESS + ' Включено' if data['is_enabled'] else Emojis.ERROR + ' Выключено'}"
+            f"**{AutoModRuleType(rt).label}**: {Emojis.SUCCESS + ' Включено' if data['is_enabled'] else Emojis.ERROR + ' Выключено'}"
             for rt, data in self.rules.items()
         ])
-        embed = Embed(title="🛡️ Настройки автомодерации", description=desc)
+        embed = Embed(title="Настройки автомодерации", description=desc)
         await interaction.response.edit_message(embed=embed, view=self)
 
     async def update_rule_display(self):
@@ -299,7 +295,7 @@ class RuleManageView(discord.ui.View):
             channels_text = "\n".join(ignored_channels_list) if ignored_channels_list else "Нет"
 
             embed = Embed(
-                title=f"Управление правилом: {AutoModRuleType(self.selected_rule).name}",
+                title=f"Правило: {AutoModRuleType(self.selected_rule).label}",
                 description=f"Статус: {'Включено' if rule['is_enabled'] else 'Выключено'}\n**Игнорируемые каналы:**\n{channels_text}"
             )
 
@@ -315,16 +311,16 @@ class AutoModSystem(commands.Cog):
 
     @commands.command(name="automod")
     async def automod(self, ctx):
-        if ctx.guild is None or ctx.guild.id != SERVERS["MAIN_ID"]:
+        if ctx.guild is None or ctx.guild.id != config.SERVERS["MAIN_ID"]:
             await ctx.reply("Автомодерация доступна только на основном сервере.")
             return
 
         rules = await self.settings.get_settings()
         desc = "\n".join([
-            f"**{AutoModRuleType(rt).name}**: {Emojis.SUCCESS + ' Включено' if data['is_enabled'] else Emojis.ERROR + ' Выключено'}"
+            f"**{AutoModRuleType(rt).label}**: {Emojis.SUCCESS + ' Включено' if data['is_enabled'] else Emojis.ERROR + ' Выключено'}"
             for rt, data in rules.items()
         ])
-        embed = Embed(title="🛡️ Настройки автомодерации", description=desc)
+        embed = Embed(title="Настройки автомодерации", description=desc)
         view = RuleManageView(self.bot, self.settings, rules, ctx.guild)
         msg = await ctx.reply(embed=embed, view=view)
         view.message = msg

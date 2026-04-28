@@ -1,3 +1,5 @@
+from ..logging import logger
+
 """
 QuestTracker — хуки для интеграции с существующими системами.
 
@@ -7,10 +9,9 @@ QuestTracker — хуки для интеграции с существующи�
   - BumpReminder                  → трекает бампы
 """
 
-from Niludetsu.database.supabase_database import database
-from Niludetsu.logging import logger
-from Niludetsu.quests.manager import QuestManager
+from Niludetsu.database import database
 
+from Niludetsu.quests.manager import QuestManager
 
 class QuestTracker:
     """Глобальный трекер квестов. Один на бота."""

@@ -1,8 +1,7 @@
 import discord, re
 from discord.ext import commands
 from discord.ui import Modal, TextInput, View, Button, Select
-from Niludetsu import Embed, Emojis
-from Niludetsu.config import SERVERS, NOTIFICATION_CHANNEL_ID, SERVER_TEAM_ID, JUNIOR_MODERATOR_ID, MODER_TEAM_ID, PARTNER_MANAGER_ID, PM_TEAM_ID, EVENT_MANAGER_ID, EVENT_TEAM_ID
+from Niludetsu import Embed, Emojis, config
 
 FORM_VIEWS_FLAG = "_form_views_registered"
 
@@ -11,17 +10,17 @@ POSITION_ROLES = {
     "helper": {
         "name": "Младший модератор",
         "emoji": Emojis.ICON_ROLE_MOD,
-        "roles": [SERVER_TEAM_ID, JUNIOR_MODERATOR_ID, MODER_TEAM_ID]
+        "roles": [config.SERVER_TEAM_ID, config.JUNIOR_MODERATOR_ID, config.MODER_TEAM_ID]
     },
     "partner-manager": {
         "name": "Партнёр-менеджер",
         "emoji": Emojis.ICON_ROLE_PM,
-        "roles": [SERVER_TEAM_ID, PARTNER_MANAGER_ID, PM_TEAM_ID]
+        "roles": [config.SERVER_TEAM_ID, config.PARTNER_MANAGER_ID, config.PM_TEAM_ID]
     },
     "event-manager": {
         "name": "Ивент-менеджер",
         "emoji": Emojis.ICON_ROLE_EVENT,
-        "roles": [SERVER_TEAM_ID, EVENT_MANAGER_ID, EVENT_TEAM_ID]
+        "roles": [config.SERVER_TEAM_ID, config.EVENT_MANAGER_ID, config.EVENT_TEAM_ID]
     }
 }
 
@@ -199,9 +198,9 @@ class Form(commands.Cog):
 
     async def send_form(self, interaction, position, name, age, experience, about):
         """Отправляет заявку в канал уведомлений"""
-        notification_channel = self.bot.get_channel(NOTIFICATION_CHANNEL_ID)
+        notification_channel = self.bot.get_channel(config.NOTIFICATION_CHANNEL_ID)
         if not notification_channel:
-            print(f"Канал уведомлений {NOTIFICATION_CHANNEL_ID} не найден!")
+            print(f"Канал уведомлений {config.NOTIFICATION_CHANNEL_ID} не найден!")
             return
 
         position_data = POSITION_ROLES.get(position, {})
@@ -280,7 +279,7 @@ class Form(commands.Cog):
 
         try:
             # Проверяем, что команда выполняется на основном сервере
-            if interaction.guild_id != SERVERS["MAIN_ID"]:
+            if interaction.guild_id != config.SERVERS["MAIN_ID"]:
                 raise ValueError("Команда доступна только на основном сервере.")
 
             embed = interaction.message.embeds[0]

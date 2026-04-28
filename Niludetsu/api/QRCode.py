@@ -1,10 +1,12 @@
+from ..tools.Embed import Embed
+from ..tools.Emojis import Emojis
 """
 Модуль для взаимодействия с API QR-кодов
 """
 
 import aiohttp, discord, io
 from discord.ext import commands
-from Niludetsu import Embed, Emojis
+
 from typing import Optional, Dict, Any
 from urllib.parse import urlencode
 

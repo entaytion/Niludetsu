@@ -1,7 +1,7 @@
 import discord
-from Niludetsu import Emojis
-from Niludetsu.webhooks.base import BaseLogger
+from ..tools.Emojis import Emojis
 
+from Niludetsu.webhooks.base import BaseLogger
 
 class AutoModLogger(BaseLogger):
     """Логгер для AutoMod с детализацией по Sapphire."""

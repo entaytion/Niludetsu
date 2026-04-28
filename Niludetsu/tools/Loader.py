@@ -1,8 +1,9 @@
+from .. import config
 
 import discord
 from dataclasses import dataclass, field
 from discord.ext import commands
-from Niludetsu import config
+
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 

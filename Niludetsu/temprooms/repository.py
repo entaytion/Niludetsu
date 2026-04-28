@@ -1,4 +1,4 @@
-from Niludetsu.database.supabase_database import database
+from Niludetsu.database import database
 from typing import Optional
 
 class TempRoomsRepository:

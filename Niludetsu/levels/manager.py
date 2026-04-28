@@ -1,45 +1,31 @@
+from ..tools.Time import TimeService
+
 import asyncio
-from Niludetsu.database.supabase_database import database
-from Niludetsu.tools.Time import TimeService
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
+from Niludetsu.database import database
 
 _time = TimeService()
 
 class LevelManager:
-    """Минимальный сервис для чтения/записи уровня и опыта."""
+    """Менеджер уровней. Оптимизирован для атомарных операций и Neon."""
 
     def __init__(self) -> None:
         self.db = database
-        self._locks: Dict[str, asyncio.Lock] = {}
 
     @staticmethod
     def next_level_xp(level: int) -> int:
+        """Рассчитывает необходимый опыт для следующего уровня."""
         return 5 * (level ** 2) + 50 * level + 100
 
-    def _lock_key(self, guild_id: str, user_id: str) -> str:
-        return f"{guild_id}:{user_id}"
-
-    def _get_lock(self, guild_id: str, user_id: str) -> asyncio.Lock:
-        key = self._lock_key(guild_id, user_id)
-        lock = self._locks.get(key)
-        if lock is None:
-            lock = asyncio.Lock()
-            self._locks[key] = lock
-        return lock
-
     async def get_profile(self, guild_id: str, user_id: str) -> Dict[str, int]:
-        await self.db.ensure_user(user_id, guild_id)
-        row = await self.db.get_row(
-            "user_profile",
-            guild_id=str(guild_id),
-            user_id=str(user_id),
-        )
-        if not row:
-            return {"level": 1, "experience": 0, "reputation": 0}
+        """Отримує профіль через бандл юзера (кешовано)."""
+        user_data = await self.db.get_user(str(user_id), str(guild_id))
+        profile = user_data["profile"]
+        
         return {
-            "level": int(row.get("level", 1)),
-            "experience": int(row.get("experience", 0)),
-            "reputation": int(row.get("reputation", 0)),
+            "level": int(profile.get("level", 1)),
+            "experience": int(profile.get("experience", 0)),
+            "reputation": int(profile.get("reputation", 0)),
         }
 
     async def add_experience(
@@ -48,106 +34,71 @@ class LevelManager:
         user_id: str,
         amount: int,
     ) -> Tuple[Dict[str, int], bool]:
-        """Добавляет опыт и пересчитывает уровень. Возвращает профиль и флаг повышения уровня."""
+        """Атомарно добавляет опыт и рассчитывает уровень."""
         if amount <= 0:
-            profile = await self.get_profile(guild_id, user_id)
-            return profile, False
+            return await self.get_profile(guild_id, user_id), False
 
-        await self.db.ensure_user(user_id, guild_id)
-        lock = self._get_lock(guild_id, user_id)
-        async with lock:
-            row = await self.db.get_row(
-                "user_profile",
-                guild_id=str(guild_id),
-                user_id=str(user_id),
-            ) or {
-                "level": 1,
-                "experience": 0,
-                "reputation": 0,
-            }
+        async with self.db.transaction() as conn:
+            # Блокируем строку для обновления
+            query_select = """
+                SELECT level, experience, reputation 
+                FROM public.user_profile 
+                WHERE user_id = $1 AND guild_id = $2 
+                FOR UPDATE
+            """
+            row = await conn.fetchrow(query_select, str(user_id), str(guild_id))
+            
+            if not row:
+                # Если записи нет (не должно быть с get_user), создаем ее
+                # Но так как get_user гарантирует наличие, просто вернем пустой профиль
+                return await self.get_profile(guild_id, user_id), False
 
-            level = int(row.get("level", 1))
-            exp = int(row.get("experience", 0))
-            reputation = int(row.get("reputation", 0))
-
-            exp += amount
+            level = int(row["level"])
+            exp = int(row["experience"]) + amount
+            
             leveled_up = False
-            while exp >= self.next_level_xp(level):
-                exp -= self.next_level_xp(level)
-                level += 1
+            new_level = level
+            
+            while exp >= (req := self.next_level_xp(new_level)):
+                exp -= req
+                new_level += 1
                 leveled_up = True
 
-            updated = {
-                "level": level,
-                "experience": exp,
-                "reputation": reputation,
-                "updated_at": _time.now().to_iso8601_string(),
-            }
+            query_update = """
+                UPDATE public.user_profile 
+                SET level = $3, experience = $4, updated_at = now()
+                WHERE user_id = $1 AND guild_id = $2
+                RETURNING *
+            """
+            new_row = await conn.fetchrow(query_update, str(user_id), str(guild_id), new_level, exp)
+            p = dict(new_row)
+        
+        # Обновляем кеш бандла
+        await self.db.update_user_cache(str(user_id), str(guild_id), "profile", p)
 
-            await self.db.update_record(
-                "user_profile",
-                where={
-                    "user_id": str(user_id),
-                    "guild_id": str(guild_id),
-                },
-                values=updated,
-            )
-            await self.db.invalidate_user_cache(str(user_id), str(guild_id))
+        return {
+            "level": p["level"],
+            "experience": p["experience"],
+            "reputation": p["reputation"]
+        }, leveled_up
 
-            return {
-                "level": level,
-                "experience": exp,
-                "reputation": reputation,
-            }, leveled_up
-
-    async def adjust_reputation(
-        self,
-        guild_id: str,
-        user_id: str,
-        delta: int,
-    ) -> Dict[str, int]:
-        """Изменяет репутацию и возвращает обновлённый профиль."""
+    async def adjust_reputation(self, guild_id: str, user_id: str, delta: int) -> Dict[str, int]:
         if delta == 0:
             return await self.get_profile(guild_id, user_id)
 
-        await self.db.ensure_user(user_id, guild_id)
-        lock = self._get_lock(guild_id, user_id)
-
-        async with lock:
-            row = await self.db.get_row(
-                "user_profile",
-                guild_id=str(guild_id),
-                user_id=str(user_id),
-            ) or {
-                "level": 1,
-                "experience": 0,
-                "reputation": 0,
-            }
-
-            level = int(row.get("level", 1))
-            exp = int(row.get("experience", 0))
-            reputation = int(row.get("reputation", 0)) + delta
-
-            updated = {
-                "level": level,
-                "experience": exp,
-                "reputation": reputation,
-                "updated_at": _time.now().to_iso8601_string(),
-            }
-
-            await self.db.update_record(
-                "user_profile",
-                where={
-                    "user_id": str(user_id),
-                    "guild_id": str(guild_id),
-                },
-                values=updated,
-            )
-            await self.db.invalidate_user_cache(str(user_id), str(guild_id))
-
+        new_profile = await self.db.increment_field(
+            "user_profile",
+            where={"user_id": str(user_id), "guild_id": str(guild_id)},
+            field="reputation",
+            amount=delta
+        )
+        
+        if new_profile:
+            await self.db.update_user_cache(str(user_id), str(guild_id), "profile", new_profile)
             return {
-                "level": level,
-                "experience": exp,
-                "reputation": reputation,
+                "level": new_profile["level"],
+                "experience": new_profile["experience"],
+                "reputation": new_profile["reputation"]
             }
-
+        
+        return await self.get_profile(guild_id, user_id)

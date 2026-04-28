@@ -1,92 +1,38 @@
 import random
-
 from discord.ext import commands
+from Niludetsu import EconomyManager, EconomyEmbed, Emojis
 
-from Niludetsu import Emojis
-from Niludetsu.database.supabase_database import database
-from Niludetsu.economy.checks import CheckCooldown
-from Niludetsu.economy.manager import EconomyManager
-from Niludetsu.embeds.Economy import EconomyEmbed
-from Niludetsu.tools.Validator import economy
+SLUT_CHANCE = 0.65
 
-SLUT_SUCCESS_CHANCE = 0.65
-SLUT_MIN_REWARD = 150
-SLUT_MAX_REWARD = 400
-SLUT_PENALTY_MIN = 100
-SLUT_PENALTY_MAX = 300
-
-SLUT_SUCCESS_MESSAGES = [
-    "провели ночь с богатым клиентом и получили щедрое вознаграждение",
-    "танцевали в клубе и получили хорошие чаевые от восторженных гостей",
-    "провели соблазнительную фотосессию для журнала — весьма прибыльно",
-    "сопровождали влиятельную особу на вечеринку и получили солидную оплату",
-    "поработали эскортом на закрытом мероприятии и заработали кучу денег",
-    "провели приватный массаж для богатого клиента — отличные чаевые",
-]
-
-SLUT_FAIL_MESSAGES = [
-    "полиция нравов устроила рейд — вас оштрафовали на месте",
-    "клиент оказался мошенником и сбежал, не заплатив",
-    "вас ограбили в темном переулке после работы",
-    "ваши фото попали не в те руки — пришлось платить за молчание",
-]
-
+MESSAGES_OK = ["провели ночь с богатым клиентом", "танцевали в клубе и получили чаевые"]
+MESSAGES_FAIL = ["полиция нравов устроила рейд", "вас ограбили в темном переулке"]
 
 class Slut(commands.Cog):
-    """Команда для рискованного заработка с кулдауном."""
-
-    def __init__(self, bot: commands.Bot) -> None:
+    def __init__(self, bot):
         self.bot = bot
-        self.db = database
-        self.economy = EconomyManager(self.db)
+        self.economy = EconomyManager()
 
-    @commands.hybrid_command(name="slut", description="💋 Рискованный способ заработка")
-    @economy(CheckCooldown("slut"))
-    async def slut(self, ctx: commands.Context) -> None:
-        user_id = str(ctx.author.id)
-        guild_id = str(ctx.guild.id)
+    @commands.hybrid_command(name="slut", description="Рискованный способ заработка")
+    async def slut(self, ctx):
+        uid, gid = str(ctx.author.id), str(ctx.guild.id)
+        
+        cd = await self.economy.check_cooldown(uid, gid, "slut")
+        if cd.status == "cooldown":
+            return await ctx.reply(embed=EconomyEmbed.error(f"Нужен отдых! Вернитесь через **{cd.message}**."), ephemeral=True)
 
-        await self.economy.update_cooldown(user_id, guild_id, "slut")
+        await self.economy.update_cooldown(uid, gid, "slut")
 
-        if random.random() <= SLUT_SUCCESS_CHANCE:
-            reward = random.randint(SLUT_MIN_REWARD, SLUT_MAX_REWARD)
-            success, message = await self.economy.add_money(
-                user_id, guild_id, reward, share_spousal=True, event="slut"
-            )
-
-            if not success:
-                await ctx.reply(embed=EconomyEmbed.error(message), ephemeral=True)
-                return
-
-            embed = EconomyEmbed.result(
-                action="Рискованный заработок",
-                user=ctx.author,
-                text=(
-                    f"вы {random.choice(SLUT_SUCCESS_MESSAGES)}. "
-                    f"Вы получили **{reward:,}** {Emojis.MONEY}!"
-                ),
-            )
+        if random.random() <= SLUT_CHANCE:
+            reward = random.randint(150, 400)
+            res = await self.economy.add_money(uid, gid, reward, event="slut")
+            text = f"вы {random.choice(MESSAGES_OK)}. Получено **{reward:,}** {Emojis.MONEY}!"
         else:
-            penalty = random.randint(SLUT_PENALTY_MIN, SLUT_PENALTY_MAX)
-            wallet_balance = await self.economy.get_wallet(user_id, guild_id)
-            actual_penalty = min(wallet_balance, penalty)
+            penalty = random.randint(100, 300)
+            res = await self.economy.remove_money(uid, gid, penalty, event="slut_penalty")
+            lost = penalty if res.status == "success" else 0
+            text = f"{random.choice(MESSAGES_FAIL)}. Потеряно **{lost:,}** {Emojis.MONEY}."
 
-            if actual_penalty > 0:
-                await self.economy.remove_money(
-                    user_id, guild_id, actual_penalty, event="slut_penalty"
-                )
+        await ctx.reply(embed=EconomyEmbed.result(action="Рискованный заработок", user=ctx.author, text=text), mention_author=False)
 
-            embed = EconomyEmbed.result(
-                action="Рискованный заработок",
-                user=ctx.author,
-                text=(
-                    f"{random.choice(SLUT_FAIL_MESSAGES)}. "
-                    f"Вы потеряли **{actual_penalty:,}** {Emojis.MONEY}."
-                ),
-            )
-
-        await ctx.reply(embed=embed, mention_author=False)
-
-
-async def setup(bot: commands.Bot) -> None:
+async def setup(bot):
     await bot.add_cog(Slut(bot))

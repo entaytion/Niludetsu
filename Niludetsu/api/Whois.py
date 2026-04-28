@@ -1,3 +1,5 @@
+from ..tools.Embed import Colors, Embed
+from ..tools.Time import TimeService
 """
 Модуль для получения информации о доменах и IP-адресах (WhoIs)
 """
@@ -5,7 +7,7 @@
 import aiohttp, asyncio, dns.exception, dns.resolver, ipaddress, re, whois
 from datetime import datetime
 from functools import lru_cache
-from Niludetsu import Embed, Colors, TimeService
+
 from typing import Dict, Any, Tuple, Optional, List
 from urllib.parse import urlparse
 

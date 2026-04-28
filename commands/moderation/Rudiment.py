@@ -1,10 +1,9 @@
 import discord, math
+from Niludetsu import Embed, Emojis
 from discord import app_commands
 from discord.ext import commands
 from Niludetsu.moderation.checks import moderationcommand
 from Niludetsu.moderation.system.rudiments import RudimentsSystem
-from Niludetsu.tools.Embed import Embed
-from Niludetsu.tools.Emojis import Emojis
 
 PUNISHMENT_TYPES = (
     ("warn", "Предупреждения", Emojis.WARN),
@@ -234,7 +233,7 @@ class Rudiments(commands.Cog):
         self.bot = bot
         self.system = RudimentsSystem(bot)
 
-    @commands.hybrid_command(name="rudiments", description="🛡️ Просмотреть нарушения пользователя по типам")
+    @commands.hybrid_command(name="rudiments", description="Просмотреть нарушения пользователя по типам")
     @app_commands.describe(user="👤 Пользователь или ID для просмотра (по умолчанию — вы)")
     @moderationcommand(required_level=1, cooldown=5)
     async def rudiments(self, ctx: commands.Context, user: discord.Member = None) -> None:

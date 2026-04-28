@@ -1,7 +1,7 @@
 import discord, io, os, time
 from collections import defaultdict
 from discord.ext import commands, tasks
-from Niludetsu.config import SERVERS
+from Niludetsu import config
 from PIL import Image, ImageDraw, ImageFont
 from typing import Dict, List, Set
 
@@ -22,7 +22,7 @@ class Banner(commands.Cog):
         self.session = getattr(self.bot, "http_session", None)
 
         # Проверяем доступность баннера для основного сервера
-        guild = self.bot.get_guild(SERVERS["MAIN_ID"])
+        guild = self.bot.get_guild(config.SERVERS["MAIN_ID"])
         if guild:
             # Проверяем наличие функции баннера (требуется уровень буста 2+)
             if "BANNER" in guild.features:
@@ -48,7 +48,7 @@ class Banner(commands.Cog):
             return
 
         # Работаем только на основном сервере
-        if message.guild.id != SERVERS["MAIN_ID"]:
+        if message.guild.id != config.SERVERS["MAIN_ID"]:
             return
 
         # Проверяем, не находится ли канал в исключенной категории
@@ -161,7 +161,7 @@ class Banner(commands.Cog):
         if not self.banner_available:
             return
 
-        guild = self.bot.get_guild(SERVERS["MAIN_ID"])
+        guild = self.bot.get_guild(config.SERVERS["MAIN_ID"])
         if not guild or not guild.me.guild_permissions.manage_guild:
             return
 

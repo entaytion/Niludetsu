@@ -1,81 +1,91 @@
 import discord
+from Niludetsu import AchievementsManager, Embed, Emojis
 from discord import app_commands
 from discord.ext import commands
-from io import BytesIO
-from Niludetsu.achievements.manager import AchievementsManager
-from Niludetsu.database.supabase_database import database
-from Niludetsu.profile.image import ProfileGenerator
-from Niludetsu.tools.Embed import Embed
+
+from Niludetsu.database import database
+
 from Niludetsu.tools.Discord import resolve_member
+
 from typing import Optional
+
 class Profile(commands.Cog):
-    """Команды профиля"""
+    """Команды профиля пользователя."""
 
     def __init__(self, bot):
         self.bot = bot
         self.db = database
-        self.generator = ProfileGenerator()
         self.achievements = AchievementsManager()
 
-    @app_commands.command(name="profile", description="🖼️ Посмотреть профиль пользователя")
+    def format_voice_duration(self, seconds: int) -> str:
+        if seconds <= 0: return "0м"
+        minutes = seconds // 60
+        hours = minutes // 60
+        minutes = minutes % 60
+        days = hours // 24
+        hours = hours % 24
+        
+        parts = []
+        if days > 0: parts.append(f"{days}д")
+        if hours > 0: parts.append(f"{hours}ч")
+        if minutes > 0 or not parts: parts.append(f"{minutes}м")
+        return " ".join(parts)
+
+    @app_commands.command(name="profile", description="Посмотреть профиль пользователя")
     @app_commands.describe(user="👤 Пользователь (по умолчанию — вы)")
     async def profile(self, interaction: discord.Interaction, user: Optional[discord.Member] = None):
-        """Показывает профиль пользователя"""
         await interaction.response.defer()
 
         target = user or interaction.user
-        guild_id = str(interaction.guild_id)
-        user_id = str(target.id)
+        gid, uid = str(interaction.guild_id), str(target.id)
 
-        bundle = await self.db.ensure_user(user_id, guild_id)
-
-        profile = bundle.get("profile", {})
-        economy = bundle.get("economy", {})
-
-        analytics = bundle.get("analytics", {})
-
-        marriage = await self.db.get_active_marriage(guild_id, user_id)
-        partner = None
-
+        # Получаем всё одним бандлом
+        bundle = await self.db.get_user(uid, gid)
+        prof, eco, stat = bundle["profile"], bundle["economy"], bundle["analytics"]
+        
+        marriage = bundle.get("marriage")
+        partner_str = "Одиночество 💔"
         if marriage:
-            partner_id = await self.db.get_marriage_partner(marriage, user_id)
-            partner = await resolve_member(interaction.client, partner_id, guild_id)
-            if isinstance(partner, discord.User):
-                # We need a user object for display, resolve_member gives User or Member
-                pass
+            p_id = marriage["partner_b_id"] if marriage["partner_a_id"] == uid else marriage["partner_a_id"]
+            partner = await resolve_member(interaction.client, p_id, gid)
+            partner_str = f"В браке с {partner.mention}" if partner else f"В браке с ID: {p_id}"
 
-        achievements_data = await self.achievements.get_user_summary(guild_id, user_id)
-        achievements_count = sum(1 for ach in achievements_data.values() if ach.get("unlocked"))
+        ach_summary = await self.achievements.get_user_summary(gid, uid)
+        ach_count = sum(1 for a in ach_summary.values() if a.get("unlocked"))
 
-        image_bytes = await self.generator.generate(
-            user=target,
-            profile=profile,
-            economy=economy,
-            analytics=analytics,
-            marriage=marriage,
-            partner=partner,
-            achievements_count=achievements_count
+        # Собираем красивый Embed
+        embed = Embed.default(title=f"Профиль: {target.display_name}")
+        embed.set_thumbnail(url=target.display_avatar.url)
+        
+        # Основная статистика
+        embed.add_field(
+            name="📊 Уровень", 
+            value=f"Уровень: **{prof.get('level', 1)}**\nОпыт: **{prof.get('experience', 0):,}**\nРепутация: **{prof.get('reputation', 0)}**", 
+            inline=True
+        )
+        embed.add_field(
+            name="💰 Кошелёк", 
+            value=f"Баланс: **{eco.get('balance', 0):,}** {Emojis.MONEY}\nВ банке: **{eco.get('deposit', 0):,}** {Emojis.MONEY}", 
+            inline=True
+        )
+        
+        embed.add_field(name="\u200b", value="\u200b", inline=False)
+        
+        embed.add_field(
+            name="📈 Активность", 
+            value=f"Сообщений: **{stat.get('messages_total', 0):,}**\nГолосовой: **{self.format_voice_duration(stat.get('voice_seconds', 0))}**\nДостижений: **{ach_count}**", 
+            inline=True
+        )
+        embed.add_field(
+            name="💍 Семья", 
+            value=partner_str, 
+            inline=True
         )
 
-        if not image_bytes:
-            await interaction.followup.send(
-                embed=Embed.error(description="Не удалось создать изображение профиля"),
-                ephemeral=True
-            )
-            return
-
-        file = discord.File(BytesIO(image_bytes), filename="profile.jpg")
-
         view = ProfileActionsView(self, target) if target.id == interaction.user.id else None
-
-        if view:
-            await interaction.followup.send(file=file, view=view)
-        else:
-            await interaction.followup.send(file=file)
+        await interaction.followup.send(embed=embed, view=view)
 
 class ProfileActionsView(discord.ui.View):
-    """View с кнопками действий профиля"""
-
     def __init__(self, cog: "Profile", user: discord.Member):
         super().__init__(timeout=300)
         self.cog = cog
@@ -83,31 +93,18 @@ class ProfileActionsView(discord.ui.View):
 
     @discord.ui.button(label="Достижения", emoji="🏆", style=discord.ButtonStyle.gray)
     async def achievements_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Показывает достижения"""
         if interaction.user.id != self.user.id:
-            await interaction.response.send_message(
-                embed=Embed.error(description="Это не ваш профиль!"),
-                ephemeral=True
-            )
-            return
+            return await interaction.response.send_message(embed=Embed.error(description="Это не твой профиль!"), ephemeral=True)
 
-        # Получаем достижения через cog
-        summary = await self.cog.achievements.get_user_summary(
-            str(interaction.guild_id),
-            str(self.user.id)
-        )
-
-        # Создаём embed
-        embed = Embed.info(title=f"🏆 Достижения {self.user.display_name}")
+        summary = await self.cog.achievements.get_user_summary(str(interaction.guild_id), str(self.user.id))
+        embed = Embed.info(title=f"Достижения {self.user.display_name}")
         embed.set_thumbnail(url=self.user.display_avatar.url)
 
-        for ach_id, data in summary.items():
-            status = "✅" if data["unlocked"] else "❌"
-            unlock_time = f"\n🕒 Получено: {data['unlocked_at']}" if data["unlocked"] else ""
-
+        for _, d in summary.items():
+            status = "✅" if d["unlocked"] else "❌"
             embed.add_field(
-                name=f"{status} {data['name']}",
-                value=f"{data['icon']} {data['description']}\n💰 Награда: **{data['reward']}**{unlock_time}",
+                name=f"{status} {d['name']}",
+                value=f"{d['icon']} {d['description']}\n💰 Награда: **{d['reward']}**",
                 inline=False
             )
 
@@ -115,4 +112,3 @@ class ProfileActionsView(discord.ui.View):
 
 async def setup(bot):
     await bot.add_cog(Profile(bot))
-

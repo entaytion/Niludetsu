@@ -1,68 +1,40 @@
 import random
-
 from discord.ext import commands
-
-from Niludetsu import Emojis
-from Niludetsu.database.supabase_database import database
-from Niludetsu.economy.checks import CheckCooldown
-from Niludetsu.economy.manager import EconomyManager
-from Niludetsu.embeds.Economy import EconomyEmbed
-from Niludetsu.tools.Validator import economy
+from Niludetsu import EconomyManager, EconomyEmbed, Emojis
 
 WORK_MESSAGES = [
-    ("спасателем котов", "спас кота с дерева и получил премию от благодарного хозяина"),
-    ("офисным клерком", "сортировал бумаги в мэрии: скучно, зато платят"),
+    ("спасателем котов", "спас кота с дерева и получил премию"),
     ("бариста", "отработал смену и идеально нарисовал сердечко на латте"),
-    ("парковщиком", "парковал дирижабли и ловко избежал аварии — начальство оценило"),
-    ("курьером", "разносил кофе разработчикам и собрал приличные чаевые"),
-    ("сантехником", "чистил канализацию — аромат сомнительный, но зарплата настоящая"),
-    ("IT-специалистом", "устранял баги у коллег и получил бонус за скорость"),
-    ("охранником", "дежурил ночным охранником и поймал нарушителя"),
-    ("музыкантом", "выступал уличным музыкантом — публика щедро отблагодарила"),
-    ("гидом", "проводил экскурсию по городу и заработал уважение туристов"),
-    ("доставщиком", "развозил пиццу, успев в рекордные сроки"),
-    ("декоратором", "украсил витрину магазина — продажи взлетели, и начислили премию"),
+    ("IT-специалистом", "устранил баги и получил бонус за скорость"),
+    ("охранником", "дежурил ночью и поймал нарушителя"),
 ]
 
-
 class Work(commands.Cog):
-    """Команда честного труда с кулдауном."""
-
-    def __init__(self, bot: commands.Bot) -> None:
+    def __init__(self, bot):
         self.bot = bot
-        self.db = database
-        self.economy = EconomyManager(self.db)
+        self.economy = EconomyManager()
 
-    @commands.hybrid_command(
-        name="work", description="⛑️ Получить зарплату за честный труд"
-    )
-    @economy(CheckCooldown("work"))
-    async def work(self, ctx: commands.Context) -> None:
-        user_id = str(ctx.author.id)
-        guild_id = str(ctx.guild.id)
+    @commands.hybrid_command(name="work", description="Получить зарплату за честный труд")
+    async def work(self, ctx):
+        uid, gid = str(ctx.author.id), str(ctx.guild.id)
+        
+        # Чистый switch на кулдаун
+        cd = await self.economy.check_cooldown(uid, gid, "work")
+        if cd.status == "cooldown":
+            return await ctx.reply(embed=EconomyEmbed.error(f"Вы слишком устали! Приходите через **{cd.message}**."), ephemeral=True)
 
         reward = random.randint(120, 260)
-        success, message = await self.economy.add_money(
-            user_id, guild_id, reward, share_spousal=True, event="work"
-        )
-        if not success:
-            await ctx.reply(embed=EconomyEmbed.error(message), ephemeral=True)
-            return
+        res = await self.economy.add_money(uid, gid, reward, event="work")
+        if not res:
+            return await ctx.reply(embed=EconomyEmbed.error(res.message), ephemeral=True)
 
-        await self.economy.update_cooldown(user_id, guild_id, "work")
-
+        await self.economy.update_cooldown(uid, gid, "work")
         job, story = random.choice(WORK_MESSAGES)
-
         embed = EconomyEmbed.result(
-            action="Награда за работу",
-            user=ctx.author,
-            text=(
-                f"сегодня вы работали как **{job}** и {story}. "
-                f"Вы получили **{reward:,}** {Emojis.MONEY}!"
-            ),
+            action="Награда за работу", user=ctx.author,
+            text=f"сегодня вы работали как **{job}** и {story}. Вы получили **{reward:,}** {Emojis.MONEY}!"
         )
         await ctx.reply(embed=embed, mention_author=False)
 
-
-async def setup(bot: commands.Bot) -> None:
+async def setup(bot):
     await bot.add_cog(Work(bot))

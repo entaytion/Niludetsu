@@ -1,7 +1,7 @@
 import discord
-from Niludetsu import Emojis
-from Niludetsu.webhooks.base import BaseLogger
+from ..tools.Emojis import Emojis
 
+from Niludetsu.webhooks.base import BaseLogger
 
 class EmojiLogger(BaseLogger):
     """Логгер для действий с эмодзи."""

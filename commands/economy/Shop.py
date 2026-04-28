@@ -1,16 +1,17 @@
-import discord, json, math, re
-from discord.ext import commands
-from Niludetsu import Emojis, Colors, Embed
-from Niludetsu.database.supabase_database import SupabaseDatabase, database
-from Niludetsu.economy.manager import EconomyManager
+import json
+import math
+import re
 from typing import Any, Dict, List, Optional
+
+import discord
+from discord.ext import commands
+
+from Niludetsu import Colors, Embed, Emojis, EconomyManager
+from Niludetsu.database import database
 
 ITEMS_PER_PAGE = 5
 PERSONAL_ROLE_PRICE = 10_000
 HEX_RE = re.compile(r"^[0-9a-fA-F]{6}$")
-
-def _extract_data(response: Optional[Any]) -> Optional[Any]:
-    return getattr(response, "data", None) if response is not None else None
 
 def normalize_hex(value: str) -> str:
     value = value.strip().lstrip("#")
@@ -19,26 +20,15 @@ def normalize_hex(value: str) -> str:
     return f"#{value.lower()}"
 
 class RoleShopRepository:
-    def __init__(self, db: SupabaseDatabase):
+    def __init__(self, db):
         self.db = db
 
     async def list_roles(self, guild_id: str) -> List[Dict[str, Any]]:
-        response = (
-            self.db.client.table("roles")
-            .select("*")
-            .eq("guild_id", guild_id)
-            .order("price", desc=False)
-            .execute()
-        )
-        return _extract_data(response) or []
+        rows = await self.db.list_shop_roles(guild_id)
+        return sorted(rows, key=lambda row: int(row.get("price") or 0))
 
     async def delete_role(self, role_row_id: int) -> None:
-        (
-            self.db.client.table("roles")
-            .delete()
-            .eq("id", role_row_id)
-            .execute()
-        )
+        await self.db.delete_shop_roles([role_row_id])
 
     async def upsert_role(
         self,
@@ -61,15 +51,10 @@ class RoleShopRepository:
             "price": price,
             "rights": json.dumps({}),
         }
-        response = (
-            self.db.client.table("roles")
-            .insert(payload)
-            .execute()
-        )
-        data = _extract_data(response)
-        if not data:
+        row = await self.db.add_shop_role(payload)
+        if not row:
             raise RuntimeError("Не удалось сохранить роль в таблице roles.")
-        return data[0]
+        return row
 
     async def record_inventory_entry(
         self,
@@ -80,118 +65,44 @@ class RoleShopRepository:
         price: int,
         meta: Optional[Dict[str, Any]] = None,
     ) -> None:
-        base_query = (
-            self.db.client.table("user_inventory")
-            .select("id")
-            .eq("guild_id", guild_id)
-            .eq("user_id", user_id)
-            .eq("item_type", "role")
-            .eq("item_key", role_id)
-            .maybe_single()
-        )
-        existing = _extract_data(base_query.execute())
-
+        existing = await self.db.get_inventory_role(guild_id, user_id, role_id)
         payload = {
-            "guild_id": guild_id,
-            "user_id": user_id,
-            "item_type": "role",
-            "item_key": role_id,
             "price_paid": price,
             "meta": meta or {},
         }
-
         if existing:
-            (
-                self.db.client.table("user_inventory")
-                .update(
-                    {
-                        "price_paid": price,
-                        "meta": payload["meta"],
-                    }
-                )
-                .eq("id", existing["id"])
-                .execute()
-            )
-        else:
-            (
-                self.db.client.table("user_inventory")
-                .insert(payload)
-                .execute()
-            )
-
-    async def remove_inventory_entry(
-        self,
-        *,
-        guild_id: str,
-        user_id: str,
-        role_id: str,
-    ) -> None:
-        (
-            self.db.client.table("user_inventory")
-            .delete()
-            .eq("guild_id", guild_id)
-            .eq("user_id", user_id)
-            .eq("item_type", "role")
-            .eq("item_key", role_id)
-            .execute()
+            await self.db.update_record("user_inventory", where={"id": existing["id"]}, values=payload)
+            return
+        await self.db.insert(
+            "user_inventory",
+            {
+                "guild_id": guild_id,
+                "user_id": user_id,
+                "item_type": "role",
+                "item_key": role_id,
+                "price_paid": price,
+                "meta": meta or {},
+            },
         )
 
-    async def user_owns_role(
-        self, guild_id: str, user_id: str, role_id: str
-    ) -> bool:
-        response = (
-            self.db.client.table("user_inventory")
-            .select("id")
-            .eq("guild_id", guild_id)
-            .eq("user_id", user_id)
-            .eq("item_type", "role")
-            .eq("item_key", role_id)
-            .maybe_single()
-            .execute()
-        )
-        data = _extract_data(response)
-        return bool(data)
+    async def user_owns_role(self, guild_id: str, user_id: str, role_id: str) -> bool:
+        return bool(await self.db.get_inventory_role(guild_id, user_id, role_id))
 
     async def fetch_owner_map(self, guild_id: str) -> Dict[str, List[str]]:
-        response = (
-            self.db.client.table("user_inventory")
-            .select("user_id,item_key,meta")
-            .eq("guild_id", guild_id)
-            .eq("item_type", "role")
-            .execute()
-        )
+        rows = await self.db.get_rows("user_inventory", guild_id=guild_id, item_type="role")
         owners: Dict[str, List[str]] = {}
-        for row in _extract_data(response) or []:
+        for row in rows:
             meta = row.get("meta") or {}
             if meta.get("source") == "personal_role":
                 continue
             owners.setdefault(row["item_key"], []).append(row["user_id"])
         return owners
 
-    async def fetch_personal_role_by_owner(
-        self, guild_id: str, owner_id: str
-    ) -> Optional[Dict[str, Any]]:
-        response = (
-            self.db.client.table("roles")
-            .select("*")
-            .eq("guild_id", guild_id)
-            .eq("owner_id", owner_id)
-            .maybe_single()
-            .execute()
-        )
-        return _extract_data(response)
+    async def fetch_personal_role_by_owner(self, guild_id: str, owner_id: str) -> Optional[Dict[str, Any]]:
+        return await self.db.get_row("roles", guild_id=guild_id, owner_id=owner_id)
 
-    async def purge_inventory_for_missing_role(
-        self, guild_id: str, role_id: str
-    ) -> None:
-        (
-            self.db.client.table("user_inventory")
-            .delete()
-            .eq("guild_id", guild_id)
-            .eq("item_type", "role")
-            .eq("item_key", role_id)
-            .execute()
-        )
+    async def purge_inventory_for_missing_role(self, guild_id: str, role_id: str) -> None:
+        await self.db.purge_inventory_roles(guild_id, [role_id])
 
 class PurchaseConfirmView(discord.ui.View):
     def __init__(
@@ -215,10 +126,7 @@ class PurchaseConfirmView(discord.ui.View):
     @discord.ui.button(label="Купить", style=discord.ButtonStyle.success, emoji="✅")
     async def confirm(self, interaction: discord.Interaction, _: discord.ui.Button):
         if interaction.user.id != self.buyer.id:
-            await interaction.response.send_message(
-                embed=Embed.error("Эта покупка не для тебя."),
-                ephemeral=True,
-            )
+            await interaction.response.send_message(embed=Embed.error("Эта покупка не для тебя."), ephemeral=True)
             return
 
         guild_id = str(self.guild.id)
@@ -227,32 +135,20 @@ class PurchaseConfirmView(discord.ui.View):
         role_id = self.role_data["role_id"]
         price = int(self.role_data["price"])
 
-        already_owned = await self.repo.user_owns_role(guild_id, buyer_id, role_id)
-        if already_owned:
-            await interaction.response.edit_message(
-                embed=Embed.error("У тебя уже есть эта роль."),
-                view=None,
-            )
+        if await self.repo.user_owns_role(guild_id, buyer_id, role_id):
+            await interaction.response.edit_message(embed=Embed.error("У тебя уже есть эта роль."), view=None)
             return
 
-        success, message = await self.economy.transfer_money(
-            buyer_id, seller_id, guild_id, price
-        )
-        if not success:
-            await interaction.response.edit_message(
-                embed=Embed.error(message),
-                view=None,
-            )
+        result = await self.economy.transfer_money(buyer_id, seller_id, guild_id, price, event="shop_purchase")
+        if not result:
+            await interaction.response.edit_message(embed=Embed.error(result.message), view=None)
             return
 
         role = self.guild.get_role(int(role_id))
         if not role:
-            await interaction.response.edit_message(
-                embed=Embed.error("Роль исчезла. Сделка отменена."),
-                view=None,
-            )
             await self.repo.delete_role(self.role_data["id"])
             await self.repo.purge_inventory_for_missing_role(guild_id, role_id)
+            await interaction.response.edit_message(embed=Embed.error("Роль исчезла. Сделка отменена."), view=None)
             return
 
         await self.repo.record_inventory_entry(
@@ -262,14 +158,13 @@ class PurchaseConfirmView(discord.ui.View):
             price=price,
             meta={"name": self.role_data.get("name"), "source": "shop"},
         )
-
         await self.buyer.add_roles(role, reason="Покупка роли в магазине")
-        buyer_wallet = await self.economy.get_wallet(buyer_id, guild_id)
 
+        account = result.data or await self.economy.get_account(buyer_id, guild_id)
         embed = Embed.success(
             description=(
-                f"Ты купил {role.mention} за {self.economy.format_money(price)}.\n"
-                f"Твой баланс: {self.economy.format_money(buyer_wallet)}"
+                f"Ты купил {role.mention} за **{price:,}** {Emojis.MONEY}.\n"
+                f"Твой баланс: **{account['balance']:,}** {Emojis.MONEY}"
             )
         )
         await interaction.response.edit_message(embed=embed, view=None)
@@ -277,15 +172,9 @@ class PurchaseConfirmView(discord.ui.View):
     @discord.ui.button(label="Отменить", style=discord.ButtonStyle.danger, emoji="✖️")
     async def cancel(self, interaction: discord.Interaction, _: discord.ui.Button):
         if interaction.user.id != self.buyer.id:
-            await interaction.response.send_message(
-                embed=Embed.error("Эта кнопка не для тебя."),
-                ephemeral=True,
-            )
+            await interaction.response.send_message(embed=Embed.error("Эта кнопка не для тебя."), ephemeral=True)
             return
-        await interaction.response.edit_message(
-            embed=Embed.error("Покупка отменена."),
-            view=None,
-        )
+        await interaction.response.edit_message(embed=Embed.error("Покупка отменена."), view=None)
 
 class RolePurchaseButton(discord.ui.Button):
     def __init__(
@@ -299,14 +188,12 @@ class RolePurchaseButton(discord.ui.Button):
     ):
         role = guild.get_role(int(role_data["role_id"]))
         label = role.name if role else f"Роль {role_data['id']}"
-
         super().__init__(
             label=label,
             style=discord.ButtonStyle.green if seller_present else discord.ButtonStyle.red,
             custom_id=f"shop_role_{role_data['id']}",
             disabled=not seller_present,
         )
-
         self.role_data = role_data
         self.guild = guild
         self.repo = repo
@@ -314,49 +201,26 @@ class RolePurchaseButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction) -> None:
         if not interaction.guild:
-            await interaction.response.send_message(
-                embed=Embed.error("Магазин доступен только внутри сервера."),
-                ephemeral=True,
-            )
+            await interaction.response.send_message(embed=Embed.error("Магазин доступен только внутри сервера."), ephemeral=True)
             return
-
         if str(interaction.user.id) == str(self.role_data["owner_id"]):
-            await interaction.response.send_message(
-                embed=Embed.error("Зачем покупать свою же роль? Она уже твоя."),
-                ephemeral=True,
-            )
+            await interaction.response.send_message(embed=Embed.error("Зачем покупать свою же роль? Она уже твоя."), ephemeral=True)
             return
 
         seller = interaction.guild.get_member(int(self.role_data["owner_id"]))
         if not seller:
-            await interaction.response.send_message(
-                embed=Embed.error("Продавца нет на сервере. Сделка невозможна."),
-                ephemeral=True,
-            )
+            await interaction.response.send_message(embed=Embed.error("Продавца нет на сервере. Сделка невозможна."), ephemeral=True)
             return
 
         role = interaction.guild.get_role(int(self.role_data["role_id"]))
         if not role:
-            await interaction.response.send_message(
-                embed=Embed.error("Роль удалена. Магазин скоро обновится."),
-                ephemeral=True,
-            )
             await self.repo.delete_role(self.role_data["id"])
-            await self.repo.purge_inventory_for_missing_role(
-                str(interaction.guild.id), self.role_data["role_id"]
-            )
+            await self.repo.purge_inventory_for_missing_role(str(interaction.guild.id), self.role_data["role_id"])
+            await interaction.response.send_message(embed=Embed.error("Роль удалена. Магазин скоро обновится."), ephemeral=True)
             return
 
-        user_has_role = await self.repo.user_owns_role(
-            str(interaction.guild.id),
-            str(interaction.user.id),
-            self.role_data["role_id"],
-        )
-        if user_has_role:
-            await interaction.response.send_message(
-                embed=Embed.error("У тебя уже есть эта роль."),
-                ephemeral=True,
-            )
+        if await self.repo.user_owns_role(str(interaction.guild.id), str(interaction.user.id), self.role_data["role_id"]):
+            await interaction.response.send_message(embed=Embed.error("У тебя уже есть эта роль."), ephemeral=True)
             return
 
         price = int(self.role_data["price"])
@@ -364,7 +228,7 @@ class RolePurchaseButton(discord.ui.Button):
             title="Подтверждение покупки",
             description=(
                 f"{role.mention}\n"
-                f"- Стоимость: {self.economy.format_money(price)}\n"
+                f"- Стоимость: **{price:,}** {Emojis.MONEY}\n"
                 f"- Продавец: {seller.mention}\n"
                 f"- Описание: {self.role_data.get('description') or 'не указано'}"
             ),
@@ -377,25 +241,11 @@ class RolePurchaseButton(discord.ui.Button):
             seller=seller,
             guild=interaction.guild,
         )
-        await interaction.response.send_message(
-            embed=embed,
-            view=view,
-            ephemeral=True,
-        )
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 class CreatePersonalRoleButton(discord.ui.Button):
-    def __init__(
-        self,
-        *,
-        repo: RoleShopRepository,
-        economy: EconomyManager,
-        guild: discord.Guild,
-    ):
-        super().__init__(
-            label="Создать личную роль",
-            style=discord.ButtonStyle.primary,
-            emoji="➕",
-        )
+    def __init__(self, *, repo: RoleShopRepository, economy: EconomyManager, guild: discord.Guild):
+        super().__init__(label="Создать личную роль", style=discord.ButtonStyle.primary, emoji="➕")
         self.repo = repo
         self.economy = economy
         self.guild = guild
@@ -403,7 +253,6 @@ class CreatePersonalRoleButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction) -> None:
         guild_id = str(self.guild.id)
         user_id = str(interaction.user.id)
-
         existing = await self.repo.fetch_personal_role_by_owner(guild_id, user_id)
         if existing:
             await interaction.response.send_message(
@@ -412,49 +261,30 @@ class CreatePersonalRoleButton(discord.ui.Button):
             )
             return
 
-        balance = await self.economy.get_wallet(user_id, guild_id)
+        account = await self.economy.get_account(user_id, guild_id)
+        balance = int(account.get("balance") or 0)
         if balance < PERSONAL_ROLE_PRICE:
             await interaction.response.send_message(
                 embed=Embed.error(
-                    f"Нужно {self.economy.format_money(PERSONAL_ROLE_PRICE)}, а у тебя только {self.economy.format_money(balance)}."
+                    f"Нужно **{PERSONAL_ROLE_PRICE:,}** {Emojis.MONEY}, а у тебя только **{balance:,}** {Emojis.MONEY}."
                 ),
                 ephemeral=True,
             )
             return
 
-        modal = CreatePersonalRoleModal(
-            repo=self.repo,
-            economy=self.economy,
-            guild=self.guild,
+        await interaction.response.send_modal(
+            CreatePersonalRoleModal(repo=self.repo, economy=self.economy, guild=self.guild)
         )
-        await interaction.response.send_modal(modal)
 
 class CreatePersonalRoleModal(discord.ui.Modal, title="Создание личной роли"):
-    def __init__(
-        self,
-        *,
-        repo: RoleShopRepository,
-        economy: EconomyManager,
-        guild: discord.Guild,
-    ):
+    def __init__(self, *, repo: RoleShopRepository, economy: EconomyManager, guild: discord.Guild):
         super().__init__()
         self.repo = repo
         self.economy = economy
         self.guild = guild
 
-        self.name_input = discord.ui.TextInput(
-            label="Название",
-            placeholder="Например: Лучший Саппорт",
-            min_length=2,
-            max_length=100,
-        )
-        self.color_input = discord.ui.TextInput(
-            label="Цвет (HEX)",
-            placeholder="#ff9000 или ff9000",
-            default="#ff9000",
-            min_length=6,
-            max_length=7,
-        )
+        self.name_input = discord.ui.TextInput(label="Название", placeholder="Например: Лучший Саппорт", min_length=2, max_length=100)
+        self.color_input = discord.ui.TextInput(label="Цвет (HEX)", placeholder="#ff9000 или ff9000", default="#ff9000", min_length=6, max_length=7)
         self.description_input = discord.ui.TextInput(
             label="Описание (необязательно)",
             placeholder="Короткое описание роли",
@@ -462,11 +292,7 @@ class CreatePersonalRoleModal(discord.ui.Modal, title="Создание личн
             max_length=500,
             style=discord.TextStyle.paragraph,
         )
-        self.price_input = discord.ui.TextInput(
-            label="Цена продажи",
-            placeholder="Сколько брать с покупателей (целое число)",
-            default="5000",
-        )
+        self.price_input = discord.ui.TextInput(label="Цена продажи", placeholder="Сколько брать с покупателей (целое число)", default="5000")
 
         self.add_item(self.name_input)
         self.add_item(self.color_input)
@@ -481,10 +307,7 @@ class CreatePersonalRoleModal(discord.ui.Modal, title="Создание личн
         try:
             color_value = normalize_hex(self.color_input.value)
         except ValueError as exc:
-            await interaction.response.send_message(
-                embed=Embed.error(str(exc)),
-                ephemeral=True,
-            )
+            await interaction.response.send_message(embed=Embed.error(str(exc)), ephemeral=True)
             return
 
         price_str = self.price_input.value.strip()
@@ -494,28 +317,18 @@ class CreatePersonalRoleModal(discord.ui.Modal, title="Создание личн
                 ephemeral=True,
             )
             return
+
         resale_price = int(price_str)
         if resale_price < 1:
-            await interaction.response.send_message(
-                embed=Embed.error("Минимальная цена продажи — 1."),
-                ephemeral=True,
-            )
+            await interaction.response.send_message(embed=Embed.error("Минимальная цена продажи — 1."), ephemeral=True)
             return
 
-        success, message = await self.economy.remove_money(
-            user_id, guild_id, PERSONAL_ROLE_PRICE
-        )
-        if not success:
-            await interaction.response.send_message(
-                embed=Embed.error(message),
-                ephemeral=True,
-            )
+        result = await self.economy.remove_money(user_id, guild_id, PERSONAL_ROLE_PRICE)
+        if not result:
+            await interaction.response.send_message(embed=Embed.error(result.message), ephemeral=True)
             return
 
-        await interaction.response.send_message(
-            embed=Embed.info("Создаю роль, подожди пару секунд..."),
-            ephemeral=True,
-        )
+        await interaction.response.send_message(embed=Embed.info("Создаю роль, подожди пару секунд..."), ephemeral=True)
 
         new_role: Optional[discord.Role] = None
         try:
@@ -524,12 +337,9 @@ class CreatePersonalRoleModal(discord.ui.Modal, title="Создание личн
                 color=discord.Color.from_str(color_value),
                 reason=f"Личная роль пользователя {interaction.user}",
             )
-
             bot_top_role = guild.me.top_role if guild.me else None
             if bot_top_role:
-                await guild.edit_role_positions(
-                    positions={new_role: bot_top_role.position - 1}
-                )
+                await guild.edit_role_positions(positions={new_role: bot_top_role.position - 1})
 
             await self.repo.upsert_role(
                 guild_id=guild_id,
@@ -540,7 +350,6 @@ class CreatePersonalRoleModal(discord.ui.Modal, title="Создание личн
                 description=self.description_input.value or "",
                 price=resale_price,
             )
-
             await self.repo.record_inventory_entry(
                 guild_id=guild_id,
                 user_id=user_id,
@@ -548,7 +357,6 @@ class CreatePersonalRoleModal(discord.ui.Modal, title="Создание личн
                 price=PERSONAL_ROLE_PRICE,
                 meta={"source": "personal_role"},
             )
-
             await interaction.user.add_roles(new_role, reason="Создание личной роли")
 
             await interaction.edit_original_response(
@@ -556,24 +364,19 @@ class CreatePersonalRoleModal(discord.ui.Modal, title="Создание личн
                     description=(
                         f"Личная роль {new_role.mention} создана!\n"
                         f"- Цвет: `{color_value}`\n"
-                        f"- Цена продажи: {self.economy.format_money(resale_price)}\n"
-                        f"- Стоимость создания: {self.economy.format_money(PERSONAL_ROLE_PRICE)} списана."
+                        f"- Цена продажи: **{resale_price:,}** {Emojis.MONEY}\n"
+                        f"- Стоимость создания: **{PERSONAL_ROLE_PRICE:,}** {Emojis.MONEY} списана."
                     )
                 )
             )
-
         except Exception as exc:
-            await self.economy.add_money(
-                user_id, guild_id, PERSONAL_ROLE_PRICE, share_spousal=False
-            )
+            await self.economy.add_money(user_id, guild_id, PERSONAL_ROLE_PRICE, share_spousal=False)
             if new_role:
                 try:
                     await new_role.delete(reason="Откат после ошибки создания личной роли")
                 except Exception:
                     pass
-            await interaction.edit_original_response(
-                embed=Embed.error(f"Не удалось создать роль: {exc}")
-            )
+            await interaction.edit_original_response(embed=Embed.error(f"Не удалось создать роль: {exc}"))
 
 class ShopView(discord.ui.View):
     def __init__(
@@ -594,20 +397,15 @@ class ShopView(discord.ui.View):
         self.guild = guild
         self.page = page
         self.max_pages = max(1, math.ceil(len(roles) / ITEMS_PER_PAGE))
-
         self._build_role_buttons()
         self._build_navigation()
-        self.add_item(
-            CreatePersonalRoleButton(repo=self.repo, economy=self.economy, guild=self.guild)
-        )
+        self.add_item(CreatePersonalRoleButton(repo=self.repo, economy=self.economy, guild=self.guild))
 
     def _build_role_buttons(self) -> None:
         start = self.page * ITEMS_PER_PAGE
         end = min(start + ITEMS_PER_PAGE, len(self.roles))
         for role_data in self.roles[start:end]:
-            seller_present = bool(
-                self.guild.get_member(int(role_data["owner_id"]))
-            )
+            seller_present = bool(self.guild.get_member(int(role_data["owner_id"])))
             self.add_item(
                 RolePurchaseButton(
                     role_data=role_data,
@@ -621,20 +419,12 @@ class ShopView(discord.ui.View):
     def _build_navigation(self) -> None:
         if self.max_pages <= 1:
             return
-
         if self.page > 0:
-            prev_button = discord.ui.Button(
-                label="◀️",
-                style=discord.ButtonStyle.secondary,
-            )
+            prev_button = discord.ui.Button(label="◀️", style=discord.ButtonStyle.secondary)
             prev_button.callback = self._page_callback(self.page - 1)
             self.add_item(prev_button)
-
         if self.page < self.max_pages - 1:
-            next_button = discord.ui.Button(
-                label="▶️",
-                style=discord.ButtonStyle.secondary,
-            )
+            next_button = discord.ui.Button(label="▶️", style=discord.ButtonStyle.secondary)
             next_button.callback = self._page_callback(self.page + 1)
             self.add_item(next_button)
 
@@ -649,8 +439,7 @@ class ShopView(discord.ui.View):
                 guild=self.guild,
                 page=new_page,
             )
-            embed = new_view.build_embed()
-            await interaction.response.edit_message(embed=embed, view=new_view)
+            await interaction.response.edit_message(embed=new_view.build_embed(), view=new_view)
 
         return callback
 
@@ -658,12 +447,11 @@ class ShopView(discord.ui.View):
         embed = Embed(
             title=f"{Emojis.ICON_SHOP} Магазин ролей — страница {self.page + 1}/{self.max_pages}",
             description=(
-                f"> Создай личную роль за {self.economy.format_money(PERSONAL_ROLE_PRICE)} или купи выставленную.\n"
+                f"> Создай личную роль за **{PERSONAL_ROLE_PRICE:,}** {Emojis.MONEY} или купи выставленную.\n"
                 f"- Всего ролей в продаже: {len(self.roles)}\n"
             ),
             color=Colors.INFO,
         )
-
         start = self.page * ITEMS_PER_PAGE
         end = min(start + ITEMS_PER_PAGE, len(self.roles))
 
@@ -672,13 +460,11 @@ class ShopView(discord.ui.View):
             role = self.guild.get_role(int(role_data["role_id"]))
             if not role:
                 continue
-
             owners = self.owners_map.get(role_data["role_id"], [])
             seller = self.guild.get_member(int(role_data["owner_id"]))
-
             lines = [
                 f"{role.mention}",
-                f"└ Цена: {self.economy.format_money(int(role_data['price']))}",
+                f"└ Цена: **{int(role_data['price']):,}** {Emojis.MONEY}",
                 f"└ Продавец: {seller.mention if seller else 'нет на сервере'}",
                 f"└ Купили: {len(owners)}",
             ]
@@ -689,25 +475,13 @@ class ShopView(discord.ui.View):
                 lines.append(f"└ Описание: {desc}")
             blocks.append("\n".join(lines))
 
-        if blocks:
-            embed.description += "\n" + "\n".join(blocks)
-        else:
-            embed.description += "На этой странице пока пусто — листай дальше."
-
+        embed.description += "\n" + "\n".join(blocks) if blocks else "На этой странице пока пусто — листай дальше."
         return embed
 
 class EmptyShopView(discord.ui.View):
-    def __init__(
-        self,
-        *,
-        repo: RoleShopRepository,
-        economy: EconomyManager,
-        guild: discord.Guild,
-    ):
+    def __init__(self, *, repo: RoleShopRepository, economy: EconomyManager, guild: discord.Guild):
         super().__init__(timeout=120)
-        self.add_item(
-            CreatePersonalRoleButton(repo=repo, economy=economy, guild=guild)
-        )
+        self.add_item(CreatePersonalRoleButton(repo=repo, economy=economy, guild=guild))
 
 class RoleShop(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
@@ -716,17 +490,13 @@ class RoleShop(commands.Cog):
         self.repo = RoleShopRepository(self.db)
         self.economy = EconomyManager(self.db)
 
-    @commands.hybrid_command(name="shop", description="🛒 Открыть магазин ролей")
+    @commands.hybrid_command(name="shop", description="Открыть магазин ролей")
     async def open_shop(self, ctx: commands.Context) -> None:
         if not ctx.guild:
-            await ctx.reply(
-                embed=Embed.error("Магазин работает только на сервере."),
-                ephemeral=True,
-            )
+            await ctx.reply(embed=Embed.error("Магазин работает только на сервере."), ephemeral=True)
             return
 
         guild_id = str(ctx.guild.id)
-
         roles = await self.repo.list_roles(guild_id)
         owners_map = await self.repo.fetch_owner_map(guild_id)
 
@@ -737,22 +507,22 @@ class RoleShop(commands.Cog):
             if role and seller:
                 valid_roles.append(role_data)
                 continue
-
             await self.repo.delete_role(role_data["id"])
-            await self.repo.purge_inventory_for_missing_role(
-                guild_id, role_data["role_id"]
-            )
+            await self.repo.purge_inventory_for_missing_role(guild_id, role_data["role_id"])
 
         if not valid_roles:
             embed = Embed.info(
                 title=f"{Emojis.ICON_SHOP} Магазин ролей",
                 description=(
                     "Пока здесь пусто.\n"
-                    f"Создай личную роль за {self.economy.format_money(PERSONAL_ROLE_PRICE)} — кнопка ниже."
+                    f"Создай личную роль за **{PERSONAL_ROLE_PRICE:,}** {Emojis.MONEY} — кнопка ниже."
                 ),
             )
-            view = EmptyShopView(repo=self.repo, economy=self.economy, guild=ctx.guild)
-            await ctx.reply(embed=embed, view=view, mention_author=False)
+            await ctx.reply(
+                embed=embed,
+                view=EmptyShopView(repo=self.repo, economy=self.economy, guild=ctx.guild),
+                mention_author=False,
+            )
             return
 
         view = ShopView(
@@ -762,9 +532,7 @@ class RoleShop(commands.Cog):
             economy=self.economy,
             guild=ctx.guild,
         )
-        embed = view.build_embed()
-        await ctx.reply(embed=embed, view=view, mention_author=False)
+        await ctx.reply(embed=view.build_embed(), view=view, mention_author=False)
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(RoleShop(bot))
-

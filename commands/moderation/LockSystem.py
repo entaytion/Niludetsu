@@ -2,9 +2,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from Niludetsu.moderation.checks import moderationcommand
-from Niludetsu import send
+from Niludetsu import send, Embed
 from Niludetsu.moderation.system.lock import LockSystem as NiludetsuLockSystem
-from Niludetsu.tools.Embed import Embed
 
 class LockSystem(commands.Cog):
     """Команды управления блокировкой каналов."""
@@ -17,7 +16,7 @@ class LockSystem(commands.Cog):
 
     @commands.hybrid_command(
         name="lock",
-        description="🛡️ Закрыть канал(ы) для отправки сообщений"
+        description="Закрыть канал(ы) для отправки сообщений"
     )
     @app_commands.describe(
         channel="#️⃣ Канал для блокировки (по умолчанию — текущий)",
@@ -92,7 +91,7 @@ class LockSystem(commands.Cog):
 
     @commands.hybrid_command(
         name="unlock",
-        description="🛡️ Открыть канал(ы) для отправки сообщений"
+        description="Открыть канал(ы) для отправки сообщений"
     )
     @app_commands.describe(
         channel="#️⃣ Канал для разблокировки (по умолчанию — текущий)",
@@ -159,7 +158,7 @@ class LockSystem(commands.Cog):
 
         # Отправляем подтверждение
         if unlock_all:
-            description = "✅ Все каналы разблокированы"
+            description = "Все каналы разблокированы"
         else:
             description = f"{Emoji.SUCCESS} Канал {channel.mention} разблокирован"
 

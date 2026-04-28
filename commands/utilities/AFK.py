@@ -21,7 +21,7 @@ class AFK(commands.Cog):
     @commands.hybrid_command(
         name="afk",
         aliases=("афк",),
-        description="💤 Установить AFK-статус",
+        description="Установить AFK-статус",
     )
     @app_commands.describe(reason="Причина AFK")
     async def afk(self, ctx: commands.Context, *, reason: Optional[str] = None) -> None:
@@ -42,7 +42,7 @@ class AFK(commands.Cog):
         self._afk[key] = (reason, time.time())
         await ctx.reply(
             embed=Embed(
-                description=f"💤 **{ctx.author.display_name}** теперь AFK: {reason}",
+                description=f"**{ctx.author.display_name}** теперь AFK: {reason}",
                 color=Colors.PRIMARY,
             ),
             mention_author=False,

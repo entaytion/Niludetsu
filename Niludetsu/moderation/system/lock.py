@@ -1,10 +1,12 @@
+from Niludetsu.tools.Embed import Embed
+import Niludetsu.config as config
 """
 Система блокировки/разблокировки каналов.
 """
 import discord
-from Niludetsu.config import NOTIFICATION_CHANNEL_ID
+
 from Niludetsu.moderation.exceptions import ModerationError
-from Niludetsu.tools.Embed import Embed
+
 from typing import List, Optional, Tuple
 
 class LockSystem:
@@ -238,8 +240,8 @@ class LockSystem:
         log_channel = None
 
         # Сначала пробуем NOTIFICATION_CHANNEL_ID из конфига
-        if NOTIFICATION_CHANNEL_ID:
-            log_channel = guild.get_channel(int(NOTIFICATION_CHANNEL_ID))
+        if config.NOTIFICATION_CHANNEL_ID:
+            log_channel = guild.get_channel(int(config.NOTIFICATION_CHANNEL_ID))
 
         # Если не нашли, ищем канал "mod-logs" или "модерация"
         if not log_channel:

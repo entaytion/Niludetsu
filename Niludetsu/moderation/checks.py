@@ -1,13 +1,15 @@
+from Niludetsu.tools.Embed import Embed
+from Niludetsu.tools.Time import TimeService as Time
+import Niludetsu.config as config
+
 """
 Декоратор для модераторских команд с проверкой прав и кулдауном.
 """
 import functools
-from Niludetsu.config import OWNER_ID, ROLE_PRIORITY
-from Niludetsu.tools.Embed import Embed
-from Niludetsu.tools.Time import TimeService
+
 from typing import Callable
 
-_time = TimeService()
+_time = Time()
 
 def moderationcommand(required_level: int = 1, cooldown: int = 0):
     """
@@ -46,7 +48,7 @@ def moderationcommand(required_level: int = 1, cooldown: int = 0):
                     await ctx.send(embed=embed)
 
             # Проверяем владельца бота (максимальный приоритет)
-            if member.id == OWNER_ID:
+            if member.id == config.OWNER_ID:
                 user_level = 5
             # Проверяем владельца сервера
             elif guild.owner_id == member.id:
@@ -58,7 +60,7 @@ def moderationcommand(required_level: int = 1, cooldown: int = 0):
                 # Получаем уровень из ROLE_PRIORITY в конфиге
                 user_role_ids = [role.id for role in member.roles]
                 user_level = max(
-                    (ROLE_PRIORITY.get(role_id, 0) for role_id in user_role_ids),
+                    (config.ROLE_PRIORITY.get(role_id, 0) for role_id in user_role_ids),
                     default=0
                 )
 
@@ -168,7 +170,7 @@ def check_moderation_target(moderator, target, allow_bots_for_admin: bool = Fals
         moderator_level = 0
 
         # Владелец бота
-        if moderator.id == OWNER_ID:
+        if moderator.id == config.OWNER_ID:
             moderator_level = 5
         # Владелец сервера
         elif moderator.guild.owner_id == moderator.id:
@@ -180,7 +182,7 @@ def check_moderation_target(moderator, target, allow_bots_for_admin: bool = Fals
             # Получаем уровень из ролей
             moderator_role_ids = [role.id for role in moderator.roles]
             moderator_level = max(
-                (ROLE_PRIORITY.get(role_id, 0) for role_id in moderator_role_ids),
+                (config.ROLE_PRIORITY.get(role_id, 0) for role_id in moderator_role_ids),
                 default=0
             )
 

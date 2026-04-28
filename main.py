@@ -4,14 +4,12 @@ import aiohttp
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-from Niludetsu import config
-from Niludetsu.database.supabase_database import database
-from Niludetsu.logging import logger
-from Niludetsu.tools.AccessControl import AccessGuard
-from Niludetsu.tools.Errors import setup_error_handling
+from Niludetsu import (
+    config, settings, database, logger, Embed,
+    AccessGuard, QuestTracker, LevelTracker
+)
+from Niludetsu.tools.Errors import ErrorHandler
 from Niludetsu.tools.Loader import Loader
-from Niludetsu.tools.Embed import Embed
-from Niludetsu.quests.tracker import QuestTracker
 
 intents = discord.Intents.all()
 async def get_prefix(bot, message):
@@ -106,16 +104,18 @@ class NiludetsuBot(commands.Bot):
             logger.exception(f"Failed to report error: {e}")
 
     async def setup_hook(self):
-        await setup_error_handling(self)
+        self.error_handler = ErrorHandler(self)
         self.db = database
-        self.db.set_bot(self)
         self.http_session = aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=20)
         )
 
+        # Завантажуємо конфіг з БД
+        await settings.load()
+
         self.access = AccessGuard(self)
         self.command_manager = self.access
-        self.permissions = config
+        self.permissions = settings
 
         from Niludetsu.moderation.manager import ModerationManager
         self.moderation_manager = ModerationManager(self)
@@ -126,9 +126,10 @@ class NiludetsuBot(commands.Bot):
         await self.access.bootstrap()
 
         self.quest_tracker = QuestTracker(self)
+        self.level_tracker = LevelTracker(settings.SERVERS["MAIN_ID"])
 
         for category in self.command_manager.get_categories():
-            self.command_manager.set_category_enabled(config.SERVERS["MAIN_ID"], category, True)
+            self.command_manager.set_category_enabled(settings.SERVERS["MAIN_ID"], category, True)
 
     async def _on_app_command_error(self, interaction: discord.Interaction, error: Exception) -> None:
         from discord import app_commands
@@ -149,7 +150,7 @@ class NiludetsuBot(commands.Bot):
     async def update_status(self):
         while not self.is_closed():
             try:
-                main_guild = self.get_guild(config.SERVERS["MAIN_ID"])
+                main_guild = self.get_guild(settings.SERVERS["MAIN_ID"])
                 if main_guild:
                     member_count = main_guild.member_count
                     await self.change_presence(
@@ -193,11 +194,8 @@ class NiludetsuBot(commands.Bot):
             await self.process_commands(message)
             return
 
-        if level_system and message.guild.id == config.SERVERS["MAIN_ID"]:
-            await level_system.process_message(message)
-
         # Quest tracking (only MAIN_ID)
-        if message.guild.id == config.SERVERS["MAIN_ID"]:
+        if message.guild.id == settings.SERVERS["MAIN_ID"]:
             asyncio.create_task(
                 self.quest_tracker.on_message(str(message.guild.id), str(message.author.id))
             )
@@ -213,11 +211,19 @@ class NiludetsuBot(commands.Bot):
         if self.http_session and not self.http_session.closed:
             await self.http_session.close()
 
+        if hasattr(self, "db"):
+            await self.db.close()
+
         await super().close()
 
 allowed = discord.AllowedMentions(users=True, everyone=False, roles=True)
 bot = NiludetsuBot(command_prefix=get_prefix, intents=intents, allowed_mentions=allowed)
 bot.start_time = time.time()
 load_dotenv()
-level_system = None
-bot.run(os.getenv("MAIN_TOKEN"))
+try:
+    bot.run(os.getenv("MAIN_TOKEN"))
+except KeyboardInterrupt:
+    pass
+finally:
+    # discord.py bot.run handles its own cleanup, but if we have other tasks:
+    pass

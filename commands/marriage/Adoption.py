@@ -1,9 +1,8 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from Niludetsu import Embed, Colors, Emojis
-from Niludetsu.marriage.adoption_manager import AdoptionManager
-from Niludetsu.marriage.marriage_manager import MarriageManager
+from Niludetsu import Embed, Colors, Emojis, MarriageManager, AdoptionManager
+
 from typing import Optional
 
 class AdoptionCog(commands.Cog):
@@ -12,7 +11,7 @@ class AdoptionCog(commands.Cog):
         self.adoption = AdoptionManager()
         self.marriages = MarriageManager()
 
-    @commands.hybrid_command(name="adopt", description="👨‍👩‍👧 Усыновить пользователя")
+    @commands.hybrid_command(name="adopt", description="Усыновить пользователя")
     @app_commands.describe(member="👤 Кого хотите усыновить")
     async def adopt(self, ctx: commands.Context, member: discord.Member) -> None:
         guild_id = str(ctx.guild.id)
@@ -35,7 +34,7 @@ class AdoptionCog(commands.Cog):
 
         proposal = AdoptionView(member)
         embed = Embed(
-            title="👨‍👩‍👧 Предложение усыновления",
+            title="Предложение усыновления",
             description=f"Семья {ctx.author.mention} и {ctx.guild.get_member(int(partner_id)).mention} "
                         f"хочет принять {member.mention}. Согласен?",
             color=Colors.PRIMARY,
@@ -61,13 +60,13 @@ class AdoptionCog(commands.Cog):
             return
 
         success = Embed(
-            title="🎊 Поздравляем!",
+            title="Поздравляем!",
             description=f"{member.mention} теперь часть семьи!",
             color=Colors.SUCCESS,
         )
         await message.edit(content=None, embed=success, view=None)
 
-    @commands.hybrid_command(name="release", description="🚪 Отпустить усыновлённого пользователя")
+    @commands.hybrid_command(name="release", description="Отпустить усыновлённого пользователя")
     @app_commands.describe(member="👤 Кого отпустить из семьи")
     async def release(self, ctx: commands.Context, member: discord.Member) -> None:
         guild_id = str(ctx.guild.id)
@@ -89,13 +88,13 @@ class AdoptionCog(commands.Cog):
         await self.adoption.remove_child(guild_id, parent_id, target_id)
 
         embed = Embed(
-            title="🏠 Семья распрощалась",
+            title="Семья распрощалась",
             description=f"{member.mention} больше не числится в семье {ctx.author.mention} и {ctx.guild.get_member(int(partner_id)).mention}.",
             color=Colors.WARNING,
         )
         await ctx.reply(embed=embed)
 
-    @commands.hybrid_command(name="children", description="👶 Посмотреть усыновлённых")
+    @commands.hybrid_command(name="children", description="Посмотреть усыновлённых")
     @app_commands.describe(member="👥 Чью семью показать")
     async def children(self, ctx: commands.Context, member: Optional[discord.Member] = None) -> None:
         target = member or ctx.author
@@ -121,7 +120,7 @@ class AdoptionCog(commands.Cog):
                 mentions.append(child.mention)
 
         embed = Embed(
-            title=f"👨‍👩‍👧 Семья {target.display_name}",
+            title=f"Семья {target.display_name}",
             description=f"Партнёр: {partner.mention if partner else 'не найден'}\n"
                         f"Усыновлённых: **{len(mentions)}**",
             color=Colors.PRIMARY,

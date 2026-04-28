@@ -26,8 +26,8 @@
 
 Використовуємо **uv** для керування залежностями:
 ```bash
-uv venv
-uv pip install -r requirements.txt  # або uv sync з pyproject.toml
+uv sync
+uv run main.py
 ```
 
 Створіть файл `.env` та заповніть його:
@@ -48,10 +48,8 @@ PASTEBIN_API_KEY=your_pastebin_api_key
 ISTD_API_KEY=your_istd_api_key
 SCREENSHOT_MACHINE_API_KEY=your_screenshot_machine_key
 
-# Supabase
-SUPABASE_URL=your_supabase_url
-SUPABASE_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+# Neon Postgres
+DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
 ```
 
 ## 📜 Ліцензія
@@ -59,6 +57,6 @@ GNU General Public License v3.0 — деталі у файлі `LICENSE`.
 
 ---
 ### 🙏 Подяки:
-- **Antigravity** — ШІ-асистент, який написав 100% цього коду, поки автор дивився
+- **Antigravity, Codex, Gemini CLI, Bonsai** — ШІ-асистенти, які допомагали мені писати цей код, бо автор даун.
 - **Vintro** — за допомогу з бібліотекою discord.py
 - **Google Gemini** — за те, що не відмовився працювати посеред ночі

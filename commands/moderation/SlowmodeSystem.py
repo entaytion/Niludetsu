@@ -2,10 +2,9 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from Niludetsu.moderation.checks import moderationcommand
-from Niludetsu import send
+from Niludetsu import send, Embed, Emojis
 from Niludetsu.moderation.system.slowmode import SlowmodeSystem
-from Niludetsu.tools.Embed import Embed
-from Niludetsu.tools.Emojis import Emojis
+
 from typing import Optional
 
 class SlowmodeCog(commands.Cog):
@@ -17,7 +16,7 @@ class SlowmodeCog(commands.Cog):
 
     @commands.hybrid_command(
         name="slowmode",
-        description="🛡️ Установить медленный режим в канале"
+        description="Установить медленный режим в канале"
     )
     @app_commands.describe(
         duration="⏰ Длительность (например: 10s, 1m, 1h, 0/off)",

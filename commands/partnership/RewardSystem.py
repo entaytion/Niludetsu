@@ -1,5 +1,6 @@
+from Niludetsu import Embed
 import asyncio, discord
-from Niludetsu.tools.Embed import Embed
+
 from typing import Dict, Any
 
 class RewardSystem:
@@ -106,7 +107,7 @@ class RewardSystem:
             return False
 
         embed = discord.Embed(
-            title=f"📢 {invite.guild.name}",
+            title=f"{invite.guild.name}",
             description=modal.description,
             color=discord.Color.gold()
         )

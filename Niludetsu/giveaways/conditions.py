@@ -1,5 +1,7 @@
-from Niludetsu.database.supabase_database import database
-from Niludetsu.tools.Time import TimeService
+from ..tools.Time import TimeService
+
+from Niludetsu.database import database
+
 from typing import Any, Dict, Optional
 
 _time = TimeService()
@@ -55,8 +57,9 @@ class GiveawayConditions:
         if not joined:
             return None
         joined_time = _time.ensure_datetime(joined)
-        now = _time.now()
-        return _time.seconds_between(joined_time, now) // 86400
+        if not joined_time:
+            return None
+        return int(_time.diff(joined_time).total_seconds()) // 86400
 
     @staticmethod
     async def check(bot, member, payload: Dict[str, Any], guild=None) -> Dict[str, Any]:

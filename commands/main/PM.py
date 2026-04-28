@@ -1,8 +1,6 @@
 import asyncio, discord, io
 from discord.ext import commands
-from Niludetsu import safe_fetch_user, safe_delete, delete_after
-from Niludetsu.config import NOTIFICATION_CHANNEL_ID, OWNER_ID
-from Niludetsu.development.Webhooks import Webhooks
+from Niludetsu import safe_fetch_user, safe_delete, delete_after, Webhooks, config
 
 class PrivateMessageCog(commands.Cog):
     """
@@ -15,7 +13,7 @@ class PrivateMessageCog(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if not message.guild and not message.author.bot:
-            channel = self.bot.get_channel(NOTIFICATION_CHANNEL_ID)
+            channel = self.bot.get_channel(config.NOTIFICATION_CHANNEL_ID)
             if not channel:
                 return
             fields = [
@@ -50,9 +48,9 @@ class PrivateMessageCog(commands.Cog):
         """
         Отправить личное сообщение пользователю или всем с ролью.
         !pm <user_id/role_id> <текст>
-        Только для OWNER_ID.
+        Только для config.OWNER_ID.
         """
-        if ctx.author.id != OWNER_ID:
+        if ctx.author.id != config.OWNER_ID:
             await ctx.message.delete()
             return
 
@@ -149,7 +147,7 @@ class PrivateMessageCog(commands.Cog):
             failed_text = failed_text[:1000] + "... (обрізано)"
 
         embed = discord.Embed(
-            title="📨 Массовая рассылка завершена",
+            title="Массовая рассылка завершена",
             description=f'Сообщение было отправлено для пользователей с ролью **"{role.name}"**',
             color=0x2ecc71 if not failed else 0xe74c3c
         )

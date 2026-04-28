@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ..logging import logger
 
 import asyncio
 import base64
@@ -14,7 +15,6 @@ from duckduckgo_search import DDGS
 from google import genai
 from google.genai import types
 
-from Niludetsu.logging import logger
 from .prompts import NILU_SYSTEM_PROMPT, WELCOME_QUESTION_PROMPT
 
 HISTORY_LIMIT = 200
@@ -44,19 +44,12 @@ WELCOME_FALLBACK_QUESTIONS: tuple[str, ...] = (
     "какое маленькое достижение сегодня тобой гордится?",
 )
 
+class AiohttpSessionMixin:
+    """Small helper for services that optionally share an aiohttp session."""
 
-class WelcomeQuestionGenerator:
-    def __init__(
-        self,
-        session: Optional[aiohttp.ClientSession] = None,
-        *,
-        api_key: Optional[str] = None,
-    ) -> None:
+    def _init_session(self, session: Optional[aiohttp.ClientSession] = None) -> None:
         self._session = session
         self._owns_session = False
-        self.api_key = api_key if api_key is not None else os.getenv("MISTRAL_API_KEY")
-        self.api_url = "https://api.mistral.ai/v1/chat/completions"
-        self.model_name = MISTRAL_SMALL_MODEL
 
     def bind_session(self, session: Optional[aiohttp.ClientSession]) -> None:
         self._session = session
@@ -71,6 +64,18 @@ class WelcomeQuestionGenerator:
     async def close(self) -> None:
         if self._owns_session and self._session and not self._session.closed:
             await self._session.close()
+
+class WelcomeQuestionGenerator(AiohttpSessionMixin):
+    def __init__(
+        self,
+        session: Optional[aiohttp.ClientSession] = None,
+        *,
+        api_key: Optional[str] = None,
+    ) -> None:
+        self._init_session(session)
+        self.api_key = api_key if api_key is not None else os.getenv("MISTRAL_API_KEY")
+        self.api_url = "https://api.mistral.ai/v1/chat/completions"
+        self.model_name = MISTRAL_SMALL_MODEL
 
     async def generate(self) -> str:
         if not self.api_key:
@@ -109,32 +114,15 @@ class WelcomeQuestionGenerator:
             logger.warning(f"QuestionGenerator failed: {exc}")
             return random.choice(WELCOME_FALLBACK_QUESTIONS)
 
-
 @dataclass(slots=True)
 class GeneratedImageResult:
     data: bytes
     model: str
     content_type: str
 
-
-class PuterImageService:
+class PuterImageService(AiohttpSessionMixin):
     def __init__(self, session: Optional[aiohttp.ClientSession] = None) -> None:
-        self._session = session
-        self._owns_session = False
-
-    def bind_session(self, session: Optional[aiohttp.ClientSession]) -> None:
-        self._session = session
-        self._owns_session = False
-
-    async def _ensure_session(self) -> aiohttp.ClientSession:
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
-            self._owns_session = True
-        return self._session
-
-    async def close(self) -> None:
-        if self._owns_session and self._session and not self._session.closed:
-            await self._session.close()
+        self._init_session(session)
 
     async def generate(
         self,
@@ -222,8 +210,7 @@ class PuterImageService:
 
         return None, last_error
 
-
-class GeminiChatService:
+class GeminiChatService(AiohttpSessionMixin):
     SEARCH_KEYWORDS = (
         "погугли",
         "найди",
@@ -247,22 +234,7 @@ class GeminiChatService:
         self.model_name = GEMINI_CHAT_MODEL
         self.client: Optional[genai.Client] = None
         self._configure_client(self.api_keys["primary"])
-        self._session = session
-        self._owns_session = False
-
-    def bind_session(self, session: Optional[aiohttp.ClientSession]) -> None:
-        self._session = session
-        self._owns_session = False
-
-    async def _ensure_session(self) -> aiohttp.ClientSession:
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
-            self._owns_session = True
-        return self._session
-
-    async def close(self) -> None:
-        if self._owns_session and self._session and not self._session.closed:
-            await self._session.close()
+        self._init_session(session)
 
     def _configure_client(self, api_key: Optional[str]) -> None:
         if not api_key:

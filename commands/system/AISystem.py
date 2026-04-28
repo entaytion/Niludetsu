@@ -11,7 +11,7 @@ from discord import SeparatorSpacing, app_commands
 from discord.ext import commands
 from typing import Optional
 
-from Niludetsu import Colors, Embed, safe_delete
+from Niludetsu import Colors, Embed, safe_delete, logger, config
 from Niludetsu.ai.models import (
     HISTORY_LIMIT,
     IMAGE_MODEL_CHOICES,
@@ -19,11 +19,9 @@ from Niludetsu.ai.models import (
     GeminiChatService,
     PuterImageService,
 )
-from Niludetsu.config import SERVERS
 from Niludetsu.database import database
-from Niludetsu.logging import logger
-from putergenai import PuterClient
 
+from putergenai import PuterClient
 
 class ConversationManager:
     """Управление историей разговоров через базу данных."""
@@ -65,7 +63,6 @@ class ConversationManager:
             for row in rows
             if row.get("content")
         ]
-
 
 class EmbedFormatter:
     """Форматирование эмбедов."""
@@ -164,7 +161,6 @@ class EmbedFormatter:
 
         return parts
 
-
 class AISystem(commands.Cog):
     """Основной класс системы ИИ."""
 
@@ -257,7 +253,7 @@ class AISystem(commands.Cog):
         if message.author.bot and message.author.id != self.bot.user.id:
             return
 
-        if message.guild and message.guild.id != SERVERS["MAIN_ID"]:
+        if message.guild and message.guild.id != config.SERVERS["MAIN_ID"]:
             return
 
         if not await self._is_bot_mentioned_or_reply(message):
@@ -281,7 +277,7 @@ class AISystem(commands.Cog):
 
             if len(content) > LONG_REQUEST_THRESHOLD:
                 thinking_embed = Embed(
-                    description="🤔 Думаю над вашим вопросом...",
+                    description="Думаю над вашим вопросом...",
                     color=Colors.INFO,
                 )
                 thinking_embed.set_author(
@@ -307,7 +303,7 @@ class AISystem(commands.Cog):
 
             if used_secondary:
                 fallback_embed = Embed(
-                    description="🔄 Хм, произошла ошибка, попробуем другой ключ...",
+                    description="Хм, произошла ошибка, попробуем другой ключ...",
                     color=Colors.WARNING,
                 )
                 fallback_embed.set_author(
@@ -341,7 +337,7 @@ class AISystem(commands.Cog):
 
     @app_commands.command(
         name="imagine",
-        description="🖼️ Сгенерировать изображение с помощью Puter AI",
+        description="Сгенерировать изображение с помощью Puter AI",
     )
     @app_commands.describe(prompt="💬 Описание изображения", model="🤖 Модель (необязательно)")
     @app_commands.choices(
@@ -394,7 +390,7 @@ class AISystem(commands.Cog):
                 )
 
                 embed = Embed(
-                    title="🎨 Генерация завершена",
+                    title="Генерация завершена",
                     description=f"**Запрос:** {prompt}\n**Модель:** `{image_result.model}`",
                     color=Colors.SUCCESS,
                 )
@@ -411,7 +407,6 @@ class AISystem(commands.Cog):
                 f"❌ **Критическая ошибка системы:** `{str(exc)}`",
                 ephemeral=True,
             )
-
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(AISystem(bot))

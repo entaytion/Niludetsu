@@ -1,9 +1,9 @@
+from ..tools.Embed import Embed
 """
 Модуль для транслитерации текста между кириллицей и латиницей,
 а также для исправления текста, набранного в неправильной раскладке клавиатуры.
 """
 
-from Niludetsu import Embed
 from typing import Dict, Tuple
 
 class TransliterationAPI:

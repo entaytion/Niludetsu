@@ -1,3 +1,5 @@
+from ..tools.Embed import Colors, Embed
+from ..tools.Emojis import Emojis
 """Унифицированные эмбеды для системы достижений.
 
 Формат соответствует стилю EconomyEmbed:
@@ -9,8 +11,6 @@
 
 from typing import List, Dict, Union
 import discord
-from Niludetsu.tools.Embed import Colors, Embed
-from Niludetsu.tools.Emojis import Emojis
 
 class AchievementEmbed:
     """Фабрика embed'ов для достижений."""

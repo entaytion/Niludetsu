@@ -1,8 +1,8 @@
 import discord
-from Niludetsu import Emojis
+from ..tools.Emojis import Emojis
+
 from Niludetsu.webhooks.base import BaseLogger
 from Niludetsu.webhooks.constants import permissions_list, permissions_diff
-
 
 class RoleLogger(BaseLogger):
     """Логгер для событий ролей."""

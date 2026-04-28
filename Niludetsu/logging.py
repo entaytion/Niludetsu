@@ -14,15 +14,6 @@ logger.add(
     diagnose=True,  # показывает содержимое локальных переменных
 )
 
-logger.add(
-    "logs/niludetsu_{time}.log",
-    rotation="10 MB",
-    retention="7 days",
-    compression="zip",
-    level="DEBUG",
-    enqueue=True,
-)
-
 # Чтобы сторонние библиотеки (httpx, discord и т.п.) писали через Loguru
 class InterceptHandler(logging.Handler):
     def emit(self, record):

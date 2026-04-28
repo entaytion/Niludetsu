@@ -1,10 +1,12 @@
+from ...tools.Embed import Embed
+
 """
 Система массовой выдачи/снятия ролей с расширенными проверками безопасности.
 """
 import asyncio, discord
-from Niludetsu.config import NOTIFICATION_CHANNEL_ID
+import Niludetsu.config as config
 from Niludetsu.moderation.exceptions import ModerationError
-from Niludetsu.tools.Embed import Embed
+
 from typing import Optional, List, Tuple
 
 class MassRoleSystem:
@@ -277,8 +279,8 @@ class MassRoleSystem:
         # Ищем канал для логов
         log_channel = None
 
-        if NOTIFICATION_CHANNEL_ID:
-            log_channel = guild.get_channel(int(NOTIFICATION_CHANNEL_ID))
+        if config.NOTIFICATION_CHANNEL_ID:
+            log_channel = guild.get_channel(int(config.NOTIFICATION_CHANNEL_ID))
 
         if not log_channel:
             log_channel = discord.utils.get(

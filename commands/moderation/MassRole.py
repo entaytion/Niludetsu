@@ -1,9 +1,9 @@
 import asyncio, discord
 from discord.ext import commands
 from Niludetsu.moderation.checks import moderationcommand
-from Niludetsu import send
+from Niludetsu import send, Embed
 from Niludetsu.moderation.system.massrole import MassRoleSystem
-from Niludetsu.tools.Embed import Embed
+
 from typing import Optional
 
 class MassRole(commands.Cog):
@@ -212,7 +212,7 @@ class MassRole(commands.Cog):
                 f"**Прогресс:** 0/{members_count}"
             )
             progress_embed = Embed.info(
-                title="🔄 Обработка массовой операции...",
+                title="Обработка массовой операции...",
                 description=progress_description
             )
             await confirm_message.edit(embed=progress_embed)
@@ -259,7 +259,7 @@ class MassRole(commands.Cog):
                 f"**Итого:** Роль {action_verb} {success_count} участникам"
             )
             result_embed = Embed.success(
-                title="✅ Массовая операция завершена!",
+                title="Массовая операция завершена!",
                 description=result_description
             )
 
@@ -277,7 +277,7 @@ class MassRole(commands.Cog):
 
         except asyncio.TimeoutError:
             timeout_embed = Embed.warning(
-                title="⏰ Время ожидания истекло",
+                title="Время ожидания истекло",
                 description="Операция была отменена из-за отсутствия подтверждения."
             )
             await confirm_message.edit(embed=timeout_embed)

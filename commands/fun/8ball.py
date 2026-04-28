@@ -13,7 +13,7 @@ class Ball(commands.Cog):
     @commands.command(
         name="8ball",
         aliases=["шар"],
-        description="🎱 Магический шар ответит на ваш вопрос",
+        description="Магический шар ответит на ваш вопрос",
     )
     async def ball(self, ctx: commands.Context, *, question: str = None):
         if not question:

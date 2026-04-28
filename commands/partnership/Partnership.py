@@ -2,7 +2,7 @@ import asyncio, discord, re
 from .PartnershipCore import PartnershipManager
 from discord.ext import commands
 from Niludetsu import config
-from Niludetsu.database.supabase_database import database
+from Niludetsu.database import database
 
 class Partnership(commands.Cog):
     """Команды для управления партнерствами"""
