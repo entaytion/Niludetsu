@@ -2,6 +2,7 @@ import asyncio, discord, random, uuid
 from discord import app_commands
 from discord.ext import commands
 from Niludetsu import EconomyManager, EconomyEmbed, Emojis, Embed, Colors, resolve_member
+from Niludetsu.locale import _
 
 SUIT_EMOJIS = {"D": "♦️", "H": "♥️", "C": "♣️", "S": "♠️"}
 CARD_VALS = {"A": 11, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "10": 10, "J": 10, "Q": 10, "K": 10}
@@ -39,28 +40,30 @@ class BlackjackView(discord.ui.View):
         await self._end(i, "stand")
 
     def _build_embed(self, final=False):
+        from Niludetsu.locale import DEFAULT_LOCALE
         pv, dv = get_hand_val(self.p_hand), get_hand_val(self.d_hand)
-        embed = Embed.info(title="Блекджек")
-        embed.add_field(name=f"Ваша рука ({pv})", value=fmt_hand(self.p_hand))
-        embed.add_field(name=f"Рука дилера ({dv if final else '?'})", value=fmt_hand(self.d_hand if final else [self.d_hand[0], '?']))
+        embed = Embed.info(title=DEFAULT_LOCALE.get("economy", {}).get("bj_title", "Блекджек"))
+        embed.add_field(name=f"{DEFAULT_LOCALE.get('economy', {}).get('bj_hand_player', 'Ваша рука ({score})').format(score=pv)}", value=fmt_hand(self.p_hand))
+        embed.add_field(name=f"{DEFAULT_LOCALE.get('economy', {}).get('bj_hand_dealer', 'Рука дилера ({score})').format(score=dv if final else '?')}", value=fmt_hand(self.d_hand if final else [self.d_hand[0], '?']))
         return embed
 
     async def _end(self, i, reason):
+        from Niludetsu.locale import DEFAULT_LOCALE
         for c in self.children: c.disabled = True
         pv = get_hand_val(self.p_hand)
         if reason == "stand":
             while (dv := get_hand_val(self.d_hand)) < 17: self.d_hand.append(self.deck.pop())
             dv = get_hand_val(self.d_hand)
-            if dv > 21 or pv > dv: win, msg = True, "Вы выиграли!"
-            elif pv < dv: win, msg = False, "Вы проиграли."
-            else: win, msg = "push", "Ничья."
-        else: win, msg = False, "Перебор! Вы проиграли."
+            if dv > 21 or pv > dv: win, msg = True, DEFAULT_LOCALE.get("economy", {}).get("bj_result_win", "Вы выиграли!")
+            elif pv < dv: win, msg = False, DEFAULT_LOCALE.get("economy", {}).get("bj_result_lose", "Вы проиграли.")
+            else: win, msg = "push", DEFAULT_LOCALE.get("economy", {}).get("bj_result_push", "Ничья.")
+        else: win, msg = False, DEFAULT_LOCALE.get("economy", {}).get("bj_result_bust", "Перебор! Вы проиграли.")
 
         if win == True: await self.cog.economy.add_money(str(self.uid), str(self.gid), self.bet * 2, event="bj_win")
         elif win == "push": await self.cog.economy.add_money(str(self.uid), str(self.gid), self.bet, event="bj_push")
         
         embed = self._build_embed(True)
-        embed.description = f"Ставка: **{self.bet}**\n**{msg}**"
+        embed.description = DEFAULT_LOCALE.get("economy", {}).get("bj_bet_display", "Ставка: **{bet}**\n**{result}**").format(bet=self.bet, result=msg)
         await i.response.edit_message(embed=embed, view=None)
 
 class Blackjack(commands.Cog):
@@ -70,13 +73,14 @@ class Blackjack(commands.Cog):
 
     @commands.hybrid_command(name="blackjack", aliases=("bj",), description="Сыграть в блекджек")
     async def blackjack(self, ctx, bet: str):
+        t = _(ctx=ctx)
         val = int(bet) if bet.isdigit() else 0
-        if val <= 0: return await ctx.reply("Ставка должна быть больше 0", ephemeral=True)
+        if val <= 0: return await ctx.reply(t("economy", "invalid_bet"), ephemeral=True)
         uid, gid = str(ctx.author.id), str(ctx.guild.id)
         
         res = await self.economy.remove_money(uid, gid, val, event="bj_bet")
         if res.status == "insufficient_funds":
-            return await ctx.reply(embed=EconomyEmbed.error("Недостаточно средств"), ephemeral=True)
+            return await ctx.reply(embed=EconomyEmbed.error(t("economy", "insufficient_funds")), ephemeral=True)
         elif res.status == "error":
             return await ctx.reply(res.message, ephemeral=True)
             

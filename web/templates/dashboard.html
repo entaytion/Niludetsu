@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Сервери — Niludetsu{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+  <!-- Header -->
+  <div class="anim-fade-up">
+    <h1 class="text-4xl font-black text-white tracking-tight">Ваші сервери</h1>
+    <p class="text-slate-500 mt-2 text-base">Оберіть сервер для налаштування кастомізації бота.</p>
+  </div>
+
+  <!-- Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+    {% for guild in guilds %}
+    <a href="/dashboard/guild/{{ guild.id }}"
+       class="group glass glow-hover rounded-3xl p-6 flex flex-col justify-between anim-fade-up cursor-pointer
+              hover:-translate-y-1 hover:border-accent-500/25 transition-all duration-300"
+       style="animation-delay: {{ loop.index0 * 0.07 }}s">
+
+      <!-- Top: icon + info -->
+      <div class="flex items-center gap-4">
+        {% if guild.icon %}
+        <div class="relative flex-shrink-0">
+          <img src="https://cdn.discordapp.com/icons/{{ guild.id }}/{{ guild.icon }}.png?size=128"
+               class="w-14 h-14 rounded-2xl object-cover ring-2 ring-white/[0.06] group-hover:ring-accent-500/30 transition-all duration-300 shadow-lg shadow-black/20"
+               alt="">
+          {% if guild.is_premium %}
+          <div class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
+            <svg class="w-2.5 h-2.5 text-amber-900" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          </div>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="relative flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-accent-500/20 to-purple-500/20 border border-white/[0.06] group-hover:border-accent-500/25 flex items-center justify-center text-lg font-black text-accent-400 transition-all duration-300">
+          {{ guild.name[:2] }}
+          {% if guild.is_premium %}
+          <div class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
+            <svg class="w-2.5 h-2.5 text-amber-900" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+        <div class="min-w-0">
+          <h2 class="font-bold text-white text-base group-hover:text-accent-300 transition-colors duration-300 truncate">{{ guild.name }}</h2>
+          <div class="flex items-center gap-2 mt-1.5">
+            {% if guild.is_premium %}
+            <span class="inline-flex items-center gap-1 bg-gradient-to-r from-yellow-500/15 to-amber-500/15 text-yellow-300 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border border-yellow-500/20 uppercase tracking-wider">Premium</span>
+            {% else %}
+            <span class="bg-white/[0.04] text-slate-500 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border border-white/[0.06] uppercase tracking-wider">Free</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom: button -->
+      <div class="mt-6">
+        <div class="w-full text-center bg-white/[0.03] group-hover:bg-accent-500/15 text-slate-300 group-hover:text-accent-300 font-semibold py-2.5 rounded-xl transition-all duration-300 border border-white/[0.04] group-hover:border-accent-500/25 text-sm flex items-center justify-center gap-2">
+          Налаштувати
+          <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </a>
+
+    {% else %}
+    <div class="col-span-full py-24 text-center anim-fade-up">
+      <div class="w-20 h-20 mx-auto mb-6 rounded-3xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
+        <svg class="w-10 h-10 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      </div>
+      <p class="text-slate-500 text-lg font-medium">Серверів не знайдено</p>
+      <p class="text-slate-600 text-sm mt-2">Додайте бота на сервер та надайте права адміністратора.</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

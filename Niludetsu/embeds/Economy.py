@@ -1,5 +1,6 @@
 from ..tools.Embed import Colors, Embed
 from ..tools.Emojis import Emojis
+from ..locale import DEFAULT_LOCALE
 """Унифицированные эмбеды для экономических команд.
 
 Формат:
@@ -15,6 +16,16 @@ from typing import Optional
 
 import discord
 
+
+def _locale_text(module: str, key: str, **kwargs) -> str:
+    """Отримує текст з DEFAULT_LOCALE."""
+    text = DEFAULT_LOCALE.get(module, {}).get(key, key)
+    if kwargs and text:
+        for k, v in kwargs.items():
+            text = text.replace(f"{{{k}}}", str(v))
+    return text
+
+
 class EconomyEmbed:
     """Фабрика embed'ов для экономики."""
 
@@ -26,7 +37,6 @@ class EconomyEmbed:
         text: str,
         color: int = Colors.PRIMARY,
     ) -> Embed:
-        """Стандартный embed результата."""
         return Embed.user_action(
             action=action,
             user=user,
@@ -43,27 +53,26 @@ class EconomyEmbed:
         family: Optional[int] = None,
         rewards_info: Optional[str] = None,
     ) -> Embed:
-        """Embed баланса пользователя."""
         embed = Embed.user(
             user=user,
-            title_prefix="Кошелёк пользователя",
+            title_prefix=_locale_text("economy", "balance_title"),
             color=Colors.PRIMARY,
         )
         embed.add_field(
-            name="> Кошелёк", value=f"**{wallet:,}** {Emojis.MONEY}", inline=True
+            name=f"> {_locale_text('economy', 'balance_wallet')}", value=f"**{wallet:,}** {Emojis.MONEY}", inline=True
         )
         embed.add_field(
-            name="> Банк", value=f"**{bank:,}** {Emojis.MONEY}", inline=True
+            name=f"> {_locale_text('economy', 'balance_bank')}", value=f"**{bank:,}** {Emojis.MONEY}", inline=True
         )
         if family is not None:
             embed.add_field(
-                name="> Семейный счёт",
+                name=f"> {_locale_text('economy', 'balance_family')}",
                 value=f"**{family:,}** {Emojis.MONEY}",
                 inline=True,
             )
         if rewards_info:
             embed.add_field(
-                name="> Доступные награды", value=rewards_info, inline=False
+                name=f"> {_locale_text('economy', 'balance_rewards')}", value=rewards_info, inline=False
             )
         return embed
 
@@ -75,10 +84,6 @@ class EconomyEmbed:
         text: str,
         color: int = Colors.PRIMARY,
     ) -> Embed:
-        """Embed для результата мини-игры (coinflip, slots, etc).
-
-        Аналогичен result(), но для единообразия выделен отдельно.
-        """
         return EconomyEmbed.result(
             action=action,
             user=user,
@@ -91,13 +96,12 @@ class EconomyEmbed:
         text: str,
         user: Optional[discord.Member | discord.User] = None,
     ) -> Embed:
-        """Ошибка экономической команды в формате: title='Ошибка — ...', description='@user, ...'."""
         if user is None:
-            return Embed.error(title="Ошибка — экономика", description=text)
+            return Embed.error(title=f"{_locale_text('economy', 'error_title')} — {_locale_text('economy', 'error_suffix')}", description=text)
 
         return Embed.user(
             user=user,
-            title_prefix="Ошибка",
+            title_prefix=_locale_text("economy", "error_title"),
             color=Colors.ERROR,
             text=text,
             mention=True,
@@ -112,10 +116,9 @@ class EconomyEmbed:
         bet: Optional[int] = None,
         color: int = Colors.PRIMARY,
     ) -> Embed:
-        """Embed для начала мини-игры (выбор ставки, ожидание)."""
         lines = []
         if bet is not None:
-            lines.append(f"**Ставка:** {bet:,} {Emojis.MONEY}\n")
+            lines.append(f"**{_locale_text('economy', 'game_stake')}:** {bet:,} {Emojis.MONEY}\n")
 
         if description:
             lines.append(description)
@@ -130,26 +133,26 @@ class EconomyEmbed:
     # ——— Транзакції ———
 
     EVENT_LABELS = {
-        "daily": "Ежедневка",
-        "work": "Подработка",
-        "slut": "Заработок",
-        "slut_penalty": "Штраф",
-        "rob": "Ограбление",
-        "rob_penalty": "Штраф",
-        "pay": "Перевод",
-        "deposit": "Депозит",
-        "withdraw": "Снятие",
-        "withdraw_family": "Семейный счёт",
-        "coinflip": "Монетка",
-        "slots": "Слоты",
-        "roulette": "Рулетка",
-        "blackjack": "Блекджек",
-        "duel": "Дуэль",
-        "bump": "Бамп",
-        "income": "Доход с роли",
-        "shop": "Покупка",
-        "refund": "Возврат",
-        "quest_reward": "Квест",
+        "daily": _locale_text("economy", "event_daily"),
+        "work": _locale_text("economy", "event_work"),
+        "slut": _locale_text("economy", "event_slut"),
+        "slut_penalty": _locale_text("economy", "event_slut_penalty"),
+        "rob": _locale_text("economy", "event_rob"),
+        "rob_penalty": _locale_text("economy", "event_rob_penalty"),
+        "pay": _locale_text("economy", "event_pay"),
+        "deposit": _locale_text("economy", "event_deposit"),
+        "withdraw": _locale_text("economy", "event_withdraw"),
+        "withdraw_family": _locale_text("economy", "event_withdraw_family"),
+        "coinflip": _locale_text("economy", "event_coinflip"),
+        "slots": _locale_text("economy", "event_slots"),
+        "roulette": _locale_text("economy", "event_roulette"),
+        "blackjack": _locale_text("economy", "event_blackjack"),
+        "duel": _locale_text("economy", "event_duel"),
+        "bump": _locale_text("economy", "event_bump"),
+        "income": _locale_text("economy", "event_income"),
+        "shop": _locale_text("economy", "event_shop"),
+        "refund": _locale_text("economy", "event_refund"),
+        "quest_reward": _locale_text("economy", "event_quest_reward"),
     }
 
     FILTER_MAP = {
@@ -161,16 +164,15 @@ class EconomyEmbed:
     }
 
     FILTER_LABELS = {
-        "all": "Все",
-        "income": "Доход",
-        "games": "Игры",
-        "transfers": "Переводы",
-        "bank": "Банк",
+        "all": _locale_text("economy", "filter_all"),
+        "income": _locale_text("economy", "filter_income"),
+        "games": _locale_text("economy", "filter_games"),
+        "transfers": _locale_text("economy", "filter_transfers"),
+        "bank": _locale_text("economy", "filter_bank"),
     }
 
     @staticmethod
     def transaction_row(tx: dict, time_svc) -> str:
-        """Форматирует одну строку транзакции."""
         from Niludetsu.tools.Emojis import Emojis as _Emojis
 
         amount = tx["amount"]
@@ -202,14 +204,15 @@ class EconomyEmbed:
         page: int = 0,
         total: int = 0,
         page_size: int = 10,
-        filter_label: str = "Все",
+        filter_label: str = None,
         avatar_url: Optional[str] = None,
     ) -> "Embed":
-        """Embed-страница транзакций."""
+        if filter_label is None:
+            filter_label = _locale_text("economy", "filter_all")
         if not rows:
             embed = Embed(
-                title=f"📋 Транзакции — {display_name}",
-                description="*История пуста.*",
+                title=f"📋 {_locale_text('economy', 'transactions_title')} — {display_name}",
+                description=f"*{_locale_text('economy', 'transactions_empty')}*",
                 color=Colors.PRIMARY,
             )
             if avatar_url:
@@ -220,13 +223,13 @@ class EconomyEmbed:
         max_page = max(0, (total - 1) // page_size)
 
         embed = Embed(
-            title=f"📋 Транзакции — {display_name}",
+            title=f"📋 {_locale_text('economy', 'transactions_title')} — {display_name}",
             description="\n".join(lines),
             color=Colors.PRIMARY,
         )
         if avatar_url:
             embed.set_thumbnail(url=avatar_url)
         embed.set_footer(
-            text=f"Страница {page + 1}/{max_page + 1} • Фильтр: {filter_label} • Всего: {total:,}"
+            text=_locale_text("economy", "transactions_page_footer", page=page + 1, max_page=max_page + 1, filter=filter_label, total=f"{total:,}")
         )
         return embed

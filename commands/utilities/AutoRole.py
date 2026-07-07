@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from Niludetsu import Embed, Colors, Emojis
+from Niludetsu.locale import _
 from Niludetsu.settings import settings
 from Niludetsu.database import database
 from typing import List
@@ -109,6 +110,7 @@ class AutoRole(commands.Cog):
             member: Участник сервера
         """
         guild = member.guild
+        t = _(guild_id=guild.id, bot=self.bot)
 
         has_ban = await self._has_active_ban(guild.id, member.id)
 
@@ -146,14 +148,14 @@ class AutoRole(commands.Cog):
                            channel = guild.get_channel(VERIFICATION_CHANNEL_ID)
                            if channel:
                                embed = Embed(
-                                   title="Автоматическая верификация",
-                                   description=f"Пользователь {member.mention} автоматический верифицирован (WhiteList).",
+                                   title=t("utilities", "autorole_whitelist_title"),
+                                   description=t("utilities", "autorole_whitelist_desc", member_mention=member.mention),
                                    color=Colors.SUCCESS
                                )
-                               embed.add_field(name="🆔 ID", value=f"`{member.id}`", inline=True)
-                               embed.add_field(name="🔢 Входов", value=f"`{join_count}`", inline=True)
+                               embed.add_field(name=t("utilities", "autorole_whitelist_id"), value=f"`{member.id}`", inline=True)
+                               embed.add_field(name=t("utilities", "autorole_whitelist_joins"), value=f"`{join_count}`", inline=True)
                                embed.set_thumbnail(url=member.display_avatar.url)
-                               embed.set_footer(text="Система доверия (WhiteList)")
+                               embed.set_footer(text=t("utilities", "autorole_whitelist_footer"))
                                await channel.send(embed=embed)
                        except Exception as ex:
                            print(f"[AutoRole] Failed to send whitelist log: {ex}")
@@ -199,18 +201,19 @@ class AutoRole(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def enable_verify(self, ctx):
         """Включити систему верифікації."""
+        t = _(ctx=ctx)
         await settings.set("VERIFICATION_ENABLED", True)
         unverified_role = ctx.guild.get_role(ROLE_UNVERIFIED)
         role_name = unverified_role.name if unverified_role else "Unknown"
-        await ctx.send(f"{Emojis.SUCCESS} Верификация **включена**. Теперь новые пользователи будут получать роль `{role_name}`.")
+        await ctx.send(f"{Emojis.SUCCESS} {t('utilities', 'autorole_verify_enabled', role_name=role_name)}")
 
     @commands.command(name="disableverify")
     @commands.has_permissions(administrator=True)
     async def disable_verify(self, ctx):
         """Відключити систему верифікації."""
+        t = _(ctx=ctx)
         await settings.set("VERIFICATION_ENABLED", False)
-        await ctx.send(f"{Emojis.SUCCESS} Верификация **отключена**. Теперь новые пользователи будут получать все роли сразу.")
+        await ctx.send(f"{Emojis.SUCCESS} {t('utilities', 'autorole_verify_disabled')}")
 
 async def setup(bot):
     await bot.add_cog(AutoRole(bot))
-

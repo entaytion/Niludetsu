@@ -1,5 +1,6 @@
 import discord
 from Niludetsu import EconomyManager, Embed, Emojis, config
+from Niludetsu.locale import _
 from discord.ext import commands
 from typing import Optional, Dict, Any
 from Niludetsu.database import Database, database
@@ -51,38 +52,51 @@ class Booster(commands.Cog):
     async def _handle_boost_add(self, member: discord.Member):
         """Обрабатывает добавление буста"""
         guild = member.guild
-        guild_id = str(guild.id)
+        guild_id = guild.id
         user_id = str(member.id)
+        t = _(guild_id=guild_id, bot=self.bot)
 
-        success, message = await self.economy.add_money(
-            user_id,
-            guild_id,
-            BOOST_REWARD,
-            share_spousal=True
-        )
+        # Main Server Logic
+        if guild.id == MAIN_SERVER_ID:
+            success, message = await self.economy.add_money(
+                user_id,
+                str(guild_id),
+                BOOST_REWARD,
+                share_spousal=True
+            )
+            if not success:
+                print(f"[Booster] Ошибка выдачи награды {member.name}: {message}")
 
-        if not success:
-            print(f"[Booster] Ошибка выдачи награды {member.name}: {message}")
+            news_channel = self.bot.get_channel(NEWS_CHANNEL_ID)
+            if news_channel:
+                embed = Embed(
+                    title=t("utilities", "booster_new_title"),
+                    description=t("utilities", "booster_new_desc", member_mention=member.mention, reward=f"{BOOST_REWARD:,}", currency=Emojis.MONEY),
+                    color=discord.Color.nitro_pink()
+                )
+                embed.set_thumbnail(url=member.display_avatar.url)
+                try:
+                    await news_channel.send(embed=embed)
+                except Exception as e:
+                    print(f"[Booster] Ошибка отправки в канал новостей: {e}")
             return
 
-        news_channel = self.bot.get_channel(NEWS_CHANNEL_ID)
-        if not news_channel:
-            return
-
-        embed = Embed(
-            title="Новый буст на сервере!",
-            description=(
-                f"> {member.mention} бустанул сервер! Мы очень благодарны!\n"
-                f"> За это награда в размере **{BOOST_REWARD:,} {Emojis.MONEY}**!"
-            ),
-            color=discord.Color.nitro_pink()
-        )
-        embed.set_thumbnail(url=member.display_avatar.url)
-
-        try:
-            await news_channel.send(embed=embed)
-        except Exception as e:
-            print(f"[Booster] Ошибка отправки в канал новостей: {e}")
+        # Public Premium Server Custom Boost Notification Logic
+        cm = getattr(self.bot, "config_manager", None)
+        if cm and cm.is_premium(guild_id):
+            boost_channel_id = cm.get_custom_text(guild_id, "boost", "channel_id", None)
+            if boost_channel_id:
+                channel = guild.get_channel(int(boost_channel_id))
+                if channel:
+                    custom = cm.get_custom_embed(
+                        guild_id, "boost", "boost_embed",
+                        default_embed_data=None,
+                        user_mention=member.mention,
+                        user_name=member.display_name,
+                        server_name=guild.name,
+                    )
+                    if custom:
+                        await channel.send(embed=Embed(**custom))
 
     async def _handle_boost_remove(self, member: discord.Member):
         """Обрабатывает удаление буста"""
@@ -99,8 +113,13 @@ class Booster(commands.Cog):
     @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
         """Отслеживает изменения статуса буста"""
-        # Работаем только с основным сервером
-        if after.guild.id != MAIN_SERVER_ID:
+        guild = after.guild
+        cm = getattr(self.bot, "config_manager", None)
+
+        is_main = (guild.id == MAIN_SERVER_ID)
+        is_prem = (cm and cm.is_premium(guild.id))
+
+        if not is_main and not is_prem:
             return
 
         if not before.premium_since and after.premium_since:

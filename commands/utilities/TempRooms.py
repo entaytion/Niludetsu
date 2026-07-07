@@ -1,6 +1,7 @@
 import asyncio, discord
 from discord.ext import commands
 from Niludetsu import config
+from Niludetsu.locale import _
 from Niludetsu.temprooms.service import TempRoomService
 from Niludetsu.temprooms.views import TempRoomActions
 
@@ -60,12 +61,14 @@ class TempRooms(commands.Cog):
         if not lobby_id:
             return
 
+        t = _(guild_id=member.guild.id, bot=self.bot)
+
         # Создание канала при входе в лобби
         if after.channel and after.channel.id == lobby_id:
             try:
                 await self.service.create_temp_room(member)
             except Exception as exc:  # noqa: BLE001
-                await member.send(f"Не удалось создать временный канал: {exc}")  # best-effort
+                await member.send(t("utilities", "temproom_create_error", error=exc))  # best-effort
             return
 
         # Удаляем пустые временные каналы
@@ -110,14 +113,15 @@ class TempRooms(commands.Cog):
     @commands.is_owner()
     async def temproom_setup(self, ctx: commands.Context) -> None:
         """Создаёт панель управления и показывает ID для config.py."""
+        t = _(ctx=ctx)
         channel = ctx.channel
         if not isinstance(channel, discord.TextChannel):
-            await ctx.reply("Команду нужно запускать в текстовом канале.", mention_author=False)
+            await ctx.reply(t("utilities", "temproom_text_channel_only"), mention_author=False)
             return
 
         embed = discord.Embed(
-            title="TempVoice Interface",
-            description="Селектор управления временными каналами ниже. Используй его из своего временного голосового канала.",
+            title=t("utilities", "temproom_setup_title"),
+            description=t("utilities", "temproom_setup_desc"),
             colour=discord.Colour.blurple(),
         )
         message = await channel.send(embed=embed, view=self.actions_view)
@@ -126,16 +130,16 @@ class TempRooms(commands.Cog):
         category = ctx.guild.get_channel(config.TEMPROOM_CATEGORY) if config.TEMPROOM_CATEGORY else None
 
         await ctx.reply(
-            (
-                "Готово! Впиши в config.py:\n\n"
-                f"- TEMPROOM_CHANNEL = {channel.id}\n"
-                f"- TEMPROOM_MESSAGE = {message.id}\n"
-                f"- TEMPROOM_CATEGORY = {category.id if category else '...'}\n"
-                f"- TEMPROOM_VOICE = {lobby.id if lobby else '...'}\n"
+            t(
+                "utilities",
+                "temproom_setup_done",
+                channel_id=channel.id,
+                message_id=message.id,
+                category_id=category.id if category else "...",
+                voice_id=lobby.id if lobby else "...",
             ),
             mention_author=False,
         )
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(TempRooms(bot))
-

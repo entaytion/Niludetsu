@@ -1,6 +1,7 @@
 import aiohttp, asyncio, discord, io, json, random, typing, urllib.parse
 from discord.ext import commands
 from selectolax.parser import HTMLParser
+from Niludetsu.locale import _
 
 
 class BooruFetcher:
@@ -206,8 +207,9 @@ class NSFW(commands.Cog):
 
     async def _send_posts(self, ctx, source_name: str, fetch_func, count: int, tags: str):
         """Общая логика: фетчим посты, скачиваем файлы, отправляем как аттачменты."""
+        t = _(ctx=ctx)
         if not ctx.channel.is_nsfw():
-            await ctx.send("🚫 Только в NSFW-канале!")
+            await ctx.send(t("general", "nsfw_channel_only"))
             return
 
         # Отправляем "typing" пока скачиваем
@@ -233,8 +235,7 @@ class NSFW(commands.Cog):
         if not posts:
             tag_display = f"`{tags}`" if tags else "случайного тега"
             await ctx.send(
-                f"🚫 Не удалось найти посты для {tag_display} на **{source_name}**.\n"
-                f"-# Попробуй другой тег."
+                t("general", "nsfw_not_found", tags=tag_display, source=source_name)
             )
             return
 

@@ -608,10 +608,28 @@ class MemberEventHandler:
         )
 
     async def handle_join(self, member: discord.Member) -> None:
-        if member.guild.id != MAIN_SERVER_ID:
+        guild_id = member.guild.id
+        cm = getattr(self.bot, "config_manager", None)
+
+        if guild_id != MAIN_SERVER_ID:
+            if cm and cm.is_premium(guild_id):
+                welcome_channel_id = cm.get_custom_text(guild_id, "welcome", "channel_id", None)
+                if welcome_channel_id:
+                    channel = member.guild.get_channel(int(welcome_channel_id))
+                    if channel:
+                        custom = cm.get_custom_embed(
+                            guild_id, "welcome", "join_embed",
+                            default_embed_data=None,
+                            user_mention=member.mention,
+                            user_name=member.display_name,
+                            server_name=member.guild.name,
+                            member_count=member.guild.member_count,
+                        )
+                        if custom:
+                            await channel.send(embed=Embed(**custom))
             return
 
-        guild_id = str(member.guild.id)
+        guild_id_str = str(guild_id)
         user_id = str(member.id)
         invite, dm_sent = await asyncio.gather(
             self.invite_manager.find_used_invite(member.guild),
@@ -621,7 +639,7 @@ class MemberEventHandler:
         join_steps = await asyncio.gather(
             self._send_welcome_channel(member),
             self._save_join_to_db(
-                guild_id=guild_id,
+                guild_id=guild_id_str,
                 user_id=user_id,
                 invited_by=str(invite.inviter.id) if invite and invite.inviter else None,
                 invite_code=invite.code if invite else None,
@@ -635,14 +653,45 @@ class MemberEventHandler:
         self._log_step_errors("join", member.id, join_steps)
 
     async def handle_leave(self, member: discord.Member) -> None:
-        if member.guild.id != MAIN_SERVER_ID:
+        guild_id = member.guild.id
+        cm = getattr(self.bot, "config_manager", None)
+
+        if guild_id != MAIN_SERVER_ID:
+            if cm and cm.is_premium(guild_id):
+                goodbye_channel_id = cm.get_custom_text(guild_id, "goodbye", "channel_id", None)
+                if goodbye_channel_id:
+                    channel = member.guild.get_channel(int(goodbye_channel_id))
+                    if channel:
+                        custom = cm.get_custom_embed(
+                            guild_id, "goodbye", "leave_embed",
+                            default_embed_data=None,
+                            user_mention=member.mention,
+                            user_name=member.display_name,
+                            server_name=member.guild.name,
+                            member_count=member.guild.member_count,
+                        )
+                        if custom:
+                            await channel.send(embed=Embed(**custom))
             return
 
-        guild_id = str(member.guild.id)
+        guild_id_str = str(guild_id)
         user_id = str(member.id)
+
+        channel = self.bot.get_channel(WELCOME_CHANNEL_ID)
+        if channel and cm:
+            custom = cm.get_custom_embed(
+                guild_id, "goodbye", "leave_embed",
+                user_mention=member.mention,
+                user_name=member.display_name,
+                server_name=member.guild.name,
+                member_count=member.guild.member_count,
+            )
+            if custom:
+                await channel.send(embed=Embed(**custom))
+
         dm_sent = await self.send_dm(member, is_join=False)
         invite_data = await self._save_leave_to_db(
-            guild_id=guild_id,
+            guild_id=guild_id_str,
             user_id=user_id,
             dm_sent=dm_sent,
         )

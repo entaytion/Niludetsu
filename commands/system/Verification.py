@@ -6,6 +6,7 @@ from Niludetsu.tools.InfoCard import InfoCard
 from Niludetsu.database import database
 from Niludetsu.ai.verification_service import VerificationService
 from Niludetsu import Embed, Colors, Emojis, config
+from Niludetsu.locale import _
 
 MAIN_SERVER_ID = config.SERVERS["MAIN_ID"]
 VERIFICATION_CHANNEL_ID = 1414934353087303720
@@ -25,16 +26,18 @@ class VerificationModal(Modal, title="Верификация"):
         required=True
     )
 
-    def __init__(self, cog: "Verification", mode: str):
+    def __init__(self, cog: "Verification", mode: str, t=None):
         super().__init__()
         self.cog = cog
         self.mode = mode
+        self.t = t or (lambda key, **kwargs: key)
 
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         
         answer_text = self.answer.value
         user = interaction.user
+        t = self.t
         
         # Cooldown check
         import time
@@ -42,7 +45,7 @@ class VerificationModal(Modal, title="Верификация"):
         if time.time() - last_attempt < 86400: # 24 hours
             remaining_hours = int((86400 - (time.time() - last_attempt)) / 3600)
             await interaction.followup.send(
-                f"{Emojis.ERROR} Вы недавно подавали заявку. Попробуйте снова через {remaining_hours} ч.", 
+                f"{Emojis.ERROR} {t('cooldown', hours=remaining_hours)}", 
                 ephemeral=True
             )
             return
@@ -53,7 +56,7 @@ class VerificationModal(Modal, title="Верификация"):
             
             await self.cog.send_verification_log(interaction, answer_text, {}, status="manual")
             await interaction.followup.send(
-                f"{Emojis.SUCCESS} Ваша заявка отправлена на ручную проверку. Ожидайте.", 
+                f"{Emojis.SUCCESS} {t('manual_submitted')}", 
                 ephemeral=True
             )
             return
@@ -83,20 +86,20 @@ class VerificationModal(Modal, title="Верификация"):
                 await self.cog.approve_user(user)
                 await self.cog.send_verification_log(interaction, answer_text, result, status="success")
                 await interaction.followup.send(
-                    f"{Emojis.SUCCESS} Вы успешно прошли верификацию! Добро пожаловать.", 
+                    f"{Emojis.SUCCESS} {t('auto_success')}", 
                     ephemeral=True
                 )
             elif decision == "reject" or score <= 1:
                  # Reject (Soft) -> Cooldown logic?
                  await interaction.followup.send(
-                     f"{Emojis.ERROR} Верификация не пройдена. Попробуйте позже или обратитесь к администрации.", 
+                     f"{Emojis.ERROR} {t('auto_failed')}", 
                      ephemeral=True
                  )
             else:
                 # Manual Review (Score 2-3 or Failover)
                 await self.cog.send_to_manual_review(interaction, answer_text, result)
                 await interaction.followup.send(
-                    f"{Emojis.WARNING} Система не смогла принять решение. Ваша заявка передана модераторам.", 
+                    f"{Emojis.WARNING} {t('manual_review')}", 
                     ephemeral=True
                 )
 
@@ -104,7 +107,7 @@ class VerificationModal(Modal, title="Верификация"):
             print(f"[Verification] Error: {e}")
             await self.cog.send_to_manual_review(interaction, answer_text, reason=f"System Error: {e}")
             await interaction.followup.send(
-                f"{Emojis.WARNING} Произошла ошибка. Заявка передана администрации.", 
+                f"{Emojis.WARNING} {t('error')}", 
                 ephemeral=True
             )
 
@@ -141,14 +144,16 @@ class VerificationView(discord.ui.LayoutView):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         custom_id = interaction.data.get("custom_id")
+        # Create a translation function for this interaction
+        t = _(ctx=interaction)
         if custom_id == "verify:auto":
             if not self.cog.ai_enabled:
-                await interaction.response.send_message("Автоматическая верификация временно отключена. Воспользуйтесь ручной.", ephemeral=True)
+                await interaction.response.send_message(t("ai_disabled"), ephemeral=True)
                 return False
-            await interaction.response.send_modal(VerificationModal(self.cog, mode="auto"))
+            await interaction.response.send_modal(VerificationModal(self.cog, mode="auto", t=t))
             return False
         elif custom_id == "verify:manual":
-            await interaction.response.send_modal(VerificationModal(self.cog, mode="manual"))
+            await interaction.response.send_modal(VerificationModal(self.cog, mode="manual", t=t))
             return False
         return True
 
@@ -163,20 +168,22 @@ class ManualReviewView(View):
     async def approve(self, interaction: discord.Interaction, button: Button):
         guild = interaction.guild
         member = guild.get_member(self.user_id)
+        t = _(ctx=interaction)
         
         if not member:
-            await interaction.response.send_message("Пользователь не найден на сервере.", ephemeral=True)
+            await interaction.response.send_message(t("manual_not_found"), ephemeral=True)
             self.stop()
             return
 
         await self.cog.approve_user(member)
         await interaction.message.delete()
-        await interaction.response.send_message(f"Пользователь {member.mention} верифицирован вручную.", ephemeral=True)
+        await interaction.response.send_message(t("manual_approved", user=member.mention), ephemeral=True)
 
     @discord.ui.button(label="Отклонить", style=discord.ButtonStyle.red, custom_id="manual:reject")
     async def reject(self, interaction: discord.Interaction, button: Button):
+        t = _(ctx=interaction)
         await interaction.message.delete()
-        await interaction.response.send_message("Заявка отклонена.", ephemeral=True)
+        await interaction.response.send_message(t("manual_rejected"), ephemeral=True)
 
 
 class Verification(commands.Cog):
@@ -231,15 +238,16 @@ class Verification(commands.Cog):
             return
 
         user = interaction.user
+        t = _(ctx=interaction)
         
         if status == "success":
-            title = "Автоматическая верификация (AI)"
+            title = t("log_title_success")
             color = Colors.SUCCESS
             content = None # No pings for success
-            footer_text = "AI Верификация • Одобрено"
+            footer_text = t("log_footer_success")
             view = None # No view needed for already approved
         else:
-            title = "Запрос на верификацию"
+            title = t("log_title_manual")
             color = Colors.WARNING
             
             # Pings
@@ -249,16 +257,16 @@ class Verification(commands.Cog):
             if specific_admin and specific_admin != owner:
                 pings += f"{specific_admin.mention}"
             
-            content = f"{pings} 🔔 **Новая заявка на верификацию!**"
-            footer_text = "Верификация • Требуется проверка"
+            content = f"{pings} {t('log_ping')}"
+            footer_text = t("log_footer_manual")
             view = ManualReviewView(self, user.id)
 
         embed = Embed(
             title=title,
-            description=f"Пользователь: {user.mention} (`{user.id}`)",
+            description=f"{t('log_user')}: {user.mention} (`{user.id}`)",
             color=color
         )
-        embed.add_field(name="Ответ", value=answer, inline=False)
+        embed.add_field(name=t("log_answer"), value=answer, inline=False)
         
         if ai_result and ai_result.get("score") is not None:
             score = ai_result.get("score")
@@ -266,15 +274,15 @@ class Verification(commands.Cog):
             decision = ai_result.get("decision")
             ai_reason = ai_result.get("reason")
             
-            embed.add_field(name="Оценка AI", value=f"{score}/5 ({decision})", inline=True)
-            embed.add_field(name="Причина", value=ai_reason, inline=True)
+            embed.add_field(name=t("log_ai_score"), value=f"{score}/5 ({decision})", inline=True)
+            embed.add_field(name=t("log_ai_reason"), value=ai_reason, inline=True)
             
             # Format breakdown nicely
             breakdown_text = "\n".join([f"{k}: {v}" for k, v in breakdown.items()])
-            embed.add_field(name="Детализация", value=f"```\n{breakdown_text}\n```", inline=False)
+            embed.add_field(name=t("log_breakdown"), value=f"```\n{breakdown_text}\n```", inline=False)
         else:
              # Manual request or no AI context
-             embed.add_field(name="Тип", value="Ручная заявка (Без AI)", inline=False)
+             embed.add_field(name=t("log_manual_type"), value=t("log_manual_text"), inline=False)
         
         embed.set_thumbnail(url=user.display_avatar.url)
         embed.set_footer(text=footer_text)
@@ -297,6 +305,7 @@ class Verification(commands.Cog):
     @commands.command(name="aeverify")
     @commands.is_owner()
     async def toggle_ai(self, ctx):
+        t = _(ctx=ctx)
         self.ai_enabled = not self.ai_enabled
         status = "Включено" if self.ai_enabled else "Выключено"
         await ctx.send(f"AI Verification: **{status}**")
@@ -311,15 +320,16 @@ class Verification(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def role_verify(self, ctx):
         """Настройка прав для роли VERIFIED."""
+        t = _(ctx=ctx)
         guild = ctx.guild
         verified_role = guild.get_role(ROLE_VERIFIED)
         staff_marker_role = guild.get_role(ROLE_STAFF_MARKER)
 
         if not verified_role:
-             await ctx.send(f"❌ Роль VERIFIED (ID: {ROLE_VERIFIED}) не найдена.")
+             await ctx.send(t("role_not_found", role_id=ROLE_VERIFIED))
              return
         
-        status_msg = await ctx.send("🔄 Начинаю обновление прав каналов...")
+        status_msg = await ctx.send(t("role_setup_start"))
         updated_count = 0
         skipped_count = 0
         
@@ -354,7 +364,7 @@ class Verification(commands.Cog):
             except Exception as e:
                 print(f"[RoleVerify] Ошибка обновления {channel.name}: {e}")
         
-        await status_msg.edit(content=f"✅ Обновление завершено!\nUpdated: {updated_count}\nSkipped: {skipped_count}")
+        await status_msg.edit(content=t("role_setup_done", updated=updated_count, skipped=skipped_count))
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Verification(bot))

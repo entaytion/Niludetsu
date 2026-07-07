@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 from Niludetsu import Embed, Emojis
 from Niludetsu.api.Currency import CurrencyAPI
+from Niludetsu.locale import _
 from typing import Tuple
 
 class CurrencyHelper:
@@ -21,7 +22,7 @@ class CurrencyHelper:
         "CNY": r"(?:юан(?:ей|я|и)?|cny)",
         "KRW": r"(?:вон(?:а|ы)?|krw)",
         "TRY": r"(?:лир(?:а|ы|ей)?|try)",
-        "UZS": r"(?:узс|\buzs\b|сум(?:а|ы|ов)?|сўм|so['’]m|\bsom\b)",
+        "UZS": r"(?:узс|\buzs\b|сум(?:а|ы|ов)?|сўм|so['']m|\bsom\b)",
     }
 
     def __init__(self):
@@ -88,6 +89,8 @@ class Currency(commands.Cog):
         if not found_currencies:
             return
 
+        t = _(guild_id=message.guild.id, bot=self.bot)
+
         for from_currency, amounts in found_currencies.items():
             total_amount = sum(amounts)
 
@@ -98,7 +101,6 @@ class Currency(commands.Cog):
             rates = data["conversion_rates"]
 
             conversions = []
-            # Добавил UZS в авто-список (можешь убрать, если не надо спамить)
             for to_currency in ["USD", "EUR", "RUB", "UAH", "BYN", "KZT", "UZS"]:
                 if to_currency != from_currency and to_currency in rates:
                     rate = rates[to_currency]
@@ -106,7 +108,7 @@ class Currency(commands.Cog):
                     conversions.append(f"{Emojis.DOT} {converted:.2f} {self.currency_api.get_currency_name(to_currency)}")
 
             embed = Embed(
-                title="Конвертация валют",
+                title=t('tools', 'currency_title'),
                 description=f"**{total_amount:.2f} {self.currency_api.get_currency_name(from_currency)}:**\n" + "\n".join(conversions)
             )
             await message.reply(embed=embed, mention_author=False, delete_after=5)
@@ -119,20 +121,22 @@ class Currency(commands.Cog):
     async def exchange_rate(self, interaction: discord.Interaction, валюта: str = "USD", сумма: float = None):
         await interaction.response.defer()
 
+        t = _(guild_id=interaction.guild_id, bot=self.bot)
+
         base_currency = валюта.upper()
         if not self.currency_api.is_supported_currency(base_currency):
-            await interaction.followup.send(embed=Embed.error(description="Указанная валюта не поддерживается!"))
+            await interaction.followup.send(embed=Embed.error(description=t('tools', 'currency_not_supported')))
             return
 
         data = await self.currency_api.get_exchange_rate(base_currency)
         if not data:
-            await interaction.followup.send(embed=Embed.error(description="Не удалось получить курсы валют!"))
+            await interaction.followup.send(embed=Embed.error(description=t('tools', 'currency_api_error')))
             return
 
         rates = data["conversion_rates"]
-        description = f"Курсы валют относительно {self.currency_api.get_currency_name(base_currency)}"
+        description = t('tools', 'currency_rates_desc', base=self.currency_api.get_currency_name(base_currency))
         if сумма:
-            description += f" (для суммы {сумма:,.2f})"
+            description += t('tools', 'currency_rates_for', amount=f"{сумма:,.2f}")
         description += ":\n\n"
 
         for currency, name in self.currency_api.currencies.items():
@@ -145,9 +149,9 @@ class Currency(commands.Cog):
                     description += f"{Emojis.DOT} **{name}:** `{rate:.2f}`\n"
 
         embed = Embed(
-            title=f"Курсы валют",
+            title=t('tools', 'currency_rates_title'),
             description=description,
-            footer={"text": f"Данные предоставлены ExchangeRate-API • {data['time_last_update_utc'][:10]}"}
+            footer={"text": t('tools', 'currency_data_footer', date=data['time_last_update_utc'][:10])}
         )
         await interaction.followup.send(embed=embed)
 
@@ -160,16 +164,18 @@ class Currency(commands.Cog):
     async def convert(self, interaction: discord.Interaction, amount: float, from_currency: str, to_currency: str):
         await interaction.response.defer()
 
+        t = _(guild_id=interaction.guild_id, bot=self.bot)
+
         from_currency = self.currency_helper.get_currency_code(from_currency)
         to_currency = self.currency_helper.get_currency_code(to_currency)
 
         if not self.currency_api.is_supported_currency(from_currency) or not self.currency_api.is_supported_currency(to_currency):
-            await interaction.followup.send(embed=Embed.error(description="Одна из указанных валют не поддерживается!"))
+            await interaction.followup.send(embed=Embed.error(description=t('tools', 'currency_unsupported_one')))
             return
 
         data = await self.currency_api.get_exchange_rate(from_currency)
         if not data:
-            await interaction.followup.send(embed=Embed.error(description="Не удалось получить курсы валют!"))
+            await interaction.followup.send(embed=Embed.error(description=t('tools', 'currency_api_error')))
             return
 
         rate = data["conversion_rates"][to_currency]
@@ -177,11 +183,11 @@ class Currency(commands.Cog):
 
         embed = Embed(
             description=(
-                f"💱 **Конвертация валют:**\n\n"
+                f"{t('tools', 'currency_convert_title')}\n\n"
                 f"{amount:,.2f} {self.currency_api.get_currency_name(from_currency)} = \n"
                 f"{converted_amount:,.2f} {self.currency_api.get_currency_name(to_currency)}"
             ),
-            footer={"text": f"Курс: 1 {from_currency} = {rate:.4f} {to_currency}"}
+            footer={"text": t('tools', 'currency_exchange_footer', from_cur=from_currency, rate=f"{rate:.4f}", to_cur=to_currency)}
         )
         await interaction.followup.send(embed=embed)
 

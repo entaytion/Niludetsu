@@ -1,0 +1,543 @@
+{% extends "base.html" %}
+{% block title %}{{ guild.name }} — Налаштування{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-8">
+
+  <!-- Header -->
+  <div class="glass glow rounded-3xl p-8 anim-fade-up">
+    <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="flex items-center gap-6">
+        {% if guild.icon %}
+        <div class="relative">
+          <img src="https://cdn.discordapp.com/icons/{{ guild.id }}/{{ guild.icon }}.png?size=128"
+               class="w-20 h-20 rounded-2xl object-cover ring-2 ring-white/10 shadow-xl" alt="">
+          <div class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-surface-0 border-2 border-surface-1 flex items-center justify-center">
+            {% if is_premium %}
+            <svg class="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+            {% else %}
+            <div class="w-2 h-2 rounded-full bg-slate-600"></div>
+            {% endif %}
+          </div>
+        </div>
+        {% else %}
+        <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-accent-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-2xl font-black text-accent-400 shadow-xl">
+          {{ guild.name[:2] }}
+        </div>
+        {% endif %}
+        <div>
+          <h1 class="text-2xl font-extrabold text-white tracking-tight">{{ guild.name }}</h1>
+          <p class="text-slate-500 text-sm mt-0.5 font-mono">{{ guild.id }}</p>
+          <div class="mt-3">
+            {% if is_premium %}
+            <span class="inline-flex items-center gap-1.5 bg-gradient-to-r from-yellow-500/15 to-amber-500/15 text-yellow-300 text-xs font-semibold px-3 py-1 rounded-full border border-yellow-500/20">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              Premium
+            </span>
+            {% else %}
+            <span class="inline-flex items-center gap-1.5 bg-white/[0.04] text-slate-400 text-xs font-semibold px-3 py-1 rounded-full border border-white/[0.06]">
+              Free
+            </span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <a href="/dashboard" class="text-sm text-slate-500 hover:text-white transition flex items-center gap-2 group">
+        <svg class="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        До списку серверів
+      </a>
+    </div>
+  </div>
+
+  <!-- Main grid: Form + Preview -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+    <!-- ── Form ────────────────────────────── -->
+    <div class="glass glow rounded-3xl p-8 anim-fade-up anim-delay-1">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-xl font-bold text-white flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-accent-500/10 flex items-center justify-center">
+            <svg class="w-5 h-5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          </div>
+          Кастомізація ембедiв
+        </h2>
+        {% if not is_premium %}
+        <span class="text-xs bg-yellow-500/10 text-yellow-400 px-3 py-1.5 rounded-lg border border-yellow-500/15 font-semibold">Premium</span>
+        {% endif %}
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="flex flex-wrap gap-2 mb-6 border-b border-white/10 pb-4">
+        <button type="button" class="tab-btn active px-4 py-2 rounded-xl text-sm font-semibold transition bg-accent-500/20 text-white" data-tab="bump">Bump Нагадування</button>
+        <button type="button" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition text-slate-400 hover:text-white" data-tab="welcome">Привітання (Welcome)</button>
+        <button type="button" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition text-slate-400 hover:text-white" data-tab="goodbye">Прощання (Goodbye)</button>
+        <button type="button" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition text-slate-400 hover:text-white" data-tab="levels">Новий рівень</button>
+        <button type="button" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition text-slate-400 hover:text-white" data-tab="boost">Бусти (Boosts)</button>
+        <button type="button" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition text-slate-400 hover:text-white" data-tab="cogs">Команди (Cogs)</button>
+        <a href="/dashboard/guild/{{ guild.id }}/locale"
+           class="px-4 py-2 rounded-xl text-sm font-semibold transition text-slate-400 hover:text-white hover:bg-white/5 flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/></svg>
+          Переклади
+        </a>
+      </div>
+
+      <form id="settingsForm" class="space-y-5" {% if not is_premium %}onsubmit="return false"{% endif %}>
+        
+        <!-- Color (Global/Bump default) -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Колір ембедів</label>
+          <div class="flex items-center gap-3">
+            <div class="relative">
+              <input type="color" id="colorPicker" value="{{ settings.get('bump_reminder', {}).get('notification_embed', {}).get('color', '#6366f1') if settings.get('bump_reminder', {}).get('notification_embed', {}).get('color') is string else '#6366f1' }}"
+                     class="w-14 h-12 rounded-xl border-2 border-white/10 cursor-pointer bg-transparent appearance-none [&::-webkit-color-swatch]:rounded-lg [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch-wrapper]:p-0.5">
+            </div>
+            <input type="text" id="embed_color" name="bump_color"
+                   value="{{ settings.get('bump_reminder', {}).get('notification_embed', {}).get('color', '#6366f1') if settings.get('bump_reminder', {}).get('notification_embed', {}).get('color') is string else '#6366f1' }}"
+                   class="input-glass flex-1 font-mono text-sm" placeholder="#6366f1" maxlength="7"
+                   {% if not is_premium %}disabled{% endif %}>
+          </div>
+        </div>
+
+        <!-- ── TAB: Bump Reminder ── -->
+        <div id="panel-bump" class="tab-panel space-y-5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Заголовок ембеда</label>
+            <input type="text" id="sim-title" name="bump_title"
+                   value="{{ settings.get('bump_reminder', {}).get('notification_embed', {}).get('title', 'Время бампать сервер!') }}"
+                   class="input-glass" placeholder="Заголовок..."
+                   {% if not is_premium %}disabled{% endif %}>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Опис ембеда</label>
+            <textarea id="sim-desc" name="bump_description" rows="4" class="input-glass"
+                      placeholder="Текст опису..." {% if not is_premium %}disabled{% endif %}>{{ settings.get('bump_reminder', {}).get('notification_embed', {}).get('description', '{emoji} Пора сделать бамп на {bot_name}!') }}</textarea>
+          </div>
+        </div>
+
+        <!-- ── TAB: Welcome System ── -->
+        <div id="panel-welcome" class="tab-panel space-y-5 hidden">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Канал привітань</label>
+            <select name="welcome_channel_id" class="input-glass w-full text-slate-300" {% if not is_premium %}disabled{% endif %}>
+              <option value="">Вимкнено (Не надсилати)</option>
+              {% for ch in channels %}
+                <option value="{{ ch.id }}" {% if settings.get('welcome', {}).get('channel_id') == ch.id %}selected{% endif %}>#{{ ch.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Заголовок ембеда привітання</label>
+            <input type="text" id="welcome-title" name="welcome_title"
+                   value="{{ settings.get('welcome', {}).get('join_embed', {}).get('title', 'Ласкаво просимо!') }}"
+                   class="input-glass" placeholder="Ласкаво просимо..."
+                   {% if not is_premium %}disabled{% endif %}>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Опис ембеда привітання</label>
+            <textarea id="welcome-desc" name="welcome_description" rows="4" class="input-glass"
+                      placeholder="Привіт {user_mention}, ласкаво просимо до нашого серверу!" 
+                      {% if not is_premium %}disabled{% endif %}>{{ settings.get('welcome', {}).get('join_embed', {}).get('description', 'Привіт {user_mention}! Дякуємо, що приєднався до {server_name}.') }}</textarea>
+          </div>
+        </div>
+
+        <!-- ── TAB: Goodbye System ── -->
+        <div id="panel-goodbye" class="tab-panel space-y-5 hidden">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Канал прощань</label>
+            <select name="goodbye_channel_id" class="input-glass w-full text-slate-300" {% if not is_premium %}disabled{% endif %}>
+              <option value="">Вимкнено (Не надсилати)</option>
+              {% for ch in channels %}
+                <option value="{{ ch.id }}" {% if settings.get('goodbye', {}).get('channel_id') == ch.id %}selected{% endif %}>#{{ ch.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Заголовок ембеда прощання</label>
+            <input type="text" id="goodbye-title" name="goodbye_title"
+                   value="{{ settings.get('goodbye', {}).get('leave_embed', {}).get('title', 'Сервер покинуто...') }}"
+                   class="input-glass" placeholder="Сервер покинуто..."
+                   {% if not is_premium %}disabled{% endif %}>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Опис ембеда прощання</label>
+            <textarea id="goodbye-desc" name="goodbye_description" rows="4" class="input-glass"
+                      placeholder="Шкода, що {user_name} покинув нас." 
+                      {% if not is_premium %}disabled{% endif %}>{{ settings.get('goodbye', {}).get('leave_embed', {}).get('description', '{user_name} покинув нас. Тепер нас {member_count}.') }}</textarea>
+          </div>
+        </div>
+
+        <!-- ── TAB: Level Up ── -->
+        <div id="panel-levels" class="tab-panel space-y-5 hidden">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Заголовок ембеда нового рівня</label>
+            <input type="text" id="level-title" name="level_title"
+                   value="{{ settings.get('levels', {}).get('level_up_embed', {}).get('title', 'Новий рівень!') }}"
+                   class="input-glass" placeholder="Новий рівень..."
+                   {% if not is_premium %}disabled{% endif %}>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Опис ембеда нового рівня</label>
+            <textarea id="level-desc" name="level_description" rows="4" class="input-glass"
+                      placeholder="Вітаємо {user_mention}, ти отримав {level} рівень!" 
+                      {% if not is_premium %}disabled{% endif %}>{{ settings.get('levels', {}).get('level_up_embed', {}).get('description', 'Вітаємо {user_mention}, ти отримав **{level}** рівень!') }}</textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Звичайне текстове повідомлення (Альтернатива)</label>
+            <input type="text" id="level-msg" name="level_message"
+                   value="{{ settings.get('levels', {}).get('level_up_message', '') }}"
+                   class="input-glass" placeholder="Текст без ембеда (якщо заголовок і опис порожні)..."
+                   {% if not is_premium %}disabled{% endif %}>
+          </div>
+        </div>
+
+        <!-- ── TAB: Boost System ── -->
+        <div id="panel-boost" class="tab-panel space-y-5 hidden">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Канал сповіщень про буст</label>
+            <select name="boost_channel_id" class="input-glass w-full text-slate-300" {% if not is_premium %}disabled{% endif %}>
+              <option value="">Вимкнено (Не надсилати)</option>
+              {% for ch in channels %}
+                <option value="{{ ch.id }}" {% if settings.get('boost', {}).get('channel_id') == ch.id %}selected{% endif %}>#{{ ch.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Заголовок ембеда бусту</label>
+            <input type="text" id="boost-title" name="boost_title"
+                   value="{{ settings.get('boost', {}).get('boost_embed', {}).get('title', 'Новий буст!') }}"
+                   class="input-glass" placeholder="Новий буст..."
+                   {% if not is_premium %}disabled{% endif %}>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Опис ембеда бусту</label>
+            <textarea id="boost-desc" name="boost_description" rows="4" class="input-glass"
+                      placeholder="Дякуємо {user_mention} за буст нашого серверу!" 
+                      {% if not is_premium %}disabled{% endif %}>{{ settings.get('boost', {}).get('boost_embed', {}).get('description', 'Дякуємо {user_mention} за буст нашого серверу!') }}</textarea>
+          </div>
+        </div>
+
+        <!-- ── TAB: Cogs Toggles ── -->
+        <div id="panel-cogs" class="tab-panel space-y-4 hidden">
+          <label class="block text-xs font-semibold text-slate-400 mb-4 uppercase tracking-wider">Увімкнути/Вимкнути модулі бота</label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for name, enabled in cogs_states.items() %}
+            <div class="glass p-4 rounded-2xl flex items-center justify-between border border-white/5 hover:border-white/10 transition">
+              <div>
+                <span class="text-sm font-bold text-white block">{{ name }}</span>
+                <span class="text-xs text-slate-500 font-mono">Модуль команд {{ name }}</span>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" data-cog-name="{{ name }}" class="sr-only peer" {% if enabled %}checked{% endif %} {% if not is_premium %}disabled{% endif %}>
+                <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-300 after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-500"></div>
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="pt-4 flex items-center justify-between">
+          {% if is_premium %}
+          <button type="submit" id="saveBtn" class="btn-accent">
+            <span id="saveText">Зберегти налаштування</span>
+          </button>
+          {% else %}
+          <div class="text-sm text-yellow-400/80 bg-yellow-500/5 px-5 py-3 rounded-2xl border border-yellow-500/10 flex items-center gap-2.5">
+            <svg class="w-5 h-5 text-yellow-500/60 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            Придбайте преміум для кастомізації
+          </div>
+          {% endif %}
+          <span id="status" class="text-sm hidden"></span>
+        </div>
+      </form>
+    </div>
+
+    <!-- ── Discord Preview ─────────────────── -->
+    <div class="anim-fade-up anim-delay-2">
+      <div class="sticky top-24">
+        <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M19.27 5.33C17.94 4.71 16.5 4.26 15 4a.09.09 0 0 0-.07.03c-.18.33-.39.76-.53 1.09a16.09 16.09 0 0 0-4.8 0c-.14-.34-.35-.76-.54-1.09-.01-.02-.04-.03-.07-.03-1.5.26-2.93.71-4.27 1.33-.01 0-.02.01-.03.02-2.72 4.07-3.47 8.03-3.1 11.95 0 .02.01.04.03.05 1.8 1.32 3.53 2.12 5.24 2.65.03.01.06 0 .07-.02.4-.55.76-1.13 1.07-1.74.02-.04 0-.08-.04-.09-.57-.22-1.11-.48-1.64-.78-.04-.02-.04-.08-.01-.11.11-.08.22-.17.33-.25.02-.02.04-.02.07-.01 3.44 1.57 7.15 1.57 10.55 0 .02-.01.05-.01.07.01.11.09.22.17.33.26.04.03.04.09-.01.11-.52.31-1.07.56-1.64.78-.04.01-.05.06-.04.09.32.61.68 1.19 1.07 1.74.03.01.06.02.09.01 1.72-.53 3.45-1.33 5.24-2.65.02-.01.03-.03.03-.05.44-4.53-.73-8.46-3.1-11.95-.01-.01-.02-.02-.04-.02zM8.52 14.91c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12 0 1.17-.84 2.12-1.89 2.12zm6.97 0c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12 0 1.17-.83 2.12-1.89 2.12z"/></svg>
+          Попередній перегляд (Live)
+        </h3>
+        <div class="glass rounded-2xl p-6 glow overflow-hidden" style="background: rgba(12, 16, 33, 0.8);">
+          <!-- Discord message mockup -->
+          <div class="discord-msg">
+            <div class="avatar-placeholder">N</div>
+            <div class="meta">
+              <span class="bot-name">Niludetsu</span>
+              <span class="bot-badge">BOT</span>
+              <span class="timestamp" id="sim-timestamp"></span>
+            </div>
+            <div class="discord-embed" id="discord-embed" style="border-left: 4px solid #6366f1;">
+              <div class="embed-title" id="embed-title">Время бампать сервер!</div>
+              <div class="embed-desc" id="embed-desc">Пора сделать бамп на DISBOARD!</div>
+              <div class="embed-footer">
+                <svg class="embed-footer-icon" viewBox="0 0 24 24" fill="currentColor" style="color: #6366f1;"><circle cx="12" cy="12" r="10"/></svg>
+                <span>Niludetsu</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Channel context -->
+          <div class="mt-4 flex items-center gap-2 text-xs text-slate-600 px-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/></svg>
+            <span>#загальний</span>
+            <span class="text-slate-700">·</span>
+            <span>Повідомлення від бота</span>
+          </div>
+        </div>
+
+        <!-- Tips -->
+        <div class="mt-4 glass rounded-2xl p-5">
+          <h4 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Підказки по змінних</h4>
+          <ul id="tip-list" class="space-y-2 text-sm text-slate-400">
+            <!-- Dynamically populated based on active tab -->
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const form = document.getElementById('settingsForm');
+  const btn = document.getElementById('saveBtn');
+  const st = document.getElementById('status');
+  if (!form || !btn) return;
+
+  // Tabs toggling
+  const tabs = document.querySelectorAll('.tab-btn');
+  const panels = document.querySelectorAll('.tab-panel');
+  let activeTab = 'bump';
+
+  const tipsMap = {
+    bump: [
+      '{bot_name} — ім\'я бота',
+      '{emoji} — випадковий емодзі'
+    ],
+    welcome: [
+      '{user_mention} — пінг нового юзера',
+      '{user_name} — ім\'я нового юзера',
+      '{server_name} — назва цього сервера',
+      '{member_count} — загальна кількість учасників'
+    ],
+    goodbye: [
+      '{user_mention} — пінг юзера, що пішов',
+      '{user_name} — ім\'я юзера',
+      '{server_name} — назва сервера',
+      '{member_count} — оновлена кількість учасників'
+    ],
+    levels: [
+      '{user_mention} — пінг користувача',
+      '{level} — отриманий рівень',
+      '{xp} — поточний досвід (XP)'
+    ],
+    boost: [
+      '{user_mention} — пінг бустера',
+      '{user_name} — ім\'я бустера',
+      '{server_name} — назва сервера'
+    ],
+    cogs: []
+  };
+
+  // Embed Live Preview
+  const colorInput = document.getElementById('embed_color');
+  const colorPicker = document.getElementById('colorPicker');
+  const embedTitle = document.getElementById('embed-title');
+  const embedDesc = document.getElementById('embed-desc');
+  const embedBorder = document.getElementById('discord-embed');
+  const timestampEl = document.getElementById('sim-timestamp');
+  const tipList = document.getElementById('tip-list');
+
+  function now() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function getActiveInputs() {
+    if (activeTab === 'bump') {
+      return {
+        title: document.getElementById('sim-title').value,
+        desc: document.getElementById('sim-desc').value
+      };
+    } else if (activeTab === 'welcome') {
+      return {
+        title: document.getElementById('welcome-title').value,
+        desc: document.getElementById('welcome-desc').value
+      };
+    } else if (activeTab === 'goodbye') {
+      return {
+        title: document.getElementById('goodbye-title').value,
+        desc: document.getElementById('goodbye-desc').value
+      };
+    } else if (activeTab === 'levels') {
+      const embedDescVal = document.getElementById('level-desc').value;
+      const textVal = document.getElementById('level-msg').value;
+      return {
+        title: document.getElementById('level-title').value,
+        desc: embedDescVal || textVal
+      };
+    } else if (activeTab === 'boost') {
+      return {
+        title: document.getElementById('boost-title').value,
+        desc: document.getElementById('boost-desc').value
+      };
+    } else if (activeTab === 'cogs') {
+      return {
+        title: "Керування модулями",
+        desc: "Тут ви можете увімкнути або вимкнути окремі cogs (команди) вашого бота."
+      };
+    }
+  }
+
+  function syncPreview() {
+    const color = colorInput.value || "#6366f1";
+    if (embedBorder) embedBorder.style.borderLeftColor = color;
+    
+    const inputs = getActiveInputs();
+    let title = inputs.title || "";
+    let desc = inputs.desc || "";
+
+    if (!title && !desc) {
+      title = "Повідомлення";
+      desc = "Порожній опис. Будь ласка, введіть текст...";
+    }
+
+    // Variable mock replacements
+    desc = desc.replace(/{user_mention}/g, '@Entaytion')
+               .replace(/{user_name}/g, 'Entaytion')
+               .replace(/{server_name}/g, '{{ guild.name }}')
+               .replace(/{member_count}/g, '42')
+               .replace(/{bot_name}/g, 'Niludetsu')
+               .replace(/{emoji}/g, '✨')
+               .replace(/{level}/g, '5')
+               .replace(/{xp}/g, '250');
+
+    if (embedTitle) embedTitle.textContent = title;
+    if (embedDesc) embedDesc.textContent = desc;
+    if (timestampEl) timestampEl.textContent = now();
+
+    // Sync tips
+    tipList.innerHTML = '';
+    const tips = tipsMap[activeTab] || [];
+    tips.forEach(t => {
+      const li = document.createElement('li');
+      li.className = 'flex items-start gap-2';
+      li.innerHTML = `<span class="text-accent-400 mt-0.5">•</span><span>${t}</span>`;
+      tipList.appendChild(li);
+    });
+  }
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => {
+        t.classList.remove('active', 'text-white', 'bg-accent-500/20');
+        t.classList.add('text-slate-400');
+      });
+      tab.classList.add('active', 'text-white', 'bg-accent-500/20');
+      tab.classList.remove('text-slate-400');
+
+      activeTab = tab.getAttribute('data-tab');
+      panels.forEach(p => {
+        if (p.id === 'panel-' + activeTab) {
+          p.classList.remove('hidden');
+        } else {
+          p.classList.add('hidden');
+        }
+      });
+      syncPreview();
+    });
+  });
+
+  // Color Pickers sync
+  colorPicker.addEventListener('input', (e) => {
+    colorInput.value = e.target.value;
+    syncPreview();
+  });
+  colorInput.addEventListener('input', (e) => {
+    if (e.target.value.match(/^#[0-9a-fA-F]{6}$/)) {
+      colorPicker.value = e.target.value;
+    }
+    syncPreview();
+  });
+
+  // Keypress event listeners for live sync
+  const liveInputs = [
+    'sim-title', 'sim-desc', 'welcome-title', 'welcome-desc',
+    'goodbye-title', 'goodbye-desc', 'level-title', 'level-desc', 'level-msg',
+    'boost-title', 'boost-desc'
+  ];
+  liveInputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', syncPreview);
+  });
+
+  // Form submit via AJAX JSON
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    btn.disabled = true;
+    const txt = document.getElementById('saveText');
+    if (txt) txt.textContent = 'Збереження...';
+
+    try {
+      const fd = new FormData(form);
+      const body = {
+        bump_color: fd.get('bump_color'),
+        bump_title: fd.get('bump_title'),
+        bump_description: fd.get('bump_description'),
+        welcome_channel_id: fd.get('welcome_channel_id') || null,
+        welcome_title: fd.get('welcome_title') || null,
+        welcome_description: fd.get('welcome_description') || null,
+        goodbye_channel_id: fd.get('goodbye_channel_id') || null,
+        goodbye_title: fd.get('goodbye_title') || null,
+        goodbye_description: fd.get('goodbye_description') || null,
+        level_title: fd.get('level_title') || null,
+        level_description: fd.get('level_description') || null,
+        level_message: fd.get('level_message') || null,
+        boost_channel_id: fd.get('boost_channel_id') || null,
+        boost_title: fd.get('boost_title') || null,
+        boost_description: fd.get('boost_description') || null,
+        cogs: {}
+      };
+
+      // Populate cogs states from checkboxes
+      const cogsCheckboxes = document.querySelectorAll('#panel-cogs input[type="checkbox"]');
+      cogsCheckboxes.forEach(cb => {
+        const name = cb.getAttribute('data-cog-name');
+        body.cogs[name] = cb.checked;
+      });
+
+      const r = await fetch('/api/guilds/{{ guild.id }}/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+      });
+      const data = await r.json();
+      if (r.ok) {
+        st.className = 'text-sm text-emerald-400';
+        st.textContent = '✓ Збережено';
+      } else {
+        st.className = 'text-sm text-red-400';
+        st.textContent = data.detail || 'Помилка';
+      }
+    } catch {
+      st.className = 'text-sm text-red-400';
+      st.textContent = 'Мережева помилка';
+    }
+
+    st.classList.remove('hidden');
+    if (txt) txt.textContent = 'Зберегти налаштування';
+    btn.disabled = false;
+    setTimeout(() => st.classList.add('hidden'), 3000);
+  });
+
+  // Initial call
+  syncPreview();
+})();
+</script>
+{% endblock %}

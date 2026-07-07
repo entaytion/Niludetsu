@@ -10,14 +10,17 @@ from Niludetsu import (
 )
 from Niludetsu.tools.Errors import ErrorHandler
 from Niludetsu.tools.Loader import Loader
+from Niludetsu.config_manager import ConfigManager
+from web.bot import set_bot
 
 intents = discord.Intents.all()
 async def get_prefix(bot, message):
+    if message.guild is None:
+        return ["!"]
     controller: AccessGuard | None = getattr(bot, "access", None)
-    guild_id = message.guild.id if message.guild else None
     if controller:
-        return controller.prefixes_for(guild_id)
-    if guild_id == config.SERVERS["MAIN_ID"]:
+        return controller.prefixes_for(message.guild.id)
+    if message.guild.id == config.SERVERS["MAIN_ID"]:
         return config.PREFIX["MAIN_SERVER"]
     return config.PREFIX["OTHER_SERVER"]
 
@@ -113,6 +116,11 @@ class NiludetsuBot(commands.Bot):
         # Завантажуємо конфіг з БД
         await settings.load()
 
+        # Core customization engine
+        self.config_manager = ConfigManager(self)
+        await self.config_manager.load_all()
+        await self.db.setup_tables()
+
         self.access = AccessGuard(self)
         self.command_manager = self.access
         self.permissions = settings
@@ -126,10 +134,31 @@ class NiludetsuBot(commands.Bot):
         await self.access.bootstrap()
 
         self.quest_tracker = QuestTracker(self)
-        self.level_tracker = LevelTracker(settings.SERVERS["MAIN_ID"])
+        self.level_tracker = LevelTracker(settings.SERVERS["MAIN_ID"], config_manager=self.config_manager)
 
         for category in self.command_manager.get_categories():
             self.command_manager.set_category_enabled(settings.SERVERS["MAIN_ID"], category, True)
+
+        # ── HTTP-дашборд (FastAPI) в тій самій asyncio-петлі ──
+        self._web_server = None
+        self._web_task = asyncio.create_task(self._run_web_server(), name="web-server")
+
+    async def _run_web_server(self) -> None:
+        import uvicorn
+        from web.app import app as web_app
+        from web.config import HOST, PORT
+
+        set_bot(self)
+        cfg = uvicorn.Config(
+            web_app,
+            host=HOST,
+            port=PORT,
+            loop="asyncio",
+            log_level="info",
+        )
+        self._web_server = uvicorn.Server(cfg)
+        logger.info("🌐 Web dashboard starting on {}:{}", HOST, PORT)
+        await self._web_server.serve()
 
     async def _on_app_command_error(self, interaction: discord.Interaction, error: Exception) -> None:
         from discord import app_commands
@@ -206,6 +235,16 @@ class NiludetsuBot(commands.Bot):
             try:
                 await self._status_task
             except asyncio.CancelledError:
+                pass
+
+        # Зупиняємо веб-сервер
+        if self._web_server:
+            self._web_server.should_exit = True
+        if self._web_task and not self._web_task.done():
+            self._web_task.cancel()
+            try:
+                await self._web_task
+            except (asyncio.CancelledError, Exception):
                 pass
 
         if self.http_session and not self.http_session.closed:

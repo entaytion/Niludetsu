@@ -4,6 +4,7 @@ from discord.ext import commands
 from Niludetsu.moderation.checks import moderationcommand
 from Niludetsu import send, ModerationManager, Embed, TimeService
 from Niludetsu.tools.SendHybrid import send_moderation
+from Niludetsu.locale import _
 
 from typing import Optional
 
@@ -32,7 +33,9 @@ class WarnSystemCog(commands.Cog):
     @commands.hybrid_command(name="unwarn", description="Снять предупреждение")
     @app_commands.describe(user="👤 Пользователь", warn_id="🆔 ID варна", reason="💬 Причина")
     @moderationcommand(required_level=1, cooldown=5)
-    async def unwarn(self, ctx, user: discord.Member, warn_id: str, *, reason: str = "Не указана"):
+    async def unwarn(self, ctx, user: discord.Member, warn_id: str, *, reason: Optional[str] = None):
+        t = _(ctx=ctx)
+        if reason is None: reason = t("moderation", "reason_default")
         res = await self.mod_manager.unwarn(ctx.guild, user, ctx.author, reason, rudiment=warn_id)
         await send_moderation(ctx, embed=res["embed"])
 

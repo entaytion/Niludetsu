@@ -1,34 +1,47 @@
 from typing import Optional
 from ..tools.Embed import Colors, Embed
+from ..locale import DEFAULT_LOCALE
 
 import discord
 
-SYSTEM_NAME = "Æther! System"
 SYSTEM_ICON = "https://cdn.discordapp.com/emojis/1355956973006225490.webp?size=160"
+
+def _locale(key: str, **kwargs) -> str:
+    text = DEFAULT_LOCALE.get("moderation", {}).get(key, key)
+    if kwargs and text:
+        for k, v in kwargs.items():
+            text = text.replace(f"{{{k}}}", str(v))
+    return text
+
 PUNISHMENT_NAMES = {
-    "mute": "Мут",
-    "ban": "Бан",
-    "warn": "Предупреждение",
-    "timeout": "Тайм-аут",
+    "mute": _locale("punishment_mute"),
+    "ban": _locale("punishment_ban"),
+    "warn": _locale("punishment_warn"),
+    "timeout": _locale("punishment_timeout"),
 }
 
 def format_duration(minutes: int) -> str:
-    """Конвертирует минуты в читаемый формат времени."""
     if minutes == 0:
-        return "Навсегда"
+        return _locale("duration_permanent")
     if minutes < 60:
-        return f"{minutes} мин."
+        return _locale("duration_minutes", count=minutes)
 
     hours, remaining_minutes = divmod(minutes, 60)
     if hours < 24:
-        return f"{hours} ч." if remaining_minutes == 0 else f"{hours} ч. {remaining_minutes} мин."
+        if remaining_minutes == 0:
+            return _locale("duration_hours", hours=hours)
+        return _locale("duration_hours_minutes", hours=hours, minutes=remaining_minutes)
 
     days, remaining_hours = divmod(hours, 24)
     if days < 30:
-        return f"{days} д." if remaining_hours == 0 else f"{days} д. {remaining_hours} ч."
+        if remaining_hours == 0:
+            return _locale("duration_days", days=days)
+        return _locale("duration_days_hours", days=days, hours=remaining_hours)
 
     months, remaining_days = divmod(days, 30)
-    return f"{months} мес." if remaining_days == 0 else f"{months} мес. {remaining_days} д."
+    if remaining_days == 0:
+        return _locale("duration_months", months=months)
+    return _locale("duration_months_days", months=months, days=remaining_days)
 
 def _resolve_punishment_name(punishment_type: str) -> str:
     base_type = punishment_type[2:] if punishment_type.lower().startswith("un") else punishment_type
@@ -44,18 +57,12 @@ def _build_description(
     is_dm = mode == "dm"
     if is_removal:
         if is_dm:
-            return (
-                f"С вас было **снято** наказание: **``{punishment_name}``**.\n"
-                "-# - Наказание больше не действует."
-            )
-        return f"С <@{target_user.id}> было **снято** наказание **``{punishment_name}``**."
+            return _locale("dm_removal_desc", punishment=punishment_name)
+        return _locale("channel_removal_desc", user_id=target_user.id, punishment=punishment_name)
 
     if is_dm:
-        return (
-            f"Вы получили за нарушение правил сервера: **``{punishment_name}``**.\n"
-            "-# - Если вы не согласны с наказанием, обжалуйте его, прикрепивши его айди."
-        )
-    return f"<@{target_user.id}> получает за нарушение правил сервера: **``{punishment_name}``**."
+        return _locale("dm_punishment_desc", punishment=punishment_name)
+    return _locale("channel_punishment_desc", user_id=target_user.id, punishment=punishment_name)
 
 def _moderator_name(moderator: discord.Member | discord.User) -> str:
     discriminator = getattr(moderator, "discriminator", "0")
@@ -71,7 +78,6 @@ def moderationembed(
     mode: str = "channel",
     is_removal: bool = False,
 ) -> discord.Embed:
-    """Создаёт embed модерационного действия для канала или DM."""
     punishment_name = _resolve_punishment_name(punishment_type)
     embed = Embed(
         description=_build_description(
@@ -81,27 +87,27 @@ def moderationembed(
             is_removal=is_removal,
         ),
         color=Colors.PRIMARY,
-        author={"name": SYSTEM_NAME, "icon_url": SYSTEM_ICON},
+        author={"name": _locale("system_name"), "icon_url": SYSTEM_ICON},
         footer={
-            "text": f"Модератор: {_moderator_name(moderator)} | {moderator.id}",
+            "text": _locale("moderator_footer", moderator=_moderator_name(moderator), mod_id=moderator.id),
             "icon_url": moderator.display_avatar.url,
         },
     )
 
     embed.add_field(
-        name="> ID снятого наказания:" if is_removal else "> ID наказания:",
+        name=_locale("field_action_id_removal") if is_removal else _locale("field_action_id"),
         value=f"```{punishment_id}```",
         inline=True,
     )
     embed.add_field(
-        name="> Причина снятия:" if is_removal else "> Причина:",
+        name=_locale("field_reason_removal") if is_removal else _locale("field_reason"),
         value=f"```{reason}```",
         inline=True,
     )
 
     if not is_removal and duration_minutes is not None:
         embed.add_field(
-            name="> Длительность:",
+            name=_locale("field_duration"),
             value=f"```{format_duration(duration_minutes)}```",
             inline=True,
         )

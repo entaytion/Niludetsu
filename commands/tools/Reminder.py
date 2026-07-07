@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands, tasks
 from Niludetsu import safe_fetch_user, Embed, TimeService
 from Niludetsu.database import database
+from Niludetsu.locale import _
 
 from typing import Optional
 
@@ -156,7 +157,9 @@ class Reminder(commands.GroupCog, group_name="reminder"):
                         except discord.HTTPException:
                             channel = None
 
-            embed = Embed(title="Напоминание", description=reminder["message"])
+            guild_id = int(reminder.get("guild_id", "0") or "0")
+            t = _(guild_id=guild_id, bot=self.bot)
+            embed = Embed(title=t('tools', 'reminder_title'), description=reminder["message"])
             try:
                 if channel:
                     await channel.send(f"{user.mention}", embed=embed)
@@ -190,6 +193,8 @@ class Reminder(commands.GroupCog, group_name="reminder"):
         time: str,
         message: str,
     ):
+        t = _(guild_id=interaction.guild_id, bot=self.bot)
+
         duration_seconds, duration_str, error = _time.validate(time, max_days=7)
         if error:
             await interaction.response.send_message(
@@ -201,7 +206,7 @@ class Reminder(commands.GroupCog, group_name="reminder"):
         active = await self.get_user_reminders(interaction.user.id)
         if len(active) >= 5:
             await interaction.response.send_message(
-                embed=Embed.error(description="У вас уже 5 активных напоминаний."),
+                embed=Embed.error(description=t('tools', 'reminder_max_active')),
                 ephemeral=True,
             )
             return
@@ -218,24 +223,26 @@ class Reminder(commands.GroupCog, group_name="reminder"):
         if reminder_id:
             await interaction.response.send_message(
                 embed=Embed(
-                    title="Напоминание создано",
-                    description=f"Напомню через **{duration_str}**:\n{message}",
+                    title=t('tools', 'reminder_create_title'),
+                    description=t('tools', 'reminder_create_desc', duration=duration_str, message=message),
                 )
             )
         else:
             await interaction.response.send_message(
-                embed=Embed.error(description="Не удалось создать напоминание."),
+                embed=Embed.error(description=t('tools', 'reminder_create_error')),
                 ephemeral=True,
             )
 
     @discord.app_commands.command(name="list", description="Показать ваши напоминания")
     async def list(self, interaction: discord.Interaction):
+        t = _(guild_id=interaction.guild_id, bot=self.bot)
+
         reminders = await self.get_user_reminders(interaction.user.id)
         if not reminders:
             await interaction.response.send_message(
                 embed=Embed(
-                    title="Ваши напоминания",
-                    description="У вас нет активных напоминаний.",
+                    title=t('tools', 'reminder_list_title'),
+                    description=t('tools', 'reminder_list_empty'),
                 ),
                 ephemeral=True,
             )
@@ -243,8 +250,8 @@ class Reminder(commands.GroupCog, group_name="reminder"):
 
         now = _time.now()
         embed = Embed(
-            title="Ваши напоминания",
-            description=f"Всего активных: {len(reminders)}",
+            title=t('tools', 'reminder_list_title'),
+            description=t('tools', 'reminder_list_count', count=len(reminders)),
         )
 
         for reminder in reminders:
@@ -254,29 +261,31 @@ class Reminder(commands.GroupCog, group_name="reminder"):
             if len(message_text) > 80:
                 message_text = message_text[:77] + "..."
             embed.add_field(
-                name=f"ID: {reminder['id']} (через {readable})",
+                name=t('tools', 'reminder_list_field', id=reminder['id'], time=readable),
                 value=message_text,
                 inline=False,
             )
 
-        embed.set_footer(text="Удаление: /reminder delete [ID]")
+        embed.set_footer(text=t('tools', 'reminder_list_footer'))
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @discord.app_commands.command(name="delete", description="Удалить напоминание")
     @discord.app_commands.describe(reminder_id="🆔 ID напоминания (смотрите /reminder list)")
     async def delete(self, interaction: discord.Interaction, reminder_id: int):
+        t = _(guild_id=interaction.guild_id, bot=self.bot)
+
         deleted = await self.delete_reminder(reminder_id, interaction.user.id)
         if not deleted:
             await interaction.response.send_message(
-                embed=Embed.error(description="Напоминание не найдено или уже выполнено."),
+                embed=Embed.error(description=t('tools', 'reminder_delete_not_found')),
                 ephemeral=True,
             )
             return
 
         await interaction.response.send_message(
             embed=Embed.success(
-                title="Напоминание удалено",
-                description=f"Удалено напоминание с ID {reminder_id}.",
+                title=t('tools', 'reminder_delete_title'),
+                description=t('tools', 'reminder_delete_desc', id=reminder_id),
             )
         )
 
@@ -288,4 +297,3 @@ class Reminder(commands.GroupCog, group_name="reminder"):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Reminder(bot))
-

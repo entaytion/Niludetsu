@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Niludetsu — Dashboard{% endblock %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center min-h-[70vh] text-center">
+
+  <!-- Floating orb -->
+  <div class="relative mb-10 anim-fade-up">
+    <div class="absolute inset-0 w-32 h-32 bg-accent-500/20 rounded-full blur-3xl animate-[pulse_4s_ease-in-out_infinite]"></div>
+    <div class="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-accent-500 to-purple-600 flex items-center justify-center shadow-2xl shadow-accent-500/30 animate-[float_6s_ease-in-out_infinite]">
+      <span class="text-4xl font-black text-white">N</span>
+    </div>
+  </div>
+
+  <h1 class="text-5xl md:text-6xl font-black text-white tracking-tight mb-4 anim-fade-up anim-delay-1">
+    Niludetsu <span class="gradient-text">Dashboard</span>
+  </h1>
+  <p class="text-slate-400 text-lg mb-10 max-w-md anim-fade-up anim-delay-2">
+    Керуйте вашим Discord-ботом, налаштовуйте кастомізацію та переглядайте статистику.
+  </p>
+
+  <a href="/auth/login"
+     class="btn-accent text-lg !px-10 !py-4 !rounded-2xl anim-fade-up anim-delay-3 flex items-center gap-3 group">
+    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19.27 5.33C17.94 4.71 16.5 4.26 15 4a.09.09 0 0 0-.07.03c-.18.33-.39.76-.53 1.09a16.09 16.09 0 0 0-4.8 0c-.14-.34-.35-.76-.54-1.09-.01-.02-.04-.03-.07-.03-1.5.26-2.93.71-4.27 1.33-.01 0-.02.01-.03.02-2.72 4.07-3.47 8.03-3.1 11.95 0 .02.01.04.03.05 1.8 1.32 3.53 2.12 5.24 2.65.03.01.06 0 .07-.02.4-.55.76-1.13 1.07-1.74.02-.04 0-.08-.04-.09-.57-.22-1.11-.48-1.64-.78-.04-.02-.04-.08-.01-.11.11-.08.22-.17.33-.25.02-.02.04-.02.07-.01 3.44 1.57 7.15 1.57 10.55 0 .02-.01.05-.01.07.01.11.09.22.17.33.26.04.03.04.09-.01.11-.52.31-1.07.56-1.64.78-.04.01-.05.06-.04.09.32.61.68 1.19 1.07 1.74.03.01.06.02.09.01 1.72-.53 3.45-1.33 5.24-2.65.02-.01.03-.03.03-.05.44-4.53-.73-8.46-3.1-11.95-.01-.01-.02-.02-.04-.02zM8.52 14.91c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12 0 1.17-.84 2.12-1.89 2.12zm6.97 0c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12 0 1.17-.83 2.12-1.89 2.12z"/></svg>
+    Увійти через Discord
+    <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+  </a>
+
+  <!-- Features -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-16 w-full max-w-2xl anim-fade-up anim-delay-4">
+    <div class="glass rounded-2xl p-5 text-center">
+      <div class="w-10 h-10 mx-auto mb-3 rounded-xl bg-accent-500/10 flex items-center justify-center">
+        <svg class="w-5 h-5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+      </div>
+      <h3 class="text-sm font-semibold text-white mb-1">Налаштування</h3>
+      <p class="text-xs text-slate-500">Кастомні ембеди та повідомлення</p>
+    </div>
+    <div class="glass rounded-2xl p-5 text-center">
+      <div class="w-10 h-10 mx-auto mb-3 rounded-xl bg-purple-500/10 flex items-center justify-center">
+        <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      </div>
+      <h3 class="text-sm font-semibold text-white mb-1">Статистика</h3>
+      <p class="text-xs text-slate-500">Аналітика сервера та користувачів</p>
+    </div>
+    <div class="glass rounded-2xl p-5 text-center">
+      <div class="w-10 h-10 mx-auto mb-3 rounded-xl bg-pink-500/10 flex items-center justify-center">
+        <svg class="w-5 h-5 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+      </div>
+      <h3 class="text-sm font-semibold text-white mb-1">Безпека</h3>
+      <p class="text-xs text-slate-500">Discord OAuth2 авторизація</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

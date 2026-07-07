@@ -2,12 +2,14 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from Niludetsu import Embed, Colors, Emojis, Time, send, defer, AchievementsManager, EconomyManager, MarriageManager
+from Niludetsu.locale import _, DEFAULT_LOCALE
 
 from Niludetsu.database import database
 
 from typing import Optional
 
 _time = Time()
+M = DEFAULT_LOCALE.get("marriage", {})
 
 class MarriageCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -21,16 +23,17 @@ class MarriageCog(commands.Cog):
     @app_commands.describe(member="Пользователь, которому вы хотите сделать предложение")
     async def marry(self, ctx: commands.Context, member: discord.Member) -> None:
         await defer(ctx, ephemeral=False, thinking=True)
+        t = _(ctx=ctx)
 
         proposer_id = str(ctx.author.id)
         guild_id = str(ctx.guild.id)
         target_id = str(member.id)
 
         if member.bot:
-            await send(ctx, f"{Emojis.ERROR} Нельзя жениться на боте!", ephemeral=True)
+            await send(ctx, f"{Emojis.ERROR} {t('marriage', 'propose_bot_error')}", ephemeral=True)
             return
         if proposer_id == target_id:
-            await send(ctx, f"{Emojis.ERROR} Сам на себе женишься? Жизнь — не Dark Souls!", ephemeral=True)
+            await send(ctx, f"{Emojis.ERROR} {t('marriage', 'propose_self_error')}", ephemeral=True)
             return
 
         await self.db.ensure_record("users", user_id=proposer_id, guild_id=guild_id)
@@ -40,16 +43,15 @@ class MarriageCog(commands.Cog):
             marriage = await self.marriages.fetch_marriage(guild_id, uid)
             if marriage:
                 if uid == proposer_id:
-                    await send(ctx, f"{Emojis.ERROR} Вы уже состоите в браке!", ephemeral=True)
+                    await send(ctx, f"{Emojis.ERROR} {t('marriage', 'propose_married_error')}", ephemeral=True)
                 else:
-                    await send(ctx, f"{Emojis.ERROR} Этот пользователь уже состоит в браке!", ephemeral=True)
+                    await send(ctx, f"{Emojis.ERROR} {t('marriage', 'propose_target_married')}", ephemeral=True)
                 return
 
-        view = MarriageProposalView(member)
+        view = MarriageProposalView(member, t)
         embed = Embed(
-            title="Предложение руки и сердца",
-            description=f"{ctx.author.mention} делает предложение {member.mention}.\n"
-                        "У тебя есть **60 секунд** на ответ.",
+            title=t("marriage", "propose_title"),
+            description=t("marriage", "propose_desc", author=ctx.author.mention, target=member.mention),
             color=Colors.PRIMARY,
         )
 
@@ -59,39 +61,38 @@ class MarriageCog(commands.Cog):
         await view.wait()
 
         if view.value is None:
-            await message.edit(content="⏱️ Время истекло.", view=None)
+            await message.edit(content=t("marriage", "propose_timeout"), view=None)
             return
         if not view.value:
-            await message.edit(content=f"💔 {member.mention} отказался.", view=None)
+            await message.edit(content=t("marriage", "propose_rejected", target=member.mention), view=None)
             return
 
         marriage = await self.marriages.create_marriage(guild_id, proposer_id, target_id)
         
-        # sync_spousal_flags сам оновить базу і кеш, зайві update_record більше не потрібні
         await self.marriages.sync_spousal_flags(guild_id, marriage, enabled=True)
 
         success = Embed(
-            title="Поздравляем!",
-            description=f"{ctx.author.mention} и {member.mention} теперь в браке.",
+            title=t("marriage", "marry_success_title"),
+            description=t("marriage", "marry_success_desc", author=ctx.author.mention, target=member.mention),
             color=Colors.SUCCESS,
         )
-        success.add_field(name="📅 Дата свадьбы", value=_time.format_datetime(marriage["married_at"]))
+        success.add_field(name=t("marriage", "marry_date"), value=_time.format_datetime(marriage["married_at"]))
         await message.edit(content=None, embed=success, view=None)
         
-        # Досягнення видаються з оновленням кешу
         await self.achievements.unlock(guild_id, proposer_id, "first_marriage", channel=ctx.channel)
         await self.achievements.unlock(guild_id, target_id, "first_marriage", channel=ctx.channel)
 
     @commands.hybrid_command(name="divorce", description="Развестись с текущим партнером")
     async def divorce(self, ctx: commands.Context) -> None:
         await defer(ctx, ephemeral=True, thinking=True)
+        t = _(ctx=ctx)
 
         guild_id = str(ctx.guild.id)
         user_id = str(ctx.author.id)
 
         marriage = await self.marriages.fetch_marriage(guild_id, user_id)
         if not marriage:
-            await send(ctx, embed=Embed.error(description=f"{Emojis.ERROR} Вы ещё не в браке!"), ephemeral=True)
+            await send(ctx, embed=Embed.error(description=f"{Emojis.ERROR} {t('marriage', 'divorce_not_married')}"), ephemeral=True)
             return
 
         partner_id = marriage["partner_a_id"] if marriage["partner_b_id"] == user_id else marriage["partner_b_id"]
@@ -106,23 +107,19 @@ class MarriageCog(commands.Cog):
         await self.marriages.clear_spousal_balance(guild_id, marriage)
         await self.marriages.sync_spousal_flags(guild_id, marriage, enabled=False)
         
-        # Фікс: правильний метод закриття шлюбу лежить в db.close_marriage
         await self.db.close_marriage(marriage["id"], status="divorced")
 
         embed = Embed(
-            title="Развод оформлен",
-            description=(
-                f"Семейный счёт **{balance:,} {Emojis.MONEY}** разделён поровну — "
-                f"по **{share:,} {Emojis.MONEY}** каждому."
-            ),
+            title=t("marriage", "divorce_title"),
+            description=t("marriage", "divorce_desc", balance=f"{balance:,} {Emojis.MONEY}", share=f"{share:,} {Emojis.MONEY}"),
             color=Colors.ERROR,
         )
 
         kids = await self.marriages.fetch_children(marriage["id"])
         if kids:
             embed.add_field(
-                name="👶 Дети",
-                value=f"{len(kids)} ребёнок(ов) остались в детдоме.",
+                name=t("marriage", "divorce_children"),
+                value=t("marriage", "divorce_children_desc", count=len(kids)),
                 inline=False,
             )
 
@@ -132,41 +129,39 @@ class MarriageCog(commands.Cog):
     @app_commands.describe(member="Чьи отношения посмотреть")
     async def relations(self, ctx: commands.Context, member: Optional[discord.Member] = None) -> None:
         await defer(ctx, ephemeral=True, thinking=True)
+        t = _(ctx=ctx)
 
         target = member or ctx.author
         guild_id = str(ctx.guild.id)
         marriage = await self.marriages.fetch_marriage(guild_id, str(target.id))
         if not marriage:
-            text = "Вы не состоите в браке!" if target == ctx.author else f"{target.display_name} пока свободен(а)."
+            text = t("marriage", "relations_not_married_self") if target == ctx.author else t("marriage", "relations_not_married_other", target=target.display_name)
             await send(ctx, f"{Emojis.ERROR} {text}", ephemeral=True)
             return
 
         partner_id = marriage["partner_a_id"] if marriage["partner_b_id"] == str(target.id) else marriage["partner_b_id"]
         partner = ctx.guild.get_member(int(partner_id))
         if not partner:
-            await send(ctx, f"{Emojis.ERROR} Партнёр не найден на сервере!", ephemeral=True)
+            await send(ctx, f"{Emojis.ERROR} {t('marriage', 'relations_partner_not_found')}", ephemeral=True)
             return
 
         married_at = _time.ensure_datetime(marriage["married_at"])
         duration = _time.diff(married_at)
-        together = f"{duration.days} дн. {duration.hours} ч. {duration.minutes} мин."
+        together = t("marriage", "together_format", days=duration.days, hours=duration.hours, minutes=duration.minutes)
 
         embed = Embed(
-            title="Информация о браке",
-            description=(
-                f"Пара: **{target.display_name} × {partner.display_name}**\n"
-                f"Вместе: **{together}**"
-            ),
+            title=t("marriage", "relations_title"),
+            description=t("marriage", "relations_desc", user=target.display_name, partner=partner.display_name, together=together),
             color=Colors.PRIMARY,
         )
         embed.add_field(
-            name="📅 Дата свадьбы",
+            name=t("marriage", "marry_date"),
             value=_time.format_datetime(married_at),
             inline=True,
         )
         family_balance = await self.marriages.unify_spousal_balance(guild_id, marriage)
         embed.add_field(
-            name="💰 Семейный счёт",
+            name=t("marriage", "relations_balance"),
             value=f"{family_balance:,} {Emojis.MONEY}",
             inline=True,
         )
@@ -179,7 +174,7 @@ class MarriageCog(commands.Cog):
                 mentions.append(child.mention)
         if mentions:
             embed.add_field(
-                name=f"👨‍👩‍👧 Дети ({len(mentions)})",
+                name=t("marriage", "relations_children", count=len(mentions)),
                 value=", ".join(mentions),
                 inline=False,
             )
@@ -187,24 +182,25 @@ class MarriageCog(commands.Cog):
         await send(ctx, embed=embed, ephemeral=False)
 
 class MarriageProposalView(discord.ui.View):
-    def __init__(self, target: discord.Member):
+    def __init__(self, target: discord.Member, t):
         super().__init__(timeout=60)
         self.target = target
         self.value: Optional[bool] = None
+        self.t = t
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.target.id:
-            await interaction.response.send_message(f"{Emojis.ERROR} Это предложение не для тебя!", ephemeral=True)
+            await interaction.response.send_message(f"{Emojis.ERROR} {self.t('marriage', 'propose_not_for_you')}", ephemeral=True)
             return False
         return True
 
-    @discord.ui.button(label="Согласиться", style=discord.ButtonStyle.success, emoji="💍")
+    @discord.ui.button(label=M.get("button_accept", "Согласиться"), style=discord.ButtonStyle.success, emoji="💍")
     async def accept(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.value = True
         await interaction.response.defer()
         self.stop()
 
-    @discord.ui.button(label="Отказаться", style=discord.ButtonStyle.danger, emoji="💔")
+    @discord.ui.button(label=M.get("button_decline", "Отказаться"), style=discord.ButtonStyle.danger, emoji="💔")
     async def decline(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.value = False
         await interaction.response.defer()

@@ -2,6 +2,7 @@ import discord, time
 from discord import app_commands
 from discord.ext import commands
 from Niludetsu import Embed, Colors
+from Niludetsu.locale import _
 from typing import Dict, Optional, Tuple
 
 
@@ -25,14 +26,15 @@ class AFK(commands.Cog):
     )
     @app_commands.describe(reason="Причина AFK")
     async def afk(self, ctx: commands.Context, *, reason: Optional[str] = None) -> None:
+        t = _(ctx=ctx)
         key = self._key(ctx.author.id, ctx.guild.id)
-        reason = reason or "Не указана"
+        reason = reason or t("utilities", "afk_reason_default")
 
         if key in self._afk:
             del self._afk[key]
             await ctx.reply(
                 embed=Embed(
-                    description=f"С возвращением, **{ctx.author.display_name}**! AFK-статус снят.",
+                    description=t("utilities", "afk_removed_desc", name=ctx.author.display_name),
                     color=Colors.SUCCESS,
                 ),
                 mention_author=False,
@@ -42,7 +44,7 @@ class AFK(commands.Cog):
         self._afk[key] = (reason, time.time())
         await ctx.reply(
             embed=Embed(
-                description=f"**{ctx.author.display_name}** теперь AFK: {reason}",
+                description=t("utilities", "afk_set_desc", name=ctx.author.display_name, reason=reason),
                 color=Colors.PRIMARY,
             ),
             mention_author=False,
@@ -55,6 +57,7 @@ class AFK(commands.Cog):
         if message.author.bot or not message.guild:
             return
 
+        t = _(guild_id=message.guild.id, bot=self.bot)
         guild_id = message.guild.id
 
         # Если автор в AFK — снимаем
@@ -65,7 +68,7 @@ class AFK(commands.Cog):
             try:
                 await message.reply(
                     embed=Embed(
-                        description=f"С возвращением, **{message.author.display_name}**! Ты был AFK **{duration}**.",
+                        description=t("utilities", "afk_removed_duration", name=message.author.display_name, duration=duration),
                         color=Colors.SUCCESS,
                     ),
                     mention_author=False,
@@ -86,7 +89,7 @@ class AFK(commands.Cog):
                 reason, went_afk_at = entry
                 duration = self._format_duration(time.time() - went_afk_at)
                 lines.append(
-                    f"💤 **{mentioned.display_name}** сейчас AFK: {reason} ・ *{duration} назад*"
+                    t("utilities", "afk_return_desc", name=mentioned.display_name, reason=reason, duration=duration)
                 )
 
         if lines:

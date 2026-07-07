@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from Niludetsu import Embed, Emojis, AutoModManager, AutoModRuleType, config
+from Niludetsu.locale import _, DEFAULT_LOCALE
 
 class RuleSelect(discord.ui.Select):
     def __init__(self, rules):
@@ -13,17 +14,19 @@ class RuleSelect(discord.ui.Select):
             "caps_lock": "🔠",
             "custom_words": "📝"
         }
+        enabled_text = DEFAULT_LOCALE.get("moderation", {}).get("automod_status_enabled", "Включено")
+        disabled_text = DEFAULT_LOCALE.get("moderation", {}).get("automod_status_disabled", "Выключено")
 
         options = [
             discord.SelectOption(
                 label=AutoModRuleType(rt).label,
                 value=rt,
-                description=f"{Emojis.SUCCESS + ' Включено' if data['is_enabled'] else Emojis.ERROR + ' Выключено'}",
+                description=f"{Emojis.SUCCESS + ' ' + enabled_text if data['is_enabled'] else Emojis.ERROR + ' ' + disabled_text}",
                 emoji=rule_emojis.get(rt, "⚙️"),
                 default=False
             ) for rt, data in rules.items()
         ]
-        super().__init__(placeholder="🛡️ Выберите правило для управления", options=options)
+        super().__init__(placeholder=DEFAULT_LOCALE.get("moderation", {}).get("automod_select_placeholder", "🛡️ Выберите правило для управления"), options=options)
 
     async def callback(self, interaction: discord.Interaction):
         view: RuleManageView = self.view
@@ -31,7 +34,7 @@ class RuleSelect(discord.ui.Select):
 
 class AddChannelButton(discord.ui.Button):
     def __init__(self):
-        super().__init__(label="Добавить канал", style=discord.ButtonStyle.green, emoji="➕")
+        super().__init__(label=DEFAULT_LOCALE.get("moderation", {}).get("automod_btn_add_channel", "Добавить канал"), style=discord.ButtonStyle.green, emoji="➕")
 
     async def callback(self, interaction: discord.Interaction):
         view: RuleManageView = self.view
@@ -39,7 +42,7 @@ class AddChannelButton(discord.ui.Button):
 
 class RemoveChannelButton(discord.ui.Button):
     def __init__(self):
-        super().__init__(label="Удалить канал", style=discord.ButtonStyle.red, emoji="➖")
+        super().__init__(label=DEFAULT_LOCALE.get("moderation", {}).get("automod_btn_remove_channel", "Удалить канал"), style=discord.ButtonStyle.red, emoji="➖")
 
     async def callback(self, interaction: discord.Interaction):
         view: RuleManageView = self.view
@@ -47,7 +50,7 @@ class RemoveChannelButton(discord.ui.Button):
 
 class BackButton(discord.ui.Button):
     def __init__(self):
-        super().__init__(label="Назад", style=discord.ButtonStyle.gray, emoji="⬅️")
+        super().__init__(label=DEFAULT_LOCALE.get("moderation", {}).get("automod_btn_back", "Назад"), style=discord.ButtonStyle.gray, emoji="⬅️")
 
     async def callback(self, interaction: discord.Interaction):
         view: RuleManageView = self.view
@@ -55,10 +58,10 @@ class BackButton(discord.ui.Button):
 
 class AddChannelModal(discord.ui.Modal):
     def __init__(self):
-        super().__init__(title="Добавить канал в игнорируемые")
+        super().__init__(title=DEFAULT_LOCALE.get("moderation", {}).get("automod_modal_add_title", "Добавить канал в игнорируемые"))
         self.channel_input = discord.ui.TextInput(
-            label="ID канала или упоминание",
-            placeholder="Введите ID канала или упомяните канал (#канал)",
+            label=DEFAULT_LOCALE.get("moderation", {}).get("automod_modal_add_label", "ID канала или упоминание"),
+            placeholder=DEFAULT_LOCALE.get("moderation", {}).get("automod_modal_add_placeholder", "Введите ID канала или упомяните канал (#канал)"),
             required=True,
             max_length=100
         )
@@ -70,11 +73,11 @@ class AddChannelModal(discord.ui.Modal):
 
 class RemoveChannelModal(discord.ui.Modal):
     def __init__(self, channels_list):
-        super().__init__(title="Удалить канал из игнорируемых")
+        super().__init__(title=DEFAULT_LOCALE.get("moderation", {}).get("automod_modal_remove_title", "Удалить канал из игнорируемых"))
         self.channels_list = channels_list
         self.channel_input = discord.ui.TextInput(
-            label="Номер канала для удаления",
-            placeholder=f"Введите номер от 1 до {len(channels_list)} или 'все' для очистки",
+            label=DEFAULT_LOCALE.get("moderation", {}).get("automod_modal_remove_label", "Номер канала для удаления"),
+            placeholder=DEFAULT_LOCALE.get("moderation", {}).get("automod_modal_remove_placeholder", f"Введите номер от 1 до {len(channels_list)} или 'все' для очистки").format(max=len(channels_list)),
             required=True,
             max_length=10
         )
@@ -86,8 +89,10 @@ class RemoveChannelModal(discord.ui.Modal):
 
 class ToggleButton(discord.ui.Button):
     def __init__(self, enabled):
+        label_on = DEFAULT_LOCALE.get("moderation", {}).get("automod_btn_toggle_on", "Выключить")
+        label_off = DEFAULT_LOCALE.get("moderation", {}).get("automod_btn_toggle_off", "Включить")
         super().__init__(
-            label="Включить" if not enabled else "Выключить",
+            label=label_off if not enabled else label_on,
             style=discord.ButtonStyle.green if not enabled else discord.ButtonStyle.red
         )
 
@@ -124,11 +129,13 @@ class RuleManageView(discord.ui.View):
             else:
                 ignored_channels_list.append(f"{i}. Канал удален (ID: {cid})")
 
-        channels_text = "\n".join(ignored_channels_list) if ignored_channels_list else "Нет"
+        enabled_text = DEFAULT_LOCALE.get("moderation", {}).get("automod_status_enabled", "Включено")
+        disabled_text = DEFAULT_LOCALE.get("moderation", {}).get("automod_status_disabled", "Выключено")
+        channels_text = "\n".join(ignored_channels_list) if ignored_channels_list else DEFAULT_LOCALE.get("audit_log", {}).get("none", "Нет")
 
         embed = Embed(
-            title=f"Правило: {AutoModRuleType(rule_type).label}",
-            description=f"Статус: {'Включено' if rule['is_enabled'] else 'Выключено'}\n**Игнорируемые каналы:**\n{channels_text}"
+            title=DEFAULT_LOCALE.get("moderation", {}).get("automod_rule_title", "Правило: {label}").format(label=AutoModRuleType(rule_type).label),
+            description=f"{DEFAULT_LOCALE.get('moderation', {}).get('automod_status_text', 'Статус:')} {enabled_text if rule['is_enabled'] else disabled_text}\n{DEFAULT_LOCALE.get('moderation', {}).get('automod_ignored_channels', '**Игнорируемые каналы:**')}\n{channels_text}"
         )
         await interaction.response.edit_message(embed=embed, view=self)
 
@@ -150,7 +157,7 @@ class RuleManageView(discord.ui.View):
     async def show_remove_channel_modal(self, interaction):
         rule = self.rules[self.selected_rule]
         if not rule["ignored_channels"]:
-            await interaction.response.send_message("Нет каналов для удаления!", ephemeral=True)
+            await interaction.response.send_message(DEFAULT_LOCALE.get("moderation", {}).get("automod_no_channels", "Нет каналов для удаления!"), ephemeral=True)
             return
         modal = RemoveChannelModal(rule["ignored_channels"])
         modal.view = self
@@ -167,7 +174,7 @@ class RuleManageView(discord.ui.View):
             channel = self.guild.get_channel(channel_id)
             if not channel:
                 await interaction.response.send_message(
-                    f"Канал с ID {channel_id} не найден на сервере!",
+                    DEFAULT_LOCALE.get("moderation", {}).get("automod_channel_not_found", "Канал с ID {id} не найден на сервере!").format(id=channel_id),
                     ephemeral=True
                 )
                 return
@@ -177,7 +184,7 @@ class RuleManageView(discord.ui.View):
 
             if channel_id_str in rule["ignored_channels"]:
                 await interaction.response.send_message(
-                    f"Канал {channel.mention} уже в списке игнорируемых!",
+                    DEFAULT_LOCALE.get("moderation", {}).get("automod_channel_already_ignored", "Канал {channel} уже в списке игнорируемых!").format(channel=channel.mention),
                     ephemeral=True
                 )
                 return
@@ -190,18 +197,18 @@ class RuleManageView(discord.ui.View):
                 listener.invalidate_cache()
 
             await interaction.response.send_message(
-                f"Канал {channel.mention} добавлен в игнорируемые!",
+                DEFAULT_LOCALE.get("moderation", {}).get("automod_channel_added", "Канал {channel} добавлен в игнорируемые!").format(channel=channel.mention),
                 ephemeral=True
             )
             await self.update_rule_display()
 
         except ValueError:
             await interaction.response.send_message(
-                "Неверный формат! Введите ID канала или упомяните канал.",
+                DEFAULT_LOCALE.get("moderation", {}).get("automod_invalid_format", "Неверный формат! Введите ID канала или упомяните канал."),
                 ephemeral=True
             )
         except Exception as e:
-            await interaction.response.send_message(f"Ошибка: {str(e)}", ephemeral=True)
+            await interaction.response.send_message(DEFAULT_LOCALE.get("moderation", {}).get("automod_error", "Ошибка: {error}").format(error=str(e)), ephemeral=True)
 
     async def remove_channel_from_ignored(self, interaction, channel_input):
         try:
@@ -218,7 +225,7 @@ class RuleManageView(discord.ui.View):
                     listener.invalidate_cache()
 
                 await interaction.response.send_message(
-                    "Все каналы удалены из списка игнорируемых!",
+                    DEFAULT_LOCALE.get("moderation", {}).get("automod_channels_cleared", "Все каналы удалены из списка игнорируемых!"),
                     ephemeral=True
                 )
             else:
@@ -226,7 +233,7 @@ class RuleManageView(discord.ui.View):
                 if 0 <= index < len(rule["ignored_channels"]):
                     channel_id = rule["ignored_channels"][index]
                     channel = self.guild.get_channel(int(channel_id))
-                    channel_name = channel.mention if channel else f"ID: {channel_id}"
+                    channel_name = channel.mention if channel else DEFAULT_LOCALE.get("moderation", {}).get("automod_channel_deleted", "Канал удален (ID: {id})").format(id=channel_id)
 
                     await self.settings.remove_ignored_channel(self.selected_rule, channel_id)
                     self.rules[self.selected_rule]["ignored_channels"].pop(index)
@@ -236,12 +243,12 @@ class RuleManageView(discord.ui.View):
                         listener.invalidate_cache()
 
                     await interaction.response.send_message(
-                        f"Канал {channel_name} удален из списка игнорируемых!",
+                        DEFAULT_LOCALE.get("moderation", {}).get("automod_channel_removed", "Канал {channel} удален из списка игнорируемых!").format(channel=channel_name),
                         ephemeral=True
                     )
                 else:
                     await interaction.response.send_message(
-                        f"Неверный номер! Введите номер от 1 до {len(rule['ignored_channels'])}",
+                        DEFAULT_LOCALE.get("moderation", {}).get("automod_invalid_number", "Неверный номер! Введите номер от 1 до {max}").format(max=len(rule['ignored_channels'])),
                         ephemeral=True
                     )
                     return
@@ -250,15 +257,15 @@ class RuleManageView(discord.ui.View):
 
         except ValueError:
             await interaction.response.send_message(
-                "Неверный формат! Введите номер канала или 'все' для очистки.",
+                DEFAULT_LOCALE.get("moderation", {}).get("automod_invalid_remove_format", "Неверный формат! Введите номер канала или 'все' для очистки."),
                 ephemeral=True
             )
         except Exception as e:
             try:
                 if not interaction.response.is_done():
-                    await interaction.response.send_message(f"Ошибка: {str(e)}", ephemeral=True)
+                    await interaction.response.send_message(DEFAULT_LOCALE.get("moderation", {}).get("automod_error", "Ошибка: {error}").format(error=str(e)), ephemeral=True)
                 else:
-                    await interaction.followup.send(f"Ошибка: {str(e)}", ephemeral=True)
+                    await interaction.followup.send(DEFAULT_LOCALE.get("moderation", {}).get("automod_error", "Ошибка: {error}").format(error=str(e)), ephemeral=True)
             except:
                 pass
 
@@ -267,11 +274,13 @@ class RuleManageView(discord.ui.View):
         self.selected_rule = None
         self.add_item(RuleSelect(self.rules))
 
+        enabled_text = DEFAULT_LOCALE.get("moderation", {}).get("automod_status_enabled", "Включено")
+        disabled_text = DEFAULT_LOCALE.get("moderation", {}).get("automod_status_disabled", "Выключено")
         desc = "\n".join([
-            f"**{AutoModRuleType(rt).label}**: {Emojis.SUCCESS + ' Включено' if data['is_enabled'] else Emojis.ERROR + ' Выключено'}"
+            f"**{AutoModRuleType(rt).label}**: {Emojis.SUCCESS + ' ' + enabled_text if data['is_enabled'] else Emojis.ERROR + ' ' + disabled_text}"
             for rt, data in self.rules.items()
         ])
-        embed = Embed(title="Настройки автомодерации", description=desc)
+        embed = Embed(title=DEFAULT_LOCALE.get("moderation", {}).get("automod_menu_title", "Настройки автомодерации"), description=desc)
         await interaction.response.edit_message(embed=embed, view=self)
 
     async def update_rule_display(self):
@@ -284,19 +293,21 @@ class RuleManageView(discord.ui.View):
                 self.add_item(RemoveChannelButton())
             self.add_item(BackButton())
 
+            enabled_text = DEFAULT_LOCALE.get("moderation", {}).get("automod_status_enabled", "Включено")
+            disabled_text = DEFAULT_LOCALE.get("moderation", {}).get("automod_status_disabled", "Выключено")
             ignored_channels_list = []
             for i, cid in enumerate(rule["ignored_channels"], 1):
                 channel = self.guild.get_channel(int(cid))
                 if channel:
                     ignored_channels_list.append(f"{i}. {channel.mention}")
                 else:
-                    ignored_channels_list.append(f"{i}. Канал удален (ID: {cid})")
+                    ignored_channels_list.append(f"{i}. {DEFAULT_LOCALE.get('moderation', {}).get('automod_channel_deleted', 'Канал удален (ID: {id})').format(id=cid)}")
 
-            channels_text = "\n".join(ignored_channels_list) if ignored_channels_list else "Нет"
+            channels_text = "\n".join(ignored_channels_list) if ignored_channels_list else DEFAULT_LOCALE.get("audit_log", {}).get("none", "Нет")
 
             embed = Embed(
-                title=f"Правило: {AutoModRuleType(self.selected_rule).label}",
-                description=f"Статус: {'Включено' if rule['is_enabled'] else 'Выключено'}\n**Игнорируемые каналы:**\n{channels_text}"
+                title=DEFAULT_LOCALE.get("moderation", {}).get("automod_rule_title", "Правило: {label}").format(label=AutoModRuleType(self.selected_rule).label),
+                description=f"{enabled_text if rule['is_enabled'] else disabled_text}\n{DEFAULT_LOCALE.get('moderation', {}).get('automod_ignored_channels', '**Игнорируемые каналы:**')}\n{channels_text}"
             )
 
             try:
@@ -311,16 +322,19 @@ class AutoModSystem(commands.Cog):
 
     @commands.command(name="automod")
     async def automod(self, ctx):
+        t = _(ctx=ctx)
         if ctx.guild is None or ctx.guild.id != config.SERVERS["MAIN_ID"]:
-            await ctx.reply("Автомодерация доступна только на основном сервере.")
+            await ctx.reply(t("moderation", "automod_main_server_only"))
             return
 
         rules = await self.settings.get_settings()
+        enabled_text = DEFAULT_LOCALE.get("moderation", {}).get("automod_status_enabled", "Включено")
+        disabled_text = DEFAULT_LOCALE.get("moderation", {}).get("automod_status_disabled", "Выключено")
         desc = "\n".join([
-            f"**{AutoModRuleType(rt).label}**: {Emojis.SUCCESS + ' Включено' if data['is_enabled'] else Emojis.ERROR + ' Выключено'}"
+            f"**{AutoModRuleType(rt).label}**: {Emojis.SUCCESS + ' ' + enabled_text if data['is_enabled'] else Emojis.ERROR + ' ' + disabled_text}"
             for rt, data in rules.items()
         ])
-        embed = Embed(title="Настройки автомодерации", description=desc)
+        embed = Embed(title=DEFAULT_LOCALE.get("moderation", {}).get("automod_menu_title", "Настройки автомодерации"), description=desc)
         view = RuleManageView(self.bot, self.settings, rules, ctx.guild)
         msg = await ctx.reply(embed=embed, view=view)
         view.message = msg

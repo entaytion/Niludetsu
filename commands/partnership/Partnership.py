@@ -2,6 +2,7 @@ import asyncio, discord, re
 from .PartnershipCore import PartnershipManager
 from discord.ext import commands
 from Niludetsu import config
+from Niludetsu.locale import _
 from Niludetsu.database import database
 
 class Partnership(commands.Cog):
@@ -28,6 +29,8 @@ class Partnership(commands.Cog):
     async def send_error_notification(self, user_id: str, server_name: str, reason: str):
         """Отправляет уведомление об ошибке в канал статистики"""
         try:
+            t = _(guild_id=config.SERVERS["MAIN_ID"], bot=self.bot)
+
             # Получаем канал статистики
             stats_channel = self.bot.get_channel(self.stats_channel_id)
             if not stats_channel:
@@ -40,10 +43,7 @@ class Partnership(commands.Cog):
 
             # Создаем эмбед с уведомлением об ошибке
             embed = discord.Embed(
-                description=(
-                    f"Ваше партнёрство с сервером **{server_name}** было отклонено.\n"
-                    f"- Причина: {reason}"
-                ),
+                description=t("partnership", "partner_error_rejected", server_name=server_name, reason=reason),
                 color=0xFF0000  # Красный цвет для ошибок
             )
 
@@ -61,6 +61,8 @@ class Partnership(commands.Cog):
     async def send_partnership_stats(self, user_id: str, server_name: str, points_earned: int, is_new: bool, renewed_count: int = 0):
         """Отправляет статистику партнерства в специальный канал"""
         try:
+            t = _(guild_id=config.SERVERS["MAIN_ID"], bot=self.bot)
+
             # Получаем канал
             stats_channel = self.bot.get_channel(self.stats_channel_id)
             if not stats_channel:
@@ -76,23 +78,30 @@ class Partnership(commands.Cog):
 
             # Определяем текст для обновления
             if is_new:
-                update_text = f"**{server_name}** был добавлен."
+                update_text = t("partnership", "partner_stats_new", server_name=server_name)
                 action_emoji = "🆕"
-                action_text = f"**1** новое партнерство"
+                action_text = t("partnership", "partner_stats_new_action")
             else:
-                update_text = f"**{server_name}** был обновлён **{renewed_count}** раз."
+                update_text = t("partnership", "partner_stats_renewed", server_name=server_name, count=renewed_count)
                 action_emoji = "🔄"
-                action_text = f"**1** обновление партнерства"
+                action_text = t("partnership", "partner_stats_renew_action")
 
             # Добавляем информацию о баллах к действию
             points_info = f"[+{points_earned}]" if points_earned > 0 else "[+0]"
+
+            # Определяем слово "балл"
+            if points_earned == 1:
+                points_word = t("partnership", "partner_points_word_1")
+            elif 2 <= points_earned <= 4:
+                points_word = t("partnership", "partner_points_word_2")
+            else:
+                points_word = t("partnership", "partner_points_word_5")
 
             # Создаем эмбед
             embed = discord.Embed(
                 description=(
                     f"{update_text}\n"
-                    f"**{user.display_name}** получил **{points_earned}** {'балла' if points_earned == 2 else 'балл' if points_earned == 1 else 'баллов'}, "
-                    f"всего у него **{pm_stats['points']}** баллов."
+                    f"{t('partnership', 'partner_stats_points', user_name=user.display_name, points=points_earned, points_word=points_word, total=pm_stats['points'])}"
                 ),
                 color=0x000000  # Черный цвет
             )
@@ -105,10 +114,11 @@ class Partnership(commands.Cog):
 
             # Добавляем field со статистикой (одной строкой)
             embed.add_field(
-                name="> Статистика ПМа:",
+                name=t("partnership", "partner_stats_header"),
                 value=(
-                    f"- 🆕 **{pm_stats['new_partnerships']}** новых партнерств, 🔄 **{pm_stats['renewed_partnerships']}** обновлений партнерств\n"
-                    f"- Последнее действие: {action_emoji} {action_text} {points_info}"
+                    f"- {t('partnership', 'partner_stats_new_partners', count=pm_stats['new_partnerships'])}, "
+                    f"{t('partnership', 'partner_stats_renewed_partners', count=pm_stats['renewed_partnerships'])}\n"
+                    f"- {t('partnership', 'partner_stats_last_action', emoji=action_emoji, action=action_text, points_info=points_info)}"
                 ),
                 inline=False
             )
@@ -177,6 +187,8 @@ class Partnership(commands.Cog):
     async def delete_server_duplicates_async(self, server_id, server_name, current_message):
         """Асинхронно удаляет дубликаты инвайтов (оптимизированная версия)"""
         try:
+            t = _(guild_id=config.SERVERS["MAIN_ID"], bot=self.bot)
+
             # Ждем немного, чтобы основная обработка завершилась
             await asyncio.sleep(1)
 
@@ -221,7 +233,7 @@ class Partnership(commands.Cog):
                 log_channel = self.bot.get_channel(self.stats_channel_id)
                 if log_channel:
                     await log_channel.send(
-                        f"🗑️ Удалено {deleted_count} дубликатов инвайтов для сервера **{server_name}** (ID: {server_id})"
+                        t("partnership", "partner_duplicates_deleted", count=deleted_count, server_name=server_name, server_id=server_id)
                     )
         except Exception as e:
             print(f"Ошибка при удалении дубликатов: {e}")
@@ -267,10 +279,11 @@ class Partnership(commands.Cog):
                 pass
 
             # Отправляем уведомление в канал статистики
+            t = _(guild_id=config.SERVERS["MAIN_ID"], bot=self.bot)
             await self.send_error_notification(
                 user_id=user_id,
                 server_name=server_name,
-                reason="сервер в чёрном списке."
+                reason=t("partnership", "partner_error_blacklisted")
             )
             return False
 
@@ -284,10 +297,11 @@ class Partnership(commands.Cog):
                 pass
 
             # Отправляем уведомление в канал статистики
+            t = _(guild_id=config.SERVERS["MAIN_ID"], bot=self.bot)
             await self.send_error_notification(
                 user_id=user_id,
                 server_name=server_name,
-                reason=result.get('message', 'Неизвестная ошибка')
+                reason=result.get('message', t("partnership", "partner_error_unknown"))
             )
             return False
 
@@ -328,8 +342,10 @@ class Partnership(commands.Cog):
     @commands.command(name="pmserver")
     async def pmserver(self, ctx, action: str = None, server: str = None):
         """Управление баном серверов для партнёрств"""
+        t = _(ctx=ctx)
+
         if str(ctx.author.id) != self.creator_id:
-            await ctx.reply("У вас нет прав для использования этой команды.")
+            await ctx.reply(t("partnership", "partner_no_permission"))
             return
 
         # Используем BlacklistManager из нового менеджера
@@ -340,18 +356,18 @@ class Partnership(commands.Cog):
             blacklisted = await blacklist.get_blacklisted_servers()
 
             if not blacklisted:
-                await ctx.reply("Чёрный список пуст.")
+                await ctx.reply(t("partnership", "partner_blacklist_empty"))
                 return
 
             text = ""
             for server_info in blacklisted:
                 text += f"- **{server_info['server_name']}** ``{server_info['server_id']}``\n"
 
-            await ctx.reply(f"**Чёрный список серверов:**\n{text.strip()}")
+            await ctx.reply(f"{t('partnership', 'partner_blacklist_title')}\n{text.strip()}")
             return
 
         if action not in ["add", "remove"] or not server:
-            await ctx.reply("Используй: !pmserver add <id/инвайт> или !pmserver remove <id/инвайт>")
+            await ctx.reply(t("partnership", "partner_blacklist_usage"))
             return
 
         # Парсим ID сервера
@@ -368,10 +384,10 @@ class Partnership(commands.Cog):
                     server_id = str(invite.guild.id)
                     server_name = invite.guild.name
                 except Exception:
-                    await ctx.reply("Не удалось получить ID сервера по ссылке.")
+                    await ctx.reply(t("partnership", "partner_blacklist_invite_error"))
                     return
             else:
-                await ctx.reply("Укажи ID сервера или ссылку на инвайт.")
+                await ctx.reply(t("partnership", "partner_blacklist_specify"))
                 return
 
         if action == "add":
@@ -380,9 +396,9 @@ class Partnership(commands.Cog):
 
             if success:
                 final_name = server_name or await blacklist.get_server_name(server_id) or server_id
-                await ctx.reply(f"{Emoji.SUCCESS} Сервер **{final_name}** (`{server_id}`) добавлен в чёрный список.")
+                await ctx.reply(f"{Emoji.SUCCESS} {t('partnership', 'partner_blacklist_added', server_name=final_name, server_id=server_id)}")
             else:
-                await ctx.reply(f"{Emojis.ERROR} Не удалось добавить сервер в черный список.")
+                await ctx.reply(f"{Emojis.ERROR} {t('partnership', 'partner_blacklist_add_error')}")
 
         elif action == "remove":
             # Удаляем сервер из черного списка
@@ -390,11 +406,10 @@ class Partnership(commands.Cog):
 
             if success:
                 server_name = await blacklist.get_server_name(server_id) or server_id
-                await ctx.reply(f"{Emoji.SUCCESS} Сервер **{server_name}** (`{server_id}`) удалён из чёрного списка.")
+                await ctx.reply(f"{Emoji.SUCCESS} {t('partnership', 'partner_blacklist_removed', server_name=server_name, server_id=server_id)}")
             else:
-                await ctx.reply(f"{Emojis.ERROR} Сервер не найден в черном списке.")
+                await ctx.reply(f"{Emojis.ERROR} {t('partnership', 'partner_blacklist_not_found')}")
 
 async def setup(bot):
     """Настройка расширения"""
     await bot.add_cog(Partnership(bot))
-

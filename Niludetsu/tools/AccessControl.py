@@ -23,10 +23,28 @@ class AccessGuard:
         return True
 
     def get_categories(self):
-        return ["main", "economy", "fun", "moderation", "system", "utilities", "partnership", "profile"]
+        return sorted(list(self.bot.cogs.keys()))
 
     def set_category_enabled(self, guild_id: int, category: str, enabled: bool):
         pass
 
     def is_command_allowed(self, guild_id: int, command_name: str):
+        cmd = self.bot.get_command(command_name)
+        if not cmd:
+            return True
+        cog = cmd.cog
+        if not cog:
+            return True
+        cog_name = cog.qualified_name
+
+        # Власницький ког не можна вимикати
+        if cog_name == "Owner":
+            return True
+
+        cm = getattr(self.bot, "config_manager", None)
+        if cm:
+            # Перевіряємо статус кога
+            status = cm.get_custom_text(guild_id, "cogs", cog_name, "enabled")
+            if status == "disabled":
+                return False
         return True

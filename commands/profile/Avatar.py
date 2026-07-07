@@ -4,6 +4,7 @@ from discord.ext import commands
 from io import BytesIO
 from Niludetsu import Embed
 from Niludetsu.api.LGBT import LGBT
+from Niludetsu.locale import _
 from typing import Optional
 
 class Avatar(commands.Cog):
@@ -24,6 +25,7 @@ class Avatar(commands.Cog):
     ])
     async def avatar(self, ctx: commands.Context, user: Optional[discord.Member] = None, mode: Optional[str] = None):
         await ctx.defer()
+        t = _(ctx=ctx)
         target = user or ctx.author
         animated = target.display_avatar.is_animated()
         fmt = "gif" if animated else "png"
@@ -35,26 +37,26 @@ class Avatar(commands.Cog):
                 data = await resp.read()
 
         # Проверяем аргумент mode для радужного эффекта
+        name_text = t("profile", "avatar_profile_of", target_name=target.name) if target != ctx.author else t("profile", "avatar_your_profile")
         if mode and mode.lower() in ("lgbt", "лгбт"):
             if animated:
-                await ctx.send(embed=Embed.error(description="Радужный эффект недоступен для анимированных аватарок"), ephemeral=True)
+                await ctx.send(embed=Embed.error(description=t("profile", "avatar_animated_error")), ephemeral=True)
                 return
             data = LGBT(data)
             fmt = "png"
             file = discord.File(BytesIO(data), filename=f"avatar.{fmt}")
             embed = Embed.info(
-                title=f"Аватар {'профиля ' + target.name if target != ctx.author else 'вашего профиля'}"
+                title=t("profile", "avatar_title", target_name=name_text)
             )
             embed.set_image(url=f"attachment://avatar.{fmt}")
             await ctx.send(embed=embed, file=file)
         else:
             file = discord.File(BytesIO(data), filename=f"avatar.{fmt}")
             embed = Embed.info(
-                title=f"Аватар {'профиля ' + target.name if target != ctx.author else 'вашего профиля'}"
+                title=t("profile", "avatar_title", target_name=name_text)
             )
             embed.set_image(url=f"attachment://avatar.{fmt}")
             await ctx.send(embed=embed, file=file)
 
 async def setup(bot):
-    await bot.add_cog(Avatar(bot)) 
-
+    await bot.add_cog(Avatar(bot))

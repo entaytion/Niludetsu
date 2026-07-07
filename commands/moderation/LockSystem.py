@@ -4,6 +4,7 @@ from discord.ext import commands
 from Niludetsu.moderation.checks import moderationcommand
 from Niludetsu import send, Embed
 from Niludetsu.moderation.system.lock import LockSystem as NiludetsuLockSystem
+from Niludetsu.locale import _
 
 class LockSystem(commands.Cog):
     """Команды управления блокировкой каналов."""
@@ -11,7 +12,6 @@ class LockSystem(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.lock_system = NiludetsuLockSystem(bot)
-        # Хранилище ID сообщений-уведомлений: {guild_id: [(channel_id, message_id), ...]}
         self.locked_messages = {}
 
     @commands.hybrid_command(
@@ -30,42 +30,24 @@ class LockSystem(commands.Cog):
         *,
         reason: str = None
     ):
-        """
-        Закрыть канал(ы) для отправки сообщений.
-
-        Примеры:
-        • !lock Рейд
-        • !lock #general Технические работы
-        • !lock --all Экстренная ситуация
-        • /lock channel:#general reason:Рейд
-        """
-
+        t = _(ctx=ctx)
         is_interaction = getattr(ctx, 'interaction', None) is not None
         lock_all = False
 
         if is_interaction:
-            # Slash команда
             if reason is None:
-                reason = "Не указана"
+                reason = t("moderation", "reason_default")
             if channel is None:
                 channel = ctx.channel
         else:
-            # Префиксная команда
-            # Парсим аргументы из текста команды
             content = ctx.message.content.partition(' ')[2].strip()
-
-            # Проверяем флаг --all
             if '--all' in content:
                 lock_all = True
                 content = content.replace('--all', '').strip()
-
-            # Если канал не указан, используем текущий
             if channel is None and not lock_all:
                 channel = ctx.channel
-
-            # Остаток текста — причина
             if reason is None:
-                reason = content if content else "Не указана"
+                reason = content if content else t("moderation", "reason_default")
 
         lock_ids = await self.lock_system.lock_channel(
             guild=ctx.guild,
@@ -75,16 +57,13 @@ class LockSystem(commands.Cog):
             for_all=lock_all
         )
 
-        # Сохраняем ID сообщений-уведомлений
         if lock_ids:
             self.locked_messages.setdefault(ctx.guild.id, []).extend(lock_ids)
 
-        # Отправляем подтверждение
-        channels_count = len(lock_ids)
         if lock_all:
-            description = f"{Emoji.SUCCESS} Заблокировано **{channels_count}** каналов"
+            description = t("moderation", "lock_success_all", count=len(lock_ids))
         else:
-            description = f"{Emoji.SUCCESS} Канал {channel.mention} заблокирован"
+            description = t("moderation", "lock_success_one", channel=channel.mention)
 
         embed = Embed.success(description=description)
         await send(ctx, embed=embed, ephemeral=True)
@@ -105,43 +84,25 @@ class LockSystem(commands.Cog):
         *,
         reason: str = None
     ):
-        """
-        Открыть канал(ы) для отправки сообщений.
-
-        Примеры:
-        • !unlock Рейд окончен
-        • !unlock #general Технические работы завершены
-        • !unlock --all Ситуация решена
-        • /unlock channel:#general reason:Рейд окончен
-        """
-
+        t = _(ctx=ctx)
         is_interaction = getattr(ctx, 'interaction', None) is not None
         unlock_all = False
 
         if is_interaction:
-            # Slash команда
             if reason is None:
-                reason = "Не указана"
+                reason = t("moderation", "reason_default")
             if channel is None:
                 channel = ctx.channel
         else:
-            # Префиксная команда
             content = ctx.message.content.partition(' ')[2].strip()
-
-            # Проверяем флаг --all
             if '--all' in content:
                 unlock_all = True
                 content = content.replace('--all', '').strip()
-
-            # Если канал не указан, используем текущий
             if channel is None and not unlock_all:
                 channel = ctx.channel
-
-            # Остаток текста — причина
             if reason is None:
-                reason = content if content else "Не указана"
+                reason = content if content else t("moderation", "reason_default")
 
-        # Получаем ID сообщений-уведомлений для удаления
         lock_ids = self.locked_messages.get(ctx.guild.id, [])
 
         await self.lock_system.unlock_channel(
@@ -153,14 +114,12 @@ class LockSystem(commands.Cog):
             lock_message_ids=lock_ids
         )
 
-        # Очищаем хранилище сообщений
         self.locked_messages[ctx.guild.id] = []
 
-        # Отправляем подтверждение
         if unlock_all:
-            description = "Все каналы разблокированы"
+            description = t("moderation", "unlock_success_all")
         else:
-            description = f"{Emoji.SUCCESS} Канал {channel.mention} разблокирован"
+            description = t("moderation", "unlock_success_one", channel=channel.mention)
 
         embed = Embed.success(description=description)
         await send(ctx, embed=embed, ephemeral=True)

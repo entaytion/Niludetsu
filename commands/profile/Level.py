@@ -1,5 +1,6 @@
 import discord
 from Niludetsu import Embed, LevelManager
+from Niludetsu.locale import _
 from discord import app_commands
 from discord.ext import commands
 
@@ -25,24 +26,26 @@ class LevelCard(commands.Cog):
         if ctx.interaction and not ctx.interaction.response.is_done():
             await ctx.interaction.response.defer(thinking=True)
 
+        t = _(ctx=ctx)
+
         target = user or ctx.author
         if target.bot:
-            return await ctx.reply("❌ Нельзя посмотреть уровень бота.", ephemeral=True)
+            return await ctx.reply(f"❌ {t('profile', 'level_bot_error')}", ephemeral=True)
 
         profile = await self.levels.get_profile(str(ctx.guild.id), str(target.id))
-        
+
         lvl = profile["level"]
         exp = profile["experience"]
         req_exp = self.levels.next_level_xp(lvl)
-        
+
         progress_bar = self.generate_progress_bar(exp, req_exp)
         percent = int((exp / req_exp) * 100) if req_exp > 0 else 100
 
-        embed = Embed.default(title=f"Уровень: {target.display_name}")
+        embed = Embed.default(title=t("profile", "level_title", user_name=target.display_name))
         embed.set_thumbnail(url=target.display_avatar.url)
-        embed.add_field(name="Ранг", value=f"🏆 **{lvl}**", inline=True)
-        embed.add_field(name="Опыт", value=f"✨ **{exp:,}** / {req_exp:,}", inline=True)
-        embed.add_field(name="Прогресс", value=f"{progress_bar} **{percent}%**", inline=False)
+        embed.add_field(name=t("profile", "level_rank"), value=f"🏆 **{lvl}**", inline=True)
+        embed.add_field(name=t("profile", "level_xp"), value=f"✨ **{exp:,}** / {req_exp:,}", inline=True)
+        embed.add_field(name=t("profile", "level_progress"), value=f"{progress_bar} **{percent}%**", inline=False)
 
         await ctx.reply(embed=embed, mention_author=False)
 

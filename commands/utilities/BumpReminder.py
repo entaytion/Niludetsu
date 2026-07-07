@@ -2,80 +2,66 @@ import asyncio, discord, re
 from discord.ext import commands, tasks
 from Niludetsu import config, EconomyManager, QuestTracker
 from Niludetsu import Emojis, Embed, Time
-from Niludetsu.database import Database, database
+from Niludetsu.locale import _, DEFAULT_LOCALE
 
 from typing import Optional, Dict, Tuple, Any
 
 _time = Time()
+B = DEFAULT_LOCALE.get("bump", {})
 
 class MonitoringBotsManager:
     """Управление ботами мониторинга и их настройками"""
 
-    # Slash-команды мониторингов (контекстные ментіони)
     BUMP_COMMANDS = {
-        302050872383242240: "</bump:947088344167366698>",       # DISBOARD
-        1059103014025171014: "</bump:1059103014025171015>",     # DSGroup
-        315926021457051650: "</bump:956435492398841858>",       # Server Monitoring
-        464272403766444044: "</up:891377101494681660>",         # SD.C Monitoring
-        575776004233232386: "</like:788801838828879933>",       # DSMonitoring - я ебу пока что нету этого бота
-        1327714529223901186: "</bump:1327714529223901187>",     # BumPing - я ебу пока что нету этого бота
-        789751844821401630: "</partner:789751844821401631>",    # AutoPartnership - я ебу пока что нету этого бота
+        302050872383242240: "</bump:947088344167366698>",
+        1059103014025171014: "</bump:1059103014025171015>",
+        315926021457051650: "</bump:956435492398841858>",
+        464272403766444044: "</up:891377101494681660>",
+        575776004233232386: "</like:788801838828879933>",
+        1327714529223901186: "</bump:1327714529223901187>",
+        789751844821401630: "</partner:789751844821401631>",
     }
 
     def __init__(self) -> None:
         self.bots: Dict[int, Dict[str, Any]] = {
-            302050872383242240: {  # DISBOARD
-                "name": "DISBOARD",
-                "delay": 2,
+            302050872383242240: {
+                "name": "DISBOARD", "delay": 2,
                 "success_patterns": ["bump done"],
-                "reward": 50,
-                "emoji": Emojis.DISBOARD,
+                "reward": 50, "emoji": Emojis.DISBOARD,
             },
-            1059103014025171014: {  # DSGroup
-                "name": "DSGroup",
-                "delay": 4,
+            1059103014025171014: {
+                "name": "DSGroup", "delay": 4,
                 "success_patterns": [""],
-                "reward": 50,
-                "emoji": Emojis.DSGROUP,
+                "reward": 50, "emoji": Emojis.DSGROUP,
             },
-            315926021457051650: {  # Server Monitoring
-                "name": "Server Monitoring",
-                "delay": 4,
+            315926021457051650: {
+                "name": "Server Monitoring", "delay": 4,
                 "success_patterns": ["server bumped by"],
-                "reward": 50,
-                "emoji": Emojis.SERVER_MONITORING,
+                "reward": 50, "emoji": Emojis.SERVER_MONITORING,
             },
-            464272403766444044: {  # SD.C Monitoring
-                "name": "SD.C Monitoring",
-                "delay": 4,
+            464272403766444044: {
+                "name": "SD.C Monitoring", "delay": 4,
                 "success_patterns": ["успешный up", "время фиксации апа"],
-                "reward": 50,
-                "emoji": Emojis.SDC_MONITORING,
+                "reward": 50, "emoji": Emojis.SDC_MONITORING,
             },
-            575776004233232386: {  # DSMonitoring
-                "name": "DSMonitoring",
-                "delay": 4,
+            575776004233232386: {
+                "name": "DSMonitoring", "delay": 4,
                 "success_patterns": [
                     "вы успешно лайкнули сервер",
                     "you successfully liked the server",
                     "ви успішно лайкнули сервер",
                 ],
-                "reward": 50,
-                "emoji": Emojis.DSMONITORING,
+                "reward": 50, "emoji": Emojis.DSMONITORING,
             },
-            1327714529223901186: {  # BumPing
-                "name": "BumPing",
-                "delay": 2,
+            1327714529223901186: {
+                "name": "BumPing", "delay": 2,
                 "success_patterns": [],
-                "reward": 25,
-                "emoji": Emojis.BUMPING,
+                "reward": 25, "emoji": Emojis.BUMPING,
             },
-            789751844821401630: {  # AutoPartnership
-                "name": "AutoPartnership",
-                "delay": 2,
+            789751844821401630: {
+                "name": "AutoPartnership", "delay": 2,
                 "success_patterns": [],
-                "reward": 25,
-                "emoji": Emojis.AUTOPARTNERSHIP,
+                "reward": 25, "emoji": Emojis.AUTOPARTNERSHIP,
             },
         }
 
@@ -96,12 +82,11 @@ class MonitoringBotsManager:
         return None
 
 class BumpProcessor:
-    """Обработка бамп-сообщений и взаимодействие с базой"""
-
-    def __init__(self, bot: commands.Bot, db: Database) -> None:
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.db = db
+        self.db = bot.db
         self.economy = EconomyManager(self.db)
+        self.config_manager = bot.config_manager
         self.bots_manager = MonitoringBotsManager()
         self.processing_messages: Dict[int, asyncio.Task] = {}
         self.quest_tracker = QuestTracker()
@@ -118,43 +103,28 @@ class BumpProcessor:
     async def update_bump_time(self, bot_id: int, guild_id: int, next_bump):
         bot_config = self.bots_manager.get_bot(bot_id)
         now = _time.now()
-
         if next_bump is None:
             delay = bot_config.get("delay", 4) if bot_config else 4
             next_bump = _time.add_duration(now, hours=delay)
 
         last_bump_iso = _time.to_iso(now)
         next_bump_iso = _time.to_iso(next_bump)
-
         where = {"guild_id": str(guild_id), "bot_id": str(bot_id)}
         current = await self.db.get_row("bump_reminders", **where)
-
-        payload = {
-            "last_bump": last_bump_iso,
-            "next_bump": next_bump_iso,
-            "notified": False,
-        }
-
+        payload = {"last_bump": last_bump_iso, "next_bump": next_bump_iso, "notified": False}
         if current:
             await self.db.update_record("bump_reminders", where=where, values=payload)
         else:
-            await self.db.insert(
-                "bump_reminders", {**where, **payload}
-            )
+            await self.db.insert("bump_reminders", {**where, **payload})
 
     async def get_next_bump(self, guild_id: int, bot_id: Optional[int] = None):
-        filters = [
-            {"column": "guild_id", "op": "eq", "value": str(guild_id)},
-        ]
+        filters = [{"column": "guild_id", "op": "eq", "value": str(guild_id)}]
         if bot_id is not None:
             filters.append({"column": "bot_id", "op": "eq", "value": str(bot_id)})
-
         rows = await self.db.where(
-            "bump_reminders",
-            filters=filters,
+            "bump_reminders", filters=filters,
             columns=["guild_id", "bot_id", "last_bump", "next_bump", "notified"],
         )
-
         if bot_id is not None:
             return rows[:1]
         return sorted(rows, key=lambda row: row.get("next_bump") or "")
@@ -167,15 +137,10 @@ class BumpProcessor:
 
         if bot_id == 1059103014025171014:
             if not message.content and not message.embeds:
-                now = _time.now()
-                return _time.add_duration(now, hours=bot_config["delay"])
-
+                return _time.add_duration(_time.now(), hours=bot_config["delay"])
             content = (message.content or "").lower()
-
             if any(phrase in content for phrase in ("стой стой", "сервер успешно поднят")):
-                now = _time.now()
-                return _time.add_duration(now, hours=bot_config["delay"])
-
+                return _time.add_duration(_time.now(), hours=bot_config["delay"])
             ts_match = re.search(r"<t:(\d+):R>", content)
             if ts_match:
                 try:
@@ -183,7 +148,6 @@ class BumpProcessor:
                     return _time.add_duration(ts, hours=bot_config["delay"])
                 except Exception:
                     pass
-
             for pattern in (
                 r"через (\d+) час[а-я]*",
                 r"только через (\d+) час[а-я]*",
@@ -192,69 +156,53 @@ class BumpProcessor:
                 time_match = re.search(pattern, content)
                 if time_match:
                     try:
-                        hours = int(time_match.group(1))
-                        now = _time.now()
-                        return _time.add_duration(now, hours=hours)
+                        return _time.add_duration(_time.now(), hours=int(time_match.group(1)))
                     except Exception:
                         pass
             return None
 
         content = (message.content or "").lower()
-
         if message.embeds:
             for embed in message.embeds:
-                if embed.description:
-                    content += f"\n{embed.description.lower()}"
-                if embed.title:
-                    content += f"\n{embed.title.lower()}"
+                if embed.description: content += f"\n{embed.description.lower()}"
+                if embed.title: content += f"\n{embed.title.lower()}"
                 for field in embed.fields:
-                    content += f"\n{field.name.lower()}"
-                    content += f"\n{field.value.lower()}"
+                    content += f"\n{field.name.lower()}\n{field.value.lower()}"
 
         if bot_id == 464272403766444044:
             if "время фиксации апа" in content:
                 stamp = self.parse_discord_timestamp(content)
-                if stamp:
-                    return _time.add_duration(stamp, hours=4)
-
+                if stamp: return _time.add_duration(stamp, hours=4)
             success_keywords = [
-                "сервер успешно поднят",
-                "bump successful",
-                "успешно забамплен",
-                "сервер поднят",
+                "сервер успешно поднят", "bump successful",
+                "успешно забамплен", "сервер поднят",
             ]
             if any(keyword in content for keyword in success_keywords):
                 stamp = self.parse_discord_timestamp(content)
-                if stamp:
-                    return _time.add_duration(stamp, hours=bot_config["delay"])
+                if stamp: return _time.add_duration(stamp, hours=bot_config["delay"])
             return None
 
         if bot_id == 315926021457051650 and message.embeds:
             for embed in message.embeds:
                 if embed.title and "server bumped by" in embed.title.lower():
-                    now = _time.now()
-                    return _time.add_duration(now, hours=bot_config["delay"])
+                    return _time.add_duration(_time.now(), hours=bot_config["delay"])
 
         if bot_id == 1327714529223901186:
             if "сервер успешно бампнут" in content or "bump done" in content:
-                now = _time.now()
-                return _time.add_duration(now, hours=bot_config["delay"])
+                return _time.add_duration(_time.now(), hours=bot_config["delay"])
             return None
 
         if bot_id == 789751844821401630 and message.embeds:
             for embed in message.embeds:
                 title = (embed.title or "").lower()
                 description = (embed.description or "").lower()
-                if ":rocket: | объявление рассылается" in title or "объявление рассылается" in description:
-                    now = _time.now()
-                    return _time.add_duration(now, hours=bot_config["delay"])
+                if ":rocket:" in title or "рассылается" in description:
+                    return _time.add_duration(_time.now(), hours=bot_config["delay"])
             return None
 
         for pattern in bot_config["success_patterns"]:
             if pattern and re.search(pattern, content):
-                now = _time.now()
-                return _time.add_duration(now, hours=bot_config["delay"])
-
+                return _time.add_duration(_time.now(), hours=bot_config["delay"])
         return None
 
     async def get_interaction_user_id(self, message: discord.Message) -> Optional[str]:
@@ -262,51 +210,23 @@ class BumpProcessor:
             for embed in message.embeds:
                 if embed.title and "server bumped by" in embed.title.lower():
                     match = re.search(r"<@!?(\d{17,20})>", embed.title)
-                    if match:
-                        return match.group(1)
+                    if match: return match.group(1)
                     id_match = re.search(r"(\d{17,20})", embed.title)
-                    if id_match:
-                        return id_match.group(1)
-
+                    if id_match: return id_match.group(1)
         if hasattr(message, "interaction_metadata") and message.interaction_metadata:
             return str(message.interaction_metadata.user.id)
-
         if message.mentions:
             return str(message.mentions[0].id)
-
         if message.content:
             mention = re.search(r"<@!?(\d+)>", message.content)
-            if mention:
-                return mention.group(1)
-
-            for pattern in (
-                r"(?:поднят|bumped by|user)[^\d]*(\d{17,20})",
-                r"(?:пользователем|bumped by|user)[^\d]*<@!?(\d+)>",
-            ):
-                user_match = re.search(pattern, message.content.lower())
-                if user_match:
-                    return user_match.group(1)
-
+            if mention: return mention.group(1)
         if message.embeds:
             for embed in message.embeds:
-                if embed.description:
-                    mention = re.search(r"<@!?(\d+)>", embed.description)
-                    if mention:
-                        return mention.group(1)
-
                 for field in embed.fields:
                     mention = re.search(r"<@!?(\d+)>", field.value)
-                    if mention:
-                        return mention.group(1)
+                    if mention: return mention.group(1)
                     id_match = re.search(r"(\d{17,20})", field.value)
-                    if id_match:
-                        return id_match.group(1)
-
-                if embed.footer and embed.footer.text:
-                    mention = re.search(r"<@!?(\d+)>", embed.footer.text)
-                    if mention:
-                        return mention.group(1)
-
+                    if id_match: return id_match.group(1)
         return None
 
     async def _refetch_message(self, message: discord.Message) -> Optional[discord.Message]:
@@ -319,7 +239,6 @@ class BumpProcessor:
         next_bump = self.process_bump_message(message)
         if not next_bump:
             return None
-
         await self.update_bump_time(message.author.id, message.guild.id, next_bump)
         return next_bump
 
@@ -327,11 +246,9 @@ class BumpProcessor:
         user_id = await self.get_interaction_user_id(message)
         if not user_id or int(message.guild.id) != config.SERVERS["MAIN_ID"]:
             return None, None
-
         bot_config = self.bots_manager.get_bot(message.author.id)
         if not bot_config:
             return None, None
-
         return user_id, bot_config
 
     async def award_bump_reward(self, message: discord.Message, action_name: str) -> bool:
@@ -342,18 +259,31 @@ class BumpProcessor:
         reward = bot_config.get("reward", 50)
         emoji = bot_config.get("emoji", "")
         bot_name = bot_config.get("name", "")
+        guild_id = message.guild.id
 
         success = await self.economy.add_money(
-            user_id, str(message.guild.id), reward,
+            user_id, str(guild_id), reward,
             event="bump", metadata={"bot": bot_name},
         )
         if not success:
             return False
 
-        embed = Embed(
-            title=f"{emoji} Благодарим за {action_name} на {bot_name}!",
-            description=f"<@{user_id}>, вам зачислено {reward} {Emojis.MONEY} на ваш баланс!",
+        default_title = B.get("reward_title", "{emoji} Благодарим за {action} на {bot}!").format(emoji=emoji, action=action_name, bot=bot_name)
+        default_desc = B.get("reward_desc", "<@{user}>, вам зачислено {reward} {currency} на ваш баланс!").format(user=user_id, reward=reward, currency=Emojis.MONEY)
+        custom_data = self.config_manager.get_custom_embed(
+            guild_id, "bump_reminder", "reward_embed",
+            default_embed_data={
+                "title": default_title,
+                "description": default_desc,
+            },
+            emoji=emoji,
+            action_name=action_name,
+            bot_name=bot_name,
+            user_id=user_id,
+            reward=reward,
+            currency=Emojis.MONEY,
         )
+        embed = Embed(**custom_data)
 
         member = message.guild.get_member(int(user_id))
         if member:
@@ -361,24 +291,22 @@ class BumpProcessor:
 
         await message.channel.send(embed=embed)
         asyncio.create_task(
-            self.quest_tracker.on_bump(str(message.guild.id), user_id)
+            self.quest_tracker.on_bump(str(guild_id), user_id)
         )
         return True
 
     async def process_message_with_delay(self, message: discord.Message):
         await asyncio.sleep(3)
-
         try:
             message = await self._refetch_message(message)
             if not message:
                 return
-
             if not await self._update_bump_time_from_message(message):
                 return
-
-            await self.award_bump_reward(message, "бамп")
+            action_name = B.get("action_bump", "бамп")
+            await self.award_bump_reward(message, action_name)
         except Exception as exc:
-            print(f"Ошибка при обработке сообщения: {exc}")
+            print(f"{B.get('process_error', 'Ошибка при обработке сообщения: {error}').format(error=exc)}")
 
     async def check_bumps_task(self):
         reminders = await self.db.where(
@@ -386,22 +314,17 @@ class BumpProcessor:
             filters=[{"column": "notified", "op": "eq", "value": False}],
             columns=["guild_id", "bot_id", "next_bump", "notified"],
         )
-
         for reminder in reminders:
             next_bump = reminder.get("next_bump")
             if not next_bump:
                 continue
-
             guild_id = int(reminder["guild_id"])
             bot_id = int(reminder["bot_id"])
-
             if not _time.is_time_passed(next_bump):
                 continue
-
             bot = self.bots_manager.get_bot(bot_id)
             if not bot:
                 continue
-
             guild = self.bot.get_guild(guild_id)
             if not guild:
                 continue
@@ -410,10 +333,18 @@ class BumpProcessor:
             if guild_id == config.SERVERS["MAIN_ID"]:
                 channel = guild.get_channel(1125546970522583070)
                 if channel:
-                    embed = Embed.success(
-                        title="Время бампать сервер!",
-                        description=f"{bot.get('emoji', '')} Можно сделать бамп на {bot['name']}!",
+                    default_title = B.get("remind_title", "Время бампать сервер!")
+                    default_desc = B.get("remind_desc", "{emoji} Можно сделать бамп на {bot}!").format(emoji=bot.get("emoji", ""), bot=bot["name"])
+                    custom_data = self.config_manager.get_custom_embed(
+                        guild_id, "bump_reminder", "remind_embed",
+                        default_embed_data={
+                            "title": default_title,
+                            "description": default_desc,
+                        },
+                        bot_name=bot["name"],
+                        bot_emoji=bot.get("emoji", ""),
                     )
+                    embed = Embed(**custom_data)
                     await channel.send(embed=embed)
                     message_sent = True
 
@@ -428,17 +359,12 @@ class BumpProcessor:
         rows = await self.get_next_bump(guild_id, bot_id)
         if not rows:
             return False
-
         record = rows[0]
         next_bump = record.get("next_bump")
-        notified = bool(record.get("notified"))
-
-        if notified:
+        if bool(record.get("notified")):
             return False
-
         if not _time.is_time_passed(next_bump):
             return False
-
         await self.db.update_record(
             "bump_reminders",
             where={"guild_id": str(guild_id), "bot_id": str(bot_id)},
@@ -447,12 +373,9 @@ class BumpProcessor:
         return True
 
 class BumpReminder(commands.Cog):
-    """Напоминания и награды за бампы"""
-
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.db = database
-        self.processor = BumpProcessor(bot, self.db)
+        self.processor = BumpProcessor(bot)
         self.check_bumps.start()
 
     def cog_unload(self):
@@ -470,7 +393,6 @@ class BumpReminder(commands.Cog):
             return
 
         special_bots = {1327714529223901186, 789751844821401630}
-
         if message.author.id in special_bots:
             if not message.content and not message.embeds:
                 self.bot.loop.create_task(self.wait_for_special_bump(message))
@@ -512,22 +434,21 @@ class BumpReminder(commands.Cog):
     async def _handle_special_bot(self, message: discord.Message, expected_phrase: str, action_name: str):
         if not self._matches_special_bump_embed(message, expected_phrase):
             return False
-
         await self._finalize_special_bump(message, action_name)
         return True
 
     async def handle_special_bump(self, message: discord.Message):
+        action_bump = B.get("action_bump", "бамп")
+        action_broadcast = B.get("action_broadcast", "рассылку")
         if message.author.id == 1327714529223901186:
-            if await self._handle_special_bot(message, "сервер успешно бампнут", "бамп"):
+            if await self._handle_special_bot(message, "сервер успешно бампнут", action_bump):
                 return
-
         if message.author.id == 789751844821401630:
-            await self._handle_special_bot(message, "объявление рассылается", "рассылку")
+            await self._handle_special_bot(message, "объявление рассылается", action_broadcast)
 
     async def _finalize_special_bump(self, message: discord.Message, action_name: str):
         if not await self.processor._update_bump_time_from_message(message):
             return
-
         await self.processor.award_bump_reward(message, action_name)
 
     @tasks.loop(minutes=1)
@@ -544,53 +465,45 @@ class BumpReminder(commands.Cog):
         help="Показывает информацию о следующем бампе",
     )
     async def checkbump_command(self, ctx: commands.Context):
+        t = _(ctx=ctx)
         embed = Embed.info(
-            title="Статус бампов",
-            description="Информация о доступности бампов:",
+            title=t("bump", "checkbump_title"),
+            description=t("bump", "checkbump_desc"),
         )
-
         monitoring_members = {
             member.id
             for member in ctx.guild.members
             if member.bot and self.processor.bots_manager.is_monitoring_bot(member.id)
         }
-
         for bot_id, cfg in self.processor.bots_manager.get_all_bots().items():
             if bot_id not in monitoring_members:
                 continue
-
             records = await self.processor.get_next_bump(ctx.guild.id, bot_id)
-            # Slash-команда бота
-            slash_cmd = MonitoringBotsManager.BUMP_COMMANDS.get(bot_id, "—")
-
+            slash_cmd = MonitoringBotsManager.BUMP_COMMANDS.get(bot_id, t("bump", "slash_cmd_unknown"))
             if not records:
-                status = f"**Доступен для бампа**\nКоманда: {slash_cmd}"
+                status = t("bump", "bump_available", cmd=slash_cmd)
             else:
                 record = records[0]
                 next_bump = record.get("next_bump")
                 notified = bool(record.get("notified"))
                 is_ready = _time.is_time_passed(next_bump)
-
                 if is_ready and not notified:
-                    status = f"**Доступен для бампа**\nКоманда: {slash_cmd}"
+                    status = t("bump", "bump_available", cmd=slash_cmd)
                 elif is_ready and notified:
                     parsed_next = _time.ensure_datetime(next_bump)
                     next_available = _time.add_duration(parsed_next, hours=cfg["delay"])
                     ts = int(next_available.timestamp())
-                    status = f"Доступен <t:{ts}:R> (<t:{ts}:f>)\nКоманда: {slash_cmd}"
+                    status = t("bump", "bump_available_at", ts=ts, cmd=slash_cmd)
                 else:
                     parsed = _time.ensure_datetime(next_bump)
                     ts = int(parsed.timestamp())
-                    status = f"Доступен <t:{ts}:R> (<t:{ts}:f>)\nКоманда: {slash_cmd}"
-
+                    status = t("bump", "bump_available_at", ts=ts, cmd=slash_cmd)
             embed.add_field(
                 name=f"{cfg['emoji']} {cfg['name']}",
                 value=status,
                 inline=False,
             )
-
         await ctx.send(embed=embed)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(BumpReminder(bot))
-

@@ -2,6 +2,7 @@ import asyncio, time
 from collections import defaultdict
 from dataclasses import dataclass
 from Niludetsu import TimeService
+from Niludetsu.locale import _
 from Niludetsu.database import database
 from typing import Dict, List, Optional, Tuple, Any
 
@@ -245,6 +246,7 @@ class BlacklistManager:
     async def check_message(self, server_id: str, server_name: str = None) -> Optional[Dict[str, str]]:
         """Проверяет сервер и возвращает сообщение если в чёрном списке"""
         if await self.is_blacklisted(server_id):
+            t = _(bot=self.bot)
             if not server_name:
                 server_name = await self._get_server_name(server_id) or "Неизвестный сервер"
 
@@ -618,4 +620,3 @@ class PartnershipManager:
 
 async def setup(bot):
     """Пустой setup для совместимости"""
-

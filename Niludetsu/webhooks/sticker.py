@@ -1,5 +1,6 @@
 import discord
 from ..tools.Emojis import Emojis
+from Niludetsu.locale import _
 
 from Niludetsu.webhooks.base import BaseLogger
 
@@ -7,46 +8,49 @@ class StickerLogger(BaseLogger):
     """Логгер для действий со стикерами."""
 
     async def log_sticker_create(self, channel: discord.TextChannel, sticker: discord.Sticker):
-        description = f"**ID:** `{sticker.id}`\n**Название:** `{sticker.name}`"
+        t = _(guild_id=sticker.guild.id, bot=self.bot)
+        description = f"**{t('audit_log', 'field_id')}:** `{sticker.id}`\n**{t('audit_log', 'field_sticker_name')}:** `{sticker.name}`"
         creator = await self._safe_audit_log(sticker.guild, discord.AuditLogAction.sticker_create, sticker.id)
         if creator:
-            description += f"\n**Создал:** {creator.mention} (`{creator.id}`)"
+            description += f"\n**{t('audit_log', 'created_by')}:** {creator.mention} (`{creator.id}`)"
         await self.webhooks.send_log(
-            channel, title=f"{Emojis.SUCCESS} Стикер: добавлен",
+            channel, title=f"{Emojis.SUCCESS} {t('audit_log', 'sticker_create_title')}",
             description=description,
             thumbnail_url=sticker.url if hasattr(sticker, 'url') else None,
             guild=sticker.guild,
         )
 
     async def log_sticker_delete(self, channel: discord.TextChannel, sticker: discord.Sticker):
-        description = f"**ID:** `{sticker.id}`\n**Название:** `{sticker.name}`"
+        t = _(guild_id=sticker.guild.id, bot=self.bot)
+        description = f"**{t('audit_log', 'field_id')}:** `{sticker.id}`\n**{t('audit_log', 'field_sticker_name')}:** `{sticker.name}`"
         deleter = await self._safe_audit_log(sticker.guild, discord.AuditLogAction.sticker_delete, sticker.id)
         if deleter:
-            description += f"\n**Удалил:** {deleter.mention} (`{deleter.id}`)"
+            description += f"\n**{t('audit_log', 'deleted_by')}:** {deleter.mention} (`{deleter.id}`)"
         await self.webhooks.send_log(
-            channel, title=f"{Emojis.ERROR} Стикер: удален",
+            channel, title=f"{Emojis.ERROR} {t('audit_log', 'sticker_delete_title')}",
             description=description,
             thumbnail_url=sticker.url if hasattr(sticker, 'url') else None,
             guild=sticker.guild,
         )
 
     async def log_sticker_update(self, channel: discord.TextChannel, before: discord.Sticker, after: discord.Sticker):
+        t = _(guild_id=after.guild.id, bot=self.bot)
         fields = []
         if before.name != after.name:
-            fields.append({"name": "> Изменения:", "value": f"- Название: `{before.name}` ➜ `{after.name}`", "inline": False})
+            fields.append({"name": f"> {t('audit_log', 'changes')}", "value": f"- {t('audit_log', 'field_sticker_name')}: `{before.name}` ➜ `{after.name}`", "inline": False})
         if before.description != after.description:
-            fields.append({"name": "> Изменения:", "value": f"- Описание: `{before.description or '—'}` ➜ `{after.description or '—'}`", "inline": False})
+            fields.append({"name": f"> {t('audit_log', 'changes')}", "value": f"- {t('audit_log', 'field_sticker_desc')}: `{before.description or '—'}` ➜ `{after.description or '—'}`", "inline": False})
         # Sapphire: Sticker Related Emoji Update
         if getattr(before, 'emoji', None) != getattr(after, 'emoji', None):
-            fields.append({"name": "> Изменения:", "value": f"- Эмодзи: `{getattr(before, 'emoji', '—')}` ➜ `{getattr(after, 'emoji', '—')}`", "inline": False})
+            fields.append({"name": f"> {t('audit_log', 'changes')}", "value": f"- {t('audit_log', 'field_sticker_emoji')}: `{getattr(before, 'emoji', '—')}` ➜ `{getattr(after, 'emoji', '—')}`", "inline": False})
         if not fields:
             return
-        description = f"**ID:** `{after.id}`\n**Название:** `{after.name}`"
+        description = f"**{t('audit_log', 'field_id')}:** `{after.id}`\n**{t('audit_log', 'field_sticker_name')}:** `{after.name}`"
         updater = await self._safe_audit_log(after.guild, discord.AuditLogAction.sticker_update, after.id)
         if updater:
-            description += f"\n**Изменил:** {updater.mention} (`{updater.id}`)"
+            description += f"\n**{t('audit_log', 'updated_by')}:** {updater.mention} (`{updater.id}`)"
         await self.webhooks.send_log(
-            channel, title=f"{Emojis.UNKNOWN} Стикер: обновлен",
+            channel, title=f"{Emojis.UNKNOWN} {t('audit_log', 'sticker_update_title')}",
             description=description, fields=fields,
             thumbnail_url=after.url if hasattr(after, 'url') else None, guild=after.guild,
         )

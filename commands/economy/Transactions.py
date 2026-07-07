@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from Niludetsu import Embed, EconomyEmbed, Time, database
+from Niludetsu.locale import _
 
 class Transactions(commands.Cog):
     def __init__(self, bot):
@@ -11,14 +12,14 @@ class Transactions(commands.Cog):
 
     @commands.hybrid_command(name="transactions", aliases=("tx",), description="Показать историю транзакций")
     async def transactions(self, ctx, user: discord.Member = None):
+        t = _(ctx=ctx)
         target = user or ctx.author
         uid, gid = str(target.id), str(ctx.guild.id)
 
-        # Используем существующий метод базы
         rows, total = await self.db.get_transactions(uid, gid, limit=10)
         
         if not rows:
-            return await ctx.reply("История транзакций пуста.", ephemeral=True)
+            return await ctx.reply(t("economy", "transactions_empty_msg"), ephemeral=True)
 
         embed = EconomyEmbed.transactions_page(
             display_name=target.display_name,

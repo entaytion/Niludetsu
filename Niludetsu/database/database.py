@@ -2,6 +2,7 @@ from __future__ import annotations
 from ..tools.Time import TimeService
 
 import asyncio
+import json
 import time
 from typing import Any, Optional
 
@@ -179,5 +180,49 @@ class Database(EconomyMixin, SocialMixin, AnalyticsMixin, QuestsMixin, ShopMixin
                 if sub_key in bundle:
                     bundle[sub_key].update(values)
                 self._user_cache[key] = (bundle, timestamp)
+
+    async def setup_tables(self) -> None:
+        """
+        Створює таблиці для Premium-кастомізації, якщо їх ще немає.
+        Викликається один раз при старті бота.
+        """
+        await self._neon.execute("""
+            CREATE TABLE IF NOT EXISTS public.custom_messages (
+                guild_id  TEXT NOT NULL,
+                module    TEXT NOT NULL,
+                key       TEXT NOT NULL,
+                value     JSONB NOT NULL DEFAULT '{}'::jsonb,
+                updated_at TIMESTAMPTZ DEFAULT now(),
+                PRIMARY KEY (guild_id, module, key)
+            )
+        """)
+        await self._neon.execute("""
+            CREATE TABLE IF NOT EXISTS public.premium_guilds (
+                guild_id   TEXT PRIMARY KEY,
+                expires_at TIMESTAMPTZ NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT now()
+            )
+        """)
+        logger.info("Database tables verified (custom_messages, premium_guilds)")
+
+    async def insert_transaction(
+        self,
+        user_id,
+        guild_id,
+        event,
+        amount,
+        balance_after,
+        *,
+        related_user_id=None,
+        metadata=None,
+    ) -> None:
+        await self._neon.execute(
+            "INSERT INTO public.user_transactions "
+            "(user_id, guild_id, event, amount, balance_after, related_user_id, metadata) "
+            "VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            str(user_id), str(guild_id), event, amount, balance_after,
+            str(related_user_id) if related_user_id else None,
+            json.dumps(metadata) if metadata else "{}",
+        )
 
 database = Database()

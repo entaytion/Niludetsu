@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Профіль — Niludetsu{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-8">
+
+  <!-- Profile Card -->
+  <div class="glass glow rounded-3xl overflow-hidden anim-fade-up">
+    <!-- Banner -->
+    <div class="h-32 bg-gradient-to-br from-accent-600 via-purple-600 to-pink-500 relative overflow-hidden">
+      <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItSDI0di0yaDEyem0wLTR2Mkg4VjI4aDI4em0wLTRWMjBIMHY0aDI4ek04IDh2Mmg0VjhIOHptNTIgMHYyaC00VjhIOXoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30"></div>
+      <div class="absolute inset-0 bg-gradient-to-t from-surface-0/80 to-transparent"></div>
+    </div>
+
+    <!-- Avatar + Info -->
+    <div class="px-8 pb-8 -mt-16 relative">
+      <div class="flex items-end gap-5 mb-6">
+        <!-- Avatar with animated ring -->
+        <div class="relative group">
+          <div class="absolute -inset-1 rounded-full bg-gradient-to-br from-accent-400 via-purple-400 to-pink-400 opacity-60 group-hover:opacity-100 blur-sm transition-opacity duration-500"></div>
+          <div class="absolute -inset-1 rounded-full bg-gradient-to-br from-accent-400 via-purple-400 to-pink-400 opacity-40 animate-[spin_8s_linear_infinite]"></div>
+          {% if user.avatar %}
+          <img src="https://cdn.discordapp.com/avatars/{{ user.sub }}/{{ user.avatar }}.png?size=256"
+               class="relative w-24 h-24 rounded-full object-cover ring-4 ring-surface-0 shadow-2xl shadow-black/40" alt="">
+          {% else %}
+          <div class="relative w-24 h-24 rounded-full bg-gradient-to-br from-accent-500 to-purple-500 flex items-center justify-center text-3xl font-black text-white ring-4 ring-surface-0 shadow-2xl shadow-black/40">
+            {{ user.username[:2] }}
+          </div>
+          {% endif %}
+        </div>
+        <div class="pb-1">
+          <h1 class="text-2xl font-extrabold text-white tracking-tight">{{ user.global_name or user.username }}</h1>
+          <p class="text-slate-400 text-sm font-medium">{{ user.username }}<span class="text-slate-600">#{{ user.discriminator }}</span></p>
+        </div>
+      </div>
+
+      <!-- Info grid -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4 group hover:border-accent-500/20 transition-colors duration-300">
+          <div class="flex items-center gap-2.5 mb-2">
+            <div class="w-8 h-8 rounded-lg bg-accent-500/10 flex items-center justify-center">
+              <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            </div>
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Глобальне ім'я</span>
+          </div>
+          <span class="text-white font-semibold text-sm">{{ user.global_name or user.username }}</span>
+        </div>
+
+        <div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4 group hover:border-accent-500/20 transition-colors duration-300">
+          <div class="flex items-center gap-2.5 mb-2">
+            <div class="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+              <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/></svg>
+            </div>
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Discriminator</span>
+          </div>
+          <span class="text-white font-semibold text-sm font-mono">#{{ user.discriminator }}</span>
+        </div>
+
+        <div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4 group hover:border-accent-500/20 transition-colors duration-300">
+          <div class="flex items-center gap-2.5 mb-2">
+            <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            </div>
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">ID користувача</span>
+          </div>
+          <span class="text-white font-semibold text-sm font-mono">{{ user.sub }}</span>
+        </div>
+
+        <div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4 group hover:border-accent-500/20 transition-colors duration-300">
+          <div class="flex items-center gap-2.5 mb-2">
+            <div class="w-8 h-8 rounded-lg bg-pink-500/10 flex items-center justify-center">
+              <svg class="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Статус</span>
+          </div>
+          <span class="text-emerald-400 font-semibold text-sm flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            Онлайн
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="glass glow rounded-3xl p-8 anim-fade-up anim-delay-1">
+    <h2 class="text-lg font-bold text-white mb-5 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-accent-500/10 flex items-center justify-center">
+        <svg class="w-5 h-5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      </div>
+      Швидкі дії
+    </h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <a href="/dashboard" class="group flex items-center gap-4 bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 hover:border-accent-500/25 hover:bg-accent-500/5 transition-all duration-300">
+        <div class="w-12 h-12 rounded-xl bg-accent-500/10 flex items-center justify-center group-hover:bg-accent-500/20 transition-colors">
+          <svg class="w-6 h-6 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        </div>
+        <div>
+          <span class="text-white font-semibold text-sm block">Керування серверами</span>
+          <span class="text-slate-500 text-xs">Налаштування бота</span>
+        </div>
+        <svg class="w-5 h-5 text-slate-600 group-hover:text-accent-400 ml-auto transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </a>
+
+      <a href="/auth/logout" class="group flex items-center gap-4 bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 hover:border-red-500/25 hover:bg-red-500/5 transition-all duration-300">
+        <div class="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center group-hover:bg-red-500/20 transition-colors">
+          <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        </div>
+        <div>
+          <span class="text-white font-semibold text-sm block">Вийти з акаунту</span>
+          <span class="text-slate-500 text-xs">Завершити сесію</span>
+        </div>
+        <svg class="w-5 h-5 text-slate-600 group-hover:text-red-400 ml-auto transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

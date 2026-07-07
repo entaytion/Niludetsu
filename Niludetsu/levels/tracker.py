@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from ..tools.Embed import Embed
 from ..tools.Time import TimeService
 
@@ -35,11 +37,12 @@ class LevelTracker:
     }
 
     _CONFIG_TTL = 60  # секунд
-    def __init__(self, main_guild_id: Optional[int] = None):
+    def __init__(self, main_guild_id: Optional[int] = None, config_manager=None):
         self.manager = LevelManager()
         self.analytics = AnalyticsManager()
         self.achievements = AchievementsManager()
         self.main_guild_id = main_guild_id
+        self.config_manager = config_manager
 
         self._cooldowns = TrackerCooldowns(message_xp={}, level_notification={})
         self._cached_config: Optional[Dict[str, Any]] = None
@@ -98,18 +101,39 @@ class LevelTracker:
 
         return False
 
-    async def _send_levelup_notification(self, channel, user_id: str, new_level: int, is_voice: bool = False):
+    async def _send_levelup_notification(self, channel, user_id: str, new_level: int, is_voice: bool = False, xp: int = 0):
         now = _time.now()
         previous = self._cooldowns.level_notification.get(user_id)
         if self._is_cooldown_active(previous, now, 60):
             return
         self._cooldowns.level_notification[user_id] = now
 
-        msg = f"<@{user_id}>, у вас теперь **{new_level}** уровень!"
-        msg += " Продолжайте общение в голосе!" if is_voice else " Продолжайте общение в чате!"
-        
-        embed = Embed.default(description=msg)
-        await channel.send(embed=embed)
+        guild_id = channel.guild.id if hasattr(channel, "guild") and channel.guild else None
+        if guild_id and self.config_manager:
+            custom = self.config_manager.get_custom_embed(
+                guild_id, "levels", "level_up_embed",
+                user_mention=f"<@{user_id}>",
+                level=new_level,
+                xp=str(xp),
+            )
+            if custom:
+                await channel.send(embed=Embed(**custom))
+                return
+            custom_text = self.config_manager.get_custom_text(
+                guild_id, "levels", "level_up_message",
+                user_mention=f"<@{user_id}>",
+                level=new_level,
+                xp=str(xp),
+            )
+            if custom_text:
+                await channel.send(embed=Embed.default(description=custom_text))
+                return
+
+        from Niludetsu.locale import DEFAULT_LOCALE
+        base = DEFAULT_LOCALE.get("levels", {}).get("level_up_message", "{user_mention}, у вас теперь **{level}** уровень!")
+        suffix = DEFAULT_LOCALE.get("levels", {}).get("level_up_voice", "") if is_voice else DEFAULT_LOCALE.get("levels", {}).get("level_up_chat", "")
+        msg = base.format(user_mention=f"<@{user_id}>", level=new_level) + suffix
+        await channel.send(embed=Embed.default(description=msg))
 
     def _is_main_guild(self, guild_id: str | int) -> bool:
         return not self.main_guild_id or int(guild_id) == self.main_guild_id
@@ -137,7 +161,7 @@ class LevelTracker:
         profile, leveled_up = await self.manager.add_experience(guild_id, user_id, xp_amount)
 
         if leveled_up:
-            await self._send_levelup_notification(channel, user_id, profile["level"], is_voice=is_voice)
+            await self._send_levelup_notification(channel, user_id, profile["level"], is_voice=is_voice, xp=profile["experience"])
             await self.achievements.evaluate_requirements(
                 guild_id,
                 user_id,

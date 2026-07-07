@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from Niludetsu import Embed, Time, config
+from Niludetsu.locale import _
 
 class Starboard(commands.Cog):
     def __init__(self, bot):
@@ -32,6 +33,8 @@ class Starboard(commands.Cog):
         except discord.NotFound:
             return
 
+        t = _(guild_id=payload.guild_id, bot=self.bot)
+
         # Получаем количество звезд на сообщении
         star_reaction = discord.utils.get(message.reactions, emoji=self.star_emoji)
         if not star_reaction or star_reaction.count < self.min_stars:
@@ -58,7 +61,7 @@ class Starboard(commands.Cog):
             elif embed_data.thumbnail:
                 thumbnail_url = embed_data.thumbnail.url
 
-        embed = Embed.default(description=content or "*(без текста)*")
+        embed = Embed.default(description=content or t("utilities", "starboard_no_text"))
 
         # Добавляем автора и дату создания сообщения
         created_dt = self.time_service.ensure_datetime(message.created_at)
@@ -82,7 +85,7 @@ class Starboard(commands.Cog):
                         thumbnail_url = attachment.url
                 # Дополнительные вложения
                 else:
-                    additional_attachments.append((f"Источник {i+1}", attachment.url))
+                    additional_attachments.append((t("utilities", "starboard_source_n", n=i+1), attachment.url))
 
         # Устанавливаем изображение и миниатюру
         if image_url:
@@ -92,8 +95,8 @@ class Starboard(commands.Cog):
 
         # Добавляем источник
         embed.add_field(
-            name="Источник",
-            value=f"[Перейти к сообщению]({message.jump_url})",
+            name=t("utilities", "starboard_source"),
+            value=f"[{t('utilities', 'starboard_jump')}]({message.jump_url})",
             inline=False
         )
 
@@ -101,7 +104,7 @@ class Starboard(commands.Cog):
         for name, url in additional_attachments:
             embed.add_field(
                 name=name,
-                value=f"[Открыть]({url})",
+                value=f"[{t('utilities', 'starboard_open')}]({url})",
                 inline=True
             )
 
@@ -111,7 +114,7 @@ class Starboard(commands.Cog):
         async for old_message in starboard_channel.history(limit=100):
             if old_message.embeds:
                 for field in old_message.embeds[0].fields:
-                    if field.name == "Источник" and message.jump_url in field.value:
+                    if field.name == t("utilities", "starboard_source") and message.jump_url in field.value:
                         # Обновляем количество звезд
                         new_embed = old_message.embeds[0].copy()
                         new_embed.set_footer(text=f"{star_reaction.count} ⭐")
@@ -139,6 +142,8 @@ class Starboard(commands.Cog):
         except discord.NotFound:
             return
 
+        t = _(guild_id=payload.guild_id, bot=self.bot)
+
         # Получаем количество звезд на сообщении
         star_reaction = discord.utils.get(message.reactions, emoji=self.star_emoji)
         star_count = star_reaction.count if star_reaction else 0
@@ -152,7 +157,7 @@ class Starboard(commands.Cog):
         async for old_message in starboard_channel.history(limit=100):
             if old_message.embeds:
                 for field in old_message.embeds[0].fields:
-                    if field.name == "Источник" and message.jump_url in field.value:
+                    if field.name == t("utilities", "starboard_source") and message.jump_url in field.value:
                         if star_count < self.min_stars:
                             # Удаляем сообщение, если звезд меньше минимума
                             await old_message.delete()
@@ -165,4 +170,3 @@ class Starboard(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(Starboard(bot))
-

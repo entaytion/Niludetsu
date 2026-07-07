@@ -1,4 +1,5 @@
 from Niludetsu import Embed
+from Niludetsu.locale import _
 import asyncio, discord
 
 from typing import Dict, Any
@@ -36,9 +37,11 @@ class RewardSystem:
 
     async def redeem(self, user_id: str, reward_key: str, interaction: discord.Interaction) -> bool:
         """Обменивает баллы на награду"""
+        t = _(guild_id=interaction.guild_id, bot=self.bot)
+
         if reward_key not in self.REWARDS:
             await interaction.followup.send(
-                embed=Embed.error(description="Награда не найдена."),
+                embed=Embed.error(description=t("partnership", "reward_not_found")),
                 ephemeral=True
             )
             return False
@@ -49,7 +52,7 @@ class RewardSystem:
         if points < reward["cost"]:
             await interaction.followup.send(
                 embed=Embed.error(
-                    description=f"Недостаточно баллов. У вас {points}, нужно {reward['cost']}."
+                    description=t("partnership", "reward_insufficient_points", points=points, cost=reward['cost'])
                 ),
                 ephemeral=True
             )
@@ -63,7 +66,7 @@ class RewardSystem:
                 await self.pm.update_pm_stats(user_id, points=-reward["cost"])
                 await interaction.followup.send(
                     embed=Embed.success(
-                        description=f"Вы обменяли {reward['cost']} баллов на **{reward['name']}**!"
+                        description=t("partnership", "reward_redeemed", cost=reward['cost'], name=reward['name'])
                     ),
                     ephemeral=True
                 )
@@ -73,7 +76,8 @@ class RewardSystem:
 
     async def _process_ad(self, user_id: str, interaction: discord.Interaction) -> bool:
         """Обрабатывает награду рекламы"""
-        modal = AdModal(self)
+        t = _(guild_id=interaction.guild_id, bot=self.bot)
+        modal = AdModal(self, t)
         await interaction.response.send_modal(modal)
 
         # Ждём заполнения
@@ -90,13 +94,13 @@ class RewardSystem:
             invite = await self.bot.fetch_invite(modal.invite_link)
             if not invite or not invite.guild:
                 await interaction.followup.send(
-                    embed=Embed.error(description="Недействительная ссылка."),
+                    embed=Embed.error(description=t("partnership", "reward_invalid_link")),
                     ephemeral=True
                 )
                 return False
         except:
             await interaction.followup.send(
-                embed=Embed.error(description="Не удалось проверить ссылку."),
+                embed=Embed.error(description=t("partnership", "reward_link_check_error")),
                 ephemeral=True
             )
             return False
@@ -116,15 +120,15 @@ class RewardSystem:
             embed.set_thumbnail(url=invite.guild.icon.url)
 
         embed.add_field(
-            name="📊 Информация",
-            value=f"👥 Участников: {invite.approximate_member_count}\n🔗 Присоединиться: {modal.invite_link}",
+            name=t("partnership", "reward_ad_info"),
+            value=t("partnership", "reward_ad_members", count=invite.approximate_member_count, link=modal.invite_link),
             inline=False
         )
 
         user = self.bot.get_user(int(user_id))
         if user:
             embed.set_footer(
-                text=f"Реклама от {user.display_name}",
+                text=t("partnership", "reward_ad_footer", name=user.display_name),
                 icon_url=user.display_avatar.url
             )
 
@@ -134,12 +138,21 @@ class RewardSystem:
 class AdModal(discord.ui.Modal, title="Создание рекламы"):
     """Модальное окно для рекламы"""
 
-    def __init__(self, reward_system):
-        super().__init__(timeout=300)
+    def __init__(self, reward_system, t=None):
+        title_text = t("partnership", "reward_ad_modal_title") if t else "Создание рекламы"
+        super().__init__(title=title_text, timeout=300)
         self.reward_system = reward_system
+        self.t = t
         self.completed = False
         self.invite_link = None
         self.description = None
+
+        # Обновляем labels с локализацией
+        if t:
+            self.invite.label = t("partnership", "reward_ad_invite_label")
+            self.invite.placeholder = t("partnership", "reward_ad_invite_placeholder")
+            self.desc.label = t("partnership", "reward_ad_desc_label")
+            self.desc.placeholder = t("partnership", "reward_ad_desc_placeholder")
 
     invite = discord.ui.TextInput(
         label="Ссылка-приглашение",
@@ -162,8 +175,9 @@ class AdModal(discord.ui.Modal, title="Создание рекламы"):
         self.description = self.desc.value
         self.completed = True
 
+        t = self.t or _(guild_id=interaction.guild_id, bot=interaction.client)
         await interaction.response.send_message(
-            embed=Embed.info(description="Обработка рекламы..."),
+            embed=Embed.info(description=t("partnership", "reward_ad_processing")),
             ephemeral=True
         )
 
@@ -185,8 +199,9 @@ class AdRedeemView(discord.ui.View):
 
     async def redeem(self, interaction: discord.Interaction):
         if interaction.user.id != int(self.user_id):
+            t = _(guild_id=interaction.guild_id, bot=interaction.client)
             await interaction.response.send_message(
-                embed=Embed.error(description="Эта кнопка не для вас."),
+                embed=Embed.error(description=t("partnership", "reward_ad_not_for_you")),
                 ephemeral=True
             )
             return
@@ -195,4 +210,3 @@ class AdRedeemView(discord.ui.View):
 
 async def setup(bot):
     pass
-

@@ -1,5 +1,6 @@
 import discord
 from Niludetsu import AchievementsManager, Embed, Emojis
+from Niludetsu.locale import _, DEFAULT_LOCALE
 from discord import app_commands
 from discord.ext import commands
 
@@ -18,17 +19,20 @@ class Profile(commands.Cog):
         self.achievements = AchievementsManager()
 
     def format_voice_duration(self, seconds: int) -> str:
-        if seconds <= 0: return "0м"
+        if seconds <= 0: return DEFAULT_LOCALE.get("profile", {}).get("voice_dur_minutes", "{count}м").format(count=0)
         minutes = seconds // 60
         hours = minutes // 60
         minutes = minutes % 60
         days = hours // 24
         hours = hours % 24
         
+        day_key = DEFAULT_LOCALE.get("profile", {}).get("voice_dur_days", "{count}д")
+        hour_key = DEFAULT_LOCALE.get("profile", {}).get("voice_dur_hours", "{count}ч")
+        min_key = DEFAULT_LOCALE.get("profile", {}).get("voice_dur_minutes", "{count}м")
         parts = []
-        if days > 0: parts.append(f"{days}д")
-        if hours > 0: parts.append(f"{hours}ч")
-        if minutes > 0 or not parts: parts.append(f"{minutes}м")
+        if days > 0: parts.append(day_key.format(count=days))
+        if hours > 0: parts.append(hour_key.format(count=hours))
+        if minutes > 0 or not parts: parts.append(min_key.format(count=minutes))
         return " ".join(parts)
 
     @app_commands.command(name="profile", description="Посмотреть профиль пользователя")
@@ -36,49 +40,47 @@ class Profile(commands.Cog):
     async def profile(self, interaction: discord.Interaction, user: Optional[discord.Member] = None):
         await interaction.response.defer()
 
+        t = _(guild_id=interaction.guild_id, bot=self.bot)
         target = user or interaction.user
         gid, uid = str(interaction.guild_id), str(target.id)
 
-        # Получаем всё одним бандлом
         bundle = await self.db.get_user(uid, gid)
         prof, eco, stat = bundle["profile"], bundle["economy"], bundle["analytics"]
         
         marriage = bundle.get("marriage")
-        partner_str = "Одиночество 💔"
+        partner_str = t("profile", "single")
         if marriage:
             p_id = marriage["partner_b_id"] if marriage["partner_a_id"] == uid else marriage["partner_a_id"]
             partner = await resolve_member(interaction.client, p_id, gid)
-            partner_str = f"В браке с {partner.mention}" if partner else f"В браке с ID: {p_id}"
+            partner_str = t("profile", "married", partner=partner.mention) if partner else t("profile", "married", partner=f"ID: {p_id}")
 
         ach_summary = await self.achievements.get_user_summary(gid, uid)
         ach_count = sum(1 for a in ach_summary.values() if a.get("unlocked"))
 
-        # Собираем красивый Embed
-        embed = Embed.default(title=f"Профиль: {target.display_name}")
+        embed = Embed.default(title=t("profile", "title", user_name=target.display_name))
         embed.set_thumbnail(url=target.display_avatar.url)
         
-        # Основная статистика
         embed.add_field(
-            name="📊 Уровень", 
-            value=f"Уровень: **{prof.get('level', 1)}**\nОпыт: **{prof.get('experience', 0):,}**\nРепутация: **{prof.get('reputation', 0)}**", 
+            name=t("profile", "field_level"),
+            value=t("profile", "field_level_text", level=prof.get('level', 1), xp=f"{prof.get('experience', 0):,}", rep=prof.get('reputation', 0)),
             inline=True
         )
         embed.add_field(
-            name="💰 Кошелёк", 
-            value=f"Баланс: **{eco.get('balance', 0):,}** {Emojis.MONEY}\nВ банке: **{eco.get('deposit', 0):,}** {Emojis.MONEY}", 
+            name=t("profile", "field_wallet"),
+            value=t("profile", "field_wallet_text", balance=f"{eco.get('balance', 0):,}", currency=Emojis.MONEY, deposit=f"{eco.get('deposit', 0):,}"),
             inline=True
         )
         
         embed.add_field(name="\u200b", value="\u200b", inline=False)
         
         embed.add_field(
-            name="📈 Активность", 
-            value=f"Сообщений: **{stat.get('messages_total', 0):,}**\nГолосовой: **{self.format_voice_duration(stat.get('voice_seconds', 0))}**\nДостижений: **{ach_count}**", 
+            name=t("profile", "field_activity"),
+            value=t("profile", "field_activity_text", messages=f"{stat.get('messages_total', 0):,}", voice=self.format_voice_duration(stat.get('voice_seconds', 0)), achievements=ach_count),
             inline=True
         )
         embed.add_field(
-            name="💍 Семья", 
-            value=partner_str, 
+            name=t("profile", "field_family"),
+            value=partner_str,
             inline=True
         )
 
@@ -91,20 +93,21 @@ class ProfileActionsView(discord.ui.View):
         self.cog = cog
         self.user = user
 
-    @discord.ui.button(label="Достижения", emoji="🏆", style=discord.ButtonStyle.gray)
+    @discord.ui.button(label=DEFAULT_LOCALE.get("profile", {}).get("profile_achievements_label", "Достижения"), emoji="🏆", style=discord.ButtonStyle.gray)
     async def achievements_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        t = _(guild_id=interaction.guild_id, bot=interaction.client)
         if interaction.user.id != self.user.id:
-            return await interaction.response.send_message(embed=Embed.error(description="Это не твой профиль!"), ephemeral=True)
+            return await interaction.response.send_message(embed=Embed.error(description=t("profile", "not_yours")), ephemeral=True)
 
         summary = await self.cog.achievements.get_user_summary(str(interaction.guild_id), str(self.user.id))
-        embed = Embed.info(title=f"Достижения {self.user.display_name}")
+        embed = Embed.info(title=t("profile", "achievements_title", user_name=self.user.display_name))
         embed.set_thumbnail(url=self.user.display_avatar.url)
 
         for _, d in summary.items():
             status = "✅" if d["unlocked"] else "❌"
             embed.add_field(
                 name=f"{status} {d['name']}",
-                value=f"{d['icon']} {d['description']}\n💰 Награда: **{d['reward']}**",
+                value=f"{d['icon']} {d['description']}\n{t('profile', 'achievements_reward', reward=d['reward'])}",
                 inline=False
             )
 

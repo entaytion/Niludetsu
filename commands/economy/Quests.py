@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from Niludetsu import QuestManager, Embed, Emojis, Colors
+from Niludetsu.locale import _
 
 class Quests(commands.Cog):
     def __init__(self, bot):
@@ -12,13 +13,14 @@ class Quests(commands.Cog):
     @app_commands.describe(page="Страница (1 - ежедневные, 2 - еженедельные)")
     async def quests(self, ctx, page: int = 1):
         uid, gid = str(ctx.author.id), str(ctx.guild.id)
+        t = _(ctx=ctx)
         quests = await self.manager.get_user_quests(uid, gid, page)
         
-        title = "Ежедневные квесты" if page == 1 else "Еженедельные квесты"
+        title = t("economy", "quests_daily_title") if page == 1 else t("economy", "quests_weekly_title")
         embed = Embed.info(title=f"{title}")
         
         if not quests:
-            embed.description = "Квестов пока нет, заходите позже!"
+            embed.description = t("economy", "quests_empty")
         else:
             for p in quests:
                 q = p.quest
@@ -28,7 +30,7 @@ class Quests(commands.Cog):
                 bar = f"[{'🟩' * int(p.progress/q['goal']*10)} {'⬛' * (10-int(p.progress/q['goal']*10))}]"
                 embed.add_field(
                     name=f"{status} {q['name']}",
-                    value=f"{q['description']}\n{bar} **{p.progress}/{q['goal']}**\nНаграда: **{q['reward']:,}** {Emojis.MONEY}",
+                    value=f"{q['description']}\n{bar} **{p.progress}/{q['goal']}**\n{t('economy', 'reward', amount=f"{q['reward']:,}", currency=Emojis.MONEY)}",
                     inline=False
                 )
 
@@ -47,17 +49,19 @@ class QuestActionsView(discord.ui.View):
             self.add_item(btn)
 
     async def _claim_all(self, i):
+        from Niludetsu.locale import _
+        t = _(guild_id=self.gid)
         if str(i.user.id) != self.uid: return
         
         quests = await self.manager.get_claimable_quests(self.uid, self.gid)
-        if not quests: return await i.response.send_message("Нет наград для получения!", ephemeral=True)
+        if not quests: return await i.response.send_message(t("economy", "quests_no_rewards"), ephemeral=True)
         
         msgs = []
         for p in quests:
             ok, msg = await self.manager.claim_reward(self.uid, self.gid, p.quest["key"])
             if ok: msgs.append(msg)
             
-        await i.response.send_message("\n".join(msgs) if msgs else "Ошибочка вышла.", ephemeral=True)
+        await i.response.send_message("\n".join(msgs) if msgs else t("economy", "quests_error"), ephemeral=True)
         self.stop()
 
 async def setup(bot): await bot.add_cog(Quests(bot))

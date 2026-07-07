@@ -2,6 +2,7 @@ import discord
 from .RewardSystem import RewardSystem, AdRedeemView
 from discord.ext import commands
 from Niludetsu import Embed, Colors
+from Niludetsu.locale import _
 from Niludetsu.database import database
 from typing import Optional
 
@@ -26,8 +27,10 @@ class PMCommands(commands.Cog):
     @commands.command(name="pmleaderboard")
     async def pmleaderboard(self, ctx):
         """Показывает топ партнер-менеджеров по баллам"""
+        t = _(ctx=ctx)
+
         if not await self.ensure_manager():
-            await ctx.reply("Система партнёрств временно недоступна.")
+            await ctx.reply(t("partnership", "pm_system_unavailable"))
             return
 
         # Получаем топ ПМов
@@ -36,8 +39,8 @@ class PMCommands(commands.Cog):
         if not top_managers:
             await ctx.reply(
                 embed=Embed.info(
-                    title="Топ партнер-менеджеров",
-                    description="Пока нет партнер-менеджеров с баллами."
+                    title=t("partnership", "pm_leaderboard_title"),
+                    description=t("partnership", "pm_leaderboard_empty")
                 ),
                 mention_author=False
             )
@@ -50,26 +53,35 @@ class PMCommands(commands.Cog):
             username = user.mention if user else f"<@{manager['user_id']}>"
 
             # Форматируем баллы
-            points_word = "балл" if manager['points'] == 1 else "балла" if 2 <= manager['points'] <= 4 else "баллов"
+            points = manager['points']
+            if points == 1:
+                points_word = t("partnership", "partner_points_word_1")
+            elif 2 <= points <= 4:
+                points_word = t("partnership", "partner_points_word_2")
+            else:
+                points_word = t("partnership", "partner_points_word_5")
 
             description += (
-                f"**{i}.** {username} — **{manager['points']}** {points_word}\n"
-                f"- 🆕 {manager['new_partnerships']} новых партнёрств, 🔄 {manager['renewed_partnerships']} обновлений\n\n"
+                f"**{i}.** {username} — **{points}** {points_word}\n"
+                f"- 🆕 {manager['new_partnerships']} {t('partnership', 'pm_leaderboard_new')}, "
+                f"🔄 {manager['renewed_partnerships']} {t('partnership', 'pm_leaderboard_renewed')}\n\n"
             )
 
         embed = Embed.default(
-            title="Топ партнер-менеджеров по баллам",
+            title=t("partnership", "pm_leaderboard_full_title"),
             description=description.strip()
         )
-        embed.set_footer(text="2 балла за новое партнерство, 1 балл за обновление после 12 часов")
+        embed.set_footer(text=t("partnership", "pm_leaderboard_footer"))
 
         await ctx.reply(embed=embed, mention_author=False)
 
     @commands.command(name="pminfo")
     async def pminfo(self, ctx, user: Optional[discord.Member] = None):
         """Показывает профиль партнер-менеджера"""
+        t = _(ctx=ctx)
+
         if not await self.ensure_manager():
-            await ctx.reply("Система партнёрств временно недоступна.")
+            await ctx.reply(t("partnership", "pm_system_unavailable"))
             return
 
         # Если пользователь не указан, показываем профиль автора команды
@@ -79,7 +91,7 @@ class PMCommands(commands.Cog):
         # Проверяем, является ли пользователь партнер-менеджером
         partnership_cog = self.bot.get_cog("Partnership")
         if not partnership_cog:
-            await ctx.reply("Система партнёрств временно недоступна.")
+            await ctx.reply(t("partnership", "pm_system_unavailable"))
             return
 
         pm_role_id = partnership_cog.partner_manager_role_id
@@ -87,7 +99,7 @@ class PMCommands(commands.Cog):
 
         if not is_pm:
             await ctx.reply(
-                embed=Embed.error(description="У пользователя нет прав партнер-менеджера."),
+                embed=Embed.error(description=t("partnership", "pm_no_pm_rights")),
                 mention_author=False
             )
             return
@@ -102,15 +114,22 @@ class PMCommands(commands.Cog):
         )
 
         # Форматируем статистику
-        new_word = "новое" if user_stats['new_partnerships'] == 1 else "новых"
-        renew_word = "обновление" if user_stats['renewed_partnerships'] == 1 else "обновлений"
-        points_word = "балл" if user_stats['points'] == 1 else "балла" if 2 <= user_stats['points'] <= 4 else "баллов"
+        new_word = t("partnership", "pm_stats_new_single") if user_stats['new_partnerships'] == 1 else t("partnership", "pm_stats_new_multi")
+        renew_word = t("partnership", "pm_stats_renew_single") if user_stats['renewed_partnerships'] == 1 else t("partnership", "pm_stats_renew_multi")
+
+        points = user_stats['points']
+        if points == 1:
+            points_word = t("partnership", "partner_points_word_1")
+        elif 2 <= points <= 4:
+            points_word = t("partnership", "partner_points_word_2")
+        else:
+            points_word = t("partnership", "partner_points_word_5")
 
         stats_text = (
-            f"📊 **Статистика партнёрств:**\n"
+            f"{t('partnership', 'pm_stats_header')}\n"
             f"• **{user_stats['new_partnerships']}** {new_word} партнёрств\n"
             f"• **{user_stats['renewed_partnerships']}** {renew_word}\n"
-            f"💎 **Баллы:** {user_stats['points']} {points_word}"
+            f"{t('partnership', 'pm_stats_points', points=points, points_word=points_word)}"
         )
 
         embed.description = stats_text
@@ -123,8 +142,8 @@ class PMCommands(commands.Cog):
             if position:
                 medal = "🥇" if position == 1 else "🥈" if position == 2 else "🥉" if position == 3 else f"#{position}"
                 embed.add_field(
-                    name="> 🏆 Позиция в рейтинге",
-                    value=f"{medal} место",
+                    name=t("partnership", "pm_position_title"),
+                    value=t("partnership", "pm_position_value", medal=medal),
                     inline=False
                 )
 
@@ -133,9 +152,11 @@ class PMCommands(commands.Cog):
     @commands.command(name="pmrewards")
     async def pmrewards(self, ctx: commands.Context):
         """Показывает доступную награду и позволяет её обменять"""
+        t = _(ctx=ctx)
+
         if not await self.ensure_manager():
             await ctx.reply(
-                embed=Embed.error(description="Система партнёрств временно недоступна."),
+                embed=Embed.error(description=t("partnership", "pm_system_unavailable")),
                 mention_author=False
             )
             return
@@ -144,16 +165,19 @@ class PMCommands(commands.Cog):
         user_points = await self.partnership_manager.get_user_points(user_id)
 
         reward = self.reward_system.REWARDS["ad_500"]
-        status = "✅ Доступно" if user_points >= reward["cost"] else f"❌ Не хватает {reward['cost'] - user_points} баллов"
+        if user_points >= reward["cost"]:
+            status = t("partnership", "pm_rewards_available")
+        else:
+            status = t("partnership", "pm_rewards_not_enough", count=reward['cost'] - user_points)
 
         embed = Embed.default(
-            title="Награда за баллы партнёрств",
-            description=f"У вас **{user_points}** баллов",
+            title=t("partnership", "pm_rewards_title"),
+            description=t("partnership", "pm_rewards_balance", points=user_points),
         )
 
         embed.add_field(
             name=reward["name"],
-            value=f"{reward['description']}\nСтоимость: **{reward['cost']}** баллов\nСтатус: {status}",
+            value=f"{reward['description']}\n{t('partnership', 'pm_rewards_cost')} **{reward['cost']}** баллов\n{t('partnership', 'pm_rewards_status')} {status}",
             inline=False
         )
 
@@ -163,4 +187,3 @@ class PMCommands(commands.Cog):
 async def setup(bot):
     """Настройка расширения"""
     await bot.add_cog(PMCommands(bot))
-

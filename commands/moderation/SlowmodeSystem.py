@@ -4,6 +4,7 @@ from discord.ext import commands
 from Niludetsu.moderation.checks import moderationcommand
 from Niludetsu import send, Embed, Emojis
 from Niludetsu.moderation.system.slowmode import SlowmodeSystem
+from Niludetsu.locale import _
 
 from typing import Optional
 
@@ -32,35 +33,19 @@ class SlowmodeCog(commands.Cog):
         *,
         reason: str = "Не указана"
     ):
-        """
-        Установить медленный режим в канале.
-        Максимальная длительность: 6 часов (ограничение Discord).
-
-        Примеры:
-        • !slowmode 10s Флуд
-        • !slowmode 1m #general Спам
-        • !slowmode 0 Отключить
-        • !slowmode off Отключить
-        • !slowmode 30s --all Массовый флуд
-        • /slowmode duration:10s channel:#general reason:Флуд
-        """
-
+        t = _(ctx=ctx)
         is_interaction = getattr(ctx, 'interaction', None) is not None
         apply_to_all = False
 
         if not is_interaction:
-            # Префиксная команда — проверяем флаг --all
             if reason and "--all" in reason:
                 apply_to_all = True
                 reason = reason.replace("--all", "").strip()
                 if not reason:
-                    reason = "Не указана"
+                    reason = t("moderation", "reason_default")
 
-        # Если канал не указан, используем текущий (только для одного канала)
         if channel is None and not apply_to_all:
             channel = ctx.channel
-
-        # ПРИМЕНЯЕМ КО ВСЕМ КАНАЛАМ (--all)
 
         if apply_to_all:
             success_channels, failed_channels = await self.slowmode.set_slowmode_all(
@@ -70,22 +55,14 @@ class SlowmodeCog(commands.Cog):
                 reason=reason
             )
 
-            # Создаём итоговый embed
             if success_channels:
-                description = (
-                    f"{Emojis.SUCCESS} Медленный режим установлен на **{duration}** "
-                    f"в **{len(success_channels)}** каналах"
-                )
                 if failed_channels:
-                    description += (
-                        f"\n❌ Не удалось установить в **{len(failed_channels)}** каналах "
-                        "(нет прав или ошибка)"
-                    )
+                    description = t("moderation", "slowmode_partial", duration=duration, count=len(success_channels), failed=len(failed_channels))
+                else:
+                    description = t("moderation", "slowmode_success", duration=duration, count=len(success_channels))
                 result_embed = Embed.success(description=description)
             else:
-                result_embed = Embed.error(
-                    description="Не удалось установить медленный режим ни в одном канале"
-                )
+                result_embed = Embed.error(description=t("moderation", "slowmode_failed"))
 
             await send(ctx, embed=result_embed, ephemeral=True)
 

@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 
 from Niludetsu import Embed, Emojis, TimeService, config, AchievementsManager, AnalyticsManager, AnalyticsTracker, LevelTracker
+from Niludetsu.locale import _
 
 _time = TimeService()
 
@@ -158,12 +159,13 @@ class Analytics(commands.Cog):
         self, ctx: commands.Context, user: discord.User | None = None
     ) -> None:
         """Показывает статистику активности пользователя"""
+        t = _(ctx=ctx)
         target = user or ctx.author
         guild = ctx.guild
 
         if not guild:
             await ctx.reply(
-                f"{Emojis.ERROR} Команда доступна только на сервере.",
+                f"{Emojis.ERROR} {t('guild_only')}",
                 mention_author=False,
             )
             return
@@ -174,7 +176,7 @@ class Analytics(commands.Cog):
 
         if not stats["messages"]["total"] and not stats["voice"]["total_seconds"]:
             await ctx.reply(
-                embed=Embed.error(description="Пока данных по этому пользователю нет."),
+                embed=Embed.error(description=t("analytics_empty")),
                 mention_author=False,
             )
             return
@@ -192,44 +194,42 @@ class Analytics(commands.Cog):
 
         # Создаём embed
         embed = Embed(
-            title=f"{Emojis.ANALYTICS} Аналитика — {display_name}",
+            title=t("analytics_title", user_name=display_name),
         )
         embed.set_thumbnail(url=avatar_url)
         embed.add_field(
             name="> 🏆 Позиции в рейтинге",
-            value=(f"**Текст:** {messages_rank}\n**Голос:** {voice_rank}"),
+            value=t("analytics_rank_text", rank_text=messages_rank, rank_voice=voice_rank),
             inline=True,
         )
 
         embed.add_field(
             name="> 📊 Общая статистика",
-            value=(
-                f"**Сообщений:** `{stats['messages']['total']:,}`\n"
-                f"**Удалено:** `{stats['messages']['deleted']:,}`\n"
-                f"**Голосовая активность:** {_time.format_duration(voice_total)}"
-            ),
+            value=t("analytics_stats",
+                    messages=f"{stats['messages']['total']:,}",
+                    deleted=f"{stats['messages']['deleted']:,}",
+                    voice=_time.format_duration(voice_total)),
             inline=True,
         )
 
         embed.add_field(
             name="> 💬 Любимые текстовые каналы",
-            value=self._format_text_channels(guild, stats["messages"]["channels"]),
+            value=self._format_text_channels(guild, stats["messages"]["channels"], t),
             inline=False,
         )
 
         embed.add_field(
             name="> 🎙️ Любимые голосовые каналы",
-            value=self._format_voice_channels(guild, stats["voice"]["channels"]),
+            value=self._format_voice_channels(guild, stats["voice"]["channels"], t),
             inline=True,
         )
 
-        embed.set_footer(text="Серверная аналитика • данные обновляются автоматически")
+        embed.set_footer(text=t("analytics_footer"))
 
         await ctx.reply(embed=embed, mention_author=False)
 
     @staticmethod
-    def _find_rank(entries, user_id: str) -> str:
-        """Находит место пользователя в рейтинге"""
+    def _find_rank(entries, user_id: str, t=None) -> str:
         for index, (candidate_id, _) in enumerate(entries, start=1):
             if candidate_id == user_id:
                 if index == 1:
@@ -241,8 +241,7 @@ class Analytics(commands.Cog):
                 return f"`#{index}`"
         return "—"
 
-    @staticmethod
-    def _format_text_channels(guild: discord.Guild, channels: dict[str, int]) -> str:
+    def _format_text_channels(self, guild: discord.Guild, channels: dict[str, int], t) -> str:
         """Форматирует топ текстовых каналов"""
         items = sorted(channels.items(), key=lambda item: item[1], reverse=True)[:5]
         lines = []
@@ -257,10 +256,9 @@ class Analytics(commands.Cog):
                 prefix = medals[index - 1] if index <= 3 else f"`#{index}`"
                 lines.append(f"{prefix} {channel.mention} — **{count:,}**")
 
-        return "\n".join(lines) if lines else "> Пока нет данных"
+        return "\n".join(lines) if lines else t("analytics_no_data")
 
-    @staticmethod
-    def _format_voice_channels(guild: discord.Guild, channels: dict[str, int]) -> str:
+    def _format_voice_channels(self, guild: discord.Guild, channels: dict[str, int], t) -> str:
         """Форматирует топ голосовых каналов"""
         items = sorted(channels.items(), key=lambda item: item[1], reverse=True)[:5]
         lines = []
@@ -280,9 +278,9 @@ class Analytics(commands.Cog):
                 )
 
         if temp_total:
-            lines.append(f"🪄 Временные каналы — {_time.format_duration(temp_total)}")
+            lines.append(t("analytics_temp_channels", time=_time.format_duration(temp_total)))
 
-        return "\n".join(lines) if lines else "> Пока нет данных"
+        return "\n".join(lines) if lines else t("analytics_no_data")
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Analytics(bot))

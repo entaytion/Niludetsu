@@ -4,16 +4,19 @@ from discord.ext import commands
 from discord.ui import Button, Select, View
 from Niludetsu import Embed, Time, config, Emojis, resolve_member, safe_fetch_user
 from Niludetsu.database import database
+from Niludetsu.locale import _, DEFAULT_LOCALE
 from typing import Dict, List, Optional
 
 MAIN_GUILD_ID = str(config.SERVERS["MAIN_ID"])
 _time = Time()
+P = DEFAULT_LOCALE.get("profile", {})
 
 class LeaderboardView(View):
-    def __init__(self, cog: "Leaderboard", interaction: Interaction, category: str = "level") -> None:
+    def __init__(self, cog: "Leaderboard", interaction: Interaction, t, category: str = "level") -> None:
         super().__init__(timeout=90)
         self.cog = cog
         self.interaction = interaction
+        self.t = t
         self.category = category
         self.current_page = 1
         self.per_page = 10
@@ -26,7 +29,7 @@ class LeaderboardView(View):
     async def interaction_check(self, interaction: Interaction) -> bool:
         if interaction.user.id != self.interaction.user.id:
             await interaction.response.send_message(
-                "Эта панель — для того, кто её вызвал.",
+                P.get("leaderboard_not_for_you", "Эта панель — для того, кто её вызвал."),
                 ephemeral=True,
             )
             return False
@@ -42,6 +45,9 @@ class LeaderboardView(View):
 
     async def initialize(self, category: str) -> bool:
         self.category = category
+        for child in self.children:
+            if isinstance(child, Select):
+                child.placeholder = self.t("profile", "leaderboard_select")
         await self.load_entries()
         await self.update_buttons()
         return bool(self.entries)
@@ -61,7 +67,7 @@ class LeaderboardView(View):
             await self._load_reputation()
         else:
             self.entries = []
-            self.category_title = "Неизвестная категория"
+            self.category_title = self.t("profile", "leaderboard_unknown")
 
         if self.rank_enabled:
             self.rank_map = {entry["key"]: index for index, entry in enumerate(self.entries, start=1)}
@@ -110,19 +116,17 @@ class LeaderboardView(View):
             reverse=True,
         )
 
+        e_t = self.t
         entries = [
             {
                 "key": str(row["user_id"]),
-                "value": (
-                    f"Уровень: **{row.get('level', 1)}**\n"
-                    f"Опыт: **{row.get('experience', 0):,}**"
-                ),
+                "value": e_t("profile", "leaderboard_entry_level", level=row.get('level', 1), xp=row.get('experience', 0)),
             }
             for row in filtered
         ]
 
         self.entries = entries
-        self.category_title = "уровню"
+        self.category_title = self.t("profile", "leaderboard_cat_level_title")
         self.rank_enabled = True
 
     async def _load_economy(self) -> None:
@@ -153,12 +157,7 @@ class LeaderboardView(View):
             entries.append(
                 {
                     "key": user_id,
-                    "value": (
-                        f"Общий капитал: **{total:,}**\n"
-                        f"• Баланс: {balance:,}\n"
-                        f"• Депозит: {deposit:,}\n"
-                        f"• Семейный счёт: {spousal:,}"
-                    ),
+                    "value": self.t("profile", "leaderboard_entry_economy", total=total, balance=balance, deposit=deposit, spousal=spousal),
                     "total": total,
                 }
             )
@@ -168,7 +167,7 @@ class LeaderboardView(View):
             entry.pop("total", None)
 
         self.entries = entries
-        self.category_title = "капиталу"
+        self.category_title = self.t("profile", "leaderboard_cat_economy_title")
         self.rank_enabled = True
 
     async def _load_messages(self) -> None:
@@ -187,7 +186,7 @@ class LeaderboardView(View):
             entries.append(
                 {
                     "key": user_id,
-                    "value": f"Сообщений: **{total:,}**",
+                    "value": self.t("profile", "leaderboard_entry_messages", total=total),
                     "total": total,
                 }
             )
@@ -197,7 +196,7 @@ class LeaderboardView(View):
             entry.pop("total", None)
 
         self.entries = entries
-        self.category_title = "сообщениям"
+        self.category_title = self.t("profile", "leaderboard_cat_messages_title")
         self.rank_enabled = True
 
     async def _load_voice(self) -> None:
@@ -217,7 +216,7 @@ class LeaderboardView(View):
             entries.append(
                 {
                     "key": user_id,
-                    "value": f"Время в голосе: **{_time.format_duration(seconds)}**",
+                    "value": self.t("profile", "leaderboard_entry_voice", duration=_time.format_duration(seconds)),
                     "total": seconds,
                 }
             )
@@ -227,7 +226,7 @@ class LeaderboardView(View):
             entry.pop("total", None)
 
         self.entries = entries
-        self.category_title = "голосовым чатам"
+        self.category_title = self.t("profile", "leaderboard_cat_voice_title")
         self.rank_enabled = True
 
     async def _load_families(self) -> None:
@@ -256,7 +255,7 @@ class LeaderboardView(View):
                 {
                     "key": f"{partner_a}:{partner_b}",
                     "partners": [partner_a, partner_b],
-                    "value": f"Вместе: **{_time.format_duration(duration_seconds)}**",
+                    "value": self.t("profile", "leaderboard_entry_families", duration=_time.format_duration(duration_seconds)),
                     "total": duration_seconds,
                 }
             )
@@ -266,7 +265,7 @@ class LeaderboardView(View):
             entry.pop("total", None)
 
         self.entries = entries
-        self.category_title = "долголетним семьям"
+        self.category_title = self.t("profile", "leaderboard_cat_families_title")
         self.rank_enabled = False
 
     async def _load_reputation(self) -> None:
@@ -286,7 +285,7 @@ class LeaderboardView(View):
             entries.append(
                 {
                     "key": user_id,
-                    "value": f"Репутация: **{rep:,}**",
+                    "value": self.t("profile", "leaderboard_entry_reputation", rep=rep),
                     "total": rep,
                 }
             )
@@ -296,7 +295,7 @@ class LeaderboardView(View):
             entry.pop("total", None)
 
         self.entries = entries
-        self.category_title = "репутации"
+        self.category_title = self.t("profile", "leaderboard_cat_reputation_title")
         self.rank_enabled = True
 
     async def update_buttons(self) -> None:
@@ -319,8 +318,8 @@ class LeaderboardView(View):
 
     async def create_embed(self) -> Embed:
         embed = Embed(
-            title=f"Топ по {self.category_title}",
-            description=f"{Emojis.UNKNOWN} Страница {self.current_page} из {self.total_pages}",
+            title=self.t("profile", "leaderboard_title", category=self.category_title),
+            description=f"{Emojis.UNKNOWN} {self.t('profile', 'leaderboard_page', page=self.current_page, total=self.total_pages)}",
         )
 
         start = (self.current_page - 1) * self.per_page
@@ -328,23 +327,23 @@ class LeaderboardView(View):
         page_entries = self.entries[start:end]
 
         if not page_entries:
-            embed.description = f"{Emojis.UNKNOWN} Пока нет данных по этой категории."
+            embed.description = f"{Emojis.UNKNOWN} {self.t('profile', 'leaderboard_empty')}"
             return embed
 
         if self.rank_enabled:
             user_key = str(self.interaction.user.id)
             if user_key in self.rank_map:
                 embed.set_footer(
-                    text=f"Ты на {self.rank_map[user_key]}-м месте",
+                    text=self.t("profile", "leaderboard_your_rank", rank=self.rank_map[user_key]),
                     icon_url=self.interaction.user.display_avatar.url,
                 )
             else:
                 embed.set_footer(
-                    text="Ты не попал в топ — ещё всё впереди!",
+                    text=self.t("profile", "leaderboard_not_ranked"),
                     icon_url=self.interaction.user.display_avatar.url,
                 )
         else:
-            embed.set_footer(text="Любовь — вечный рейтинг без проигравших ♥")
+            embed.set_footer(text=self.t("profile", "leaderboard_love_footer"))
 
         for index, entry in enumerate(page_entries, start=start + 1):
             title = await self._resolve_entry_title(entry)
@@ -360,7 +359,7 @@ class LeaderboardView(View):
         if "partners" in entry:
             partner_ids = entry["partners"]
             names = [await self._get_display_name(pid) for pid in partner_ids]
-            return f"{names[0]} ❤ {names[1]}"
+            return self.t("profile", "leaderboard_entry_family_names", name1=names[0], name2=names[1])
         user_id = int(entry["key"])
         return await self._get_display_name(user_id)
 
@@ -396,14 +395,14 @@ class LeaderboardView(View):
             await self.update_message(interaction)
 
     @discord.ui.select(
-        placeholder="Выбери категорию",
+        placeholder=P.get("leaderboard_select", "Выбери категорию"),
         options=[
-            discord.SelectOption(label="Уровни", value="level", emoji=Emojis.ICON_STATISTICS),
-            discord.SelectOption(label="Капитал", value="economy", emoji=Emojis.ICON_MONEY),
-            discord.SelectOption(label="Сообщения", value="messages", emoji=Emojis.ICON_CHAT),
-            discord.SelectOption(label="Голосовые", value="voice", emoji=Emojis.ICON_VOICE),
-            discord.SelectOption(label="Долголетние семьи", value="families", emoji="💍"),
-            discord.SelectOption(label="Репутация", value="reputation", emoji="⭐"),
+            discord.SelectOption(label=P.get("leaderboard_cat_level", "Уровни"), value="level", emoji=Emojis.ICON_STATISTICS),
+            discord.SelectOption(label=P.get("leaderboard_cat_economy", "Капитал"), value="economy", emoji=Emojis.ICON_MONEY),
+            discord.SelectOption(label=P.get("leaderboard_cat_messages", "Сообщения"), value="messages", emoji=Emojis.ICON_CHAT),
+            discord.SelectOption(label=P.get("leaderboard_cat_voice", "Голосовые"), value="voice", emoji=Emojis.ICON_VOICE),
+            discord.SelectOption(label=P.get("leaderboard_cat_families", "Долголетние семьи"), value="families", emoji="💍"),
+            discord.SelectOption(label=P.get("leaderboard_cat_reputation", "Репутация"), value="reputation", emoji="⭐"),
         ],
         row=0,
     )
@@ -415,8 +414,8 @@ class LeaderboardView(View):
         if not self.entries:
             await interaction.response.send_message(
                 embed=Embed.warn(
-                    title="Пусто",
-                    description="Для этой категории пока нет данных.",
+                    title=self.t("profile", "leaderboard_empty_category_title"),
+                    description=self.t("profile", "leaderboard_empty_category"),
                 ),
                 ephemeral=True,
             )
@@ -430,16 +429,16 @@ class Leaderboard(commands.Cog):
 
     async def get_member_display(self, user_id: int) -> str:
         member = await resolve_member(self.bot, user_id, MAIN_GUILD_ID)
-        return getattr(member, "display_name", getattr(member, "name", f"Пользователь #{user_id}"))
+        return getattr(member, "display_name", getattr(member, "name", P.get("leaderboard_user_fallback", "Пользователь #{user_id}").format(user_id=user_id)))
 
     @app_commands.command(name="leaderboard", description="Показать топы сервера")
     async def leaderboard(self, interaction: Interaction) -> None:
         await interaction.response.defer()
-        view = LeaderboardView(self, interaction)
+        t = _(guild_id=interaction.guild_id, bot=self.bot)
+        view = LeaderboardView(self, interaction, t)
         await view.initialize("level")
         embed = await view.create_embed()
         await interaction.followup.send(embed=embed, view=view)
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Leaderboard(bot))
-

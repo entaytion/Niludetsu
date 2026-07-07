@@ -4,6 +4,7 @@ from discord import app_commands
 from discord.ext import commands
 from Niludetsu.moderation.checks import moderationcommand
 from Niludetsu.moderation.system.rudiments import RudimentsSystem
+from Niludetsu.locale import _, DEFAULT_LOCALE
 
 PUNISHMENT_TYPES = (
     ("warn", "Предупреждения", Emojis.WARN),
@@ -35,11 +36,10 @@ class RudimentSelect(discord.ui.Select):
                     )
                 )
 
-        # Добавляем "Все типы" если есть хотя бы 2 типа наказаний
         if len(available_types) > 1:
             options.append(
                 discord.SelectOption(
-                    label="Все типы",
+                    label=DEFAULT_LOCALE.get("moderation", {}).get("rudiment_select_all", "Все типы"),
                     value="all",
                     emoji="📚",
                     default="all" == current,
@@ -47,7 +47,7 @@ class RudimentSelect(discord.ui.Select):
             )
 
         super().__init__(
-            placeholder="🎛️ Выберите тип нарушения",
+            placeholder=DEFAULT_LOCALE.get("moderation", {}).get("rudiment_placeholder", "🎛️ Выберите тип нарушения"),
             min_values=1,
             max_values=1,
             options=options,
@@ -64,11 +64,11 @@ class RudimentSelect(discord.ui.Select):
 
 class PageButton(discord.ui.Button):
     def __init__(self, direction: int) -> None:
-        label = "Назад" if direction < 0 else "Вперёд"
+        label = DEFAULT_LOCALE.get("moderation", {}).get("rudiment_page_prev") if direction < 0 else DEFAULT_LOCALE.get("moderation", {}).get("rudiment_page_next")
         emoji = "◀️" if direction < 0 else "▶️"
         super().__init__(
             style=discord.ButtonStyle.secondary,
-            label=label,
+            label=label or ("Назад" if direction < 0 else "Вперёд"),
             emoji=emoji,
             row=1,
         )
@@ -200,29 +200,26 @@ class RudimentView(discord.ui.View):
             self.add_item(self.next_button)
 
     def _build_summary_embed(self) -> Embed:
-        """Создает краткую сводку по наказаниям"""
-        # Формируем список наказаний
         punishment_parts = []
         for ptype in ["ban", "mute", "warn"]:
             count = self.statistics.get(ptype, 0)
             if count > 0:
                 label = PUNISHMENT_LABELS.get(ptype, ptype)
-                # Склонение (1 бан, 2 бана, 5 банов)
                 if ptype == "ban":
                     word = "бан" if count == 1 else "бана" if 2 <= count <= 4 else "банов"
                 elif ptype == "mute":
                     word = "мут" if count == 1 else "мута" if 2 <= count <= 4 else "мутов"
-                else:  # warn
+                else:
                     word = "варн" if count == 1 else "варна" if 2 <= count <= 4 else "варнов"
                 punishment_parts.append(f"{count} {word}")
 
         if punishment_parts:
-            description = f"**Нарушения:** {', '.join(punishment_parts)}"
+            description = DEFAULT_LOCALE.get("moderation", {}).get("rudiment_summary_some", "**Нарушения:** {list}").format(list=", ".join(punishment_parts))
         else:
-            description = "**Нарушения:** отсутствуют"
+            description = DEFAULT_LOCALE.get("moderation", {}).get("rudiment_summary_none", "**Нарушения:** отсутствуют")
 
         embed = Embed.default(
-            title=f"{Emojis.MODERATION} Нарушения пользователя",
+            title=f"{Emojis.MODERATION} {DEFAULT_LOCALE.get('moderation', {}).get('rudiment_summary_title', 'Нарушения пользователя')}",
             description=f"{self.member.mention}\n{description}",
         )
         embed.set_thumbnail(url=self.member.display_avatar.url)
@@ -237,15 +234,16 @@ class Rudiments(commands.Cog):
     @app_commands.describe(user="👤 Пользователь или ID для просмотра (по умолчанию — вы)")
     @moderationcommand(required_level=1, cooldown=5)
     async def rudiments(self, ctx: commands.Context, user: discord.Member = None) -> None:
+        t = _(ctx=ctx)
         guild = ctx.guild
         if not guild:
-            await ctx.send(embed=Embed.error(description="Команда доступна только на сервере."))
+            await ctx.send(embed=Embed.error(description=t("moderation", "rudiment_guild_only")))
             return
 
         target = user or ctx.author
 
         if not isinstance(target, discord.Member):
-            await ctx.send(embed=Embed.error(description="Не удалось определить пользователя."))
+            await ctx.send(embed=Embed.error(description=t("moderation", "rudiment_user_not_found")))
             return
 
         # Собираем статистику по типам наказаний

@@ -1,5 +1,6 @@
 import discord
 from ..tools.Emojis import Emojis
+from Niludetsu.locale import _
 
 from Niludetsu.webhooks.base import BaseLogger
 
@@ -12,34 +13,34 @@ class PollLogger(BaseLogger):
         user = guild.get_member(payload.user_id) if guild else None
         user_str = user.mention if user else f"<@{payload.user_id}>"
 
-        # Получаем сообщение с опросом
+        t = _(guild_id=payload.guild_id, bot=self.bot)
+
         poll_info = ""
         try:
             poll_channel = guild.get_channel(payload.channel_id) if guild else None
             if poll_channel and hasattr(poll_channel, 'fetch_message'):
                 msg = await poll_channel.fetch_message(payload.message_id)
                 if msg and msg.poll:
-                    poll_info = f"\n**Вопрос:** `{msg.poll.question.text}`"
-                    # Найти за какой ответ проголосовал
+                    poll_info = f"\n**{t('audit_log', 'field_poll_question')}:** `{msg.poll.question.text}`"
                     if hasattr(payload, 'answer_id') and msg.poll.answers:
                         for answer in msg.poll.answers:
                             if answer.id == payload.answer_id:
-                                poll_info += f"\n**Ответ:** `{answer.text}`"
+                                poll_info += f"\n**{t('audit_log', 'field_poll_answer')}:** `{answer.text}`"
                                 break
         except Exception:
             pass
 
         description = (
-            f"**Пользователь:** {user_str} (`{payload.user_id}`)\n"
-            f"**Канал:** <#{payload.channel_id}>\n"
-            f"**Сообщение:** `{payload.message_id}`"
+            f"**{t('audit_log', 'field_user')}:** {user_str} (`{payload.user_id}`)\n"
+            f"**{t('audit_log', 'field_channel')}:** <#{payload.channel_id}>\n"
+            f"**{t('audit_log', 'field_reaction_message')}:** `{payload.message_id}`"
             f"{poll_info}"
         )
         if hasattr(payload, 'answer_id'):
-            description += f"\n**ID ответа:** `{payload.answer_id}`"
+            description += f"\n**{t('audit_log', 'field_poll_answer_id')}:** `{payload.answer_id}`"
 
         await self.webhooks.send_log(
-            channel=channel, title=f"{Emojis.SUCCESS} Опрос: голос добавлен",
+            channel=channel, title=f"{Emojis.SUCCESS} {t('audit_log', 'poll_vote_add_title')}",
             description=description, guild=guild,
             thumbnail_url=user.display_avatar.url if user else None,
         )
@@ -50,32 +51,34 @@ class PollLogger(BaseLogger):
         user = guild.get_member(payload.user_id) if guild else None
         user_str = user.mention if user else f"<@{payload.user_id}>"
 
+        t = _(guild_id=payload.guild_id, bot=self.bot)
+
         poll_info = ""
         try:
             poll_channel = guild.get_channel(payload.channel_id) if guild else None
             if poll_channel and hasattr(poll_channel, 'fetch_message'):
                 msg = await poll_channel.fetch_message(payload.message_id)
                 if msg and msg.poll:
-                    poll_info = f"\n**Вопрос:** `{msg.poll.question.text}`"
+                    poll_info = f"\n**{t('audit_log', 'field_poll_question')}:** `{msg.poll.question.text}`"
                     if hasattr(payload, 'answer_id') and msg.poll.answers:
                         for answer in msg.poll.answers:
                             if answer.id == payload.answer_id:
-                                poll_info += f"\n**Ответ:** `{answer.text}`"
+                                poll_info += f"\n**{t('audit_log', 'field_poll_answer')}:** `{answer.text}`"
                                 break
         except Exception:
             pass
 
         description = (
-            f"**Пользователь:** {user_str} (`{payload.user_id}`)\n"
-            f"**Канал:** <#{payload.channel_id}>\n"
-            f"**Сообщение:** `{payload.message_id}`"
+            f"**{t('audit_log', 'field_user')}:** {user_str} (`{payload.user_id}`)\n"
+            f"**{t('audit_log', 'field_channel')}:** <#{payload.channel_id}>\n"
+            f"**{t('audit_log', 'field_reaction_message')}:** `{payload.message_id}`"
             f"{poll_info}"
         )
         if hasattr(payload, 'answer_id'):
-            description += f"\n**ID ответа:** `{payload.answer_id}`"
+            description += f"\n**{t('audit_log', 'field_poll_answer_id')}:** `{payload.answer_id}`"
 
         await self.webhooks.send_log(
-            channel=channel, title=f"{Emojis.ERROR} Опрос: голос убран",
+            channel=channel, title=f"{Emojis.ERROR} {t('audit_log', 'poll_vote_remove_title')}",
             description=description, guild=guild,
             thumbnail_url=user.display_avatar.url if user else None,
         )

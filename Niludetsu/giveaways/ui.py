@@ -1,7 +1,8 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from ..tools.Embed import Embed
 from ..tools.Emojis import Emojis
 from ..tools.Time import TimeService
+from ..locale import _
 
 import discord
 
@@ -17,6 +18,7 @@ class GiveawayConfigurator(discord.ui.View):
         self.cog = cog
         self.guild = guild
         self.author = author
+        self._t = _(guild_id=guild.id, bot=cog.bot)
 
         self.config: Dict[str, Any] = {
             "channel_id": None,
@@ -45,7 +47,7 @@ class GiveawayConfigurator(discord.ui.View):
     async def setup_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
-        modal = GiveawayBaseModal(self.config)
+        modal = GiveawayBaseModal(self.config, self._t)
         await interaction.response.send_modal(modal)
         await modal.wait()
         await self.refresh(interaction)
@@ -56,14 +58,15 @@ class GiveawayConfigurator(discord.ui.View):
     async def create_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
+        t = self._t
         missing = []
         if not self.config["channel_id"]:
-            missing.append("канал")
+            missing.append(t("giveaways", "missing_channel"))
         if not self.config["prize"]:
-            missing.append("приз")
+            missing.append(t("giveaways", "missing_prize"))
         if missing:
             await interaction.response.send_message(
-                f"Не хватает параметров: {', '.join(missing)}.",
+                t("giveaways", "missing_params", params=", ".join(missing)),
                 ephemeral=True,
             )
             return
@@ -71,7 +74,7 @@ class GiveawayConfigurator(discord.ui.View):
         channel = self.guild.get_channel(self.config["channel_id"])
         if not isinstance(channel, discord.TextChannel):
             await interaction.response.send_message(
-                "Выбранный канал недоступен.", ephemeral=True
+                t("giveaways", "channel_unavailable"), ephemeral=True
             )
             return
 
@@ -91,8 +94,8 @@ class GiveawayConfigurator(discord.ui.View):
 
         await interaction.response.send_message(
             embed=Embed.success(
-                title="🎉 Розыгрыш создан!",
-                description=f"Сообщение отправлено в {channel.mention}.",
+                title=f"🎉 {t('giveaways', 'created_title')}",
+                description=t("giveaways", "created_desc", channel=channel.mention),
             ),
             ephemeral=True,
         )
@@ -104,61 +107,88 @@ class GiveawayConfigurator(discord.ui.View):
     async def cancel_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
-        await interaction.response.send_message("Создание отменено.", ephemeral=True)
+        await interaction.response.send_message(
+            self._t("giveaways", "creation_cancelled"), ephemeral=True
+        )
         await self.close()
 
     # Служебные методы
     def build_embed(self) -> discord.Embed:
+        t = self._t
         embed = Embed.default(
-            title=f"{Emojis.GIVEAWAY} Настройка розыгрыша",
-            description="Заполните параметры и посмотрите предпросмотр.",
+            title=f"{Emojis.GIVEAWAY} {t('giveaways', 'config_title')}",
+            description=t("giveaways", "config_desc"),
         )
 
         channel_value = (
             f"<#{self.config['channel_id']}>" if self.config["channel_id"] else "—"
         )
-        embed.add_field(name="Канал", value=channel_value, inline=True)
-        embed.add_field(name="Приз", value=self.config["prize"] or "—", inline=True)
         embed.add_field(
-            name="Победители", value=str(self.config["winners"]), inline=True
+            name=t("giveaways", "config_channel"), value=channel_value, inline=True
+        )
+        embed.add_field(
+            name=t("giveaways", "config_prize"),
+            value=self.config["prize"] or "—",
+            inline=True,
+        )
+        embed.add_field(
+            name=t("giveaways", "config_winners"),
+            value=str(self.config["winners"]),
+            inline=True,
         )
 
         seconds, human, error = _time.validate(
             self.config["duration"], max_days=30
         )
         embed.add_field(
-            name="Длительность",
+            name=t("giveaways", "config_duration"),
             value=human if not error else f"⚠️ {error}",
             inline=True,
         )
 
         if self.config["mention_role_id"]:
             embed.add_field(
-                name="Уведомление",
+                name=t("giveaways", "config_mention"),
                 value=f"<@&{self.config['mention_role_id']}>",
                 inline=True,
             )
 
-        description = self.config["description"] or "— описание не указано —"
-        embed.add_field(name="Описание", value=description, inline=False)
+        description = self.config["description"] or t(
+            "giveaways", "config_no_description"
+        )
+        embed.add_field(
+            name=t("giveaways", "config_description"), value=description, inline=False
+        )
 
         settings = self.config["settings"]
         conditions = []
         if settings["min_server_time"]:
-            conditions.append(f"• {settings['min_server_time']} дн. на сервере")
+            conditions.append(
+                f"• {settings['min_server_time']} {t('giveaways', 'condition_days_on_server')}"
+            )
         if settings["min_voice_time"]:
-            conditions.append(f"• {settings['min_voice_time']} мин. в голосе")
+            conditions.append(
+                f"• {settings['min_voice_time']} {t('giveaways', 'condition_minutes_in_voice')}"
+            )
         if settings["required_role"]:
-            conditions.append(f"• Роль: <@&{settings['required_role']}>")
+            conditions.append(
+                f"• {t('giveaways', 'condition_role_prefix')} <@&{settings['required_role']}>"
+            )
         if settings["min_level"]:
-            conditions.append(f"• Минимальный уровень: {settings['min_level']}")
+            conditions.append(
+                f"• {t('giveaways', 'condition_min_level_prefix')} {settings['min_level']}"
+            )
         if settings["booster_only"]:
-            conditions.append("• Только для бустеров")
+            conditions.append(f"• {t('giveaways', 'condition_booster_only_text')}")
         if settings["no_revote"]:
-            conditions.append("• Повторное участие запрещено")
+            conditions.append(f"• {t('giveaways', 'condition_no_revote_text')}")
         embed.add_field(
-            name="Условия",
-            value="\n".join(conditions) if conditions else "— условия отсутствуют —",
+            name=t("giveaways", "config_conditions"),
+            value=(
+                "\n".join(conditions)
+                if conditions
+                else t("giveaways", "config_no_conditions")
+            ),
             inline=False,
         )
 
@@ -169,7 +199,6 @@ class GiveawayConfigurator(discord.ui.View):
         embed = self.build_embed()
 
         if self.message is None:
-            # Если ещё нет исходного сообщения, попытаться получить его
             try:
                 self.message = await interaction.original_response()
             except discord.NotFound:
@@ -196,32 +225,33 @@ class GiveawayConfigurator(discord.ui.View):
 
 # Модалки
 class GiveawayBaseModal(discord.ui.Modal, title="Параметры розыгрыша"):
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], t=None):
         super().__init__(timeout=300)
         self.config = config
+        self._t = t
 
         self.prize_input = discord.ui.TextInput(
-            label="Приз",
+            label=t("giveaways", "modal_prize_label") if t else "Приз",
             default=config["prize"] or "",
             max_length=100,
         )
         self.winners_input = discord.ui.TextInput(
-            label="Количество победителей",
+            label=t("giveaways", "modal_winners_label") if t else "Количество победителей",
             default=str(config["winners"]),
             max_length=2,
         )
         self.duration_input = discord.ui.TextInput(
-            label="Длительность (например: 1d, 12h, 30m)",
+            label=t("giveaways", "modal_duration_label") if t else "Длительность (например: 1d, 12h, 30m)",
             default=config["duration"],
             max_length=10,
         )
         self.mention_input = discord.ui.TextInput(
-            label="ID роли для упоминания (необязательно)",
+            label=t("giveaways", "modal_mention_label") if t else "ID роли для упоминания (необязательно)",
             default=str(config["mention_role_id"] or ""),
             required=False,
         )
         self.description_input = discord.ui.TextInput(
-            label="Описание (опционально)",
+            label=t("giveaways", "modal_desc_label") if t else "Описание (опционально)",
             default=config["description"] or "",
             required=False,
             style=discord.TextStyle.long,
@@ -238,11 +268,12 @@ class GiveawayBaseModal(discord.ui.Modal, title="Параметры розыгр
             self.add_item(item)
 
     async def on_submit(self, interaction: discord.Interaction):
+        t = self._t or _(guild_id=interaction.guild_id, bot=interaction.client)
         try:
             winners = max(1, min(20, int(self.winners_input.value)))
         except ValueError:
             await interaction.response.send_message(
-                "Количество победителей должно быть числом.", ephemeral=True
+                t("giveaways", "winners_not_number"), ephemeral=True
             )
             return
 
@@ -257,13 +288,13 @@ class GiveawayBaseModal(discord.ui.Modal, title="Параметры розыгр
         if mention_raw:
             if not mention_raw.isdigit():
                 await interaction.response.send_message(
-                    "ID роли должен быть числом.", ephemeral=True
+                    t("giveaways", "role_id_not_number"), ephemeral=True
                 )
                 return
             role = interaction.guild.get_role(int(mention_raw))
             if not role:
                 await interaction.response.send_message(
-                    "Роль с таким ID не найдена.", ephemeral=True
+                    t("giveaways", "role_not_found_id"), ephemeral=True
                 )
                 return
             self.config["mention_role_id"] = role.id
@@ -278,46 +309,54 @@ class GiveawayBaseModal(discord.ui.Modal, title="Параметры розыгр
         await interaction.response.defer()
 
 class ConditionValueModal(discord.ui.Modal):
-    def __init__(self, title: str, unit: str):
+    def __init__(self, title: str, unit: str, t=None):
         super().__init__(title=title, timeout=300)
         self.value: Optional[int] = None
+        self._t = t
         self.input = discord.ui.TextInput(
-            label=f"Введите число ({unit})",
+            label=t("giveaways", "condition_value_label", unit=unit) if t else f"Введите число ({unit})",
             min_length=1,
             max_length=6,
         )
         self.add_item(self.input)
 
     async def on_submit(self, interaction: discord.Interaction):
+        t = self._t or _(guild_id=interaction.guild_id, bot=interaction.client)
         try:
             val = int(self.input.value)
             if val < 0:
                 raise ValueError
         except ValueError:
             await interaction.response.send_message(
-                "Нужно положительное число.", ephemeral=True
+                t("giveaways", "positive_number"), ephemeral=True
             )
             return
         self.value = val
         await interaction.response.defer()
 
 class RoleModal(discord.ui.Modal, title="ID роли"):
-    def __init__(self):
+    def __init__(self, t=None):
         super().__init__(timeout=300)
         self.role_id: Optional[int] = None
-        self.input = discord.ui.TextInput(label="ID роли", min_length=1, max_length=20)
+        self._t = t
+        self.input = discord.ui.TextInput(
+            label=t("giveaways", "role_modal_label") if t else "ID роли",
+            min_length=1,
+            max_length=20,
+        )
         self.add_item(self.input)
 
     async def on_submit(self, interaction: discord.Interaction):
+        t = self._t or _(guild_id=interaction.guild_id, bot=interaction.client)
         if not self.input.value.isdigit():
             await interaction.response.send_message(
-                "ID роли должен быть числом.", ephemeral=True
+                t("giveaways", "role_id_not_number"), ephemeral=True
             )
             return
         role = interaction.guild.get_role(int(self.input.value))
         if not role:
             await interaction.response.send_message(
-                "Роль не найдена на сервере.", ephemeral=True
+                t("giveaways", "role_not_found_guild"), ephemeral=True
             )
             return
         self.role_id = role.id
@@ -327,19 +366,20 @@ class RoleModal(discord.ui.Modal, title="ID роли"):
 class _ChannelSelect(discord.ui.Select):
     def __init__(self, configurator: GiveawayConfigurator):
         self.configurator = configurator
+        t = configurator._t
         options = [
             discord.SelectOption(label=channel.name, value=str(channel.id))
             for channel in configurator.guild.text_channels[:25]
         ] or [
             discord.SelectOption(
-                label="Текстовые каналы отсутствуют",
+                label=t("giveaways", "select_no_channels"),
                 value="0",
                 default=True,
             )
         ]
 
         super().__init__(
-            placeholder="Выберите канал для розыгрыша",
+            placeholder=t("giveaways", "select_channel_placeholder"),
             min_values=1,
             max_values=1,
             options=options,
@@ -347,8 +387,9 @@ class _ChannelSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         if self.values[0] == "0":
+            t = self.configurator._t
             await interaction.response.send_message(
-                "Нет доступных текстовых каналов.", ephemeral=True
+                t("giveaways", "select_no_channels_available"), ephemeral=True
             )
             return
         self.configurator.config["channel_id"] = int(self.values[0])
@@ -358,38 +399,51 @@ class _ConditionsSelect(discord.ui.Select):
     """Выпадающий список условий. За раз — одно условие, чтобы не путать модалки."""
 
     OPTIONS = {
-        "min_server_time": ("Мин. время на сервере", "дни"),
-        "min_voice_time": ("Мин. время в голосе", "минуты"),
-        "required_role": ("Необходимая роль", None),
-        "min_level": ("Минимальный уровень", "уровень"),
+        "min_server_time": ("min_server_time", "condition_unit_days"),
+        "min_voice_time": ("min_voice_time", "condition_unit_minutes"),
+        "required_role": ("required_role", None),
+        "min_level": ("min_level", "condition_unit_level"),
         "booster_only": (None, None),
         "no_revote": (None, None),
     }
 
     def __init__(self, configurator: GiveawayConfigurator):
         self.configurator = configurator
+        t = configurator._t
         super().__init__(
-            placeholder="Добавить/изменить условие",
+            placeholder=t("giveaways", "select_conditions_placeholder"),
             min_values=0,
             max_values=1,
             options=[
                 discord.SelectOption(
-                    label="Мин. время на сервере", value="min_server_time", emoji="⏱️"
+                    label=t("giveaways", "condition_min_server_time"),
+                    value="min_server_time",
+                    emoji="⏱️",
                 ),
                 discord.SelectOption(
-                    label="Мин. время в голосе", value="min_voice_time", emoji="⏲️"
+                    label=t("giveaways", "condition_min_voice_time"),
+                    value="min_voice_time",
+                    emoji="⏲️",
                 ),
                 discord.SelectOption(
-                    label="Необходимая роль", value="required_role", emoji="🛡️"
+                    label=t("giveaways", "condition_required_role"),
+                    value="required_role",
+                    emoji="🛡️",
                 ),
                 discord.SelectOption(
-                    label="Мин. уровень", value="min_level", emoji="📊"
+                    label=t("giveaways", "condition_min_level"),
+                    value="min_level",
+                    emoji="📊",
                 ),
                 discord.SelectOption(
-                    label="Только для бустеров", value="booster_only", emoji="🚀"
+                    label=t("giveaways", "condition_booster_only"),
+                    value="booster_only",
+                    emoji="🚀",
                 ),
                 discord.SelectOption(
-                    label="Запрет на повторное участие", value="no_revote", emoji="🔄"
+                    label=t("giveaways", "condition_no_revote"),
+                    value="no_revote",
+                    emoji="🔄",
                 ),
             ],
         )
@@ -398,26 +452,31 @@ class _ConditionsSelect(discord.ui.Select):
         if not self.values:
             return
         key = self.values[0]
+        t = self.configurator._t
         settings = self.configurator.config["settings"]
 
         if key in {"booster_only", "no_revote"}:
             settings[key] = not settings.get(key, False)
-            state = "включено" if settings[key] else "отключено"
+            state = t("giveaways", "condition_enabled") if settings[key] else t("giveaways", "condition_disabled")
             await interaction.response.send_message(
-                f"Условие «{self._label_by_key(key)}» {state}.", ephemeral=True
+                t("giveaways", "condition_toggled", label=self._label_by_key(key, t), state=state),
+                ephemeral=True,
             )
             await self.configurator.refresh(interaction)
             return
 
-        title, unit = self.OPTIONS[key]
+        option_key, unit_key = self.OPTIONS[key]
         if key == "required_role":
-            modal = RoleModal()
+            modal = RoleModal(t=t)
             await interaction.response.send_modal(modal)
             await modal.wait()
             if modal.role_id:
                 settings["required_role"] = modal.role_id
         else:
-            modal = ConditionValueModal(title, unit)
+            unit = t("giveaways", unit_key) if unit_key else ""
+            label_key = f"condition_{option_key}" if not option_key.startswith("condition_") else option_key
+            modal_title = t("giveaways", label_key) if t else key
+            modal = ConditionValueModal(modal_title, unit, t=t)
             await interaction.response.send_modal(modal)
             await modal.wait()
             if modal.value is not None:
@@ -428,8 +487,19 @@ class _ConditionsSelect(discord.ui.Select):
         await self.configurator.refresh(interaction)
 
     @staticmethod
-    def _label_by_key(key: str) -> str:
+    def _label_by_key(key: str, t=None) -> str:
         mapping = {
+            "min_server_time": "condition_min_server_time",
+            "min_voice_time": "condition_min_voice_time",
+            "required_role": "condition_required_role",
+            "min_level": "condition_min_level",
+            "booster_only": "condition_booster_only",
+            "no_revote": "condition_no_revote",
+        }
+        locale_key = mapping.get(key)
+        if locale_key and t:
+            return t("giveaways", locale_key)
+        fallback = {
             "min_server_time": "Минимальное время на сервере",
             "min_voice_time": "Минимальное время в голосе",
             "required_role": "Необходимая роль",
@@ -437,7 +507,7 @@ class _ConditionsSelect(discord.ui.Select):
             "booster_only": "Только для бустеров",
             "no_revote": "Запрет на повторное участие",
         }
-        return mapping.get(key, key)
+        return fallback.get(key, key)
 
 class GiveawayParticipationView(discord.ui.View):
     """Бессрочная вьюха для участия в розыгрыше."""
@@ -499,16 +569,17 @@ class GiveawayParticipationView(discord.ui.View):
     async def handle_join(self, interaction: discord.Interaction):
         await self.ensure_manager(interaction)
         await self.ensure_giveaway_id(interaction)
+        t = _(guild_id=interaction.guild_id, bot=interaction.client)
         if not self.giveaway_id:
             await interaction.response.send_message(
-                "Не удалось определить розыгрыш.", ephemeral=True
+                t("giveaways", "determine_giveaway_error"), ephemeral=True
             )
             return
 
         giveaway = await self.manager.get_giveaway(self.giveaway_id)
         if not giveaway or giveaway["is_ended"]:
             await interaction.response.send_message(
-                "Этот розыгрыш уже завершён.", ephemeral=True
+                t("giveaways", "giveaway_ended"), ephemeral=True
             )
             return
 
@@ -523,7 +594,7 @@ class GiveawayParticipationView(discord.ui.View):
         )
         if not result.get("success"):
             await interaction.response.send_message(
-                f"{Emojis.GIVEAWAY} Вы не можете участвовать.\n- {result.get('reason', 'Причина не указана')}",
+                f"{Emojis.GIVEAWAY} {t('giveaways', 'conditions_error')}\n- {result.get('reason', t('giveaways', 'conditions_reason_not_specified'))}",
                 ephemeral=True,
             )
             return
@@ -533,18 +604,18 @@ class GiveawayParticipationView(discord.ui.View):
         )
         if status == "inactive":
             await interaction.response.send_message(
-                "Розыгрыш уже завершён.", ephemeral=True
+                t("giveaways", "giveaway_inactive"), ephemeral=True
             )
             return
 
         participants = await self.manager.repo.list_participants(self.giveaway_id)
         self.count = len(participants)
-        self.join_button.label = f"Участвовать ({self.count})"
+        self.join_button.label = t("giveaways", "participate_button", count=self.count)
 
         message = (
-            f"{Emojis.GIVEAWAY} Вы участвуете в розыгрыше!"
+            f"{Emojis.GIVEAWAY} {t('giveaways', 'participate_success')}"
             if status == "joined"
-            else f"{Emojis.GIVEAWAY} Вы отказались от участия."
+            else f"{Emojis.GIVEAWAY} {t('giveaways', 'participate_leave')}"
         )
         await interaction.response.send_message(message, ephemeral=True)
         if interaction.message:
@@ -553,16 +624,17 @@ class GiveawayParticipationView(discord.ui.View):
     async def handle_list(self, interaction: discord.Interaction):
         await self.ensure_manager(interaction)
         await self.ensure_giveaway_id(interaction)
+        t = _(guild_id=interaction.guild_id, bot=interaction.client)
         if not self.giveaway_id:
             await interaction.response.send_message(
-                "Не удалось определить розыгрыш.", ephemeral=True
+                t("giveaways", "determine_giveaway_error"), ephemeral=True
             )
             return
 
         giveaway = await self.manager.get_giveaway(self.giveaway_id)
         if not giveaway:
             await interaction.response.send_message(
-                "Розыгрыш не найден.", ephemeral=True
+                t("giveaways", "giveaway_not_found"), ephemeral=True
             )
             return
 
@@ -570,7 +642,7 @@ class GiveawayParticipationView(discord.ui.View):
         winners_count = giveaway.get("winners_count", 1)
         if not participants:
             await interaction.response.send_message(
-                f"{Emojis.GIVEAWAY} В розыгрыше пока нет участников.",
+                f"{Emojis.GIVEAWAY} {t('giveaways', 'no_participants')}",
                 ephemeral=True,
             )
             return
@@ -599,12 +671,13 @@ class GiveawayParticipationView(discord.ui.View):
 
         def make_embed(page_idx: int) -> Embed:
             page_lines = pages[page_idx]
-            footer = f"Страница {page_idx + 1}/{len(pages)}" if len(pages) > 1 else ""
+            footer = t("giveaways", "participants_page", page=page_idx + 1, total=len(pages)) if len(pages) > 1 else ""
             embed = Embed(
-                title=f"{Emojis.GIVEAWAY} Участники розыгрыша",
+                title=f"{Emojis.GIVEAWAY} {t('giveaways', 'participants_title')}",
                 description=(
-                    f"Всего участников: **{len(participants)}**\n"
-                    f"Призовых мест: **{winners_count}**\n" + "\n".join(page_lines)
+                    f"{t('giveaways', 'participants_total', count=len(participants))}\n"
+                    f"{t('giveaways', 'participants_prize_places', count=winners_count)}\n"
+                    + "\n".join(page_lines)
                 ),
                 color=Colors.SUCCESS,
             )

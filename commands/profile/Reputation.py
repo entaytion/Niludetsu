@@ -3,6 +3,7 @@ from datetime import timedelta
 from discord.ext import commands
 from Niludetsu import Embed, Time, LevelManager
 from Niludetsu.database import database
+from Niludetsu.locale import _
 
 THUMBS_UP = {"👍", "👍🏻", "👍🏼", "👍🏽", "👍🏾", "👍🏿"}
 THUMBS_DOWN = {"👎", "👎🏻", "👎🏼", "👎🏽", "👎🏾", "👎🏿"}
@@ -26,7 +27,7 @@ class Reputation(commands.Cog):
         if content not in THUMBS_UP and content not in THUMBS_DOWN:
             return
 
-        # Вытаскиваем исходное сообщение, чтобы знать, кого “плюсуем/минусуем”
+        # Вытаскиваем исходное сообщение, чтобы знать, кого "плюсуем/минусуем"
         target_message = message.reference.resolved
         if not isinstance(target_message, discord.Message):
             try:
@@ -37,12 +38,13 @@ class Reputation(commands.Cog):
         target_user = target_message.author
         actor = message.author
         guild = message.guild
+        t = _(ctx=message)
 
         if target_user.bot or target_user.id == actor.id:
             await message.reply(
-                Embed.error(
-                    title="Ой!",
-                    description="Нельзя менять репутацию ботам или самому себе.",
+                embed=Embed.error(
+                    title=t("profile", "reputation_error_title"),
+                    description=t("profile", "reputation_self_error"),
                 ),
                 mention_author=False,
             )
@@ -71,10 +73,12 @@ class Reputation(commands.Cog):
                     pretty = _time.format_duration(int((cooldown_end - now).total_seconds()))
                     await message.reply(
                         Embed.warn(
-                            title="Подожди чуть-чуть",
-                            description=(
-                                f"Репутацию {target_user.mention} уже меняли недавно.\n"
-                                f"Попробуй снова через {pretty}."
+                            title=t("profile", "reputation_cooldown_title"),
+                            description=t(
+                                "profile",
+                                "reputation_cooldown_desc",
+                                target=target_user.mention,
+                                time=pretty,
                             ),
                         ),
                         mention_author=False,
@@ -107,10 +111,14 @@ class Reputation(commands.Cog):
 
         await message.reply(
             Embed.success(
-                title="Репутация обновлена",
-                description=(
-                    f"{target_user.mention} теперь имеет репутацию **{profile['reputation']}** "
-                    f"({'+1' if delta > 0 else '-1'} от {actor.mention})."
+                title=t("profile", "reputation_updated_title"),
+                description=t(
+                    "profile",
+                    "reputation_updated_desc",
+                    target=target_user.mention,
+                    rep=profile["reputation"],
+                    delta="+1" if delta > 0 else "-1",
+                    actor=actor.mention,
                 ),
             ),
             mention_author=False,
@@ -118,4 +126,3 @@ class Reputation(commands.Cog):
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Reputation(bot))
-
