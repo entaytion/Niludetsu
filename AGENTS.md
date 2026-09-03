@@ -1,6 +1,6 @@
 # Niludetsu — Agent Guide
 
-Discord bot (v2.1.2) for the nullther server, written entirely in Python 3.13 with discord.py 2.7+. Also runs a FastAPI web dashboard (Jinja2 templates) for guild settings and locale customization.
+Discord bot (v2.1.3) for the nullther server, written entirely in Python 3.13 with discord.py 2.7+. Also runs a FastAPI web dashboard (Jinja2 templates) for guild settings and locale customization.
 
 ## Quick Start
 
@@ -41,8 +41,6 @@ Niludetsu/               # Core library package
       shop.py             # ShopMixin: purchases
   economy/
     manager.py            # EconomyManager — balances, work, daily, rob, etc.
-    checks.py             # Permission/cooldown checks for economy commands
-    validators.py         # Amount validation
   moderation/
     manager.py            # ModerationManager — warn/mute/ban CRUD + auto-expire timer
     checks.py             # check_moderation_target, @moderationcommand decorator
@@ -96,12 +94,10 @@ Niludetsu/               # Core library package
     Embed.py              # Custom Embed subclass (extends discord.Embed) with factory methods
     Emojis.py             # Custom emoji constants (<:aeXXX:123...>)
     Errors.py             # ErrorHandler — hierarchical error reporting to bug channel
-    GameView.py           # Generic game view base class
     Loader.py             # Extension auto-discover + slash sync engine
     Patterns.py           # PatternChecker — regex utilities
     SendHybrid.py         # send(), defer(), send_moderation() — unified prefix+slash output
     Time.py               # TimeService — pendulum-based time parsing + formatting
-    Validator.py          # Input validation helpers
   embeds/
     Economy.py            # EconomyEmbed factory
     Achievements.py       # AchievementEmbed factory

@@ -1,10 +1,4 @@
-from typing import Union
-
 class Emojis:
-    @staticmethod
-    def combine(*emojis: Union[str, 'Emojis']) -> str:
-        return ''.join(str(emoji) for emoji in emojis) 
-
     ERROR = "<:aeError:1433187815801356429>"
     WARNING = "<:aeWarning:1433188023427665920>"
     SUCCESS = "<:aeSuccess:1433188101483790357>"

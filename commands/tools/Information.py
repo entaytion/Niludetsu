@@ -435,11 +435,71 @@ class InfoCommands(commands.Cog):
     async def show_userinfo(self, ctx, user=None):
         await ctx.send(embed=await self.build_userinfo_embed(ctx, user))
 
-    @commands.hybrid_command(name="user", aliases=["userinfo", "uinfo"])
+    @commands.hybrid_command(name="user", aliases=["userinfo", "uinfo"], description="Показать информацию о пользователе")
     async def user_hybrid(self, ctx: commands.Context, *, target: discord.User = None):
         await self.show_userinfo(ctx, target or ctx.author)
 
-    @commands.command(name="info", aliases=["инфо", "information"])
+    @commands.hybrid_command(name="server", aliases=["serverinfo", "sinfo"], description="Показать информацию о текущем сервере")
+    async def server_hybrid(self, ctx: commands.Context):
+        guild = ctx.guild
+        if not guild:
+            await ctx.reply("Команда доступна только на сервере!", ephemeral=True)
+            return
+
+        owner = guild.owner or await safe_fetch_user(self.bot, guild.owner_id)
+        owner_text = f"{owner.mention} (`{owner.id}`)" if owner else f"`{guild.owner_id}`"
+
+        total_members = guild.member_count or len(guild.members)
+        bots = sum(1 for m in guild.members if m.bot)
+        humans = total_members - bots
+
+        text_channels = len(guild.text_channels)
+        voice_channels = len(guild.voice_channels)
+        categories = len(guild.categories)
+
+        created_ts = int(guild.created_at.timestamp())
+        boost_tier = guild.premium_tier
+        boost_count = guild.premium_subscription_count or 0
+
+        embed = discord.Embed(
+            title=f"{Emojis.INFORMATION} Информация о сервере",
+            description=f"**{guild.name}**\nID: `{guild.id}`\nСоздан: <t:{created_ts}:D> (<t:{created_ts}:R>)",
+            color=Colors.INFO,
+        )
+        if guild.icon:
+            embed.set_thumbnail(url=guild.icon.url)
+        if guild.banner:
+            embed.set_image(url=guild.banner.url)
+
+        embed.add_field(
+            name="> Владелец",
+            value=owner_text,
+            inline=True,
+        )
+        embed.add_field(
+            name="> Бусты",
+            value=f"Уровень {boost_tier} ({boost_count} бустов)",
+            inline=True,
+        )
+        embed.add_field(
+            name="> Участники",
+            value=f"Всего: **{total_members}** (Людей: {humans}, Ботов: {bots})",
+            inline=False,
+        )
+        embed.add_field(
+            name="> Каналы",
+            value=f"Текстовых: **{text_channels}** | Голосовых: **{voice_channels}** | Категорий: **{categories}**",
+            inline=False,
+        )
+        embed.add_field(
+            name="> Дополнительно",
+            value=f"Ролей: **{len(guild.roles)}** | Эмодзи: **{len(guild.emojis)}** | Стикеров: **{len(guild.stickers)}**",
+            inline=False,
+        )
+        embed.set_footer(text=f"Запросил {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
+        await ctx.reply(embed=embed)
+
+    @commands.command(name="info", aliases=["инфо", "information"], description="Главная команда для получения инфы о чем угодно")
     async def info_prefix(self, ctx: commands.Context, *, target: str = None):
         await self._dispatch_info(ctx, target)
 
