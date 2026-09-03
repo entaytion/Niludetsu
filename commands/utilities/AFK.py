@@ -58,7 +58,7 @@ class AFK(commands.Cog):
 
         author_key = self._key(message.author.id, guild_id)
         if author_key in self._afk:
-            _, went_afk_at = self._afk.pop(author_key)
+            prev_reason, went_afk_at = self._afk.pop(author_key)
             duration = self._format_duration(time.time() - went_afk_at)
             try:
                 await message.reply(
