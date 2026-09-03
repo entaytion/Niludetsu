@@ -1,4 +1,3 @@
-"""Launch:  cd Niludetsu && uv run --project web web/run.py"""
 from __future__ import annotations
 
 from pathlib import Path

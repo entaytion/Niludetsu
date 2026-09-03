@@ -8,13 +8,11 @@ class Staff(commands.Cog):
 
     @commands.command(name="staff")
     async def staff(self, ctx):
-        """Отобразить информацию о составе команды"""
         guild = ctx.guild
         if not guild:
             await ctx.send("Команда работает только на сервере.")
             return
 
-        # Получаем роли
         pm_role = guild.get_role(PARTNER_MANAGER_ID)
         event_mgr_role = guild.get_role(EVENT_MANAGER_ID)
         jr_mod_role = guild.get_role(JUNIOR_MODERATOR_ID)
@@ -24,13 +22,11 @@ class Staff(commands.Cog):
         admin_role = guild.get_role(ADMINISTRATOR_ID)
         server_team_role = guild.get_role(SERVER_TEAM_ID)
 
-        # Функция для получения членов роли
         def get_role_members(role):
             if not role:
                 return []
             return [m.mention for m in role.members if not m.bot]
 
-        # Получаем членов команды
         pm_members = get_role_members(pm_role)
         event_mgr_members = get_role_members(event_mgr_role)
         jr_mod_members = get_role_members(jr_mod_role)
@@ -39,62 +35,53 @@ class Staff(commands.Cog):
         admin_mod_members = get_role_members(admin_mod_role)
         admin_members = get_role_members(admin_role)
 
-        # Создаём embed
         embed = Embed.default(
             title="👥 Состав команды Æther!",
             description="Информация о членах команды сервера",
         )
 
-        # Администрация
         embed.add_field(
             name="👑 Администраторы",
             value=", ".join(admin_members) if admin_members else "Нет",
             inline=True
         )
 
-        # Админ-модераторы
         embed.add_field(
             name="🛡️ Админ-модераторы",
             value=", ".join(admin_mod_members) if admin_mod_members else "Нет",
             inline=True
         )
 
-        # Старшие модераторы
         embed.add_field(
             name="⭐ Старшие модераторы",
             value=", ".join(sr_mod_members) if sr_mod_members else "Нет",
             inline=True
         )
 
-        # Модераторы
         embed.add_field(
             name="🔨 Модераторы",
             value=", ".join(mod_members) if mod_members else "Нет",
             inline=True
         )
 
-        # Младшие модераторы
         embed.add_field(
             name="📋 Младшие модераторы",
             value=", ".join(jr_mod_members) if jr_mod_members else "Нет",
             inline=True
         )
 
-        # Менеджер событий
         embed.add_field(
             name="🎉 Менеджер событий",
             value=", ".join(event_mgr_members) if event_mgr_members else "Нет",
             inline=False
         )
 
-        # Менеджер партнёрств
         embed.add_field(
             name="🤝 Менеджер партнёрств",
             value=", ".join(pm_members) if pm_members else "Нет",
             inline=False
         )
 
-        # Команды
         embed.add_field(name="━━━━━━━━━━━━━━━━━━", value="", inline=False)
 
         server_team_members = get_role_members(server_team_role)

@@ -33,41 +33,19 @@ class TranslateAPI:
         }
 
     def get_language_name(self, lang_code: str) -> str:
-        """Получить название языка по его коду"""
         return self.languages.get(lang_code, lang_code)
 
     def get_available_languages(self) -> List[Tuple[str, str]]:
-        """Получить список доступных языков в формате (код, название)"""
         return [(code, name) for code, name in self.languages.items()]
 
     async def get_translation_data(self, text: str, to_lang: str, from_lang: Optional[str] = None) -> Dict:
-        """
-        Получает данные перевода
-
-        Parameters
-        ----------
-        text : str
-            Текст для перевода
-        to_lang : str
-            Язык для перевода
-        from_lang : Optional[str]
-            Исходный язык (если None, то автоопределение)
-
-        Returns
-        -------
-        Dict
-            Данные перевода
-        """
-        # Создаем переводчик
         translator = GoogleTranslator(
             source='auto' if from_lang is None else from_lang,
             target=to_lang
         )
 
-        # Выполняем перевод
         translation = translator.translate(text)
 
-        # Если язык не указан, определяем его
         if from_lang is None:
             try:
                 detected_lang = translator.detect(text)
@@ -83,16 +61,6 @@ class TranslateAPI:
         }
 
     async def translate_text(self, ctx: commands.Context, text: str = None):
-        """
-        Переводит текст на русский язык и отправляет пользователю
-
-        Parameters
-        ----------
-        ctx : commands.Context
-            Контекст команды Discord
-        text : str, optional
-            Текст для перевода
-        """
         if text is None:
             if hasattr(ctx, 'message') and ctx.message.reference and ctx.message.reference.resolved:
                 text = ctx.message.reference.resolved.content
@@ -102,7 +70,6 @@ class TranslateAPI:
                 return
 
         try:
-            # Всегда переводим на русский, исходный язык автоопределяется
             to_lang = 'ru'
             from_lang: Optional[str] = None
 
@@ -120,19 +87,6 @@ class TranslateAPI:
             await ctx.reply(embed=error_embed)
 
     def _format_translation_embed(self, result: Dict, t) -> discord.Embed:
-        """
-        Форматирует эмбед с переводом
-
-        Parameters
-        ----------
-        result : Dict
-            Данные перевода
-
-        Returns
-        -------
-        discord.Embed
-            Отформатированный эмбед с переводом
-        """
         embed = Embed(
             title=t("api_translate", "title"),
             description=(
@@ -144,11 +98,8 @@ class TranslateAPI:
         )
         return embed
 
-    # Оставляем старый метод для обратной совместимости
     async def translate_text_old(self, text: str, to_lang: str, from_lang: Optional[str] = None) -> Dict:
-        """Старый метод для обратной совместимости"""
         return await self.get_translation_data(text, to_lang, from_lang)
 
-# Создаем экземпляр для импорта
 translate_api = TranslateAPI()
 

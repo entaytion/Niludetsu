@@ -5,7 +5,6 @@ from Niludetsu.locale import _
 from Niludetsu.webhooks.base import BaseLogger
 
 class StageLogger(BaseLogger):
-    """Логгер для трибун (Stage Instance) — создание, удаление, обновление, спикеры."""
 
     async def log_stage_create(self, channel: discord.TextChannel, stage_instance: discord.StageInstance):
         t = _(guild_id=stage_instance.guild.id, bot=self.bot)
@@ -58,7 +57,6 @@ class StageLogger(BaseLogger):
         )
 
     async def log_stage_speaker_join(self, channel: discord.TextChannel, member: discord.Member, stage_channel: discord.StageChannel):
-        """Спикер вышел на трибуну."""
         t = _(guild_id=member.guild.id, bot=self.bot)
         description = (
             f"**{t('audit_log', 'field_user')}:** {member.mention} (`{member.id}`)\n"
@@ -76,7 +74,6 @@ class StageLogger(BaseLogger):
         )
 
     async def log_stage_speaker_leave(self, channel: discord.TextChannel, member: discord.Member, stage_channel: discord.StageChannel):
-        """Спикер покинул трибуну."""
         t = _(guild_id=member.guild.id, bot=self.bot)
         description = (
             f"**{t('audit_log', 'field_user')}:** {member.mention} (`{member.id}`)\n"
@@ -91,7 +88,6 @@ class StageLogger(BaseLogger):
         )
 
     async def log_stage_request_to_speak(self, channel: discord.TextChannel, member: discord.Member, stage_channel: discord.StageChannel):
-        """Запрос на выступление на трибуне."""
         t = _(guild_id=member.guild.id, bot=self.bot)
         description = (
             f"**{t('audit_log', 'field_user')}:** {member.mention} (`{member.id}`)\n"
@@ -106,7 +102,6 @@ class StageLogger(BaseLogger):
         )
 
     async def log_stage_audience_join(self, channel: discord.TextChannel, member: discord.Member, stage_channel: discord.StageChannel):
-        """Слушатель присоединился к трибуне."""
         t = _(guild_id=member.guild.id, bot=self.bot)
         description = (
             f"**{t('audit_log', 'field_user')}:** {member.mention} (`{member.id}`)\n"

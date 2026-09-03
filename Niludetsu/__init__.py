@@ -1,6 +1,3 @@
-"""
-Niludetsu - библиотека для создания Discord бота.
-"""
 
 from .database import Database, database
 from .economy.manager import EconomyManager
@@ -23,7 +20,6 @@ from .tools.Emojis import Emojis
 from .tools.Time import TimeService
 from .tools.SendHybrid import send, defer, send_moderation
 from .tools.Discord import resolve_member, safe_edit, safe_delete, safe_fetch_message, safe_fetch_user, delete_after
-from .tools.InfoCard import InfoCard
 from .tools.Patterns import PatternChecker
 from .tools.AccessControl import AccessGuard
 
@@ -47,23 +43,17 @@ Time = TimeService
 import Niludetsu.Exceptions as Exceptions
 
 __all__ = [
-    # Database
     "database", "Database",
-    # Managers
     "EconomyManager", "QuestManager", "QuestTracker", "LevelManager", "LevelTracker",
     "ModerationManager", "AutoModManager", "AutoModRuleType", "RuleConfig", "build_rule",
     "MarriageManager", "AdoptionManager",
     "AchievementsManager", "AnalyticsManager", "AnalyticsTracker",
     "Webhooks",
-    # Tools
     "Embed", "Colors", "Emojis", "TimeService", "Time",
     "send", "defer", "send_moderation",
     "resolve_member", "safe_edit", "safe_delete", "safe_fetch_message",
-    "safe_fetch_user", "delete_after", "InfoCard", "PatternChecker", "AccessGuard",
-    # Embeds
+    "safe_fetch_user", "delete_after", "PatternChecker", "AccessGuard",
     "EconomyEmbed", "AchievementEmbed",
-    # Moderation helpers
     "ActionType", "ModerationError", "check_moderation_target", "moderationembed",
-    # System
     "logger", "config", "settings", "Exceptions",
 ]

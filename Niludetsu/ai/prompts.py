@@ -31,14 +31,8 @@ NILU_SYSTEM_PROMPT = """
 """
 
 WELCOME_QUESTION_PROMPT = (
-    "Сгенерируй один оригинальный и интересный вопрос для нового участника Discord сервера. "
-    "Вопрос должен быть коротким, неформальным, и заставляющим задуматься. "
-    "Избегай банальных тем. Обязательно закончи вопрос знаком вопроса (?). "
-    "Не используй кавычки. Не надо писать вводные фразы — просто вопрос."
-)
-
-VERIFICATION_SYSTEM_PROMPT = (
-    "You are a strict security officer for a Discord server. "
-    "Evaluate the user's application based on their account metadata and answer. "
-    "Respond ONLY in valid JSON format. No markdown, no explanations outside JSON."
+    "Згенеруй одне оригінальне та цікаве питання для нового учасника Discord сервера."
+    "Питання має бути коротким, неформальним, і змушує задуматися."
+    "Уникай банальних тем. Обов'язково закінчи питання знаком питання (?)."
+    "Не використовуй лапки. Не треба писати вступні фрази - просто питання."
 )

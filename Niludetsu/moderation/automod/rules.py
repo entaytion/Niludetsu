@@ -1,7 +1,3 @@
-"""
-Автомодерація — правила перевірки повідомлень.
-Кожне правило — чистий dataclass + метод check().
-"""
 from __future__ import annotations
 
 import asyncio
@@ -19,8 +15,6 @@ if TYPE_CHECKING:
     import aiohttp
 
 
-# ── Enum ─────────────────────────────────────────────────────────────────────
-
 class AutoModRuleType(str, Enum):
     LINKS         = "links"
     INVITES       = "invites"
@@ -30,7 +24,6 @@ class AutoModRuleType(str, Enum):
     CAPS_LOCK     = "caps_lock"
     CUSTOM_WORDS  = "custom_words"
 
-    # Людські назви для UI
     @property
     def label(self) -> str:
         return {
@@ -43,8 +36,6 @@ class AutoModRuleType(str, Enum):
             self.CUSTOM_WORDS:  "Кастомные слова",
         }[self]
 
-
-# ── Patterns (компілюємо один раз) ───────────────────────────────────────────
 
 _INVISIBLE = re.compile(
     r"[\u200b\u200c\u200d\u200e\u200f\u2060-\u2064\ufeff\u034f\u00ad]"
@@ -72,15 +63,11 @@ _DISCORD_CDN = frozenset(
 )
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
 def _clean(text: str) -> str:
-    """Прибирає zero-width символи."""
     return _INVISIBLE.sub("", text)
 
 
 def _all_texts(content: str) -> list[str]:
-    """Повертає оригінал + URL з markdown-посилань."""
     cleaned = _clean(content)
     texts = [cleaned]
     for url in _MARKDOWN_URL.findall(content):
@@ -88,21 +75,16 @@ def _all_texts(content: str) -> list[str]:
     return texts
 
 
-# ── Базовий клас ──────────────────────────────────────────────────────────────
-
 @dataclass
 class RuleConfig:
-    """Конфіг правила з БД."""
     is_enabled:       bool      = False
     whitelist:        list[str] = field(default_factory=list)
     ignored_channels: list[str] = field(default_factory=list)
     action:           str       = "warn"
-    # Правило-специфічні поля (caps_lock, spam, repeated_text)
     limit:            int       = 5
 
 
 class AutoModRule:
-    """Базовий клас правила."""
 
     rule_type: AutoModRuleType
 
@@ -118,8 +100,6 @@ class AutoModRule:
     async def check(self, message: discord.Message, **kw) -> bool:
         raise NotImplementedError
 
-
-# ── Конкретні правила ─────────────────────────────────────────────────────────
 
 class LinksRule(AutoModRule):
     rule_type = AutoModRuleType.LINKS
@@ -148,7 +128,6 @@ class LinksRule(AutoModRule):
 class InvitesRule(AutoModRule):
     rule_type = AutoModRuleType.INVITES
 
-    # Передаємо http_session від бота щоб не відкривати нову щоразу
     async def check(
         self,
         message: discord.Message,
@@ -176,7 +155,6 @@ class InvitesRule(AutoModRule):
             if await self._has_invite(text, message):
                 return True
 
-        # Розкриваємо шортнери (максимум 3, щоб не гальмувати)
         if session:
             urls = _URL.findall(content)
             checked = 0
@@ -202,7 +180,6 @@ class InvitesRule(AutoModRule):
 
         vanity = getattr(message.guild, "vanity_url_code", None) if message.guild else None
 
-        # Завантажуємо інвайти сервера один раз
         server_invites: set[str] = set()
         if message.guild and message.guild.me.guild_permissions.manage_guild:
             try:
@@ -239,7 +216,7 @@ class CapsLockRule(AutoModRule):
         letters = [c for c in message.content if c.isalpha()]
         if len(letters) < 10:
             return False
-        threshold = self.cfg.limit / 100  # limit зберігається як % (70 → 0.7)
+        threshold = self.cfg.limit / 100
         return sum(c.isupper() for c in letters) / len(letters) > threshold
 
 
@@ -302,7 +279,6 @@ class RepeatedTextRule(AutoModRule):
         content = message.content
         uid = message.author.id
 
-        # 1. Повтор рядків всередині повідомлення
         if "\n" in content:
             lines = [
                 re.sub(r"\W+", "", ln.strip().lower())
@@ -320,7 +296,6 @@ class RepeatedTextRule(AutoModRule):
                     if total and dup_chars / total > 0.4:
                         return True
 
-        # 2. Одне слово повторюється 4+ разів
         words = [w for w in re.findall(r"\b\w+\b", content.lower()) if len(w) >= 4]
         wcounts: dict[str, int] = {}
         for w in words:
@@ -328,7 +303,6 @@ class RepeatedTextRule(AutoModRule):
         if any(c >= 4 for c in wcounts.values()):
             return True
 
-        # 3. Порівняння з попередніми повідомленнями
         history = self._history.get(uid, [])
         if len(content) > 20:
             norm = re.sub(r"\W+", "", content.lower())
@@ -364,7 +338,7 @@ class CustomWordsRule(AutoModRule):
         if not self._base_ok(message):
             return False
 
-        words = self._BASE_WORDS | set(self.cfg.whitelist)  # whitelist тут — додаткові слова
+        words = self._BASE_WORDS | set(self.cfg.whitelist)
         content = message.content.lower()
 
         for word in words:
@@ -372,7 +346,6 @@ class CustomWordsRule(AutoModRule):
                 uid = message.author.id
                 self._violations[uid] = self._violations.get(uid, 0) + 1
                 if self._violations[uid] == 1:
-                    # Перше порушення — тільки видалити
                     try:
                         await message.delete()
                     except Exception:
@@ -381,8 +354,6 @@ class CustomWordsRule(AutoModRule):
                 return True
         return False
 
-
-# ── Фабрика ───────────────────────────────────────────────────────────────────
 
 _RULE_CLASSES: dict[AutoModRuleType, type[AutoModRule]] = {
     AutoModRuleType.LINKS:         LinksRule,

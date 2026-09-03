@@ -1,6 +1,3 @@
-"""
-Система бана с поддержкой софтбана (роль) и настоящего бана (Discord API).
-"""
 import discord
 from Niludetsu.moderation.config import ActionType
 from Niludetsu.moderation.exceptions import ModerationError
@@ -12,7 +9,6 @@ from typing import Optional
 _time = TimeService()
 
 class BanSystem:
-    """Система управления банами (софтбан через роль и настоящий бан)."""
 
     def __init__(self, bot):
         self.bot = bot
@@ -28,37 +24,14 @@ class BanSystem:
         channel: Optional[discord.TextChannel] = None,
         real: bool = False
     ) -> Embed:
-        """
-        Выдаёт бан пользователю (софтбан или настоящий).
-
-        Parameters
-        ----------
-        guild : discord.Guild
-            Сервер
-        user : discord.Member
-            Пользователь для бана
-        moderator : discord.Member
-            Модератор
-        reason : str
-            Причина бана
-        duration : Optional[int]
-            Длительность в минутах (уже распарсенная)
-        channel : Optional[discord.TextChannel]
-            Канал для логирования
-        real : bool
-            Если True - настоящий бан через Discord API
-        """
-        # НАСТОЯЩИЙ БАН (через Discord API)
         if real:
             try:
-                # Используем guild.ban вместо user.ban для совместимости с discord.Object
                 await guild.ban(
                     user,
                     reason=f"Модератор: {moderator} | Причина: {reason}",
                     delete_message_seconds=0
                 )
                 
-                # Для discord.Object нет .mention, поэтому используем ID
                 user_display = f"<@{user.id}>" if isinstance(user, discord.Object) else user.mention
                 
                 return Embed.success(title="Бан успешно выдан!",
@@ -69,7 +42,6 @@ class BanSystem:
             except Exception as e:
                 raise ModerationError(f"Ошибка при бане: {str(e)}")
                 
-        # Проверка на активный бан
         active_bans = await self.mod_manager.get_active_punishments(
             user_id=user.id,
             action_type=ActionType.BAN
@@ -108,22 +80,6 @@ class BanSystem:
         reason: str = "Не указана",
         channel: Optional[discord.TextChannel] = None
     ) -> Embed:
-        """
-        Снимает бан с пользователя.
-
-        Parameters
-        ----------
-        guild : discord.Guild
-            Сервер
-        user : discord.Member
-            Пользователь для разбана
-        moderator : discord.Member
-            Модератор
-        reason : str
-            Причина разбана
-        channel : Optional[discord.TextChannel]
-            Канал для логирования
-        """
 
         active_bans = await self.mod_manager.get_active_punishments(
             user_id=user.id,

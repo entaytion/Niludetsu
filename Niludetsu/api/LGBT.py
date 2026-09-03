@@ -2,7 +2,6 @@ import io
 from PIL import Image, ImageDraw
 
 def LGBT(avatar_bytes: bytes) -> bytes:
-    """Накладывает радужный полупрозрачный слой на изображение и возвращает PNG-байты"""
     avatar = Image.open(io.BytesIO(avatar_bytes)).convert('RGBA')
     size = avatar.size
     overlay = Image.new('RGBA', size)

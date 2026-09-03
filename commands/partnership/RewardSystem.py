@@ -5,7 +5,6 @@ import asyncio, discord
 from typing import Dict, Any
 
 class RewardSystem:
-    """Система наград"""
 
     REWARDS = {
         "ad_500": {
@@ -22,7 +21,6 @@ class RewardSystem:
         self.ad_channel_id = 1125546966076625038
 
     async def get_available_rewards(self, user_id: str) -> Dict[str, Dict[str, Any]]:
-        """Получает доступные награды"""
         points = await self.pm.get_user_points(user_id)
         available = {}
 
@@ -36,7 +34,6 @@ class RewardSystem:
         return available
 
     async def redeem(self, user_id: str, reward_key: str, interaction: discord.Interaction) -> bool:
-        """Обменивает баллы на награду"""
         t = _(guild_id=interaction.guild_id, bot=self.bot)
 
         if reward_key not in self.REWARDS:
@@ -58,7 +55,6 @@ class RewardSystem:
             )
             return False
 
-        # Обработка рекламы
         if reward["type"] == "advertisement":
             success = await self._process_ad(user_id, interaction)
 
@@ -75,12 +71,10 @@ class RewardSystem:
         return False
 
     async def _process_ad(self, user_id: str, interaction: discord.Interaction) -> bool:
-        """Обрабатывает награду рекламы"""
         t = _(guild_id=interaction.guild_id, bot=self.bot)
         modal = AdModal(self, t)
         await interaction.response.send_modal(modal)
 
-        # Ждём заполнения
         timeout = 300
         start = asyncio.get_event_loop().time()
 
@@ -89,7 +83,6 @@ class RewardSystem:
             if asyncio.get_event_loop().time() - start > timeout:
                 return False
 
-        # Проверяем инвайт
         try:
             invite = await self.bot.fetch_invite(modal.invite_link)
             if not invite or not invite.guild:
@@ -105,7 +98,6 @@ class RewardSystem:
             )
             return False
 
-        # Создаём рекламу
         channel = self.bot.get_channel(self.ad_channel_id)
         if not channel:
             return False
@@ -136,7 +128,6 @@ class RewardSystem:
         return True
 
 class AdModal(discord.ui.Modal, title="Создание рекламы"):
-    """Модальное окно для рекламы"""
 
     def __init__(self, reward_system, t=None):
         title_text = t("partnership", "reward_ad_modal_title") if t else "Создание рекламы"
@@ -147,7 +138,6 @@ class AdModal(discord.ui.Modal, title="Создание рекламы"):
         self.invite_link = None
         self.description = None
 
-        # Обновляем labels с локализацией
         if t:
             self.invite.label = t("partnership", "reward_ad_invite_label")
             self.invite.placeholder = t("partnership", "reward_ad_invite_placeholder")
@@ -182,7 +172,6 @@ class AdModal(discord.ui.Modal, title="Создание рекламы"):
         )
 
 class AdRedeemView(discord.ui.View):
-    """View с кнопкой обмена"""
 
     def __init__(self, reward_system, user_id: str):
         super().__init__(timeout=300)

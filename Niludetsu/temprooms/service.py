@@ -45,14 +45,12 @@ class TempRoom:
         )
 
 class TempRoomService:
-    """Высокоуровневое управление временными голосовыми каналами."""
 
     def __init__(self, bot: discord.Client) -> None:
         self.bot = bot
         self.repo = TempRoomsRepository()
         self.cache = TempRoomCache(ttl=15.0)
 
-    # Получение / кеш 
 
     async def get_room(self, channel_id: int | str) -> Optional[TempRoom]:
         key = str(channel_id)
@@ -78,7 +76,6 @@ class TempRoomService:
     def invalidate_room(self, channel_id: str) -> None:
         self.cache.invalidate(str(channel_id))
 
-    # Создание / удаление 
     async def create_temp_room(self, member: discord.Member) -> discord.VoiceChannel:
         guild = member.guild
 
@@ -95,12 +92,11 @@ class TempRoomService:
             room = TempRoom.from_row(existing[0])
             channel = guild.get_channel(int(room.channel_id))
             if isinstance(channel, discord.VoiceChannel):
-                await member.move_to(channel, reason="Перемещение в уже созданный временный канал")
+                await member.move_to(channel, reason="Переміщення у вже створений тимчасовий канал")
                 return channel
             await self.repo.deactivate_room(str(room.channel_id))
             self.invalidate_room(str(room.channel_id))
 
-        # ищем последнюю комнату с remember_settings 
         remembered: Optional[dict] = None
         history = await self.repo.db.where(
             "temprooms",
@@ -134,32 +130,42 @@ class TempRoomService:
             reason="Создан временный канал",
         )
 
-        await self.repo.ensure_room(
-            channel_id=voice_channel.id,
-            guild_id=guild.id,
-            owner_id=member.id,
-            name=voice_channel.name,
-        )
-        if remembered:
-            await self.repo.update_room(
-                str(voice_channel.id),
-                remember_settings=True,
-                is_private=bool(remembered.get("is_private", False)),
-                locked=bool(remembered.get("locked", False)),
-                access_mode=remembered.get("access_mode", "open"),
-                access_list=remembered.get("access_list") or [],
-                user_limit=int(remembered.get("user_limit") or 0),
+        try:
+            await self.repo.ensure_room(
+                channel_id=voice_channel.id,
+                guild_id=guild.id,
+                owner_id=member.id,
+                name=voice_channel.name,
             )
-            await self._apply_permissions(
-                voice_channel,
-                locked=bool(remembered.get("locked", False)),
-                is_private=bool(remembered.get("is_private", False)),
-                access_mode=remembered.get("access_mode", "open"),
-                access_list=remembered.get("access_list") or [],
-            )
+            if remembered:
+                await self.repo.update_room(
+                    str(voice_channel.id),
+                    remember_settings=True,
+                    is_private=bool(remembered.get("is_private", False)),
+                    locked=bool(remembered.get("locked", False)),
+                    access_mode=remembered.get("access_mode", "open"),
+                    access_list=remembered.get("access_list") or [],
+                    user_limit=int(remembered.get("user_limit") or 0),
+                )
+                await self._apply_permissions(
+                    voice_channel,
+                    locked=bool(remembered.get("locked", False)),
+                    is_private=bool(remembered.get("is_private", False)),
+                    access_mode=remembered.get("access_mode", "open"),
+                    access_list=remembered.get("access_list") or [],
+                )
 
-        self.invalidate_room(str(voice_channel.id))
-        await member.move_to(voice_channel, reason="Перемещение в временный канал")
+            self.invalidate_room(str(voice_channel.id))
+            await member.move_to(voice_channel, reason="Перемещение в временный канал")
+        except Exception:
+            try:
+                await voice_channel.delete(reason="Очистка: пользователь отключился до перемещения")
+            except Exception:
+                pass
+            await self.repo.deactivate_room(str(voice_channel.id))
+            self.invalidate_room(str(voice_channel.id))
+            raise
+
         return voice_channel
 
     async def delete_temp_room(self, channel: discord.VoiceChannel, *, reason: str = "Удаление временного канала") -> None:
@@ -177,7 +183,6 @@ class TempRoomService:
             if thread:
                 await thread.delete(reason="Удаление канала временной комнаты")
 
-    # Настройки 
 
     async def rename(self, channel: discord.VoiceChannel, new_name: str) -> TempRoom:
         new_name = new_name.strip() or channel.name
@@ -266,7 +271,6 @@ class TempRoomService:
         )
         return invite
 
-    # Вспомогательные 
 
     def _format_name(self, template: str, member: discord.Member) -> str:
         safe_name = escape_markdown(member.display_name) or member.name
@@ -279,7 +283,6 @@ class TempRoomService:
             owner: discord.PermissionOverwrite(connect=True, move_members=True, manage_channels=True, mute_members=True),
         }
 
-        # Закрываем канал для забаненных пользователей
         ban_role_id = getattr(config, "BAN_ROLE_ID", None)
         if ban_role_id:
             ban_role = guild.get_role(ban_role_id)
@@ -306,7 +309,6 @@ class TempRoomService:
         overwrites = channel.overwrites
         default_role = channel.guild.default_role
 
-        # Базовый сценарий: все видят, все могут подключаться
         base_connect = not locked and not is_private
         overwrites[default_role] = discord.PermissionOverwrite(
             view_channel=not is_private,
@@ -322,7 +324,6 @@ class TempRoomService:
                 move_members=True,
             )
 
-        # allow/deny списки
         if access_mode == "allowlist":
             overwrites[default_role].connect = False
             for user_id in access_list:
@@ -335,7 +336,6 @@ class TempRoomService:
                 if member:
                     overwrites[member] = discord.PermissionOverwrite(connect=False)
 
-        # Всегда закрываем канал для забаненных пользователей
         ban_role_id = getattr(config, "BAN_ROLE_ID", None)
         if ban_role_id:
             ban_role = channel.guild.get_role(ban_role_id)

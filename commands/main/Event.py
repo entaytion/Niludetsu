@@ -8,7 +8,6 @@ class EventCog(commands.Cog):
         self.time = TimeService()
         self.db = database
 
-        # Данные игр с описаниями и изображениями
         self.games = {
             1: {
                 "name": "Смехлыст",
@@ -60,16 +59,13 @@ class EventCog(commands.Cog):
             3: "Другое"
         }
 
-        # ID каналов
-        self.voice_channel_id = 1398694155684679740  # голосовой канал для событий
-        self.event_announce_channel_id = 1398694100668252363  # канал объявлений
+        self.voice_channel_id = 1398694155684679740
+        self.event_announce_channel_id = 1398694100668252363
 
     @commands.command(name='event', aliases=['событие'])
     @commands.has_permissions(administrator=True)
     async def event_command(self, ctx):
-        """Создать событие"""
 
-        # Шаг 1: Выбор игры
         base_embed = Embed.default(
             title="Выбор игры для события",
             description="Выберите игру из списка ниже:"
@@ -120,7 +116,6 @@ class EventCog(commands.Cog):
 
         selected_game = self.games[view.selected_game_num]
 
-        # Шаг 2: Ввод времени
         time_embed = Embed.default(
             title="Время проведения",
             description="Введите время проведения события:",
@@ -146,7 +141,6 @@ class EventCog(commands.Cog):
             await ctx.send("⏰ Время ожидания истекло. Попробуйте снова.")
             return
 
-        # Шаг 3: Выбор приза
         prize_list = "\n".join(f"{num}️⃣ {prize_type}" for num, prize_type in self.prize_types.items())
 
         prize_embed = Embed.default(
@@ -163,7 +157,6 @@ class EventCog(commands.Cog):
 
         await prompt_msg.edit(embed=prize_embed)
 
-        # Добавляем реакции для выбора приза
         prize_reactions = ['1️⃣', '2️⃣', '3️⃣']
         for reaction in prize_reactions:
             await prompt_msg.add_reaction(reaction)
@@ -180,12 +173,10 @@ class EventCog(commands.Cog):
             await ctx.send("⏰ Время ожидания истекло. Попробуйте снова.")
             return
 
-        # Шаг 4: Детали приза
         prize_text = await self.get_prize_details(ctx, selected_prize_num, check_message)
         if prize_text is None:
             return
 
-        # Финальное подтверждение
         final_preview = Embed.success(
             title="Подтверждение",
             description="Создаю событие с выбранными параметрами…",
@@ -193,12 +184,10 @@ class EventCog(commands.Cog):
         )
         await prompt_msg.edit(embed=final_preview)
 
-        # Создаем и отправляем финальный эмбед
         await self.create_event_embed(ctx, selected_game, event_time_dt, prize_text)
 
     async def get_prize_details(self, ctx, prize_num: int, check_message) -> str:
-        """Получить детали приза от пользователя"""
-        if prize_num == 1:  # Валюта
+        if prize_num == 1:
             await ctx.send("💰 Введите количество кривен для приза:")
             try:
                 amount_msg = await self.bot.wait_for('message', timeout=60.0, check=check_message)
@@ -211,10 +200,10 @@ class EventCog(commands.Cog):
                 await ctx.send("⏰ Время ожидания истекло.")
                 return None
 
-        elif prize_num == 2:  # Тайный бокс
+        elif prize_num == 2:
             return "**1 тайный бокс в инвентарь.**"
 
-        elif prize_num == 3:  # Другое
+        elif prize_num == 3:
             await ctx.send("📝 Введите описание приза:")
             try:
                 custom_msg = await self.bot.wait_for('message', timeout=120.0, check=check_message)
@@ -226,7 +215,6 @@ class EventCog(commands.Cog):
     @commands.command(name='eventbox')
     @commands.has_permissions(administrator=True)
     async def event_box(self, ctx, *, args: str = None):
-        """Выдать тайные боксы участникам"""
         if not args:
             await ctx.send("Укажите участников и опционально количество боксов.\n"
                         "Примеры: `!eventbox @user1 @user2` или `!eventbox 3 @user1 @user2`")
@@ -235,13 +223,11 @@ class EventCog(commands.Cog):
         parts = args.strip()
         count_per_user = 1
 
-        # Проверяем первый токен на число
         first_token = parts.split()[0]
         if first_token.isdigit():
             count_per_user = max(1, min(100, int(first_token)))
             parts = parts[len(first_token):].strip()
 
-        # Извлекаем участников
         raw_users = [p for p in re.split(r'[\s,]+', parts) if p]
         if not raw_users:
             await ctx.send("Не удалось найти участников.")
@@ -249,7 +235,6 @@ class EventCog(commands.Cog):
 
         members = []
         for token in raw_users:
-            # Поддержка упоминаний <@id>
             match = re.search(r'(\d{15,})', token)
             if match:
                 user_id = int(match.group(1))
@@ -261,16 +246,14 @@ class EventCog(commands.Cog):
             await ctx.send("Не найдено участников на сервере.")
             return
 
-        # Выдаем боксы
         total_boxes = 0
         for member in members:
-            # Добавляем каждый бокс как отдельную запись в инвентарь
             for i in range(count_per_user):
                 now_iso = self.time.to_iso()
                 await self.db.ensure_inventory_item(
                     user_id=str(member.id),
                     guild_id=str(ctx.guild.id),
-                    item_key=f"eventbox_{now_iso}_{i}",  # Уникальный ключ с ISO временем
+                    item_key=f"eventbox_{now_iso}_{i}",
                     item_type="eventbox",
                     meta={
                         "source": "event_reward",
@@ -280,7 +263,6 @@ class EventCog(commands.Cog):
                     price_paid=0,
                 )
 
-            # Отправляем уведомление в ЛС
             try:
                 box_word = "бокс" if count_per_user == 1 else ("бокса" if 2 <= count_per_user <= 4 else "боксов")
                 await member.send(
@@ -293,7 +275,6 @@ class EventCog(commands.Cog):
 
             total_boxes += count_per_user
 
-        # Форматируем сообщение о выдаче
         member_word = "участника" if len(members) == 1 else ("участников" if len(members) < 5 else "участников")
         box_word = "бокс" if count_per_user == 1 else ("бокса" if 2 <= count_per_user <= 4 else "боксов")
 
@@ -312,7 +293,6 @@ class EventCog(commands.Cog):
         await ctx.send(embed=success_embed)
 
     def parse_time_input(self, time_str: str):
-        """Парсинг времени с поддержкой 'сегодня', 'завтра'"""
         time_str = time_str.lower().replace(',', ' ').strip()
         time_str = re.sub(r'\s+', ' ', time_str)
 
@@ -328,7 +308,6 @@ class EventCog(commands.Cog):
         if 'завтра' in time_str:
             date_obj = self.time.add_duration(now, days=1)
 
-        # Формируем строку для парсинга
         full_datetime_str = f"{date_obj.format('YYYY-MM-DD')} {time_part}:00"
 
         try:
@@ -338,11 +317,9 @@ class EventCog(commands.Cog):
             return None
 
     async def create_event_embed(self, ctx, game, event_time_dt, prize_text, *, mention_role: bool = True, target_channel = None):
-        """Создать и отправить финальный эмбед события"""
         guild = ctx.guild
         end_time = self.time.add_duration(event_time_dt, hours=2)
 
-        # Загружаем изображение для обложки
         image_bytes = None
         if game.get('image'):
             try:
@@ -353,11 +330,9 @@ class EventCog(commands.Cog):
             except:
                 pass
 
-        # Получаем голосовой канал
         voice_channel = guild.get_channel(self.voice_channel_id)
         location_text = voice_channel.name if voice_channel else "⭐〢мероприятия"
 
-        # Создаем Scheduled Event
         scheduled = None
         try:
             create_kwargs = {
@@ -386,10 +361,8 @@ class EventCog(commands.Cog):
         except Exception as e:
             await ctx.send(f"⚠️ Не удалось создать Scheduled Event: {e}")
 
-        # Формируем Discord timestamp
         discord_timestamp = int(event_time_dt.timestamp())
 
-        # Формируем эмбед
         embed = Embed.default(
             title=f"{game['name']}!",
             fields=[
@@ -400,7 +373,6 @@ class EventCog(commands.Cog):
             ]
         )
 
-        # Контент с пингом роли
         event_url = scheduled.url if scheduled else None
         if mention_role:
             content = (
@@ -413,7 +385,6 @@ class EventCog(commands.Cog):
         else:
             content = f"-# Событие ➜ {event_url}" if event_url else None
 
-        # Отправляем в канал событий
         event_channel = target_channel or self.bot.get_channel(self.event_announce_channel_id)
         if event_channel:
             await event_channel.send(content=content, embed=embed)

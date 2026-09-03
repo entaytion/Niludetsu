@@ -14,7 +14,6 @@ from typing import Optional
 _REACTIONS_PATH = Path(__file__).resolve().parents[2] / "data" / "reactions.json"
 
 class ReactionSystem(commands.Cog):
-    """Система реакций и ролевых команд"""
 
     def __init__(self, bot):
         self.bot = bot
@@ -22,10 +21,8 @@ class ReactionSystem(commands.Cog):
         self.marriage = MarriageManager()
         self.purrbot_api = "https://purrbot.site/api/img"
 
-        # NSFW команды
         self.nsfw_reactions = ["sex", "anal", "blowjob", "cum", "fuck", "pussylick", "solo"]
 
-        # Безопасные фоллбеки для NSFW команд в не-NSFW каналах
         self.sfw_fallback_gifs = {
             "sex": [
                 "https://media1.tenor.com/m/9G1zsVIiV6UAAAAC/anime-bed.gif",
@@ -33,7 +30,6 @@ class ReactionSystem(commands.Cog):
             ],
         }
 
-        # Конфигурация реакций из data/reactions.json
         with open(_REACTIONS_PATH, encoding="utf-8") as f:
             self.reactions = json.load(f)
 
@@ -41,7 +37,6 @@ class ReactionSystem(commands.Cog):
         self.gifs_api.bind_session(getattr(self.bot, "http_session", None))
 
     async def _get_purrbot_gif(self, type_name: str, is_nsfw: bool = False) -> Optional[str]:
-        """Получает гифку из PurrBot API"""
         category = "nsfw" if is_nsfw else "sfw"
         session = getattr(self.bot, "http_session", None)
         if session is None or session.closed:
@@ -65,39 +60,23 @@ class ReactionSystem(commands.Cog):
         target: discord.Member,
         action_name: str
     ) -> Optional[discord.Embed]:
-        """
-        Проверяет ограничения по браку для интимных команд
-
-        Args:
-            ctx: Контекст команды
-            target: Целевой пользователь
-            action_name: Название действия (sex/fuck)
-
-        Returns:
-            Embed с ошибкой или None если всё ок
-        """
         t = _(ctx=ctx)
         guild_id = str(ctx.guild.id)
         author_id = str(ctx.author.id)
         target_id = str(target.id)
 
-        # Получаем браки обоих пользователей
         author_marriage = await self.marriage.fetch_marriage(guild_id, author_id)
         target_marriage = await self.marriage.fetch_marriage(guild_id, target_id)
 
-        # Проверяем, женаты ли они друг на друге
         if author_marriage and target_marriage:
-            # Проверяем, один ли это брак
             is_married_together = (
                 author_marriage["id"] == target_marriage["id"] and
                 {author_marriage["partner_a_id"], author_marriage["partner_b_id"]} == {author_id, target_id}
             )
 
             if is_married_together:
-                # Они женаты друг на друге — разрешаем
                 return None
 
-        # Проверяем, женат ли автор на ком-то другом
         if author_marriage:
             partner_id = await self.marriage.db.get_marriage_partner(author_marriage, author_id)
             partner = ctx.guild.get_member(int(partner_id))
@@ -109,7 +88,6 @@ class ReactionSystem(commands.Cog):
                 description=t("reactions", "married_with_other", action=action_text, partner=partner_mention)
             )
 
-        # Проверяем, женат ли target на ком-то другом
         if target_marriage:
             partner_id = await self.marriage.db.get_marriage_partner(target_marriage, target_id)
             partner = ctx.guild.get_member(int(partner_id))
@@ -121,18 +99,15 @@ class ReactionSystem(commands.Cog):
                 description=t("reactions", "target_married", target=target.mention, action=action_text, partner=partner_mention)
             )
 
-        # Оба не женаты — разрешаем
         return None
 
     async def _is_married_couple(self, guild_id: str, user_a_id: str, user_b_id: str) -> bool:
-        """Проверяет, являются ли два пользователя женатой парой"""
         marriage_a = await self.marriage.fetch_marriage(guild_id, user_a_id)
         marriage_b = await self.marriage.fetch_marriage(guild_id, user_b_id)
 
         if not marriage_a or not marriage_b:
             return False
 
-        # Проверяем, один ли это брак
         return (
             marriage_a["id"] == marriage_b["id"] and
             {marriage_a["partner_a_id"], marriage_a["partner_b_id"]} == {user_a_id, user_b_id}
@@ -144,7 +119,6 @@ class ReactionSystem(commands.Cog):
         reaction_type: str,
         target: Optional[discord.Member] = None
     ):
-        """Обработчик реакций с поддержкой ответов на сообщения"""
         t = _(ctx=ctx)
         is_nsfw_channel = ctx.channel.is_nsfw()
         reaction_info = self.reactions[reaction_type]
@@ -164,19 +138,16 @@ class ReactionSystem(commands.Cog):
             )
 
         if reaction_type in ["sex", "fuck"] and target:
-            # Проверяем ограничения по браку
             error_embed = await self._check_marriage_restriction(ctx, target, reaction_type)
             if error_embed:
                 return await ctx.reply(embed=error_embed, ephemeral=True)
 
-            # Проверяем, женаты ли они друг на друге
             is_married = await self._is_married_couple(
                 str(ctx.guild.id),
                 str(ctx.author.id),
                 str(target.id)
             )
 
-            # Используем специальные сообщения для супругов
             if is_married and "married_messages" in reaction_info:
                 messages = reaction_info["married_messages"]
             else:
@@ -190,7 +161,6 @@ class ReactionSystem(commands.Cog):
                 target=target.mention
             )
         else:
-            # Команды без цели (cry, dance, sneeze, mad, nervous, solo)
             if reaction_type in ["cry", "dance", "sneeze", "mad", "nervous", "solo"]:
                 message = random.choice(messages).format(author=ctx.author.mention)
             else:
@@ -203,20 +173,16 @@ class ReactionSystem(commands.Cog):
 
         if reaction_type in self.nsfw_reactions:
             if is_nsfw_channel:
-                # NSFW канал — используем NSFW гифки
                 gif_type = "fuck" if reaction_type == "sex" else reaction_type
                 gif_url = await self._get_purrbot_gif(gif_type, is_nsfw=True)
             else:
-                # Не-NSFW канал — используем безопасные фоллбеки
                 fallbacks = self.sfw_fallback_gifs.get(reaction_type)
                 if fallbacks:
                     gif_url = random.choice(fallbacks)
         else:
-            # SFW команды — используем обычные гифки
             try:
                 gif_url = await self.gifs_api.get_random_gif(reaction_type)
             except Exception:
-                # Фоллбек на PurrBot
                 if reaction_type in ["kiss", "hug", "pat", "slap", "tickle"]:
                     gif_url = await self._get_purrbot_gif(reaction_type)
 
@@ -331,8 +297,6 @@ class ReactionSystem(commands.Cog):
         app_commands.Choice(name="🔞 Мастурбация", value="solo"),
     ])
     async def rp(self, ctx: commands.Context, action: str, user: Optional[discord.Member] = None):
-        """Выполняет ролевую реакцию"""
-        # Проверяем, нужен ли пользователь для этого действия
         requires_user = action in [
             "bite", "hug", "kiss", "pat", "slap", "sorry", "tickle", "love",
             "sex", "anal", "blowjob", "cum", "fuck", "pussylick"

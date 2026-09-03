@@ -18,7 +18,6 @@ import discord
 
 
 def _locale_text(module: str, key: str, **kwargs) -> str:
-    """Отримує текст з DEFAULT_LOCALE."""
     text = DEFAULT_LOCALE.get(module, {}).get(key, key)
     if kwargs and text:
         for k, v in kwargs.items():
@@ -27,7 +26,6 @@ def _locale_text(module: str, key: str, **kwargs) -> str:
 
 
 class EconomyEmbed:
-    """Фабрика embed'ов для экономики."""
 
     @staticmethod
     def result(
@@ -130,7 +128,6 @@ class EconomyEmbed:
             description="\n".join(lines).strip(),
         )
 
-    # ——— Транзакції ———
 
     EVENT_LABELS = {
         "daily": _locale_text("economy", "event_daily"),

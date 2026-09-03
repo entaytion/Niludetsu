@@ -5,7 +5,6 @@ from Niludetsu.locale import _
 from Niludetsu.webhooks.base import BaseLogger
 
 class AutoModLogger(BaseLogger):
-    """Логгер для AutoMod с детализацией по Sapphire."""
 
     async def log_automod_rule_create(self, channel: discord.TextChannel, rule: discord.AutoModRule):
         t = _(guild_id=channel.guild.id, bot=self.bot)

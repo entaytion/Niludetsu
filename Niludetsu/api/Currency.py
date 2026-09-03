@@ -26,7 +26,6 @@ class CurrencyAPI:
         }
 
     async def get_exchange_rate(self, base_currency: str) -> Optional[Dict]:
-        """Получение курсов валют через API"""
         async with aiohttp.ClientSession() as session:
             async with session.get(f"{self.api_url}{base_currency}") as response:
                 if response.status == 200:
@@ -36,10 +35,8 @@ class CurrencyAPI:
                 return None
 
     def get_currency_name(self, currency_code: str) -> str:
-        """Получить название валюты по её коду"""
         return self.currencies.get(currency_code.upper(), "Неизвестная валюта")
 
     def is_supported_currency(self, currency_code: str) -> bool:
-        """Проверить, поддерживается ли валюта"""
         return currency_code.upper() in self.currencies 
 

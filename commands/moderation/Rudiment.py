@@ -24,7 +24,6 @@ class RudimentSelect(discord.ui.Select):
     def __init__(self, current: str, available_types: list[str]) -> None:
         options = []
 
-        # Добавляем опции только для существующих типов наказаний
         for value, label, emoji in PUNISHMENT_TYPES:
             if value in available_types:
                 options.append(
@@ -97,7 +96,6 @@ class RudimentView(discord.ui.View):
         self.page = 1
         self._records_cache: dict[str, list] = {}
 
-        # Добавляем селектор только если есть наказания
         if self.available_types:
             self.selector = RudimentSelect(self.current_action, self.available_types)
             self.add_item(self.selector)
@@ -123,7 +121,6 @@ class RudimentView(discord.ui.View):
             per_page=PAGE_SIZE,
         )
 
-        # Добавляем пагинацию только для варнов и только если > 5
         self._sync_pagination_buttons(records, total_pages)
         return embed
 
@@ -168,7 +165,7 @@ class RudimentView(discord.ui.View):
             self.selector.disabled = True
         self.prev_button.disabled = True
         self.next_button.disabled = True
-        if self.message:  # pragma: no cover - зависит от Discord API
+        if self.message:
             try:
                 await self.message.edit(view=self)
             except discord.HTTPException:
@@ -185,14 +182,11 @@ class RudimentView(discord.ui.View):
         return self._records_cache[action]
 
     def _sync_pagination_buttons(self, records: list, total_pages: int) -> None:
-        """Управляет видимостью кнопок пагинации"""
-        # Убираем старые кнопки если они есть
         if self.prev_button in self.children:
             self.remove_item(self.prev_button)
         if self.next_button in self.children:
             self.remove_item(self.next_button)
 
-        # Показываем пагинацию только для варнов и только если > 5 записей
         if self.current_action == "warn" and len(records) > PAGE_SIZE:
             self.prev_button.disabled = self.page <= 1
             self.next_button.disabled = self.page >= total_pages
@@ -246,7 +240,6 @@ class Rudiments(commands.Cog):
             await ctx.send(embed=Embed.error(description=t("moderation", "rudiment_user_not_found")))
             return
 
-        # Собираем статистику по типам наказаний
         statistics = {}
         for ptype in ["warn", "mute", "ban"]:
             records = await self.system.fetch_records(

@@ -8,7 +8,6 @@ from Niludetsu.locale import _, DEFAULT_LOCALE
 from typing import Optional
 
 class ClearCog(commands.Cog):
-    """Команда очистки сообщений в канале."""
 
     def __init__(self, bot):
         self.bot = bot
@@ -164,6 +163,5 @@ class ClearCog(commands.Cog):
                 pass
 
 async def setup(bot):
-    """Загрузка расширения."""
     await bot.add_cog(ClearCog(bot))
 

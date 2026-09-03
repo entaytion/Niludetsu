@@ -5,10 +5,8 @@ from Niludetsu.locale import _
 from Niludetsu.webhooks.base import BaseLogger
 
 class PollLogger(BaseLogger):
-    """Логгер для опросов (Polls) — голоса за/против."""
 
     async def log_poll_vote_add(self, channel: discord.TextChannel, payload):
-        """Пользователь проголосовал в опросе."""
         guild = self.bot.get_guild(payload.guild_id) if payload.guild_id else None
         user = guild.get_member(payload.user_id) if guild else None
         user_str = user.mention if user else f"<@{payload.user_id}>"
@@ -46,7 +44,6 @@ class PollLogger(BaseLogger):
         )
 
     async def log_poll_vote_remove(self, channel: discord.TextChannel, payload):
-        """Пользователь убрал голос в опросе."""
         guild = self.bot.get_guild(payload.guild_id) if payload.guild_id else None
         user = guild.get_member(payload.user_id) if guild else None
         user_str = user.mention if user else f"<@{payload.user_id}>"

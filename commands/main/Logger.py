@@ -3,7 +3,6 @@ import asyncio, time, discord
 from discord.ext import commands
 
 class Logger(commands.Cog):
-    """Централизованный логгер с ленивой загрузкой модулей для экономии RAM."""
 
     def __init__(self, bot):
         self.bot = bot
@@ -14,7 +13,6 @@ class Logger(commands.Cog):
         self._webhook_cooldown = {}
 
     def _get_logger(self, name):
-        """Динамически импортирует и возвращает нужный логгер."""
         if name not in self._loggers:
             try:
                 module = __import__(f"Niludetsu.webhooks.{name}", fromlist=[f"{name.capitalize()}Logger"])
@@ -41,7 +39,6 @@ class Logger(commands.Cog):
             return msg
         except: return None
 
-    # --- Групповые слушатели ---
 
     @commands.Cog.listener()
     async def on_guild_emojis_update(self, guild, b, a):

@@ -11,7 +11,6 @@ from Niludetsu.tools.Discord import resolve_member
 from typing import Optional
 
 class Profile(commands.Cog):
-    """Команды профиля пользователя."""
 
     def __init__(self, bot):
         self.bot = bot

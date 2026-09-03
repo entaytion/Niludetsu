@@ -1,7 +1,3 @@
-"""
-Bridge module — тримає єдиний референс на об'єкт bot.
-Встановлюється один раз при старті merged-сервера.
-"""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

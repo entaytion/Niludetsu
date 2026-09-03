@@ -1,6 +1,6 @@
 [project]
 name = "niludetsu"
-version = "2.1.1"
+version = "2.1.2"
 description = "Discord bot for nullther!"
 requires-python = ">=3.12"
 dependencies = [
@@ -28,3 +28,6 @@ dependencies = [
     "jinja2>=3.1.6",
     "python-multipart>=0.0.32",
 ]
+
+[tool.vercel]
+entrypoint = "web.app:app"

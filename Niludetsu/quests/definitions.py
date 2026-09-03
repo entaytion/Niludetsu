@@ -1,28 +1,13 @@
-"""
-Пул квестов: большой набор, из которого рандомно выбираются для каждого юзера.
-
-Каждый квест:
-    key:         уникальный ключ (str)
-    name:        человекочитаемое название
-    description: описание квеста
-    type:        тип трекинга: "messages" | "voice_minutes" | "bump"
-    goal:        числовая цель (int)
-    reward:      награда в монетах (int)
-    reset:       период сброса: "daily" | "weekly"
-"""
 
 from typing import Any, Dict, List
 
 QuestDef = Dict[str, Any]
 
-# Сколько квестов выбирается для юзера за период
 DAILY_QUEST_COUNT = 3
 WEEKLY_QUEST_COUNT = 3
 
 
-# ——— ПУЛ ЕЖЕДНЕВНЫХ КВЕСТОВ ———
 DAILY_POOL: List[QuestDef] = [
-    # --- Сообщения ---
     {
         "key": "d_msg_25",
         "name": "Новичок чата",
@@ -77,7 +62,6 @@ DAILY_POOL: List[QuestDef] = [
         "reward": 400,
         "reset": "daily",
     },
-    # --- Войс ---
     {
         "key": "d_voice_15",
         "name": "Быстрый заход",
@@ -123,7 +107,6 @@ DAILY_POOL: List[QuestDef] = [
         "reward": 250,
         "reset": "daily",
     },
-    # --- Бампы ---
     {
         "key": "d_bump_1",
         "name": "Напоминание",
@@ -153,9 +136,7 @@ DAILY_POOL: List[QuestDef] = [
     },
 ]
 
-# ——— ПУЛ НЕДЕЛЬНЫХ КВЕСТОВ ———
 WEEKLY_POOL: List[QuestDef] = [
-    # --- Сообщения ---
     {
         "key": "w_msg_200",
         "name": "Разговорчивый",
@@ -201,7 +182,6 @@ WEEKLY_POOL: List[QuestDef] = [
         "reward": 3500,
         "reset": "weekly",
     },
-    # --- Войс ---
     {
         "key": "w_voice_120",
         "name": "Войс-энтузиаст",
@@ -247,7 +227,6 @@ WEEKLY_POOL: List[QuestDef] = [
         "reward": 2000,
         "reset": "weekly",
     },
-    # --- Бампы ---
     {
         "key": "w_bump_3",
         "name": "Новичок промо",
@@ -286,15 +265,12 @@ WEEKLY_POOL: List[QuestDef] = [
     },
 ]
 
-# Объединённый пул (для поиска по ключу)
 ALL_QUESTS: Dict[str, QuestDef] = {q["key"]: q for q in DAILY_POOL + WEEKLY_POOL}
 
 
 def get_quest_by_key(key: str) -> QuestDef | None:
-    """Ищет квест по ключу."""
     return ALL_QUESTS.get(key)
 
 
 def total_pages() -> int:
-    """Количество страниц (всегда 2: daily + weekly)."""
     return 2

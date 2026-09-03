@@ -10,7 +10,6 @@ from Niludetsu import Embed
 from Niludetsu.database import database
 
 class Owner(commands.Cog):
-    """Власницькі команди керування ботом та преміумом"""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -18,9 +17,7 @@ class Owner(commands.Cog):
     @commands.command(name="givepremium", help="Надати серверу преміум статус (Тільки для власника)")
     @commands.is_owner()
     async def give_premium(self, ctx: commands.Context, guild_id: str, days: int):
-        """ givepremium [guild_id] [days] """
         if days <= 0:
-            # Lifetime premium
             expires_at = datetime(2999, 12, 31, tzinfo=timezone.utc)
             label = "вічний (до 2999 року)"
         else:
@@ -28,7 +25,6 @@ class Owner(commands.Cog):
             label = f"на {days} днів (до {expires_at.strftime('%Y-%m-%d %H:%M')})"
 
         try:
-            # Вставляємо в БД
             await database._neon.execute(
                 """INSERT INTO public.premium_guilds (guild_id, expires_at, created_at) 
                    VALUES ($1, $2, now())
@@ -36,7 +32,6 @@ class Owner(commands.Cog):
                    DO UPDATE SET expires_at = $2""",
                 str(guild_id), expires_at
             )
-            # Оновлюємо кеш бота
             await self.bot.config_manager.load_all()
 
             embed = Embed.success(
@@ -54,7 +49,6 @@ class Owner(commands.Cog):
     @commands.command(name="removepremium", help="Забрати у сервера преміум статус (Тільки для власника)")
     @commands.is_owner()
     async def remove_premium(self, ctx: commands.Context, guild_id: str):
-        """ removepremium [guild_id] """
         try:
             await database._neon.execute(
                 "DELETE FROM public.premium_guilds WHERE guild_id = $1",

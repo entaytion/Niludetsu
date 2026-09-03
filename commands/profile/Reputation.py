@@ -11,7 +11,6 @@ COOLDOWN = timedelta(hours=12)
 _time = Time()
 
 class Reputation(commands.Cog):
-    """Позволяет менять репутацию через ответ с 👍 или 👎."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -27,7 +26,6 @@ class Reputation(commands.Cog):
         if content not in THUMBS_UP and content not in THUMBS_DOWN:
             return
 
-        # Вытаскиваем исходное сообщение, чтобы знать, кого "плюсуем/минусуем"
         target_message = message.reference.resolved
         if not isinstance(target_message, discord.Message):
             try:
@@ -53,7 +51,6 @@ class Reputation(commands.Cog):
         guild_id = str(guild.id)
         target_id = str(target_user.id)
 
-        # Проверяем, когда в последний раз этого пользователя трогали
         recent_change = await self.db.get_rows(
             "user_reputation_log",
             guild_id=guild_id,
@@ -98,7 +95,6 @@ class Reputation(commands.Cog):
             },
         )
 
-        # Аккуратные реакции — чтобы ребята видели, что всё сработало
         try:
             await message.add_reaction("✅")
         except discord.HTTPException:

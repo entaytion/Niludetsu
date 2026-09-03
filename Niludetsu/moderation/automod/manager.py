@@ -1,7 +1,3 @@
-"""
-Менеджер автомодерації — читання/запис налаштувань з БД.
-Кешує налаштування в пам'яті (TTL 60s) щоб не бити БД на кожному повідомленні.
-"""
 from __future__ import annotations
 
 import time
@@ -13,7 +9,6 @@ from .rules import AutoModRuleType, RuleConfig, AutoModRule, build_rule
 
 MAIN_GUILD_ID = str(SERVERS["MAIN_ID"])
 
-# ── Дефолтні налаштування ─────────────────────────────────────────────────────
 
 DEFAULT_RULES: dict[str, dict[str, Any]] = {
     AutoModRuleType.BAD_WORDS.value:     {"is_enabled": False, "whitelist": [], "ignored_channels": [], "action": "warn"},
@@ -37,9 +32,8 @@ def _to_config(data: dict[str, Any]) -> RuleConfig:
 
 
 class AutoModManager:
-    """Менеджер налаштувань автомодерації з кешуванням."""
 
-    _CACHE_TTL = 60.0  # секунд
+    _CACHE_TTL = 60.0
 
     def __init__(self, guild_id: str = MAIN_GUILD_ID) -> None:
         self.db = database
@@ -47,13 +41,11 @@ class AutoModManager:
         self._cache: dict[str, Any] | None = None
         self._cache_ts: float = 0.0
 
-    # ── Внутрішнє ─────────────────────────────────────────────────────────────
 
     def _is_stale(self) -> bool:
         return self._cache is None or (time.monotonic() - self._cache_ts) > self._CACHE_TTL
 
     def invalidate(self) -> None:
-        """Примусово скидає кеш."""
         self._cache = None
         self._cache_ts = 0.0
 
@@ -61,7 +53,6 @@ class AutoModManager:
         row = await self.db.get_row("automoderation", guild_id=self.guild_id, key="settings")
         if row and row.get("value"):
             raw: dict = dict(row["value"])
-            # Доповнюємо відсутніми правилами з дефолтів
             for k, v in DEFAULT_RULES.items():
                 raw.setdefault(k, v.copy())
             self._cache = raw
@@ -83,7 +74,6 @@ class AutoModManager:
             print(f"AutoMod save error: {e}")
             return False
 
-    # ── Публічне API ──────────────────────────────────────────────────────────
 
     async def get_settings(self) -> dict[str, Any]:
         if self._is_stale():
@@ -126,10 +116,8 @@ class AutoModManager:
         s = await self.get_settings()
         return {k: v for k, v in s.items() if v.get("is_enabled")}
 
-    # ── Фабрика активних правил ───────────────────────────────────────────────
 
     async def build_active_rules(self) -> list[AutoModRule]:
-        """Повертає список готових екземплярів правил для активних налаштувань."""
         enabled = await self.get_enabled_rules()
         rules: list[AutoModRule] = []
         for key, data in enabled.items():

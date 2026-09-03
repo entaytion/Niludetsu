@@ -160,7 +160,6 @@ class TransferSelect(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction) -> None:
         t = _(ctx=interaction)
         if self.values[0] == "none":
-            # Обновляем селектор и показываем сообщение об отсутствии кандидатов
             self.disabled = True
             self.placeholder = t("temprooms", "no_members_option")
             try:
@@ -184,7 +183,6 @@ class TransferSelect(discord.ui.Select):
         await self.service._apply_permissions(self.channel)
         self.service.invalidate_room(str(self.channel.id))
 
-        # Блокируем селектор для предотвращения повторных действий и обновляем текст
         self.disabled = True
         self.placeholder = t("temprooms", "new_owner", name=new_owner.display_name)
         try:
@@ -221,13 +219,11 @@ class TempRoomActions(discord.ui.View):
         self.add_item(self.selector)
 
     async def bind_message(self, message: discord.Message, owner: discord.Member) -> None:
-        """Привязываем view к сообщению и конкретному владельцу."""
         self.message = message
         self.owner_id = owner.id
         await self.sync_view()
 
     async def reset_context(self) -> None:
-        """Сбрасываем, если вид передали другому владельцу или канал удалён."""
         self.message = None
         self.owner_id = None
 
@@ -287,7 +283,6 @@ class TempRoomActions(discord.ui.View):
             return
 
         if self.owner_id and self.owner_id != interaction.user.id:
-            # Панель подвязана на предыдущего владельца → сбрасываем и сообщаем пользователю
             await self.reset_context()
             await interaction.response.send_message(
                 t("temprooms", "panel_expired"),
@@ -298,7 +293,6 @@ class TempRoomActions(discord.ui.View):
         action = self.selector.values[0]
 
         if action in {"rename", "limit", "access"}:
-            # Сбрасываем выбор перед открытием модалки
             self._reset_selector()
             await self._edit_via_interaction(interaction)
             modals = {
@@ -310,7 +304,6 @@ class TempRoomActions(discord.ui.View):
             return
 
         await interaction.response.defer(ephemeral=True, thinking=True)
-        # Всегда сбрасываем селектор после выбора действия
         self._reset_selector()
         await self._edit_via_interaction(interaction)
 

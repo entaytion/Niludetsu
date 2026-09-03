@@ -1,25 +1,26 @@
-import asyncio, discord
-from discord.ext import commands
-from Niludetsu import config
+import asyncio
+import discord
+from discord.ext import commands, tasks
+from Niludetsu import config, logger
 from Niludetsu.locale import _
 from Niludetsu.temprooms.service import TempRoomService
 from Niludetsu.temprooms.views import TempRoomActions
 
 class TempRooms(commands.Cog):
-    """Управление временными голосовыми каналами."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.service = TempRoomService(bot)
         self.actions_view = TempRoomActions(self.service)
         self.cleanup_lock = asyncio.Lock()
+        self.cleanup_loop.start()
 
-    # Жизненный цикл 
 
     async def cog_load(self) -> None:
         await self._attach_view_message()
 
     async def cog_unload(self) -> None:
+        self.cleanup_loop.cancel()
         self.bot.remove_view(self.actions_view)
 
     async def _attach_view_message(self) -> None:
@@ -37,18 +38,55 @@ class TempRooms(commands.Cog):
         except discord.NotFound:
             return
 
-        # Зарегистрируем обработчик и обновим компоненты сообщения на актуальный вид
         self.bot.add_view(self.actions_view, message_id=message.id)
         try:
             await message.edit(view=self.actions_view)
         except Exception:
             pass
 
-    # Слушатели 
+
+    @tasks.loop(seconds=30)
+    async def cleanup_loop(self) -> None:
+        await self._cleanup_all_empty(reason="Фоновая очистка пустых комнат")
+
+    @cleanup_loop.before_loop
+    async def before_cleanup_loop(self) -> None:
+        await self.bot.wait_until_ready()
+
+    async def _cleanup_all_empty(self, reason: str = "Очистка пустых временных комнат") -> None:
+        try:
+            category_id = getattr(config, "TEMPROOM_CATEGORY", None)
+            lobby_id = getattr(config, "TEMPROOM_VOICE", None)
+            if not category_id:
+                return
+
+            main_guild_id = config.SERVERS.get("MAIN_ID")
+            guild = self.bot.get_guild(main_guild_id)
+            if not guild:
+                return
+
+            category = guild.get_channel(category_id)
+            if not isinstance(category, discord.CategoryChannel):
+                return
+
+            for channel in category.voice_channels:
+                if channel.id == lobby_id:
+                    continue
+                if len(channel.members) == 0:
+                    room = await self.service.get_room(channel.id)
+                    is_temp = (room is not None) or (await self.service.repo.is_temp_channel(str(channel.id)))
+                    if is_temp:
+                        async with self.cleanup_lock:
+                            if len(channel.members) == 0:
+                                await self.service.delete_temp_room(channel, reason=reason)
+        except Exception as e:
+            logger.error(f"[TempRooms] Ошибка при очистке комнат: {e}")
+
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
         await self._attach_view_message()
+        await self._cleanup_all_empty(reason="Очистка зависших каналов при запуске")
 
     @commands.Cog.listener()
     async def on_voice_state_update(
@@ -63,30 +101,37 @@ class TempRooms(commands.Cog):
 
         t = _(guild_id=member.guild.id, bot=self.bot)
 
-        # Создание канала при входе в лобби
         if after.channel and after.channel.id == lobby_id:
             try:
                 await self.service.create_temp_room(member)
             except Exception as exc:  # noqa: BLE001
-                await member.send(t("utilities", "temproom_create_error", error=exc))  # best-effort
+                await member.send(t("utilities", "temproom_create_error", error=exc))
             return
 
-        # Удаляем пустые временные каналы
-        if before.channel and not after.channel:
-            await self._maybe_cleanup_channel(before.channel)
-
-        # Обработка перехода между временными каналами
         if before.channel and before.channel != after.channel:
             await self._maybe_cleanup_channel(before.channel)
+
+    @commands.Cog.listener()
+    async def on_member_remove(self, member: discord.Member) -> None:
+        await self._cleanup_all_empty(reason="Очистка после выхода участника")
 
     async def _maybe_cleanup_channel(self, channel: discord.abc.GuildChannel) -> None:
         if not isinstance(channel, discord.VoiceChannel):
             return
-        room = await self.service.get_room(channel.id)
-        if not room:
+        lobby_id = getattr(config, "TEMPROOM_VOICE", None)
+        if channel.id == lobby_id:
             return
+
+        room = await self.service.get_room(channel.id)
+        is_temp = (room is not None) or (await self.service.repo.is_temp_channel(str(channel.id)))
+        if not is_temp:
+            return
+
+        await asyncio.sleep(1.5)
+
         if channel.members:
             return
+
         async with self.cleanup_lock:
             if channel.members:
                 return
@@ -108,11 +153,9 @@ class TempRooms(commands.Cog):
             for row in rooms:
                 await self.service.repo.update_room(row["channel_id"], thread_id=None)
 
-    # Команды 
     @commands.command(name="temproom-setup")
     @commands.is_owner()
     async def temproom_setup(self, ctx: commands.Context) -> None:
-        """Создаёт панель управления и показывает ID для config.py."""
         t = _(ctx=ctx)
         channel = ctx.channel
         if not isinstance(channel, discord.TextChannel):

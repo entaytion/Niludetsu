@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional, Tuple
 _time = TimeService()
 
 class AnalyticsRepository:
-    """Оптимізований репозиторій аналітики під Neon SQL агрегацію."""
 
     def __init__(self) -> None:
         self.db = database
@@ -48,7 +47,6 @@ class AnalyticsRepository:
         return await self.db.get_analytics(user_id, guild_id)
 
     async def top_users(self, guild_id: str, *, limit: int = 10) -> Dict[str, List[Tuple[str, int]]]:
-        # Використовуємо універсальний where з Database (тут вже було ок, але підстрахуємося)
         m_rows = await self.db.where(
             "user_analytics",
             columns=["user_id", "messages_total"],
@@ -69,7 +67,6 @@ class AnalyticsRepository:
         }
 
     async def server_totals(self, guild_id: str) -> Dict[str, int]:
-        # ОПТИМІЗАЦІЯ: Агрегація на рівні БД
         query = """
             SELECT 
                 COUNT(*) FILTER (WHERE messages_total > 0 OR voice_seconds > 0) as active_users,
@@ -89,7 +86,6 @@ class AnalyticsRepository:
         }
 
     async def top_channels(self, guild_id: str, *, limit: int = 10) -> Dict[str, List[Tuple[str, int]]]:
-        # ОПТИМІЗАЦІЯ: Розпаковка JSONB масиву на рівні БД
         msg_query = """
             SELECT key, SUM(value::int) as total
             FROM public.user_analytics, jsonb_each_text(message_channels)

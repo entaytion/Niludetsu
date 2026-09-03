@@ -14,14 +14,12 @@ from Niludetsu.database import database
 from Niludetsu.quests.manager import QuestManager
 
 class QuestTracker:
-    """Глобальный трекер квестов. Один на бота."""
 
     def __init__(self, bot=None):
         self.bot = bot
         self.manager = QuestManager(database)
 
     async def on_message(self, guild_id: str, user_id: str) -> None:
-        """Вызывается при каждом сообщении."""
         try:
             await self.manager.increment_progress(
                 user_id, guild_id, "messages", amount=1,
@@ -35,7 +33,6 @@ class QuestTracker:
             )
 
     async def on_voice_minute(self, guild_id: str, user_id: str, minutes: int = 1) -> None:
-        """Вызывается когда юзер набирает минуту в войсе."""
         try:
             await self.manager.increment_progress(
                 user_id, guild_id, "voice_minutes", amount=minutes,
@@ -50,7 +47,6 @@ class QuestTracker:
             )
 
     async def on_bump(self, guild_id: str, user_id: str) -> None:
-        """Вызывается при успешном бампе."""
         try:
             await self.manager.increment_progress(
                 user_id, guild_id, "bump", amount=1,

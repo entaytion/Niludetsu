@@ -17,8 +17,6 @@ from .config import (
 DISCORD_API = "https://discord.com/api/v10"
 OAUTH_SCOPE = "identify guilds"
 
-# ─── Discord OAuth2 URLs ────────────────────────────────────────────
-
 
 def get_oauth_url() -> str:
     params = urlencode(
@@ -30,9 +28,6 @@ def get_oauth_url() -> str:
         }
     )
     return f"{DISCORD_API}/oauth2/authorize?{params}"
-
-
-# ─── Token exchange ─────────────────────────────────────────────────
 
 
 async def exchange_code(code: str) -> dict:
@@ -50,9 +45,6 @@ async def exchange_code(code: str) -> dict:
         )
         resp.raise_for_status()
         return resp.json()
-
-
-# ─── Fetch Discord resources ────────────────────────────────────────
 
 
 async def fetch_user(token: str) -> dict:
@@ -75,9 +67,6 @@ async def fetch_user_guilds(token: str) -> list:
         return resp.json()
 
 
-# ─── JWT helpers ─────────────────────────────────────────────────────
-
-
 def create_token(user: dict, access_token: str = None) -> str:
     payload = {
         "sub": user["id"],
@@ -98,9 +87,6 @@ def decode_token(token: str) -> dict:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
-
-
-# ─── Dependency ──────────────────────────────────────────────────────
 
 
 async def get_current_user(request: Request) -> dict:

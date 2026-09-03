@@ -87,7 +87,6 @@ class ProfileButton(discord.ui.Button):
         elif self.custom_id == "profile_booster_role":
             await show_booster_panel(interaction)
 
-# MultiSelect для опциональных ролей
 class OptionalRolesMultiSelect(discord.ui.View):
     def __init__(self, user):
         super().__init__(timeout=60)
@@ -123,12 +122,10 @@ class OptionalRolesSelect(discord.ui.Select):
                 continue
 
             if option.value in self.values:
-                # Выбранные роли — отключить (снять)
                 if role in interaction.user.roles:
                     await interaction.user.remove_roles(role, reason="Пользователь отключил роль через меню профиля")
                     removed.append(role.mention)
             else:
-                # Неотмеченные роли — включить (выдать)
                 if role not in interaction.user.roles:
                     await interaction.user.add_roles(role, reason="Пользователь включил роль через меню профиля")
                     added.append(role.mention)
@@ -152,7 +149,6 @@ class ColorSelectView(View):
         super().__init__(timeout=60)
         self.color_roles = color_roles
 
-        # Создаем селект-меню с ролями
         select = discord.ui.Select(
             custom_id="color_select",
             placeholder="Выберите цвет роли",
@@ -179,11 +175,10 @@ class ColorSelectView(View):
         self.add_item(select)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        # Устанавливаем текущую роль как выбранную по умолчанию
         select = self.children[0]
         current_role = None
 
-        for option in select.options[1:]:  # Пропускаем опцию удаления
+        for option in select.options[1:]:
             role_id = int(option.value)
             has_role = any(role.id == role_id for role in interaction.user.roles)
             if has_role:
@@ -202,7 +197,6 @@ class ColorSelectView(View):
     async def color_callback(self, interaction: discord.Interaction):
         values = interaction.data.get("values", [])
 
-        # Удаляем старые цветные роли
         removed_roles = []
         for member_role in interaction.user.roles:
             for color_role in self.color_roles:
@@ -210,7 +204,6 @@ class ColorSelectView(View):
                     await interaction.user.remove_roles(member_role)
                     removed_roles.append(member_role.name)
 
-        # Если был выбран новый цвет и это не опция удаления
         if values and values[0] != "remove":
             role_id = int(values[0])
             new_role = interaction.guild.get_role(role_id)
@@ -228,7 +221,6 @@ class ColorSelectView(View):
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
         else:
-            # Если выбрано удаление
             message = "Цветная роль снята"
             if removed_roles:
                 message += f" ({', '.join(removed_roles)})"
@@ -243,7 +235,6 @@ class GenderSelectView(View):
         super().__init__(timeout=60)
         self.gender_roles = gender_roles
 
-        # Создаем селект-меню с ролями
         select = discord.ui.Select(
             custom_id="gender_select",
             placeholder="Выберите пол",
@@ -270,11 +261,10 @@ class GenderSelectView(View):
         self.add_item(select)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        # Устанавливаем текущую роль как выбранную по умолчанию
         select = self.children[0]
         current_role = None
 
-        for option in select.options[1:]:  # Пропускаем опцию удаления
+        for option in select.options[1:]:
             role_id = int(option.value)
             has_role = any(role.id == role_id for role in interaction.user.roles)
             if has_role:
@@ -293,7 +283,6 @@ class GenderSelectView(View):
     async def gender_callback(self, interaction: discord.Interaction):
         values = interaction.data.get("values", [])
 
-        # Удаляем старые гендерные роли
         removed_roles = []
         for member_role in interaction.user.roles:
             for gender_role in self.gender_roles:
@@ -301,7 +290,6 @@ class GenderSelectView(View):
                     await interaction.user.remove_roles(member_role)
                     removed_roles.append(member_role.name)
 
-        # Если был выбран новый пол и это не опция удаления
         if values and values[0] != "remove":
             role_id = int(values[0])
             new_role = interaction.guild.get_role(role_id)
@@ -319,7 +307,6 @@ class GenderSelectView(View):
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
         else:
-            # Если выбрано удаление
             message = "Роль снята"
             if removed_roles:
                 message += f" ({', '.join(removed_roles)})"
@@ -330,12 +317,10 @@ class GenderSelectView(View):
             )
 
 async def show_booster_panel(interaction: discord.Interaction) -> None:
-    """Показывает панель управления бустерской ролью"""
     
     db: Database = interaction.client.db
     main_server_id = config.SERVERS["MAIN_ID"]
     
-    # Проверяем, бустит ли пользователь сервер
     member = interaction.user
     guild = interaction.guild
     
@@ -347,7 +332,6 @@ async def show_booster_panel(interaction: discord.Interaction) -> None:
         )
         return
     
-    # Проверяем, является ли пользователь создателем сервера или бустером
     is_owner = member.id == guild.owner_id
     is_booster = member.premium_since is not None
     
@@ -361,10 +345,8 @@ async def show_booster_panel(interaction: discord.Interaction) -> None:
         )
         return
     
-    # Получаем информацию о текущей бустерской роли
     booster_item = await get_booster_role_item(db, str(member.id), str(guild.id))
     
-    # Создаём embed
     embed = Embed.default(
         title=f"{Emojis.ICON_BOOSTER} Роль бустера",
         description=(
@@ -374,7 +356,6 @@ async def show_booster_panel(interaction: discord.Interaction) -> None:
         image="https://entaytion.vercel.app/ae/aeBooster.jpg",
     )
     
-    # Создаём view с кнопками
     view = BoosterRoleView(db, member, guild, booster_item)
     
     await interaction.response.send_message(
@@ -386,7 +367,6 @@ async def show_booster_panel(interaction: discord.Interaction) -> None:
 
 
 async def get_booster_role_item(db: Database, user_id: str, guild_id: str) -> Optional[Dict[str, Any]]:
-    """Получает запись о бустерской роли из инвентаря"""
     try:
         items = await db.fetch_inventory_items(user_id, guild_id)
         for item in items:
@@ -398,24 +378,19 @@ async def get_booster_role_item(db: Database, user_id: str, guild_id: str) -> Op
 
 
 async def create_booster_role(db: Database, member: discord.Member, guild: discord.Guild) -> Optional[discord.Role]:
-    """Создаёт новую бустерскую роль"""
     try:
-        # Проверяем, есть ли уже бустерская роль
         existing_item = await get_booster_role_item(db, str(member.id), str(guild.id))
         if existing_item:
             return None
         
-        # Создаём роль с золотым цветом
         role = await guild.create_role(
             name=f"⭐ {member.name}",
             color=discord.Color.gold(),
             reason=f"Бустерская роль для {member.name}"
         )
         
-        # Выдаём роль пользователю
         await member.add_roles(role, reason="Выдача бустерской роли")
         
-        # Сохраняем в инвентарь
         await db.ensure_inventory_item(
             user_id=str(member.id),
             guild_id=str(guild.id),
@@ -443,7 +418,6 @@ async def update_booster_role(
     name: Optional[str] = None,
     color: Optional[discord.Color] = None
 ) -> bool:
-    """Обновляет бустерскую роль"""
     try:
         role_id = int(booster_item.get("meta", {}).get("role_id"))
         role = guild.get_role(role_id)
@@ -451,15 +425,12 @@ async def update_booster_role(
         if not role:
             return False
         
-        # Обновляем название
         if name:
             await role.edit(name=name, reason=f"Обновление бустерской роли {member.name}")
         
-        # Обновляем цвет
         if color:
             await role.edit(color=color, reason=f"Обновление бустерской роли {member.name}")
         
-        # Обновляем метаданные в инвентаре
         meta = booster_item.get("meta", {})
         if name:
             meta["role_name"] = name
@@ -475,7 +446,6 @@ async def update_booster_role(
 
 
 async def delete_booster_role(db: Database, member: discord.Member, guild: discord.Guild, booster_item: Dict[str, Any]) -> bool:
-    """Удаляет бустерскую роль"""
     try:
         role_id = int(booster_item.get("meta", {}).get("role_id"))
         role = guild.get_role(role_id)
@@ -483,7 +453,6 @@ async def delete_booster_role(db: Database, member: discord.Member, guild: disco
         if role:
             await role.delete(reason=f"Удаление бустерской роли {member.name}")
         
-        # Удаляем из инвентаря
         await db.delete_inventory_item(
             user_id=str(member.id),
             guild_id=str(guild.id),
@@ -497,7 +466,6 @@ async def delete_booster_role(db: Database, member: discord.Member, guild: disco
 
 
 class BoosterRoleView(discord.ui.View):
-    """View с кнопками управления бустерской ролью"""
 
     def __init__(self, db: Database, member: discord.Member, guild: discord.Guild, booster_item: Optional[Dict[str, Any]]):
         super().__init__(timeout=300)
@@ -521,7 +489,6 @@ class BoosterRoleView(discord.ui.View):
         
         await interaction.response.defer(ephemeral=True)
         
-        # Проверяем наличие роли перед созданием
         booster_item = await get_booster_role_item(self.db, str(self.member.id), str(self.guild.id))
         if booster_item:
             await interaction.followup.send(
@@ -550,7 +517,6 @@ class BoosterRoleView(discord.ui.View):
     
     @discord.ui.button(label="Изменить роль", emoji=Emojis.WARNING, style=discord.ButtonStyle.secondary)
     async def edit_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Обновляем booster_item перед редактированием (на случай если роль была создана)
         booster_item = await get_booster_role_item(self.db, str(self.member.id), str(self.guild.id))
         
         if not booster_item:
@@ -561,7 +527,6 @@ class BoosterRoleView(discord.ui.View):
             )
             return
         
-        # Проверяем, существует ли роль на сервере
         role_id = int(booster_item.get("meta", {}).get("role_id"))
         role = self.guild.get_role(role_id)
         
@@ -573,13 +538,11 @@ class BoosterRoleView(discord.ui.View):
             )
             return
         
-        # Показываем модальное окно для редактирования
         modal = EditBoosterRoleModal(self.db, self.member, self.guild, booster_item)
         await interaction.response.send_modal(modal)
     
     @discord.ui.button(label="Удалить роль", emoji=Emojis.ERROR, style=discord.ButtonStyle.danger)
     async def delete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Обновляем booster_item перед удалением (на случай если роль была создана)
         booster_item = await get_booster_role_item(self.db, str(self.member.id), str(self.guild.id))
         
         if not booster_item:
@@ -609,7 +572,6 @@ class BoosterRoleView(discord.ui.View):
 
 
 class EditBoosterRoleModal(discord.ui.Modal):
-    """Модальное окно для редактирования бустерской роли"""
     
     def __init__(self, db: Database, member: discord.Member, guild: discord.Guild, booster_item: Dict[str, Any]):
         super().__init__(title="Редактирование бустерской роли", timeout=300)
@@ -618,10 +580,8 @@ class EditBoosterRoleModal(discord.ui.Modal):
         self.guild = guild
         self.booster_item = booster_item
         
-        # Получаем текущее название
         current_name = booster_item.get("meta", {}).get("role_name", "")
         
-        # Добавляем поле для названия
         self.name_input = discord.ui.TextInput(
             label="Название роли",
             placeholder="Введите новое название",
@@ -631,7 +591,6 @@ class EditBoosterRoleModal(discord.ui.Modal):
         )
         self.add_item(self.name_input)
         
-        # Добавляем поле для цвета (HEX)
         self.color_input = discord.ui.TextInput(
             label="Цвет роли (HEX, например: FFD700)",
             placeholder="FFD700",
@@ -645,7 +604,6 @@ class EditBoosterRoleModal(discord.ui.Modal):
         await interaction.response.defer(ephemeral=True)
         
         try:
-            # Парсим цвет
             color = None
             if self.color_input.value:
                 try:
@@ -658,7 +616,6 @@ class EditBoosterRoleModal(discord.ui.Modal):
                     )
                     return
             
-            # Обновляем роль
             success = await update_booster_role(
                 self.db,
                 self.member,

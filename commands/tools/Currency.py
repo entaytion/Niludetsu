@@ -7,9 +7,7 @@ from Niludetsu.locale import _
 from typing import Tuple
 
 class CurrencyHelper:
-    """Вспомогательный класс для работы с валютами"""
 
-    # Регулярные выражения для распознавания валют
     CURRENCY_PATTERNS = {
         "RUB": r"(?:руб(?:л(?:ь|я|ей|ъ|eй|и(?:ки|шек|шки)?)?)?|₽|руб\.)",
         "USD": r"(?:долл?ар(?:ов|а|ы)?|бакс(?:ов|а|ы)?|\$|usd|dollar)",
@@ -35,7 +33,6 @@ class CurrencyHelper:
         )
 
     def get_currency_code(self, query: str) -> str:
-        """Определяет код валюты из текста"""
         query = query.lower().strip()
 
         for code, pattern in self.CURRENCY_PATTERNS.items():
@@ -44,7 +41,6 @@ class CurrencyHelper:
         return query.upper()
 
     def find_currency_mentions(self, text: str) -> dict:
-        """Находит упоминания валют в тексте"""
         matches = self.money_pattern.finditer(text)
         found_currencies = {}
 

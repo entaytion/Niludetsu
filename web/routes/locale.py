@@ -15,7 +15,6 @@ from ..bot import get_bot
 router = APIRouter(tags=["locale"])
 templates = Jinja2Templates(directory="web/templates")
 
-# ─── DEFAULT_LOCALE import ───────────────────────────────────────────────
 _DEFAULT_LOCALE: dict[str, dict[str, str]] = {}
 
 
@@ -26,7 +25,6 @@ def _load_default_locale() -> dict[str, dict[str, str]]:
     try:
         mod = importlib.import_module("Niludetsu.locale")
         raw = getattr(mod, "DEFAULT_LOCALE", {})
-        # Normalise to dict[str, dict[str, str]]
         norm: dict[str, dict[str, str]] = {}
         for cat, phrases in raw.items():
             if isinstance(phrases, dict):
@@ -39,9 +37,7 @@ def _load_default_locale() -> dict[str, dict[str, str]]:
     return _DEFAULT_LOCALE
 
 
-# ─── Helpers ─────────────────────────────────────────────────────────────
 async def _get_guild_translations(guild_id: str) -> dict[str, str]:
-    """Read locale overrides from custom_messages where module='locale'."""
     try:
         bot = get_bot()
         rows = await bot.db._neon.fetch(
@@ -55,7 +51,6 @@ async def _get_guild_translations(guild_id: str) -> dict[str, str]:
 
 
 async def _save_guild_translations(guild_id: str, translations: dict[str, str]) -> None:
-    """Bulk upsert locale overrides."""
     bot = get_bot()
     if not bot:
         return
@@ -70,12 +65,10 @@ async def _save_guild_translations(guild_id: str, translations: dict[str, str]) 
         )
 
 
-# ─── Pydantic ────────────────────────────────────────────────────────────
 class LocaleIn(BaseModel):
     translations: dict[str, str | None]
 
 
-# ─── Routes ──────────────────────────────────────────────────────────────
 @router.get("/dashboard/guild/{guild_id}/locale", response_class=HTMLResponse)
 async def locale_page(
     guild_id: str, request: Request, user=Depends(get_current_user)
@@ -96,7 +89,6 @@ async def locale_page(
     default_locale = _load_default_locale()
     overrides = await _get_guild_translations(guild_id)
 
-    # Build merged view: category -> [{key, default, custom}]
     categories: dict[str, list[dict[str, Any]]] = {}
     for cat, phrases in sorted(default_locale.items()):
         items = []
@@ -110,7 +102,6 @@ async def locale_page(
             })
         categories[cat] = items
 
-    # Any overrides for keys not in DEFAULT_LOCALE (orphans)
     known_keys = {
         f"{cat}.{k}" for cat, phrases in default_locale.items() for k in phrases
     }
@@ -157,11 +148,9 @@ async def save_locale_api(
     if not is_premium:
         raise HTTPException(status_code=403, detail="Premium required")
 
-    # Filter: only non-empty values (empty = reset to default)
     to_save = {k: v for k, v in body.translations.items() if v is not None}
     await _save_guild_translations(guild_id, to_save)
 
-    # Also delete keys that were explicitly emptied
     bot = get_bot()
     if bot:
         for k, v in body.translations.items():
@@ -172,7 +161,6 @@ async def save_locale_api(
                     str(guild_id), k,
                 )
 
-    # Invalidate ConfigManager cache for locale
     cm = getattr(get_bot(), "config_manager", None) if get_bot() else None
     if cm and hasattr(cm, "_invalidate_locale"):
         cm._invalidate_locale(int(guild_id))

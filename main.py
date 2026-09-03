@@ -35,7 +35,6 @@ class NiludetsuBot(commands.Bot):
         if isinstance(error, commands.CommandNotFound):
             return
             
-        # Игнорируем обычные юзерские ошибки (например, неверный аргумент, юзер не найден)
         if isinstance(error, commands.UserInputError):
             embed = Embed.error(title="❌ Ошибка ввода", description=str(error))
             try:
@@ -62,49 +61,56 @@ class NiludetsuBot(commands.Bot):
         ctx: commands.Context = None,
         interaction: discord.Interaction = None
     ) -> None:
-        reporter = getattr(self, "bug_report_logger", None)
-        if reporter is None:
-            logger.error(f"Error in {context_label}: {error}")
-            return
+        logger.exception(f"Error in {context_label}: {error}")
 
-        contextual = reporter.ensure_contextual(
-            error,
-            context_label=context_label,
-            origin_hint=origin_hint,
+        import traceback
+        tb_lines = traceback.format_exception(type(error), error, error.__traceback__)
+        tb_text = "".join(tb_lines)
+
+        bugs_channel_id = getattr(config, "BUGS_CHANNEL_ID", None)
+        if bugs_channel_id:
+            try:
+                channel = self.get_channel(bugs_channel_id)
+                if not channel:
+                    channel = await self.fetch_channel(bugs_channel_id)
+                if channel:
+                    user_info = None
+                    if ctx:
+                        user_info = f"{ctx.author} (`{ctx.author.id}`)"
+                    elif interaction:
+                        user_info = f"{interaction.user} (`{interaction.user.id}`)"
+
+                    embed = Embed.error(
+                        title=f"Ошибка: {context_label}",
+                        description=f"**Исключение:** `{type(error).__name__}: {error}`"
+                    )
+                    if user_info:
+                        embed.add_field(name="Вызвал", value=user_info, inline=True)
+                    if ctx and ctx.guild:
+                        embed.add_field(name="Сервер", value=f"{ctx.guild.name} (`{ctx.guild.id}`)", inline=True)
+                    elif interaction and interaction.guild:
+                        embed.add_field(name="Сервер", value=f"{interaction.guild.name} (`{interaction.guild.id}`)", inline=True)
+
+                    tb_snippet = tb_text[-1800:] if len(tb_text) > 1800 else tb_text
+                    embed.add_field(name="Traceback", value=f"```py\n{tb_snippet}\n```", inline=False)
+                    await channel.send(embed=embed)
+            except Exception as report_exc:
+                logger.error(f"Failed to send error report to bugs channel: {report_exc}")
+
+        user_embed = Embed.error(
+            title="Произошла непредвиденная ошибка",
+            description="Информация об ошибке была отправлена разработчикам."
         )
-
-        guild = None
-        if ctx:
-            guild = ctx.guild
-        elif interaction:
-            guild = interaction.guild
-
-        channel = await reporter.resolve_channel(guild)
-        if not channel:
-            logger.error(f"Cannot find bugs channel for error: {error}")
-            return
-
         try:
-            if ctx:
-                await reporter.log_command_error(channel, ctx, contextual)
-            elif interaction:
-                await reporter.log_app_command_error(channel, interaction, contextual)
-            else:
-                import traceback
-                tb_text = "".join(traceback.format_exception(type(error), error, error.__traceback__))
-                paste_url = await reporter._create_paste(
-                    title=f"Event error: {context_label}",
-                    content=f"=== EVENT ERROR REPORT ===\nContext: {context_label}\nException: {type(error).__name__}: {error}\n\n Traceback:\n{tb_text}"
-                )
-                await reporter._send_channel_message(
-                    channel,
-                    header=f"Ошибка события `{context_label}`",
-                    user=None,
-                    extra=paste_url,
-                    raw_error=error,
-                )
-        except Exception as e:
-            logger.exception(f"Failed to report error: {e}")
+            if interaction:
+                if interaction.response.is_done():
+                    await interaction.followup.send(embed=user_embed, ephemeral=True)
+                else:
+                    await interaction.response.send_message(embed=user_embed, ephemeral=True)
+            elif ctx:
+                await ctx.reply(embed=user_embed, ephemeral=True)
+        except Exception:
+            pass
 
     async def setup_hook(self):
         self.error_handler = ErrorHandler(self)
@@ -113,10 +119,8 @@ class NiludetsuBot(commands.Bot):
             timeout=aiohttp.ClientTimeout(total=20)
         )
 
-        # Завантажуємо конфіг з БД
         await settings.load()
 
-        # Core customization engine
         self.config_manager = ConfigManager(self)
         await self.config_manager.load_all()
         await self.db.setup_tables()
@@ -129,7 +133,7 @@ class NiludetsuBot(commands.Bot):
         self.moderation_manager = ModerationManager(self)
         self.moderation_manager.start_expire_system()
 
-        self.loader = Loader(self, command_dirs=["commands", "cogs"])
+        self.loader = Loader(self, command_dirs=["commands"])
         await self.loader.load_everything()
         await self.access.bootstrap()
 
@@ -139,7 +143,6 @@ class NiludetsuBot(commands.Bot):
         for category in self.command_manager.get_categories():
             self.command_manager.set_category_enabled(settings.SERVERS["MAIN_ID"], category, True)
 
-        # ── HTTP-дашборд (FastAPI) в тій самій asyncio-петлі ──
         self._web_server = None
         self._web_task = asyncio.create_task(self._run_web_server(), name="web-server")
 
@@ -223,7 +226,6 @@ class NiludetsuBot(commands.Bot):
             await self.process_commands(message)
             return
 
-        # Quest tracking (only MAIN_ID)
         if message.guild.id == settings.SERVERS["MAIN_ID"]:
             asyncio.create_task(
                 self.quest_tracker.on_message(str(message.guild.id), str(message.author.id))
@@ -237,7 +239,6 @@ class NiludetsuBot(commands.Bot):
             except asyncio.CancelledError:
                 pass
 
-        # Зупиняємо веб-сервер
         if self._web_server:
             self._web_server.should_exit = True
         if self._web_task and not self._web_task.done():
@@ -264,5 +265,4 @@ try:
 except KeyboardInterrupt:
     pass
 finally:
-    # discord.py bot.run handles its own cleanup, but if we have other tasks:
     pass

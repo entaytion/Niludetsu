@@ -25,7 +25,6 @@ class ErrorHandler:
         if isinstance(error, commands.CommandOnCooldown):
             return await ctx.reply(embed=Embed.error(t("errors", "cooldown", time=f"{error.retry_after:.2f}с")), ephemeral=True)
         
-        # Полный трейсбек для пастбина
         tb = "".join(traceback.format_exception(type(error), error, error.__traceback__))
         paste_url = await self.pastebin.create_paste(f"Error: {ctx.command}", tb)
         

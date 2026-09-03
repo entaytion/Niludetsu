@@ -31,12 +31,10 @@ class Avatar(commands.Cog):
         fmt = "gif" if animated else "png"
         url = target.display_avatar.with_format(fmt).url
 
-        # Скачиваем аватар
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
                 data = await resp.read()
 
-        # Проверяем аргумент mode для радужного эффекта
         name_text = t("profile", "avatar_profile_of", target_name=target.name) if target != ctx.author else t("profile", "avatar_your_profile")
         if mode and mode.lower() in ("lgbt", "лгбт"):
             if animated:

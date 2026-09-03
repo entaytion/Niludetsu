@@ -1,6 +1,3 @@
-"""
-Система мутов через Discord Timeout (нативная функция Discord).
-"""
 import discord
 from datetime import datetime
 from Niludetsu.moderation.config import ActionType
@@ -12,7 +9,6 @@ from typing import Optional
 _time = TimeService()
 
 class MuteSystem:
-    """Система управления мутами через Discord Timeout."""
 
     def __init__(self, bot):
         self.bot = bot
@@ -27,24 +23,6 @@ class MuteSystem:
         reason: str = "Не указана",
         channel: Optional[discord.TextChannel] = None
     ) -> dict:
-        """
-        Выдаёт мут пользователю через Discord Timeout.
-
-        Parameters
-        ----------
-        guild : discord.Guild
-            Сервер
-        user : discord.Member
-            Пользователь для мута
-        moderator : discord.Member
-            Модератор
-        duration : Optional[int]
-            Длительность в минутах (уже распарсенная)
-        reason : str
-            Причина мута
-        channel : Optional[discord.TextChannel]
-            Канал для логирования
-        """
 
         if user.timed_out_until and user.timed_out_until > datetime.now(user.timed_out_until.tzinfo):
             remaining = user.timed_out_until - datetime.now(user.timed_out_until.tzinfo)
@@ -58,7 +36,6 @@ class MuteSystem:
         if not duration:
             raise ModerationError("Укажите длительность мута! Пример: `1h`, `30m`, `1d`")
 
-        # Discord Timeout максимум 28 дней
         MAX_TIMEOUT_MINUTES = 28 * 24 * 60
         if duration > MAX_TIMEOUT_MINUTES:
             duration = MAX_TIMEOUT_MINUTES
@@ -83,22 +60,6 @@ class MuteSystem:
         reason: str = "Не указана",
         channel: Optional[discord.TextChannel] = None
     ) -> dict:
-        """
-        Снимает мут с пользователя.
-
-        Parameters
-        ----------
-        guild : discord.Guild
-            Сервер
-        user : discord.Member
-            Пользователь для размута
-        moderator : discord.Member
-            Модератор
-        reason : str
-            Причина размута
-        channel : Optional[discord.TextChannel]
-            Канал для логирования
-        """
 
         if not user.timed_out_until or user.timed_out_until <= datetime.now(user.timed_out_until.tzinfo):
             raise ModerationError("У пользователя нет активного мута!")

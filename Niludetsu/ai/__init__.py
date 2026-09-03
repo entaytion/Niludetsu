@@ -13,7 +13,6 @@ from .models import (
 )
 from .prompts import (
     NILU_SYSTEM_PROMPT,
-    VERIFICATION_SYSTEM_PROMPT,
     WELCOME_QUESTION_PROMPT,
 )
 
@@ -30,6 +29,5 @@ __all__ = [
     "PuterImageService",
     "WelcomeQuestionGenerator",
     "NILU_SYSTEM_PROMPT",
-    "VERIFICATION_SYSTEM_PROMPT",
     "WELCOME_QUESTION_PROMPT",
 ]

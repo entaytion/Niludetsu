@@ -9,7 +9,6 @@ from Niludetsu.locale import _
 _time = TimeService()
 
 class Giveaways(commands.Cog):
-    """Команды и фоновые задачи для розыгрышей."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot

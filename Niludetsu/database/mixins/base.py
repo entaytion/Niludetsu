@@ -13,7 +13,6 @@ from ..pool import NeonPool
 from ..query import QueryBuilder
 
 
-# ── Column/table name validation (SQL-injection defence) ────────────
 _COL_RE = re.compile(r"^[a-z_][a-z0-9_]*$", re.IGNORECASE)
 _TABLE_RE = re.compile(r"^[a-z_][a-z0-9_]*$", re.IGNORECASE)
 
@@ -46,7 +45,6 @@ class BaseMixin:
         async with self._neon.transaction() as conn:
             yield conn
 
-    # ── Core CRUD ──
 
     async def get_row(self, table: str, **conditions: Any) -> Optional[dict[str, Any]]:
         keys = list(conditions.keys())
@@ -112,7 +110,6 @@ class BaseMixin:
                 for field in json_fields:
                     if field in values and isinstance(values[field], dict):
                         base = current.get(field) or {}
-                        # Якщо база повернула рядок (хоча не повинна з кодеком), розпарсимо
                         if isinstance(base, str):
                             try:
                                 base = json.loads(base)
@@ -122,8 +119,6 @@ class BaseMixin:
                         if isinstance(base, dict):
                             base.update(values[field])
                             values[field] = base
-            # Якщо запису немає, але ми оновлюємо json_fields, переконуємось що там об'єкт, а не рядок
-            # asyncpg сам зробить json.dumps(dict)
 
         set_cols = list(values.keys())
         where_keys = list(where.keys())
@@ -203,10 +198,8 @@ class BaseMixin:
         row = await self._neon.fetchrow(query, amount, *where.values())
         return dict(row) if row else None
 
-    # ── Settings ──
 
     async def get_settings(self, key: str, default: Any = None) -> Any:
-        """Отримує налаштування з кешем (TTL 60с)."""
         cached = self._settings_cache.get(key)
         if cached and (time.time() - cached[1] < 60):
             return cached[0]
@@ -226,7 +219,6 @@ class BaseMixin:
         )
         self._settings_cache[key] = (value, time.time())
 
-    # ── QueryBuilder-based where() ──
 
     async def where(
         self,

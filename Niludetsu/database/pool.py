@@ -133,7 +133,6 @@ class NeonPool:
                 logger.warning(f"Database retry {attempt + 1}/{_MAX_RETRIES}: {type(e).__name__}: {e}")
                 if attempt < _MAX_RETRIES - 1:
                     await asyncio.sleep(delay)
-                    # Recreate pool only starting from second retry
                     if attempt >= 1:
                         await self._recreate()
 

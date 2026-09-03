@@ -11,7 +11,6 @@ from Niludetsu.giveaways.conditions import GiveawayConditions
 _time = TimeService()
 
 class GiveawayConfigurator(discord.ui.View):
-    """Единый мастер создания розыгрыша."""
 
     def __init__(self, cog, guild: discord.Guild, author: discord.Member):
         super().__init__(timeout=900)
@@ -38,7 +37,6 @@ class GiveawayConfigurator(discord.ui.View):
         self.add_item(self.channel_select)
         self.add_item(self.conditions_select)
 
-    # Кнопки
     @discord.ui.button(
         label="Настроить розыгрыш",
         style=discord.ButtonStyle.primary,
@@ -112,7 +110,6 @@ class GiveawayConfigurator(discord.ui.View):
         )
         await self.close()
 
-    # Служебные методы
     def build_embed(self) -> discord.Embed:
         t = self._t
         embed = Embed.default(
@@ -195,7 +192,6 @@ class GiveawayConfigurator(discord.ui.View):
         return embed
 
     async def refresh(self, interaction: discord.Interaction):
-        """Обновляет предпросмотр после изменения параметров."""
         embed = self.build_embed()
 
         if self.message is None:
@@ -223,7 +219,6 @@ class GiveawayConfigurator(discord.ui.View):
             except discord.NotFound:
                 pass
 
-# Модалки
 class GiveawayBaseModal(discord.ui.Modal, title="Параметры розыгрыша"):
     def __init__(self, config: Dict[str, Any], t=None):
         super().__init__(timeout=300)
@@ -362,7 +357,6 @@ class RoleModal(discord.ui.Modal, title="ID роли"):
         self.role_id = role.id
         await interaction.response.defer()
 
-# Селекты
 class _ChannelSelect(discord.ui.Select):
     def __init__(self, configurator: GiveawayConfigurator):
         self.configurator = configurator
@@ -396,7 +390,6 @@ class _ChannelSelect(discord.ui.Select):
         await self.configurator.refresh(interaction)
 
 class _ConditionsSelect(discord.ui.Select):
-    """Выпадающий список условий. За раз — одно условие, чтобы не путать модалки."""
 
     OPTIONS = {
         "min_server_time": ("min_server_time", "condition_unit_days"),
@@ -510,7 +503,6 @@ class _ConditionsSelect(discord.ui.Select):
         return fallback.get(key, key)
 
 class GiveawayParticipationView(discord.ui.View):
-    """Бессрочная вьюха для участия в розыгрыше."""
 
     def __init__(
         self,

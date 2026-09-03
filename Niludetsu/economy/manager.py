@@ -5,13 +5,11 @@ import asyncio
 from typing import Any, Dict, Optional
 from Niludetsu.database import database
 
-# ── Shared transaction queue ────────────────────────────────────────
 _transaction_queue: asyncio.Queue[tuple] = asyncio.Queue()
 _transaction_worker_task: asyncio.Task | None = None
 
 
 async def _transaction_worker():
-    """Один worker для всіх транзакцій — замість fire-and-forget create_task."""
     db = database
     while True:
         user_id, guild_id, event, amount, balance, metadata = await _transaction_queue.get()
@@ -29,11 +27,10 @@ def _ensure_worker():
         _transaction_worker_task = asyncio.create_task(_transaction_worker(), name="tx-worker")
 
 class EconomyResult:
-    """Результат операции экономии для удобной обработки в match/case."""
     __slots__ = ("status", "message", "data")
 
     def __init__(self, status: str, message: str = "", data: Optional[Dict] = None):
-        self.status = status # 'success', 'error', 'insufficient_funds', 'cooldown'
+        self.status = status
         self.message = message
         self.data = data or {}
 
@@ -49,9 +46,7 @@ class EconomyResult:
         yield self.message
 
 class EconomyManager:
-    """Менеджер экономики. Динамические настройки из БД + атомарные операции."""
 
-    # Дефолтные значения (если в БД пусто)
     DEFAULT_CONFIG = {
         "cooldowns": {"daily": 1440, "work": 60, "rob": 360, "crime": 120, "slut": 120},
         "cooldown_fields": {"daily": "last_daily", "work": "last_work", "rob": "last_rob", "slut": "last_slut"},
@@ -101,7 +96,6 @@ class EconomyManager:
         )
 
     async def get_config(self) -> Dict[str, Any]:
-        """Получает конфигурацию из настроек БД."""
         return await self.db.get_settings("economy_config", self.DEFAULT_CONFIG)
 
     async def get_account(self, user_id: str, guild_id: str) -> Dict[str, Any]:
@@ -230,7 +224,6 @@ class EconomyManager:
         config: Optional[Dict[str, Any]] = None,
         account: Optional[Dict[str, Any]] = None,
     ) -> EconomyResult:
-        """Перевіряє кулдаун. Приймає pre-fetched config/account щоб уникнути зайвих DB-запитів."""
         if config is None:
             config = await self.get_config()
         cooldowns = config.get("cooldowns", self.DEFAULT_CONFIG["cooldowns"])
@@ -263,7 +256,6 @@ class EconomyManager:
         *,
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Оновлює кулдаун. Приймає pre-fetched config щоб уникнути зайвого DB-запиту."""
         now = self.time.now()
         if config is None:
             config = await self.get_config()
@@ -295,10 +287,6 @@ class EconomyManager:
         guild_id: str,
         command: str,
     ) -> tuple[EconomyResult, Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
-        """
-        Перевіряє і оновлює кулдаун за один DB-цикл.
-        Повертає (result, config, account) — можна використовувати далі без зайвих запитів.
-        """
         config = await self.get_config()
         account = await self.get_account(user_id, guild_id)
         result = await self.check_cooldown(user_id, guild_id, command, config=config, account=account)

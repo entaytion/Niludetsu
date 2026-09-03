@@ -17,7 +17,6 @@ from Niludetsu.quests.definitions import (
 _time = TimeService()
 
 class QuestProgress:
-    """Прогрес одного квеста юзера."""
     __slots__ = ("quest", "progress", "completed", "reward_claimed", "resets_at")
 
     def __init__(
@@ -39,7 +38,6 @@ class QuestProgress:
         return self.completed and not self.reward_claimed
 
 class QuestManager:
-    """Управление квестами. Оптимизировано под Neon (атомарные операции)."""
 
     def __init__(self, db=None):
         self.db = db or database
@@ -53,11 +51,9 @@ class QuestManager:
         return now.add(days=1).start_of("day")
 
     async def _ensure_active_quests(self, user_id: str, guild_id: str) -> List[Dict[str, Any]]:
-        """Гарантує наявність активних квестів. Робить це максимально ефективно."""
         rows = await self.db.get_user_quests(user_id, guild_id)
         now = _time.now()
         
-        # Фильтруем живые квесты
         active_rows = [r for r in rows if r["resets_at"] > now]
         
         daily = [r for r in active_rows if (q := get_quest_by_key(r["quest_key"])) and q["reset"] == "daily"]
@@ -83,7 +79,6 @@ class QuestManager:
                 })
 
         if to_add:
-            # Чистим старые квесты и добавляем новые одним махом
             await self.db._neon.execute(
                 "DELETE FROM public.user_quests WHERE user_id = $1 AND guild_id = $2 AND resets_at <= $3",
                 str(user_id), str(guild_id), now
@@ -108,9 +103,6 @@ class QuestManager:
         return result
 
     async def increment_progress(self, user_id: str, guild_id: str, quest_type: str, amount: int = 1) -> None:
-        """Атомарный инкремент прогресса прямо в БД."""
-        # Мы не знаем goals всех квестов в SQL без джойнов, 
-        # поэтому сначала получим активные квесты этого типа.
         rows = await self._ensure_active_quests(user_id, guild_id)
         
         target_quests = []

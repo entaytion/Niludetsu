@@ -4,7 +4,6 @@ from ..tools.Emojis import Emojis
 from Niludetsu.webhooks.base import BaseLogger
 
 class WebhookLogger(BaseLogger):
-    """Логгер для действий с вебхуками."""
 
     async def log_webhook_create(self, log_channel: discord.TextChannel, channel: discord.TextChannel, webhook: discord.Webhook):
         t = _(guild_id=channel.guild.id, bot=self.bot)
@@ -41,7 +40,6 @@ class WebhookLogger(BaseLogger):
         after_avatar_url = after.avatar.url if after.avatar else None
         if before_avatar_url != after_avatar_url:
             changes.append(f"- {t('audit_log', 'field_avatar')}: {t('audit_log', 'changed')}")
-        # Sapphire: Webhook Channel Update
         before_ch = getattr(before, 'channel_id', None)
         after_ch = getattr(after, 'channel_id', None)
         if before_ch and after_ch and before_ch != after_ch:

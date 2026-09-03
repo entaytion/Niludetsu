@@ -5,7 +5,6 @@ from Niludetsu.locale import _
 from Niludetsu.webhooks.base import BaseLogger
 
 class ReactionLogger(BaseLogger):
-    """Логгер для событий реакций (добавление, удаление, очистка)."""
 
     async def log_reaction_add(self, log_channel: discord.TextChannel, payload: discord.RawReactionActionEvent, message: discord.Message, user: discord.User):
         t = _(guild_id=log_channel.guild.id, bot=self.bot)
@@ -42,7 +41,6 @@ class ReactionLogger(BaseLogger):
         )
 
     async def log_reaction_clear(self, log_channel: discord.TextChannel, payload):
-        """Sapphire: очистка всех реакций с сообщения."""
         t = _(guild_id=log_channel.guild.id, bot=self.bot)
         description = (
             f"**{t('audit_log', 'field_channel')}:** <#{payload.channel_id}>\n"
@@ -56,7 +54,6 @@ class ReactionLogger(BaseLogger):
         )
 
     async def log_reaction_clear_emoji(self, log_channel: discord.TextChannel, payload):
-        """Sapphire: очистка реакций конкретного эмодзи."""
         t = _(guild_id=log_channel.guild.id, bot=self.bot)
         description = (
             f"**{t('audit_log', 'field_channel')}:** <#{payload.channel_id}>\n"

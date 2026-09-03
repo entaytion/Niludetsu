@@ -10,7 +10,6 @@ from Niludetsu.locale import _
 _time = TimeService()
 
 class MuteSystem(commands.Cog):
-    """Команды управления мутами."""
 
     def __init__(self, bot):
         self.bot = bot

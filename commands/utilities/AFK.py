@@ -7,17 +7,14 @@ from typing import Dict, Optional, Tuple
 
 
 class AFK(commands.Cog):
-    """Система AFK — кеш в памяти, без обращений к БД."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        # {(user_id, guild_id): (reason, timestamp)}
         self._afk: Dict[Tuple[int, int], Tuple[str, float]] = {}
 
     def _key(self, user_id: int, guild_id: int) -> Tuple[int, int]:
         return user_id, guild_id
 
-    # ── команда ──
 
     @commands.hybrid_command(
         name="afk",
@@ -50,7 +47,6 @@ class AFK(commands.Cog):
             mention_author=False,
         )
 
-    # ── listener ──
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
@@ -60,7 +56,6 @@ class AFK(commands.Cog):
         t = _(guild_id=message.guild.id, bot=self.bot)
         guild_id = message.guild.id
 
-        # Если автор в AFK — снимаем
         author_key = self._key(message.author.id, guild_id)
         if author_key in self._afk:
             _, went_afk_at = self._afk.pop(author_key)
@@ -77,7 +72,6 @@ class AFK(commands.Cog):
             except discord.HTTPException:
                 pass
 
-        # Если кто-то пинганул AFK юзера
         if not message.mentions:
             return
 

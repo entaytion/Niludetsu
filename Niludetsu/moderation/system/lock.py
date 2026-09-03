@@ -10,7 +10,6 @@ from Niludetsu.moderation.exceptions import ModerationError
 from typing import List, Optional, Tuple
 
 class LockSystem:
-    """Система управления блокировкой каналов."""
 
     def __init__(self, bot):
         self.bot = bot
@@ -23,32 +22,10 @@ class LockSystem:
         reason: str = "Не указана",
         for_all: bool = False
     ) -> List[Tuple[int, int]]:
-        """
-        Блокирует канал(ы) для отправки сообщений.
-
-        Parameters
-        ----------
-        guild : discord.Guild
-            Сервер
-        moderator : discord.Member
-            Модератор
-        channel : Optional[discord.TextChannel]
-            Канал для блокировки (если None и for_all=False, не блокирует ничего)
-        reason : str
-            Причина блокировки
-        for_all : bool
-            Заблокировать все текстовые каналы
-
-        Returns
-        -------
-        List[Tuple[int, int]]
-            Список (channel_id, message_id) для сообщений-уведомлений
-        """
 
         channels_to_lock = []
 
         if for_all:
-            # Блокируем все текстовые каналы, где есть права
             channels_to_lock = [
                 c for c in guild.text_channels
                 if c.permissions_for(guild.me).manage_channels
@@ -56,7 +33,6 @@ class LockSystem:
             if not channels_to_lock:
                 raise ModerationError("Нет доступных каналов для блокировки!")
         elif channel:
-            # Блокируем конкретный канал
             if not channel.permissions_for(guild.me).manage_channels:
                 raise ModerationError(f"У меня нет прав на управление каналом {channel.mention}!")
             channels_to_lock = [channel]
@@ -68,14 +44,12 @@ class LockSystem:
 
         for ch in channels_to_lock:
             try:
-                # Убираем право отправки сообщений для @everyone
                 await ch.set_permissions(
                     everyone_role,
                     send_messages=False,
                     reason=f"Канал заблокирован {moderator} ({moderator.id}): {reason}"
                 )
 
-                # Отправляем сообщение-уведомление
                 lock_embed = Embed(
                     title="🔒 Канал заблокирован",
                     description=(
@@ -88,7 +62,6 @@ class LockSystem:
                 lock_message_ids.append((ch.id, lock_msg.id))
 
             except discord.Forbidden:
-                # Пропускаем каналы без прав
                 continue
             except Exception as e:
                 print(f"Ошибка блокировки канала {ch.name}: {e}")
@@ -113,34 +86,10 @@ class LockSystem:
         for_all: bool = False,
         lock_message_ids: Optional[List[Tuple[int, int]]] = None
     ) -> bool:
-        """
-        Разблокирует канал(ы) для отправки сообщений.
-
-        Parameters
-        ----------
-        guild : discord.Guild
-            Сервер
-        moderator : discord.Member
-            Модератор
-        channel : Optional[discord.TextChannel]
-            Канал для разблокировки
-        reason : str
-            Причина разблокировки
-        for_all : bool
-            Разблокировать все текстовые каналы
-        lock_message_ids : Optional[List[Tuple[int, int]]]
-            Список (channel_id, message_id) для удаления сообщений-уведомлений
-
-        Returns
-        -------
-        bool
-            True если успешно
-        """
 
         channels_to_unlock = []
 
         if for_all:
-            # Разблокируем все текстовые каналы
             channels_to_unlock = [
                 c for c in guild.text_channels
                 if c.permissions_for(guild.me).manage_channels
@@ -148,7 +97,6 @@ class LockSystem:
             if not channels_to_unlock:
                 raise ModerationError("Нет доступных каналов для разблокировки!")
         elif channel:
-            # Разблокируем конкретный канал
             if not channel.permissions_for(guild.me).manage_channels:
                 raise ModerationError(f"У меня нет прав на управление каналом {channel.mention}!")
             channels_to_unlock = [channel]
@@ -159,10 +107,9 @@ class LockSystem:
 
         for ch in channels_to_unlock:
             try:
-                # Восстанавливаем право отправки сообщений для @everyone
                 await ch.set_permissions(
                     everyone_role,
-                    send_messages=None,  # None = сбрасываем override
+                    send_messages=None,
                     reason=f"Канал разблокирован {moderator} ({moderator.id}): {reason}"
                 )
             except discord.Forbidden:
@@ -179,11 +126,11 @@ class LockSystem:
                         msg = await ch.fetch_message(msg_id)
                         await msg.delete()
                     except discord.NotFound:
-                        pass  # Сообщение уже удалено
+                        pass
                     except discord.Forbidden:
-                        pass  # Нет прав на удаление
+                        pass
                     except Exception:
-                        pass  # Игнорируем другие ошибки
+                        pass
 
         await self._log_lock_action(
             guild=guild,
@@ -203,22 +150,6 @@ class LockSystem:
         reason: str,
         action: str
     ) -> None:
-        """
-        Логирует действие блокировки/разблокировки в канал модерации.
-
-        Parameters
-        ----------
-        guild : discord.Guild
-            Сервер
-        moderator : discord.Member
-            Модератор
-        channels : List[discord.TextChannel]
-            Список каналов
-        reason : str
-            Причина
-        action : str
-            "lock" или "unlock"
-        """
         channels_str = ", ".join([ch.mention for ch in channels])
         action_text = "🔒 Каналы заблокированы" if action == "lock" else "🔓 Каналы разблокированы"
 
@@ -236,26 +167,22 @@ class LockSystem:
             icon_url=guild.icon.url if guild.icon else None
         )
 
-        # Ищем канал для логов
         log_channel = None
 
-        # Сначала пробуем NOTIFICATION_CHANNEL_ID из конфига
         if config.NOTIFICATION_CHANNEL_ID:
             log_channel = guild.get_channel(int(config.NOTIFICATION_CHANNEL_ID))
 
-        # Если не нашли, ищем канал "mod-logs" или "модерация"
         if not log_channel:
             log_channel = discord.utils.get(
                 guild.text_channels,
                 name__in=["mod-logs", "модерация", "logs"]
             )
 
-        # Отправляем лог
         if log_channel:
             try:
                 await log_channel.send(embed=embed)
             except discord.Forbidden:
-                pass  # Нет прав на отправку
+                pass
             except Exception:
-                pass  # Игнорируем ошибки
+                pass
 

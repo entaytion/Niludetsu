@@ -7,7 +7,6 @@ from Niludetsu.moderation.system.lock import LockSystem as NiludetsuLockSystem
 from Niludetsu.locale import _
 
 class LockSystem(commands.Cog):
-    """Команды управления блокировкой каналов."""
 
     def __init__(self, bot):
         self.bot = bot

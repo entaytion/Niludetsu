@@ -11,7 +11,6 @@ B = DEFAULT_LOCALE.get("bump", {})
 
 
 class MonitoringBotsManager:
-    """Управление ботами мониторинга и их настройками"""
 
     BUMP_COMMANDS = {
         302050872383242240: "</bump:947088344167366698>",
@@ -84,7 +83,6 @@ class MonitoringBotsManager:
 
 
 def _extract_content(message: discord.Message) -> str:
-    """Збирає текст з content + всіх embed-ів повідомлення."""
     content = (message.content or "").lower()
     if message.embeds:
         for emb in message.embeds:
@@ -105,7 +103,6 @@ class BumpProcessor:
         self.processing_messages: Dict[int, asyncio.Task] = {}
         self.quest_tracker = QuestTracker()
 
-    # ── Парсеры ────────────────────────────────────────────────
 
     def parse_discord_timestamp(self, content: str):
         match = re.search(r"<t:(\d+):", content)
@@ -116,10 +113,8 @@ class BumpProcessor:
                 pass
         return None
 
-    # ── Хендлери бампів (кожен бот зі своєю логікою) ──────────
 
     def _handle_dsgroup(self, message: discord.Message):
-        """DSGroup (1059103014025171014) — специфічна логіка."""
         bot_config = self.bots_manager.get_bot(1059103014025171014)
         if not message.content and not message.embeds:
             return _time.add_duration(_time.now(), hours=bot_config["delay"])
@@ -146,7 +141,6 @@ class BumpProcessor:
         return None
 
     def _handle_sdc_monitoring(self, message: discord.Message):
-        """SD.C Monitoring (464272403766444044)."""
         bot_config = self.bots_manager.get_bot(464272403766444044)
         content = _extract_content(message)
         if "время фиксации апа" in content:
@@ -164,7 +158,6 @@ class BumpProcessor:
         return None
 
     def _handle_server_monitoring(self, message: discord.Message):
-        """Server Monitoring (315926021457051650) — embed title."""
         bot_config = self.bots_manager.get_bot(315926021457051650)
         if not message.embeds:
             return None
@@ -174,7 +167,6 @@ class BumpProcessor:
         return None
 
     def _handle_bumping(self, message: discord.Message):
-        """BumPing (1327714529223901186)."""
         bot_config = self.bots_manager.get_bot(1327714529223901186)
         content = _extract_content(message)
         if "сервер успешно бампнут" in content or "bump done" in content:
@@ -182,7 +174,6 @@ class BumpProcessor:
         return None
 
     def _handle_autopartnership(self, message: discord.Message):
-        """AutoPartnership (789751844821401630)."""
         bot_config = self.bots_manager.get_bot(789751844821401630)
         if not message.embeds:
             return None
@@ -193,7 +184,6 @@ class BumpProcessor:
                 return _time.add_duration(_time.now(), hours=bot_config["delay"])
         return None
 
-    # Карта: bot_id → метод-хендлер
     _SPECIAL_HANDLERS: Dict[int, Callable] = {}
 
     @classmethod
@@ -209,7 +199,6 @@ class BumpProcessor:
         }
 
     def process_bump_message(self, message: discord.Message):
-        """Визначає час наступного бампу з повідомлення."""
         bot_id = message.author.id
         bot_config = self.bots_manager.get_bot(bot_id)
         if not bot_config:
@@ -222,14 +211,12 @@ class BumpProcessor:
             if result is not None:
                 return result
 
-        # Загальний fallback — success_patterns з конфігу бота
         content = _extract_content(message)
         for pattern in bot_config["success_patterns"]:
             if pattern and re.search(pattern, content):
                 return _time.add_duration(_time.now(), hours=bot_config["delay"])
         return None
 
-    # ── Решта методів без змін ─────────────────────────────────
 
     async def update_bump_time(self, bot_id: int, guild_id: int, next_bump):
         bot_config = self.bots_manager.get_bot(bot_id)

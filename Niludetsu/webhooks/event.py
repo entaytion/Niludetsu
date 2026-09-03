@@ -6,7 +6,6 @@ from Niludetsu.webhooks.base import BaseLogger
 
 
 class EventLogger(BaseLogger):
-    """Логгер для Scheduled Events."""
 
     async def log_scheduled_event_create(self, channel: discord.TextChannel, event: discord.ScheduledEvent):
         t = _(guild_id=channel.guild.id, bot=self.bot)

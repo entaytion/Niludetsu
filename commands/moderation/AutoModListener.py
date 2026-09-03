@@ -1,8 +1,3 @@
-"""
-Слухач автомодерації.
-Завантажує активні правила через AutoModManager (вже з кешем)
-і послідовно перевіряє кожне повідомлення.
-"""
 from __future__ import annotations
 
 import discord
@@ -15,7 +10,6 @@ MAIN_GUILD = config.SERVERS["MAIN_ID"]
 
 
 class AutoModListener(commands.Cog):
-    """Слухач подій автомодерації."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -23,10 +17,8 @@ class AutoModListener(commands.Cog):
         self.mod = ModerationManager(bot)
 
     def invalidate_cache(self) -> None:
-        """Примусово скидає кеш (викликається з UI після зміни налаштувань)."""
         self.automod.invalidate()
 
-    # ── Публічний метод для зовнішніх перевірок (Analytics і т.д.) ───────────
 
     async def check_message_violations(self, message: discord.Message) -> bool:
         rules = await self.automod.build_active_rules()
@@ -36,7 +28,6 @@ class AutoModListener(commands.Cog):
                 return True
         return False
 
-    # ── Listener ──────────────────────────────────────────────────────────────
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
@@ -53,7 +44,6 @@ class AutoModListener(commands.Cog):
             if not await rule.check(message, http_session=session):
                 continue
 
-            # Нарушення знайдено
             await safe_delete(message)
 
             if rule.rule_type == AutoModRuleType.INVITES:
@@ -63,7 +53,7 @@ class AutoModListener(commands.Cog):
                 reason = f"Автомод: {rule.rule_type.label}"
                 await self.mod.warn(message.guild, message.author, message.guild.me, reason)
 
-            break  # одне покарання за повідомлення
+            break
 
 
 async def setup(bot: commands.Bot) -> None:

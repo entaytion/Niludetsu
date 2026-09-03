@@ -5,7 +5,6 @@ from Niludetsu import send
 from Niludetsu.locale import _
 
 class AmnistiaCog(commands.Cog):
-    """Команда массового разбана всех забаненных пользователей."""
 
     def __init__(self, bot):
         self.bot = bot

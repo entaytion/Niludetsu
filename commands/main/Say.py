@@ -18,19 +18,17 @@ def _parse_color(color_str: Optional[str]) -> Optional[int]:
             return int(s[1:], 16)
         if s.startswith("0x"):
             return int(s, 16)
-        # allow plain int or decimal string
         return int(s, 10)
     except Exception:
         return None
 
 class Say(commands.Cog):
-    """Developer-only say command to send messages/embeds."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @app_commands.command(name="say", description="🛡️ Отправить сообщение или эмбед от имени бота (только владелец)")
-    @app_commands.guilds(config.SERVERS["MAIN_ID"])  # ускоряет обновление структуры команды
+    @app_commands.guilds(config.SERVERS["MAIN_ID"])
     @_owner_only()
     @app_commands.describe(
         title="Заголовок эмбеда (обязательно)",
@@ -62,12 +60,10 @@ class Say(commands.Cog):
         timestamp: Optional[bool] = False,
         channel: Optional[discord.TextChannel] = None,
     ):
-        """Send an embed (required title, description, color) as the bot. Only OWNER_ID can use it."""
         target = channel or interaction.channel
         if not isinstance(target, (discord.TextChannel, discord.Thread, discord.ForumChannel)):
             return await interaction.response.send_message("Эту команду можно использовать только в текстовых каналах/ветках.", ephemeral=True)
 
-        # Build embed with required fields
         color_value = _parse_color(color)
         if color_value is None:
             return await interaction.response.send_message("Некорректный цвет. Используйте #RRGGBB, 0xRRGGBB или число.", ephemeral=True)

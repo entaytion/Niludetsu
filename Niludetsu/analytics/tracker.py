@@ -21,7 +21,6 @@ class VoiceState:
     joined_at_iso: str
 
 class AnalyticsTracker:
-    """Оптимізований трекер: буферизує повідомлення для зменшення навантаження на БД."""
 
     def __init__(self, bot: discord.Client, *, main_guild_id: Optional[int] = None) -> None:
         self.bot = bot
@@ -29,11 +28,9 @@ class AnalyticsTracker:
         self.repo = AnalyticsRepository()
         self.voice_states: Dict[int, VoiceState] = {}
         
-        # Буфер повідомлень: (guild_id, user_id, channel_id) -> count
         self._msg_buffer: Dict[Tuple[str, str, str], int] = {}
         self._buffer_lock = asyncio.Lock()
         
-        # Запуск періодичних задач
         self.flush_tasks.start()
         
         self.quest_tracker = QuestTracker()
@@ -52,7 +49,6 @@ class AnalyticsTracker:
 
     @tasks.loop(seconds=30)
     async def flush_tasks(self) -> None:
-        """Скидає буфери повідомлень та оновлює голосові сесії."""
         await asyncio.gather(
             self._flush_messages(),
             self._flush_voice()
@@ -148,7 +144,6 @@ class AnalyticsTracker:
         state.joined_at_ts = now_ts
         state.joined_at_iso = now_iso
         
-        # Квести
         accum = self._voice_quest_accum.get(member.id, 0) + seconds
         minutes = accum // 60
         if minutes > 0:

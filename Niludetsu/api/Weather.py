@@ -19,7 +19,6 @@ class WeatherAPI:
 
         self.base_url = "http://api.openweathermap.org/data/2.5/weather"
 
-        # Компактная коллекция иконок погоды
         self.weather_icons = {
             "01d": "☀️", "01n": "🌙", "02d": "🌤️", "02n": "☁️",
             "03d": "☁️", "03n": "☁️", "04d": "☁️", "04n": "☁️",
@@ -28,7 +27,6 @@ class WeatherAPI:
             "50d": "🌫️", "50n": "🌫️"
         }
 
-        # Флаги стран для красивого отображения
         self.country_flags = {
             'UA': '🇺🇦', 'RU': '🇷🇺', 'US': '🇺🇸', 'GB': '🇬🇧',
             'FR': '🇫🇷', 'DE': '🇩🇪', 'JP': '🇯🇵', 'CN': '🇨🇳',
@@ -36,21 +34,18 @@ class WeatherAPI:
         }
 
     def get_weather_icon(self, icon_code: str) -> str:
-        """Получение эмодзи иконки погоды"""
         return self.weather_icons.get(icon_code, "🌍")
 
     def get_temperature_color(self, temp: float) -> int:
-        """Получение цвета эмбеда в зависимости от температуры"""
-        if temp >= 30:    return 0xFF4444  # Красный
-        elif temp >= 25:  return 0xFF6B35  # Оранжевый  
-        elif temp >= 20:  return 0xFFD700  # Золотой
-        elif temp >= 15:  return 0x4CAF50  # Зеленый
-        elif temp >= 10:  return 0x2196F3  # Синий
-        elif temp >= 0:   return 0x9C27B0  # Фиолетовый
-        else:             return 0x607D8B  # Серый
+        if temp >= 30:    return 0xFF4444
+        elif temp >= 25:  return 0xFF6B35
+        elif temp >= 20:  return 0xFFD700
+        elif temp >= 15:  return 0x4CAF50
+        elif temp >= 10:  return 0x2196F3
+        elif temp >= 0:   return 0x9C27B0
+        else:             return 0x607D8B
 
     def get_wind_description(self, speed: float) -> str:
-        """Получение описания силы ветра"""
         if speed < 1.6:    return "🍃 Тихий"
         elif speed < 3.4:  return "💨 Легкий"
         elif speed < 5.5:  return "💨 Слабый"
@@ -60,7 +55,6 @@ class WeatherAPI:
         else:              return "🌪️ Очень сильный"
 
     async def get_weather(self, city: str) -> Optional[Dict]:
-        """Получение текущей погоды для города"""
         params = {
             'q': city,
             'appid': self.api_key,
@@ -76,7 +70,6 @@ class WeatherAPI:
             return None
 
     def format_weather_data(self, data: Dict) -> Dict:
-        """Форматирование данных о погоде"""
         return {
             'temp': round(data['main']['temp'], 1),
             'feels_like': round(data['main']['feels_like'], 1),
@@ -94,25 +87,20 @@ class WeatherAPI:
         }
 
     def create_weather_embed(self, weather_data: Dict[str, Any], t) -> Embed:
-        """Создает красивый эмбед с информацией о погоде"""
 
-        # Парсим время
         sunrise_time = weather_data['sunrise'].split(' ')[1][:5] if isinstance(weather_data['sunrise'], str) else t("api_weather", "na")
         sunset_time = weather_data['sunset'].split(' ')[1][:5] if isinstance(weather_data['sunset'], str) else t("api_weather", "na")
 
-        # Цвет и флаг
         color = self.get_temperature_color(weather_data['temp'])
         flag = self.country_flags.get(weather_data.get('country', ''), '🌍')
         wind_desc = self.get_wind_description(weather_data['wind_speed'])
 
-        # Создаем эмбед
         embed = Embed(
             title=t("api_weather", "title", flag=flag, city=weather_data['city_name']),
             description=f"{weather_data['icon']} **{weather_data['description'].capitalize()}**\n## 🌡️ {weather_data['temp']}°C\n*{t('api_weather', 'feels_like', temp=weather_data['feels_like'])}*",
             color=color
         )
 
-        # Поля с информацией
         embed.add_field(
             name=t("api_weather", "atmosphere"),
             value=f"💧 **{weather_data['humidity']}%** {t('api_weather', 'humidity')}\n📈 **{weather_data['pressure']}** {t('api_weather', 'pressure')}",
@@ -137,20 +125,17 @@ class WeatherAPI:
             inline=False
         )
 
-        # Thumbnail и footer
         embed.set_thumbnail(url=f"http://openweathermap.org/img/wn/{weather_data['icon_code']}@2x.png")
         embed.set_footer(text=t("api_weather", "footer"))
 
         return embed
 
     async def get_weather_info(self, ctx, city: str):
-        """Получает и отображает информацию о погоде"""
         t = _(ctx=ctx)
         
         if not city:
             return await ctx.reply(embed=Embed.error(description=t("api_weather", "specify_city")))
 
-        # Индикатор загрузки
         loading_embed = Embed(title="🔄 Загрузка...", description=f"{t('api_weather', 'fetch_info', city=city)}", color=0x2196F3)
         message = await ctx.reply(embed=loading_embed)
 
@@ -170,6 +155,5 @@ class WeatherAPI:
             error_embed = Embed.error(description=t("api_weather", "generic_error"))
             await message.edit(embed=error_embed)
 
-# Глобальный экземпляр
 weather_api = WeatherAPI()
 

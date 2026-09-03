@@ -42,7 +42,6 @@ class Database(EconomyMixin, SocialMixin, AnalyticsMixin, QuestsMixin, ShopMixin
             if cached and (time.time() - cached[1] < self._cache_ttl):
                 return cached[0]
 
-        # Створюємо відсутні рядки без зайвих no-op update, а потім читаємо bundle одним запитом.
         query = """
             WITH ensure_user AS (
                 INSERT INTO public.users (user_id, guild_id)
@@ -81,7 +80,7 @@ class Database(EconomyMixin, SocialMixin, AnalyticsMixin, QuestsMixin, ShopMixin
         """
         
         row = await self._neon.fetchrow(query, str(user_id), str(guild_id))
-        if not row: return {} # Не повинно статися
+        if not row: return {}
 
         bundle = {
             "core": self._ensure_dict(row["core"]),
@@ -182,10 +181,6 @@ class Database(EconomyMixin, SocialMixin, AnalyticsMixin, QuestsMixin, ShopMixin
                 self._user_cache[key] = (bundle, timestamp)
 
     async def setup_tables(self) -> None:
-        """
-        Створює таблиці для Premium-кастомізації, якщо їх ще немає.
-        Викликається один раз при старті бота.
-        """
         await self._neon.execute("""
             CREATE TABLE IF NOT EXISTS public.custom_messages (
                 guild_id  TEXT NOT NULL,

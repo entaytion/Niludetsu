@@ -208,12 +208,10 @@ class EditUserModal(discord.ui.Modal, title="Редактировать поль
         self.profile_data = profile_data
         self.user_id = user_id
 
-        # Данные из user_economy
         self.money.default = str((economy_data.get('balance') or 0) if economy_data else 0)
         self.deposit.default = str((economy_data.get('deposit') or 0) if economy_data else 0)
         self.love_deposit.default = str((economy_data.get('spousal_balance') or 0) if economy_data else 0)
 
-        # Данные из user_profile (level и experience)
         self.level.default = str(profile_data.get('level', 1) if profile_data else 1)
         self.xp.default = str(profile_data.get('experience', 0) if profile_data else 0)
 
@@ -363,7 +361,6 @@ class PanelCog(commands.Cog, name="Панель администратора"):
 
     @staticmethod
     async def log_change(bot, moderator, user_id, changes, guild_id):
-        """Логирование изменений в админ-панели с отображением старых → новых значений"""
         if not hasattr(config, 'NOTIFICATION_CHANNEL_ID'):
             return
 
@@ -380,7 +377,6 @@ class PanelCog(commands.Cog, name="Панель администратора"):
             description=f"**Модератор:** {moderator.mention}\n**Пользователь:** {user_mention}",
         )
 
-        # Добавляем поля с изменениями
         for field, (old_val, new_val) in changes.items():
             field_name = _FIELD_NAMES.get(field, field.capitalize())
             embed.add_field(

@@ -14,7 +14,6 @@ EMOJI_INFO = "🔍"
 EMOJI_SYNC = "🔄"
 EMOJI_FOLDER = "📁"
 
-# ── Сlash sync hash (уникаємо API-запитів якщо дерево не змінилося) ─
 _last_sync_hash: int = 0
 
 EMOJI_SUCCESS = "✅"
@@ -97,9 +96,6 @@ class LoadSummary:
         print(f"{EMOJI_INFO} Итог: {self.loaded}/{self.total} загружено, {self.failed} не удалось, {self.skipped} пропущено.")
 
 class Loader:
-    """
-    Универсальный загрузчик расширений и синхронизатор slash-команд.
-    """
 
     def __init__(
         self,
@@ -114,7 +110,7 @@ class Loader:
         self.recursive = recursive
         self.project_root = Path(__file__).resolve().parents[2]
         self.summary = LoadSummary()
-        self.show_first_n = show_first_n  # сколько успешных загрузок показывать сразу
+        self.show_first_n = show_first_n
         self._loaded_shown = 0
         self._loaded_modules: list[str] = []
 
@@ -148,7 +144,6 @@ class Loader:
             print(f"{EMOJI_SUCCESS} ... и ещё {remaining} расширений загружено без вывода.")
 
     async def sync_interactions(self) -> None:
-        # Пропускаємо синхронізацію якщо набір модулів не змінився
         current_hash = hash(tuple(sorted(self._loaded_modules))) if self._loaded_modules else 0
         global _last_sync_hash
         if current_hash and current_hash == _last_sync_hash:

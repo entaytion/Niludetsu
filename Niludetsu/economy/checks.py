@@ -6,7 +6,6 @@ from Niludetsu import Exceptions
 
 
 class ParseAmount(Check):
-    """Парсит строковый параметр в int, кладёт результат в data["amount"]."""
 
     def __init__(self, param: str = "bet"):
         self.param = param
@@ -33,7 +32,6 @@ class ParseAmount(Check):
 
 
 class EnsureBalance(Check):
-    """Проверяет что wallet >= data["amount"]."""
 
     async def run(self, ctx, data: dict) -> dict:
         cog = data["cog"]
@@ -48,7 +46,6 @@ class EnsureBalance(Check):
 
 
 class DeductMoney(Check):
-    """Снимает data["amount"] с кошелька автора."""
 
     def __init__(self, event: str = ""):
         self.event = event
@@ -63,7 +60,6 @@ class DeductMoney(Check):
             user_id, guild_id, amount, event=self.event
         )
         if not removed:
-            # Если есть активная игра — снимаем блокировку
             game_name = data.get("_game_name")
             if game_name:
                 await cog.validator.release_game(game_name, user_id, guild_id)
@@ -72,7 +68,6 @@ class DeductMoney(Check):
 
 
 class CheckCooldown(Check):
-    """Проверяет кулдаун команды."""
 
     DEFAULT_MESSAGES = {
         "daily": "Вы уже забирали ежедневную награду, поэтому подождите ещё",
@@ -104,7 +99,6 @@ class CheckCooldown(Check):
 
 
 class UpdateCooldown(Check):
-    """Ставит кулдаун (вызывается после основных проверок)."""
 
     def __init__(self, command: str):
         self.command = command
@@ -119,7 +113,6 @@ class UpdateCooldown(Check):
 
 
 class ClaimGame(Check):
-    """Блокирует мультисессию. Кладёт имя игры в data["_game_name"]."""
 
     def __init__(self, name: str):
         self.name = name
@@ -139,7 +132,6 @@ class ClaimGame(Check):
 
 
 class NotSelf(Check):
-    """Проверяет что ctx.author != data["member"]."""
 
     def __init__(self, error_message: str = "Нельзя выбрать самого себя"):
         self.error_message = error_message
@@ -152,7 +144,6 @@ class NotSelf(Check):
 
 
 class NotBot(Check):
-    """Проверяет что data["member"] не бот."""
 
     def __init__(self, error_message: str = "Нельзя выбрать бота"):
         self.error_message = error_message

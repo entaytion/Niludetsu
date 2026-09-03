@@ -11,7 +11,6 @@ from typing import Optional, Union
 _time = TimeService()
 
 class BanSystemCog(commands.Cog):
-    """Команды управления банами."""
 
     def __init__(self, bot):
         self.bot = bot

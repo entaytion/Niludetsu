@@ -11,7 +11,6 @@ from typing import Optional
 _time = TimeService()
 
 class WarnSystemCog(commands.Cog):
-    """Команды системы предупреждений."""
 
     def __init__(self, bot):
         self.bot = bot

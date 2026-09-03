@@ -1,4 +1,3 @@
-"""Модуль временных голосовых каналов"""
 
 from Niludetsu.temprooms.cache import TempRoomCache
 from Niludetsu.temprooms.repository import TempRoomsRepository

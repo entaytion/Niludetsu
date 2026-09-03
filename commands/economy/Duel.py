@@ -42,7 +42,6 @@ class Duel(commands.Cog):
         val = int(bet) if bet.isdigit() else 0
         gid = str(ctx.guild.id)
         
-        # Проверка балансов
         for p in (ctx.author, member):
             acc = await self.economy.get_account(str(p.id), gid)
             if acc["balance"] < val: return await ctx.reply(t("duel", "insufficient", name=p.display_name), ephemeral=True)
@@ -54,13 +53,11 @@ class Duel(commands.Cog):
         if view.accepted is None: return await msg.edit(content=t("duel", "timeout"), view=None)
         if view.accepted is False: return await msg.edit(content=t("duel", "declined"), view=None)
 
-        # Списание ставок атомарно
         if val > 0:
             res1 = await self.economy.remove_money(str(ctx.author.id), gid, val, event="duel_bet")
             res2 = await self.economy.remove_money(str(member.id), gid, val, event="duel_bet")
             
             if res1.status != "success" or res2.status != "success":
-                # Возвращаем ставки, если кто-то успел потратить
                 if res1.status == "success": 
                     await self.economy.add_money(str(ctx.author.id), gid, val, event="duel_refund", share_spousal=False)
                 if res2.status == "success": 

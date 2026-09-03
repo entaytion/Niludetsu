@@ -10,12 +10,10 @@ from Niludetsu.moderation.exceptions import ModerationError
 from typing import Optional, List, Tuple
 
 class MassRoleSystem:
-    """Система массовой выдачи/снятия ролей."""
 
     def __init__(self, bot):
         self.bot = bot
 
-        # Опасные права доступа
         self.dangerous_perms = [
             "administrator", "manage_guild", "manage_roles", "manage_channels",
             "ban_members", "kick_members", "manage_webhooks", "mention_everyone",
@@ -24,7 +22,6 @@ class MassRoleSystem:
             "move_members", "mute_members", "deafen_members"
         ]
 
-        # Переводы прав на русский
         self.perm_translations = {
             "administrator": "Администратор",
             "manage_guild": "Управление сервером",
@@ -46,19 +43,6 @@ class MassRoleSystem:
         }
 
     def has_dangerous_permissions(self, role: discord.Role) -> Tuple[bool, List[str]]:
-        """
-        Проверяет, содержит ли роль опасные права доступа.
-
-        Parameters
-        ----------
-        role : discord.Role
-            Роль для проверки
-
-        Returns
-        -------
-        Tuple[bool, List[str]]
-            (имеет_опасные_права, список_опасных_прав)
-        """
         role_perms = role.permissions
         found_dangerous = []
 
@@ -75,28 +59,9 @@ class MassRoleSystem:
         moderator: discord.Member,
         role: discord.Role
     ) -> Tuple[bool, Optional[str]]:
-        """
-        Проверяет иерархию ролей.
-
-        Parameters
-        ----------
-        guild : discord.Guild
-            Сервер
-        moderator : discord.Member
-            Модератор
-        role : discord.Role
-            Роль для проверки
-
-        Returns
-        -------
-        Tuple[bool, Optional[str]]
-            (валидна, сообщение_об_ошибке)
-        """
-        # Проверка для автора команды
         if moderator.top_role <= role and moderator != guild.owner:
             return False, "Эта роль выше или равна вашей роли!"
 
-        # Проверка для бота
         if guild.me.top_role <= role:
             return False, "Эта роль выше или равна моей роли! Переместите мою роль выше в настройках сервера."
 
@@ -107,30 +72,12 @@ class MassRoleSystem:
         guild: discord.Guild,
         role: discord.Role
     ) -> Tuple[bool, Optional[str]]:
-        """
-        Базовая валидация роли.
-
-        Parameters
-        ----------
-        guild : discord.Guild
-            Сервер
-        role : discord.Role
-            Роль для проверки
-
-        Returns
-        -------
-        Tuple[bool, Optional[str]]
-            (валидна, сообщение_об_ошибке)
-        """
-        # Проверка на @everyone
         if role == guild.default_role:
             return False, "Нельзя массово назначать роль @everyone!"
 
-        # Проверка на управляемость ботом
         if role.managed:
             return False, "Эта роль управляется интеграцией (бот/буст) и не может быть назначена вручную!"
 
-        # Проверка на роль бустера
         if role.is_premium_subscriber():
             return False, "Нельзя массово назначать роль бустера сервера!"
 
@@ -144,28 +91,6 @@ class MassRoleSystem:
         action: str,
         progress_callback: Optional[callable] = None
     ) -> Tuple[int, int, List[str]]:
-        """
-        Выполняет массовую операцию с ролью.
-
-        Parameters
-        ----------
-        guild : discord.Guild
-            Сервер
-        moderator : discord.Member
-            Модератор
-        role : discord.Role
-            Роль для операции
-        action : str
-            Действие ("add" или "remove")
-        progress_callback : Optional[callable]
-            Функция для обновления прогресса (принимает processed, total)
-
-        Returns
-        -------
-        Tuple[int, int, List[str]]
-            (успешно, ошибок, список_обработанных_участников)
-        """
-        # Получаем всех участников (кроме ботов)
         members = [m for m in guild.members if not m.bot]
 
         if not members:
@@ -175,7 +100,6 @@ class MassRoleSystem:
         error_count = 0
         processed_members = []
 
-        # Обрабатываем участников батчами
         batch_size = 10
         total_batches = (len(members) + batch_size - 1) // batch_size
 
@@ -185,7 +109,6 @@ class MassRoleSystem:
             for member in batch:
                 try:
                     if action == "add":
-                        # Выдаём роль, если её нет
                         if role not in member.roles:
                             await member.add_roles(
                                 role,
@@ -194,11 +117,9 @@ class MassRoleSystem:
                             success_count += 1
                             processed_members.append(f"✅ {member.mention}")
                         else:
-                            # Роль уже есть, пропускаем
                             processed_members.append(f"⏭️ {member.mention} (уже есть)")
 
                     elif action == "remove":
-                        # Снимаем роль, если она есть
                         if role in member.roles:
                             await member.remove_roles(
                                 role,
@@ -207,7 +128,6 @@ class MassRoleSystem:
                             success_count += 1
                             processed_members.append(f"❌ {member.mention}")
                         else:
-                            # Роли нет, пропускаем
                             processed_members.append(f"⏭️ {member.mention} (нет роли)")
 
                 except discord.Forbidden:
@@ -220,11 +140,9 @@ class MassRoleSystem:
                     error_count += 1
                     processed_members.append(f"⚠️ {member.mention} (ошибка: {str(e)[:50]})")
 
-            # Вызываем callback для обновления прогресса
             if progress_callback:
                 await progress_callback(min(i + batch_size, len(members)), len(members))
 
-            # Задержка для избежания rate limit (только между батчами, не последний)
             if batch_index < total_batches:
                 await asyncio.sleep(1.0)
 
@@ -239,24 +157,6 @@ class MassRoleSystem:
         success_count: int,
         error_count: int
     ) -> None:
-        """
-        Логирует массовую операцию с ролью в канал модерации.
-
-        Parameters
-        ----------
-        guild : discord.Guild
-            Сервер
-        moderator : discord.Member
-            Модератор
-        role : discord.Role
-            Роль
-        action : str
-            Действие ("add" или "remove")
-        success_count : int
-            Количество успешных операций
-        error_count : int
-            Количество ошибок
-        """
         action_text = "🎭 Массовая выдача ролей" if action == "add" else "🎭 Массовое снятие ролей"
         action_verb = "выдана" if action == "add" else "снята"
 
@@ -276,7 +176,6 @@ class MassRoleSystem:
             icon_url=guild.icon.url if guild.icon else None
         )
 
-        # Ищем канал для логов
         log_channel = None
 
         if config.NOTIFICATION_CHANNEL_ID:

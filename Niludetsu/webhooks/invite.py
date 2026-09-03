@@ -5,7 +5,6 @@ from Niludetsu.locale import _
 from Niludetsu.webhooks.base import BaseLogger
 
 class InviteLogger(BaseLogger):
-    """Логгер для событий инвайтов."""
 
     async def log_invite_create(self, channel: discord.TextChannel, invite: discord.Invite):
         t = _(guild_id=channel.guild.id, bot=self.bot)

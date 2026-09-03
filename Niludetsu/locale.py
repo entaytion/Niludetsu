@@ -1,10 +1,4 @@
 def _(guild_id=None, ctx=None, bot=None):
-    """Повертає helper для локалізації — функцію `t(module, key, **kwargs)`.
-
-    Використання:
-        t = _(ctx=ctx)  # або _(guild_id=123, bot=bot)
-        embed.description = t("economy", "daily_success", user_mention=ctx.author.mention, amount="500")
-    """
     if ctx is not None:
         gid = ctx.guild.id if ctx.guild else 0
         b = ctx.bot if hasattr(ctx, "bot") else bot
@@ -27,7 +21,6 @@ def _(guild_id=None, ctx=None, bot=None):
     return t
 
 DEFAULT_LOCALE = {
-    # ───────── Economy ─────────
     "economy": {
         "daily_cooldown": "❌ {user_mention}, вы уже забрали свой ежедневный бонус! Попробуйте позже.",
         "daily_success": "💰 {user_mention}, вы успешно получили ежедневную награду в размере **{amount} {currency}**!",
@@ -149,7 +142,6 @@ DEFAULT_LOCALE = {
         "inventory_items": "📦 Предметы",
     },
 
-    # ───────── Moderation ─────────
     "moderation": {
         "punishment_mute": "Мут",
         "punishment_ban": "Бан",
@@ -278,7 +270,6 @@ DEFAULT_LOCALE = {
         "amnistia_reason": "Амнистия от {moderator}",
     },
 
-    # ───────── Levels ─────────
     "levels": {
         "level_up_title": "⭐ Новый уровень!",
         "level_up_message": "{user_mention}, у вас теперь **{level}** уровень!",
@@ -286,7 +277,6 @@ DEFAULT_LOCALE = {
         "level_up_chat": " Продолжайте общение в чате!",
     },
 
-    # ───────── Welcome / Goodbye ─────────
     "welcome": {
         "join_title": "👋 Добро пожаловать!",
         "join_desc": "Рады видеть тебя, {user_mention}, на {server_name}! Теперь нас **{member_count}**.",
@@ -296,13 +286,11 @@ DEFAULT_LOCALE = {
         "leave_desc": "{user_name} покинул нас. На сервере осталось **{member_count}** участников.",
     },
 
-    # ───────── Bump Reminder ─────────
     "bump": {
         "reminder_title": "⏰ Время бампать!",
         "reminder_desc": "{emoji} Можно сделать бамп на {bot_name}!",
     },
 
-    # ───────── Giveaways ─────────
     "giveaways": {
         "button_join": "🎉 Участвовать",
         "button_leave": "🚫 Отменить участие",
@@ -317,7 +305,6 @@ DEFAULT_LOCALE = {
         "ends_at": "Заканчивается",
         "entries": "Участников",
         "prize": "Приз",
-        # ── Configurator ──
         "config_title": "Настройка розыгрыша",
         "config_desc": "Заполните параметры и посмотрите предпросмотр.",
         "config_channel": "Канал",
@@ -329,11 +316,9 @@ DEFAULT_LOCALE = {
         "config_conditions": "Условия",
         "config_no_conditions": "— условия отсутствуют —",
         "config_no_description": "— описание не указано —",
-        # ── Buttons ──
         "btn_setup": "Настроить розыгрыш",
         "btn_create": "Создать",
         "btn_cancel": "Отмена",
-        # ── Errors ──
         "missing_params": "Не хватает параметров: {params}.",
         "missing_channel": "канал",
         "missing_prize": "приз",
@@ -343,30 +328,24 @@ DEFAULT_LOCALE = {
         "role_not_found_id": "Роль с таким ID не найдена.",
         "role_not_found_guild": "Роль не найдена на сервере.",
         "positive_number": "Нужно положительное число.",
-        # ── Success ──
         "created_title": "Розыгрыш создан!",
         "created_desc": "Сообщение отправлено в {channel}.",
         "creation_cancelled": "Создание отменено.",
-        # ── Modal ──
         "modal_title": "Параметры розыгрыша",
         "modal_prize_label": "Приз",
         "modal_winners_label": "Количество победителей",
         "modal_duration_label": "Длительность (например: 1d, 12h, 30m)",
         "modal_mention_label": "ID роли для упоминания (необязательно)",
         "modal_desc_label": "Описание (опционально)",
-        # ── Condition value modal ──
         "condition_value_label": "Введите число ({unit})",
         "condition_unit_days": "дни",
         "condition_unit_minutes": "минуты",
         "condition_unit_level": "уровень",
-        # ── Role modal ──
         "role_modal_title": "ID роли",
         "role_modal_label": "ID роли",
-        # ── Channel select ──
         "select_channel_placeholder": "Выберите канал для розыгрыша",
         "select_no_channels": "Текстовые каналы отсутствуют",
         "select_no_channels_available": "Нет доступных текстовых каналов.",
-        # ── Conditions select ──
         "select_conditions_placeholder": "Добавить/изменить условие",
         "condition_min_server_time": "Мин. время на сервере",
         "condition_min_voice_time": "Мин. время в голосе",
@@ -377,14 +356,12 @@ DEFAULT_LOCALE = {
         "condition_enabled": "включено",
         "condition_disabled": "отключено",
         "condition_toggled": "Условие «{label}» {state}.",
-        # ── Conditions preview ──
         "condition_days_on_server": "дн. на сервере",
         "condition_minutes_in_voice": "мин. в голосе",
         "condition_role_prefix": "Роль:",
         "condition_min_level_prefix": "Минимальный уровень:",
         "condition_booster_only_text": "Только для бустеров",
         "condition_no_revote_text": "Повторное участие запрещено",
-        # ── Participation view ──
         "participate_button": "Участвовать ({count})",
         "participants_button": "Участники",
         "determine_giveaway_error": "Не удалось определить розыгрыш.",
@@ -402,7 +379,6 @@ DEFAULT_LOCALE = {
         "conditions_reason_not_specified": "Причина не указана",
     },
 
-    # ───────── Profile ─────────
     "profile": {
         "title": "Профиль: {user_name}",
         "single": "Одиночество 💔",
@@ -498,7 +474,6 @@ DEFAULT_LOCALE = {
         "profile_achievements_label": "Достижения",
     },
 
-    # ───────── Marriage ─────────
     "marriage": {
         "propose_title": "💍 Предложение руки и сердца",
         "propose_sent": "Вы предложили {target_mention} создать семью!",
@@ -557,7 +532,6 @@ DEFAULT_LOCALE = {
         "together_format": "{days} дн. {hours} ч. {minutes} мин.",
     },
 
-    # ───────── Fun ─────────
     "fun": {
         "8ball_question": "🎱 {question}",
         "8ball_ask": "Пожалуйста, задайте свой вопрос после команды, например: `{prefix}8ball будет ли завтра солнце?`",
@@ -599,7 +573,6 @@ DEFAULT_LOCALE = {
         "reaction_sex_action": "трахаться",
     },
 
-    # ───────── Utilities ─────────
     "utilities": {
         "afk_set": "✅ {user_mention}, я включил AFK с причиной: {reason}",
         "afk_removed": "👋 {user_mention}, AFK режим снят!",
@@ -608,7 +581,6 @@ DEFAULT_LOCALE = {
         "booster_cooldown": "⏳ {user_mention}, вы уже забрали награду! Подождите **{time}**.",
     },
 
-    # ───────── Partnership ─────────
     "partnership": {
         "partner_added": "✅ Сервер {server_name} добавлен в партнёры!",
         "partner_removed": "❌ Сервер {server_name} удалён из партнёров.",
@@ -616,7 +588,6 @@ DEFAULT_LOCALE = {
         "partner_empty": "Пока нет партнёров.",
     },
 
-    # ───────── Quests ─────────
     "quests": {
         "progress_title": "📜 Прогресс квеста",
         "completed_title": "✅ Квест выполнен!",
@@ -624,7 +595,6 @@ DEFAULT_LOCALE = {
         "no_active": "У вас нет активных квестов.",
     },
 
-    # ───────── Achievements ─────────
     "achievements": {
         "unlocked_single": "Новое достижение",
         "unlocked_multiple": "Новые достижения",
@@ -633,7 +603,6 @@ DEFAULT_LOCALE = {
         "desc_multiple_item": "**{icon} {name}** — награда: **{reward}** {currency}",
     },
 
-    # ───────── Inventory ─────────
     "inventory": {
         "title": "🎒 Инвентарь — {user_name}",
         "empty": "Пусто...",
@@ -643,7 +612,6 @@ DEFAULT_LOCALE = {
         "items": "📦 Предметы",
     },
 
-    # ───────── Shop (Role Shop) ─────────
     "shop": {
         "title": "🏪 Магазин",
         "buy_success": "Вы купили **{item}** за **{price}** {currency}!",
@@ -697,7 +665,6 @@ DEFAULT_LOCALE = {
         "shop_empty_desc": "Пока здесь пусто.\nСоздай личную роль за **{price}** {currency} — кнопка ниже.",
     },
 
-    # ───────── Info / Information ─────────
     "info": {
         "info_cmd_no_target": "Введи цель для поиска (ID, инвайт, имя или ник).",
         "info_cmd_not_found": "Нихуя не нашел по этому запросу. Попробуй ID или прямую ссылку.",
@@ -819,7 +786,6 @@ DEFAULT_LOCALE = {
         "role_members_pagination_next": "▶️ Вперед",
     },
 
-    # ───────── Bump Reminder ─────────
     "bump": {
         "checkbump_title": "Статус бампов",
         "checkbump_desc": "Информация о доступности бампов:",
@@ -837,40 +803,6 @@ DEFAULT_LOCALE = {
         "member_not_found": "не найден",
     },
 
-    # ───────── Verification ─────────
-    "verification": {
-        "button_verify": "✅ Верифицироваться",
-        "modal_title": "Верификация",
-        "success": "✅ {user_mention}, вы успешно верифицированы!",
-        "failed": "❌ Неверный ответ. Попробуйте снова.",
-        "cooldown": "Вы недавно подавали заявку. Попробуйте снова через {hours} ч.",
-        "manual_submitted": "Ваша заявка отправлена на ручную проверку. Ожидайте.",
-        "auto_success": "Вы успешно прошли верификацию! Добро пожаловать.",
-        "auto_failed": "Верификация не пройдена. Попробуйте позже или обратитесь к администрации.",
-        "manual_review": "Система не смогла принять решение. Ваша заявка передана модераторам.",
-        "error": "Произошла ошибка. Заявка передана администрации.",
-        "ai_disabled": "Автоматическая верификация временно отключена. Воспользуйтесь ручной.",
-        "log_title_success": "Автоматическая верификация (AI)",
-        "log_title_manual": "Запрос на верификацию",
-        "log_footer_success": "AI Верификация • Одобрено",
-        "log_footer_manual": "Верификация • Требуется проверка",
-        "log_ping": "🔔 **Новая заявка на верификацию!**",
-        "log_user": "Пользователь",
-        "log_answer": "Ответ",
-        "log_ai_score": "Оценка AI",
-        "log_ai_reason": "Причина",
-        "log_breakdown": "Детализация",
-        "log_manual_type": "Тип",
-        "log_manual_text": "Ручная заявка (Без AI)",
-        "manual_not_found": "Пользователь не найден на сервере.",
-        "manual_approved": "Пользователь {user} верифицирован вручную.",
-        "manual_rejected": "Заявка отклонена.",
-        "role_not_found": "Роль VERIFIED (ID: {role_id}) не найдена.",
-        "role_setup_start": "🔄 Начинаю обновление прав каналов...",
-        "role_setup_done": "✅ Обновление завершено!\nUpdated: {updated}\nSkipped: {skipped}",
-    },
-
-    # ───────── General / System ─────────
     "general": {
         "command_not_found": "Команда не найдена.",
         "no_permission": "У вас нет прав для использования этой команды.",
@@ -892,9 +824,6 @@ DEFAULT_LOCALE = {
         "nsfw_not_found": "🚫 Не удалось найти посты для {tags} на **{source}**.\n-# Попробуй другой тег.",
     },
 
-    # ──────────────────────
-    # Webhook log labels (audit log field names in Russian)
-    # ──────────────────────
     "audit_log": {
         "permission_administrator": "Администратор",
         "permission_view_audit_log": "Просмотр журнала аудита",
@@ -954,7 +883,6 @@ DEFAULT_LOCALE = {
         "removed_roles": "Удалены роли",
         "boost_since": "Бустер",
         "boost_from": "С",
-        # ──── Member log ────
         "member_join_title": "Участник: вошёл на сервер",
         "member_leave_title": "Участник: покинул сервер",
         "member_kicked": "кикнут",
@@ -977,7 +905,6 @@ DEFAULT_LOCALE = {
         "field_jump": "Jump",
         "field_time": "Время",
         "open_link": "Открыть",
-        # ──── Channel log ────
         "channel_create_title": "Канал: создан",
         "channel_delete_title": "Канал: удалён",
         "channel_update_title": "Канал: изменён",
@@ -1010,7 +937,6 @@ DEFAULT_LOCALE = {
         "field_forum_layout": "Макет форума",
         "field_change_name": "Название",
         "field_change_category": "Категория",
-        # ──── Message log ────
         "msg_delete_title": "Сообщение: удалено",
         "msg_bulk_delete_title": "Сообщения: массовое удаление",
         "msg_edit_title": "Сообщение: изменено",
@@ -1028,7 +954,6 @@ DEFAULT_LOCALE = {
         "field_bulk_count": "Количество",
         "field_bulk_users": "Уникальных пользователей",
         "field_bulk_deleted": "Удаленные сообщения",
-        # ──── Server log ────
         "server_join_title": "Бот: добавлен на сервер",
         "server_remove_title": "Бот: удален с сервера",
         "server_update_title": "Сервер: обновлён",
@@ -1043,7 +968,6 @@ DEFAULT_LOCALE = {
         "field_description": "Описание",
         "field_change_field": "Изменение",
         "field_integrations_updated": "Интеграции были обновлены",
-        # ──── Role log ────
         "role_create_title": "Роль: создана",
         "role_delete_title": "Роль: удалена",
         "role_update_title": "Роль: изменена",
@@ -1057,7 +981,6 @@ DEFAULT_LOCALE = {
         "field_perms": "Права",
         "field_perms_added": "Добавлены права",
         "field_perms_removed": "Удалены права",
-        # ──── Voice log ────
         "voice_join_title": "Голосовой канал: пользователь присоединился",
         "voice_leave_title": "Голосовой канал: пользователь покинул",
         "voice_switch_title": "Голосовой канал: пользователь перешел",
@@ -1074,11 +997,9 @@ DEFAULT_LOCALE = {
         "voice_state_self_mute": "Микрофон (самостоятельно)",
         "voice_state_stream": "Стрим",
         "voice_state_video": "Видео",
-        # ──── Emoji log ────
         "emoji_create_title": "Эмодзи: добавлено",
         "emoji_delete_title": "Эмодзи: удалено",
         "emoji_update_title": "Эмодзи: обновлено",
-        # ──── Invite log ────
         "invite_create_title": "Приглашение: создано",
         "invite_delete_title": "Приглашение: удалено",
         "invite_post_title": "Приглашение: опубликовано",
@@ -1093,7 +1014,6 @@ DEFAULT_LOCALE = {
         "field_invite_channel": "Канал приглашения",
         "field_invite_target": "Целевой сервер",
         "field_invite_inviter": "Создатель",
-        # ──── Thread log ────
         "thread_create_title": "Тред: создан",
         "thread_update_title": "Тред: обновлен",
         "thread_delete_title": "Тред: удален",
@@ -1118,14 +1038,12 @@ DEFAULT_LOCALE = {
         "thread_unarchived": "Разархивирован",
         "thread_locked": "Заблокирован",
         "thread_unlocked": "Разблокирован",
-        # ──── Sticker log ────
         "sticker_create_title": "Стикер: добавлен",
         "sticker_delete_title": "Стикер: удален",
         "sticker_update_title": "Стикер: обновлен",
         "field_sticker_name": "Название",
         "field_sticker_desc": "Описание",
         "field_sticker_emoji": "Эмодзи",
-        # ──── Stage log ────
         "stage_create_title": "Трибуна: создана",
         "stage_delete_title": "Трибуна: удалена",
         "stage_update_title": "Трибуна: обновлена",
@@ -1138,7 +1056,6 @@ DEFAULT_LOCALE = {
         "field_stage_discoverable": "Обнаружение отключено",
         "field_stage_scheduled_event": "Запланированное событие",
         "field_stage_members": "Участников в канале",
-        # ──── Soundboard log ────
         "sound_create_title": "Звук: добавлен",
         "sound_delete_title": "Звук: удален",
         "sound_update_title": "Звук: обновлен",
@@ -1146,7 +1063,6 @@ DEFAULT_LOCALE = {
         "field_sound_volume": "Громкость",
         "field_sound_emoji": "Эмодзи",
         "field_sound_available": "Доступен",
-        # ──── Reaction log ────
         "reaction_add_title": "Реакция: добавлена",
         "reaction_remove_title": "Реакция: удалена",
         "reaction_clear_title": "Реакции: все очищены",
@@ -1154,13 +1070,11 @@ DEFAULT_LOCALE = {
         "field_reaction_emoji": "Эмодзи",
         "field_reaction_message": "Сообщение",
         "field_msg_id": "ID сообщения",
-        # ──── Poll log ────
         "poll_vote_add_title": "Опрос: голос добавлен",
         "poll_vote_remove_title": "Опрос: голос убран",
         "field_poll_question": "Вопрос",
         "field_poll_answer": "Ответ",
         "field_poll_answer_id": "ID ответа",
-        # ──── AutoMod log ────
         "automod_rule_create": "AutoMod: правило создано",
         "automod_rule_update": "AutoMod: правило изменено",
         "automod_rule_delete": "AutoMod: правило удалено",
@@ -1178,7 +1092,6 @@ DEFAULT_LOCALE = {
         "field_automod_keyword": "Совпадение",
         "automod_enabled": "Включено",
         "automod_disabled": "Выключено",
-        # ──── Application log ────
         "app_add_title": "Приложение: добавлено",
         "app_remove_title": "Приложение: удалено",
         "app_update_title": "Приложение: изменено",
@@ -1196,7 +1109,6 @@ DEFAULT_LOCALE = {
         "field_app_command": "Команда",
         "app_perm_allowed": "разрешено",
         "app_perm_denied": "запрещено",
-        # ──── Event log ────
         "event_create_title": "Событие: создано",
         "event_delete_title": "Событие: удалено",
         "event_update_title": "Событие: изменено",
@@ -1219,9 +1131,7 @@ DEFAULT_LOCALE = {
         "event_not_specified": "Не указано",
     },
 
-    # ───────── Tools ─────────
     "tools": {
-        # Currency
         "currency_title": "Конвертация валют",
         "currency_rates_title": "Курсы валют",
         "currency_rates_desc": "Курсы валют относительно {base}",
@@ -1232,11 +1142,9 @@ DEFAULT_LOCALE = {
         "currency_unsupported_one": "Одна из указанных валют не поддерживается!",
         "currency_exchange_footer": "Курс: 1 {from_cur} = {rate} {to_cur}",
         "currency_data_footer": "Данные предоставлены ExchangeRate-API • {date}",
-        # Giveaways
         "giveaway_not_admin": "Ты не админ, иди нахуй!",
         "giveaway_reroll_done": "Перерозыгрыш завершён!",
         "giveaway_reroll_no_winners": "Победителей выбрать не удалось.",
-        # Reminder
         "reminder_title": "Напоминание",
         "reminder_create_title": "Напоминание создано",
         "reminder_create_desc": "Напомню через **{duration}**:\n{message}",
@@ -1252,7 +1160,6 @@ DEFAULT_LOCALE = {
         "reminder_max_active": "У вас уже 5 активных напоминаний.",
     },
 
-    # ───────── Utilities ─────────
     "utilities": {
         "afk_set": "✅ {user_mention}, я включил AFK с причиной: {reason}",
         "afk_removed": "👋 {user_mention}, AFK режим снят!",
@@ -1264,7 +1171,6 @@ DEFAULT_LOCALE = {
         "afk_reason_default": "Не указана",
         "booster_claimed": "🎁 {user_mention}, вы получили награду бустера: **{reward}**!",
         "booster_cooldown": "⏳ {user_mention}, вы уже забрали награду! Подождите **{time}**.",
-        # AutoRole
         "autorole_setup_title": "AutoRole настроен",
         "autorole_role_assigned": "Роль {role} будет выдаваться новым участникам.",
         "autorole_verify_enabled": "Верификация **включена**. Теперь новые пользователи будут получать роль `{role_name}`.",
@@ -1274,7 +1180,6 @@ DEFAULT_LOCALE = {
         "autorole_whitelist_id": "🆔 ID",
         "autorole_whitelist_joins": "🔢 Входов",
         "autorole_whitelist_footer": "Система доверия (WhiteList)",
-        # Starboard
         "starboard_reaction": "⭐ Реакция добавлена",
         "starboard_threshold": "Сообщение достигло порога звёзд ({count})",
         "starboard_no_text": "*(без текста)*",
@@ -1282,7 +1187,6 @@ DEFAULT_LOCALE = {
         "starboard_jump": "Перейти к сообщению",
         "starboard_open": "Открыть",
         "starboard_source_n": "Источник {n}",
-        # TempRooms
         "temproom_created": "🔊 Голосовой канал создан",
         "temproom_deleted": "🔊 Голосовой канал удалён",
         "temproom_create_error": "Не удалось создать временный канал: {error}",
@@ -1290,12 +1194,10 @@ DEFAULT_LOCALE = {
         "temproom_setup_title": "TempVoice Interface",
         "temproom_setup_desc": "Селектор управления временными каналами ниже. Используй его из своего временного голосового канала.",
         "temproom_setup_done": "Готово! Впиши в config.py:\n\n- TEMPROOM_CHANNEL = {channel_id}\n- TEMPROOM_MESSAGE = {message_id}\n- TEMPROOM_CATEGORY = {category_id}\n- TEMPROOM_VOICE = {voice_id}",
-        # Booster
         "booster_new_title": "Новый буст на сервере!",
         "booster_new_desc": "> {member_mention} бустанул server! Мы очень благодарны!\n> За это награда в размере **{reward} {currency}**!",
     },
 
-    # ───────── Partnership ─────────
     "partnership": {
         "partner_added": "✅ Сервер {server_name} добавлен в партнёры!",
         "partner_removed": "❌ Сервер {server_name} удалён из партнёров.",
@@ -1332,7 +1234,6 @@ DEFAULT_LOCALE = {
         "partner_points_word_1": "балл",
         "partner_points_word_2": "балла",
         "partner_points_word_5": "баллов",
-        # PMCommands
         "pm_system_unavailable": "Система партнёрств временно недоступна.",
         "pm_leaderboard_title": "Топ партнер-менеджеров",
         "pm_leaderboard_empty": "Пока нет партнер-менеджеров с баллами.",
@@ -1355,7 +1256,6 @@ DEFAULT_LOCALE = {
         "pm_rewards_not_enough": "❌ Не хватает {count} баллов",
         "pm_rewards_cost": "Стоимость:",
         "pm_rewards_status": "Статус:",
-        # RewardSystem
         "reward_ad_name": "📢 Реклама с @here",
         "reward_ad_desc": "Реклама вашего сервера в канале партнёрств с пингом @here",
         "reward_not_found": "Награда не найдена.",
@@ -1376,7 +1276,6 @@ DEFAULT_LOCALE = {
         "reward_ad_not_for_you": "Эта кнопка не для вас.",
     },
 
-    # ───────── Fun (NSFW etc.) ─────────
     "fun": {
         "8ball_question": "🎱 {question}",
         "8ball_ask": "Пожалуйста, задайте свой вопрос после команды, например: `{prefix}8ball будет ли завтра солнце?`",
@@ -1418,7 +1317,6 @@ DEFAULT_LOCALE = {
         "reaction_sex_action": "трахаться",
     },
 
-    # ───────── API: Color ─────────
     "api_color": {
         "specify_color": "Укажите цвет!",
         "fetch_error": "Не удалось получить информацию о цвете. Проверьте формат и попробуйте снова.",
@@ -1426,7 +1324,6 @@ DEFAULT_LOCALE = {
         "unknown_color": "Неизвестный цвет",
     },
 
-    # ───────── Casino ─────────
     "casino": {
         "not_your_bet": "Это не ваша ставка!",
         "bet_positive": "Ставка должна быть больше 0",
@@ -1440,7 +1337,6 @@ DEFAULT_LOCALE = {
         "bet_again": "Недостаточно средств для этой ставки!",
     },
 
-    # ───────── Duel ─────────
     "duel": {
         "self_not_allowed": "С собой нельзя!",
         "bot_not_allowed": "С ботом нельзя!",
@@ -1456,7 +1352,6 @@ DEFAULT_LOCALE = {
         "victory": "победил в дуэли против {loser}!\nНаграда: **{payout}** {currency}",
     },
 
-    # ───────── API: ASCII ─────────
     "api_ascii": {
         "title": "🎨 ASCII Art",
         "source_text": "Исходный текст",
@@ -1472,7 +1367,6 @@ DEFAULT_LOCALE = {
         "error": "Произошла ошибка при создании ASCII арта. Попробуйте позже.",
     },
 
-    # ───────── API: Hash ─────────
     "api_hash": {
         "title": "🔐 Хеширование текста",
         "source_text": "Исходный текст",
@@ -1482,7 +1376,6 @@ DEFAULT_LOCALE = {
         "calc_error": "Ошибка при вычислении хеша",
     },
 
-    # ───────── API: Random ─────────
     "api_random": {
         "title": "🎲 Случайное число",
         "range": "В диапазоне от **{start}** до **{end}**.",
@@ -1493,7 +1386,6 @@ DEFAULT_LOCALE = {
         "invalid_range": "Неверный диапазон чисел.",
     },
 
-    # ───────── API: Translate ─────────
     "api_translate": {
         "specify_text": "Укажите текст для перевода или ответьте на сообщение",
         "error_title": "Ошибка перевода",
@@ -1503,7 +1395,6 @@ DEFAULT_LOCALE = {
         "translation": "Перевод",
     },
 
-    # ───────── API: Minecraft Server ─────────
     "api_mcserver": {
         "validation_title": "Ошибка валидации",
         "invalid_address": "Адрес сервера не может быть пустым",
@@ -1528,7 +1419,6 @@ DEFAULT_LOCALE = {
         "players_online": "Игроки online",
     },
 
-    # ───────── API: Screenshot ─────────
     "api_screenshot": {
         "missing_params_title": "Недостаточно параметров",
         "missing_params_desc": "Укажите URL веб-страницы!\n\n**Использование:**\n`!screenshot <url>`\n\n**Примеры:**\n`!screenshot google.com`\n`!screenshot https://github.com`\n`!screenshot discord.gg`",
@@ -1543,7 +1433,6 @@ DEFAULT_LOCALE = {
         "generic_error": "Попробуйте позже или проверьте URL",
     },
 
-    # ───────── API: Math ─────────
     "api_math": {
         "missing_params": "Недостаточно параметров",
         "specify_expression": "Укажите математическое выражение!\n**Примеры:**\n`!calc 2 + 2`\n`!calc sin(pi/2)`\n`!calc sqrt(16) * 3`\n`!calc 2(3+4)` - неявное умножение\n`!calc log(e^2)`",
@@ -1562,7 +1451,6 @@ DEFAULT_LOCALE = {
         "extra_info": "Дополнительная информация",
     },
 
-    # ───────── API: QR Code ─────────
     "api_qrcode": {
         "create_error_title": "Ошибка создания QR-кода",
         "specify_content": "Укажите текст или ссылку для QR-кода!",
@@ -1584,7 +1472,6 @@ DEFAULT_LOCALE = {
         "api_request_error": "Ошибка запроса: {error}",
     },
 
-    # ───────── API: Weather ─────────
     "api_weather": {
         "title": "{flag} Погода в {city}",
         "feels_like": "Ощущается как {temp}°C",
@@ -1610,7 +1497,6 @@ DEFAULT_LOCALE = {
         "na": "Н/Д",
     },
 
-    # ───────── API: Whois/IP ─────────
     "api_whois": {
         "error": "❌ Ошибка",
         "unknown_ip": "Не удалось получить информацию об IP-адресе",
@@ -1652,7 +1538,6 @@ DEFAULT_LOCALE = {
         "dns_section": "🔍 DNS записи",
     },
 
-    # ───────── API: Translit ─────────
     "api_translit": {
         "original": "📝 Исходный текст",
         "result": "✨ Результат",
@@ -1670,7 +1555,6 @@ DEFAULT_LOCALE = {
         "layout_title": "⌨️ Исправление раскладки",
     },
 
-    # ───────── Errors ─────────
     "errors": {
         "cooldown": "Подождите {time}",
         "error_title": "Произошла ошибка!",
@@ -1678,7 +1562,6 @@ DEFAULT_LOCALE = {
         "not_your_panel": "Это не твоя панель!",
     },
 
-    # ───────── Economy: Income ─────────
     "income": {
         "description": "Получить доход с ролей магазина",
         "no_roles": "У вас нет ролей в магазине!",
@@ -1690,12 +1573,10 @@ DEFAULT_LOCALE = {
         "action": "Доход с ролей",
     },
 
-    # ───────── Economy: Validators ─────────
     "economy_validators": {
         "active_game": "У вас уже есть активная игра «{game}». Завершите её, чтобы начать новую.",
     },
 
-    # ───────── Moderation: Checks ─────────
     "moderation_checks": {
         "cannot_self": "Нельзя выполнить это действие над собой!",
         "cannot_owner": "Нельзя выполнить это действие над владельцем сервера!",
@@ -1712,7 +1593,6 @@ DEFAULT_LOCALE = {
         "role_admin": "Администратор",
     },
 
-    # ───────── Moderation: Ban ─────────
     "moderation_ban": {
         "reason_default": "Не указана",
         "success_title": "Бан успешно выдан!",
@@ -1724,7 +1604,6 @@ DEFAULT_LOCALE = {
         "no_active_ban": "У пользователя нет активного бана!",
     },
 
-    # ───────── Moderation: Rudiments ─────────
     "moderation_rudiments": {
         "label_warn": "Предупреждение",
         "label_mute": "Мут",
@@ -1741,7 +1620,6 @@ DEFAULT_LOCALE = {
         "reroll_no_valid": "Не найдено участников, соответствующих условиям.",
     },
 
-    # ───────── Temp Rooms ─────────
     "temprooms": {
         "name_updated": "Название обновлено ✅",
         "limit_invalid": "Нужно ввести число от 0 до 99.",
@@ -1770,7 +1648,6 @@ DEFAULT_LOCALE = {
         "remember_disabled": "выкл",
     },
 
-    # ───────── Giveaways ─────────
     "giveaways": {
         "conditions_min_server": "• Минимум {days} дн. на сервере",
         "conditions_min_voice": "• Голосовой стаж: {minutes} минут",
@@ -1797,7 +1674,6 @@ DEFAULT_LOCALE = {
         "reroll_footer": "ID розыгрыша: {id}",
     },
 
-    # ───────── Reaction System ─────────
     "reactions": {
         "self_interact": "Вы не можете взаимодействовать с {target}!",
         "self": "собой",

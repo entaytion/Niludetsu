@@ -6,7 +6,6 @@ class AccessGuard:
 
     @property
     def allowed_guilds(self) -> list[int]:
-        """Читає актуальні SERVERS з кешу settings при кожному зверненні."""
         return [int(config.SERVERS["MAIN_ID"])] + [int(g) for g in config.SERVERS.get("ALLOWED_ID", [])]
 
     async def bootstrap(self):
@@ -37,13 +36,11 @@ class AccessGuard:
             return True
         cog_name = cog.qualified_name
 
-        # Власницький ког не можна вимикати
         if cog_name == "Owner":
             return True
 
         cm = getattr(self.bot, "config_manager", None)
         if cm:
-            # Перевіряємо статус кога
             status = cm.get_custom_text(guild_id, "cogs", cog_name, "enabled")
             if status == "disabled":
                 return False

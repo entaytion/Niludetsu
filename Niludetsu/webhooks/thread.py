@@ -5,7 +5,6 @@ from Niludetsu.locale import _
 from Niludetsu.webhooks.base import BaseLogger
 
 class ThreadLogger(BaseLogger):
-    """Логгер для тредов (с детализацией Sapphire: archive/unarchive/lock/unlock)."""
 
     _THREAD_TYPES = {
         discord.ChannelType.public_thread: "thread_type_public",
@@ -76,7 +75,6 @@ class ThreadLogger(BaseLogger):
         )
 
     async def log_thread_member_join(self, channel: discord.TextChannel, member: discord.ThreadMember):
-        """Участник присоединился к треду."""
         t = _(guild_id=(member.thread.guild.id if member.thread else channel.guild.id), bot=self.bot)
         thread = member.thread
         description = (
@@ -92,7 +90,6 @@ class ThreadLogger(BaseLogger):
         )
 
     async def log_thread_member_remove(self, channel: discord.TextChannel, member: discord.ThreadMember):
-        """Участник покинул тред."""
         t = _(guild_id=(member.thread.guild.id if member.thread else channel.guild.id), bot=self.bot)
         thread = member.thread
         description = (

@@ -13,14 +13,12 @@ from typing import List, Dict, Union
 import discord
 
 class AchievementEmbed:
-    """Фабрика embed'ов для достижений."""
 
     @staticmethod
     def unlocked(
         user: Union[discord.Member, discord.User],
         achievements: List[Dict],
     ) -> Embed:
-        """Embed для одного или нескольких полученных достижений."""
         count = len(achievements)
         action = "Новое достижение" if count == 1 else "Новые достижения"
         

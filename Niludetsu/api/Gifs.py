@@ -3,7 +3,6 @@ from typing import Optional
 import aiohttp
 
 class GifsAPI:
-    """Класс для работы с гифками для различных действий через OtakuGIFs API"""
 
     BASE_URL = "https://api.otakugifs.xyz/gif"
 
@@ -14,16 +13,6 @@ class GifsAPI:
         self.session = session
 
     async def get_random_gif(self, action: str, format: str = "GIF") -> str:
-        """
-        Получить случайную гифку для указанного действия через OtakuGIFs API
-
-        Args:
-            action (str): Тип действия ('kiss', 'hug', 'slap', 'pat', 'bite', 'cry')
-            format (str): Формат гифки ('GIF', 'WebP', 'AVIF'). По умолчанию 'GIF'.
-
-        Returns:
-            str: URL случайной гифки
-        """
         params = {
             'reaction': action,
             'format': format

@@ -6,7 +6,6 @@ from Niludetsu.webhooks.base import BaseLogger
 
 
 class ApplicationLogger(BaseLogger):
-    """Логгер для событий приложений (интеграции)."""
 
     async def log_app_add(self, channel: discord.TextChannel, app: discord.Integration):
         t = _(guild_id=channel.guild.id, bot=self.bot)

@@ -5,7 +5,6 @@ from Niludetsu.locale import _
 from Niludetsu.webhooks.base import BaseLogger
 
 class EmojiLogger(BaseLogger):
-    """Логгер для действий с эмодзи."""
 
     async def log_emoji_create(self, channel: discord.TextChannel, emoji: discord.Emoji):
         t = _(guild_id=emoji.guild.id, bot=self.bot)
@@ -34,7 +33,6 @@ class EmojiLogger(BaseLogger):
         fields = []
         if before.name != after.name:
             fields.append({"name": f"> {t('audit_log', 'changes')}", "value": f"- {t('audit_log', 'field_name')}: `:{before.name}:` ➜ `:{after.name}:`", "inline": False})
-        # Sapphire: Emoji Roles Update
         before_roles = set(before.roles) if before.roles else set()
         after_roles = set(after.roles) if after.roles else set()
         if before_roles != after_roles:

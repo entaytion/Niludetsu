@@ -7,7 +7,6 @@ from typing import Any, Dict, Optional
 _time = TimeService()
 
 class GiveawayConditions:
-    """Проверяем, соответствует ли участник условиям розыгрыша."""
 
     _VOICE_MINUTES_KEY = ("user_analytics", "voice_total")
     _LEVEL_KEY = ("users", "profile")

@@ -5,7 +5,6 @@ from Niludetsu.locale import _
 from Niludetsu.webhooks.base import BaseLogger
 
 class MessageLogger(BaseLogger):
-    """Логгер для событий сообщений (удаление, редактирование, массовое удаление)."""
 
     async def log_message_delete(self, channel: discord.TextChannel, message: discord.Message):
         t = _(guild_id=message.guild.id, bot=self.bot)
@@ -47,7 +46,6 @@ class MessageLogger(BaseLogger):
         users = {msg.author.id for msg in messages if hasattr(msg, 'author') and msg.author}
         description += f"\n**{t('audit_log', 'field_bulk_users')}:** `{len(users)}`"
 
-        # Формируем файл с логом
         lines = []
         for msg in messages:
             author_obj = getattr(msg, 'author', None)
@@ -61,7 +59,6 @@ class MessageLogger(BaseLogger):
 
         file, temp_path = self._temp_file('\n'.join(lines), prefix=f"bulk_{channel.id}_")
 
-        # Краткая сводка
         preview = []
         for msg in messages[:5]:
             author_obj = getattr(msg, 'author', None)
@@ -126,7 +123,6 @@ class MessageLogger(BaseLogger):
             self._cleanup(temp_path)
 
     async def log_message_publish(self, channel: discord.TextChannel, message: discord.Message):
-        """Сообщение опубликовано (crosspost) из канала новостей."""
         t = _(guild_id=message.guild.id, bot=self.bot)
         description = (
             f"**{t('audit_log', 'field_author')}:** {message.author.mention} (`{message.author.id}`)\n"

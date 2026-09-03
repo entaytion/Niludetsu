@@ -23,7 +23,6 @@ class GiveawayContext:
     end_time: Any
 
 class GiveawayManager:
-    """Высокоуровневая логика розыгрышей."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -499,7 +498,7 @@ class GiveawayManager:
         )
 
         await self._register_view(giveaway_id, participants_count=0)
-        await message.edit(view=None)  # view уже добавлен как persistent
+        await message.edit(view=None)
         await self._refresh_view(giveaway_id, 0)
 
         self.active[giveaway_id] = self._build_active_meta(

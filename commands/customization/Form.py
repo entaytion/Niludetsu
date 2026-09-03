@@ -5,7 +5,6 @@ from Niludetsu import Embed, Emojis, config
 
 FORM_VIEWS_FLAG = "_form_views_registered"
 
-# Маппинг должностей на роли
 POSITION_ROLES = {
     "helper": {
         "name": "Младший модератор",
@@ -188,16 +187,13 @@ class Form(commands.Cog):
         setattr(self.bot, FORM_VIEWS_FLAG, True)
 
     def is_admin(self, member: discord.Member) -> bool:
-        """Проверяет, является ли пользователь администратором."""
         return member.guild_permissions.administrator
 
     async def handle_position_select(self, interaction: discord.Interaction, position: str):
-        """Обрабатывает выбор должности"""
         modal = FormModal(position)
         await interaction.response.send_modal(modal)
 
     async def send_form(self, interaction, position, name, age, experience, about):
-        """Отправляет заявку в канал уведомлений"""
         notification_channel = self.bot.get_channel(config.NOTIFICATION_CHANNEL_ID)
         if not notification_channel:
             print(f"Канал уведомлений {config.NOTIFICATION_CHANNEL_ID} не найден!")
@@ -251,8 +247,6 @@ class Form(commands.Cog):
         experience: str,
         about: str
     ):
-        """Обрабатывает отправку анкеты"""
-        # Проверяем валидность должности
         if position not in POSITION_ROLES:
             return await interaction.response.send_message(
                 embed=Embed.error(description="Неизвестная должность!"),
@@ -260,7 +254,6 @@ class Form(commands.Cog):
                 allowed_mentions=discord.AllowedMentions.none(),
             )
 
-        # Отправляем сообщение об успешной отправке
         await interaction.response.send_message(
             embed=Embed.success(
                 title="Анкета отправлена",
@@ -270,15 +263,12 @@ class Form(commands.Cog):
             allowed_mentions=discord.AllowedMentions.none(),
         )
 
-        # Отправляем анкету в канал уведомлений
         await self.send_form(interaction, position, name, age, experience, about)
 
     async def handle_form_review(self, interaction: discord.Interaction, action: str):
-        """Обрабатывает рассмотрение заявки"""
         await interaction.response.defer(ephemeral=True)
 
         try:
-            # Проверяем, что команда выполняется на основном сервере
             if interaction.guild_id != config.SERVERS["MAIN_ID"]:
                 raise ValueError("Команда доступна только на основном сервере.")
 
@@ -286,7 +276,6 @@ class Form(commands.Cog):
             description = embed.description or ""
             title = embed.title
 
-            # Извлекаем ID пользователя
             user_id_match = (
                 re.search(r'\((\d+)\)', description)
                 or re.search(r'ID:\s*`?(\d+)`?', description)
@@ -295,7 +284,6 @@ class Form(commands.Cog):
                 raise ValueError("Не удалось извлечь ID пользователя из анкеты.")
             user_id = int(user_id_match.group(1))
 
-            # Определяем должность из заголовка
             position = None
             for pos_key, pos_data in POSITION_ROLES.items():
                 if pos_data["name"] in title:
@@ -305,7 +293,6 @@ class Form(commands.Cog):
             if not position:
                 raise ValueError("Не удалось определить должность из анкеты.")
 
-            # Получаем пользователя
             user = interaction.guild.get_member(user_id)
             if not user:
                 raise ValueError("Пользователь не найден на сервере.")
@@ -315,7 +302,6 @@ class Form(commands.Cog):
             role_ids = position_data["roles"]
 
             if action == "accept":
-                # Получаем объекты ролей
                 roles_to_add = []
                 for role_id in role_ids:
                     role = interaction.guild.get_role(role_id)
@@ -327,13 +313,11 @@ class Form(commands.Cog):
                 if not roles_to_add:
                     raise ValueError("Не удалось найти ни одной роли для выдачи.")
 
-                # Выдаем роли
                 await user.add_roles(
                     *roles_to_add, 
                     reason=f"Принятие заявки модератором {interaction.user}"
                 )
 
-                # Отправляем сообщение пользователю
                 await user.send(embed=Embed.success(
                     title="Заявка принята",
                     description=(
@@ -341,7 +325,7 @@ class Form(commands.Cog):
                         "Похоже, дверь действительно открылась."
                     ),
                 ))
-            else:  # reject
+            else:
                 await user.send(embed=Embed.error(
                     title="Заявка отклонена",
                     description=(
@@ -350,7 +334,6 @@ class Form(commands.Cog):
                     ),
                 ))
 
-            # Обновляем embed с результатом
             message = interaction.message
             new_embed = message.embeds[0].copy()
             new_embed.add_field(
@@ -371,6 +354,5 @@ class Form(commands.Cog):
             )
 
 async def setup(bot):
-    """Инициализация кога"""
     await bot.add_cog(Form(bot))
 

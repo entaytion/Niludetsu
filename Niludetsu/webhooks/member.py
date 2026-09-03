@@ -5,7 +5,6 @@ from Niludetsu.locale import _
 from Niludetsu.webhooks.base import BaseLogger
 
 class MemberLogger(BaseLogger):
-    """Логгер для событий участников (join/leave/update/ban/timeout)."""
 
     async def log_member_join(self, channel: discord.TextChannel, member: discord.Member, inviter: discord.Member = None):
         t = _(guild_id=channel.guild.id, bot=self.bot)
@@ -23,13 +22,11 @@ class MemberLogger(BaseLogger):
         )
 
     async def log_member_remove(self, channel: discord.TextChannel, member: discord.Member):
-        """Логирует выход, кик или прюн участника (определяет через audit log)."""
         t = _(guild_id=channel.guild.id, bot=self.bot)
         description = f"**{t('audit_log', 'field_user')}:** {member.mention} ({member.id})"
         if member.joined_at:
             description += f"\n**{t('audit_log', 'field_joined_at')}:** <t:{int(member.joined_at.timestamp())}:R>"
 
-        # Sapphire: определяем кик через audit log
         action_type = t('audit_log', 'member_left')
         try:
             async for entry in member.guild.audit_logs(limit=3, action=discord.AuditLogAction.kick):
@@ -62,7 +59,6 @@ class MemberLogger(BaseLogger):
             fields.append({"name": t('audit_log', 'field_nickname'), "value": f"`{before.display_name}` ➜ `{after.display_name}`", "inline": False})
         if before.display_avatar != after.display_avatar:
             fields.append({"name": t('audit_log', 'field_avatar'), "value": t('audit_log', 'field_avatar_changed'), "inline": False})
-        # Роли
         if set(before.roles) != set(after.roles):
             added = set(after.roles) - set(before.roles)
             removed = set(before.roles) - set(after.roles)
@@ -70,10 +66,8 @@ class MemberLogger(BaseLogger):
                 fields.append({"name": t('audit_log', 'added_roles'), "value": ", ".join([r.mention for r in added]), "inline": False})
             if removed:
                 fields.append({"name": t('audit_log', 'removed_roles'), "value": ", ".join([r.mention for r in removed]), "inline": False})
-        # Бустер
         if before.premium_since != after.premium_since:
             fields.append({"name": t('audit_log', 'field_booster'), "value": f"`{before.premium_since}` ➜ `{after.premium_since}`", "inline": False})
-        # Sapphire: Timeout
         before_timeout = getattr(before, 'timed_out_until', None)
         after_timeout = getattr(after, 'timed_out_until', None)
         if before_timeout != after_timeout:
@@ -93,7 +87,6 @@ class MemberLogger(BaseLogger):
     async def log_member_ban(self, channel: discord.TextChannel, user: discord.User):
         t = _(guild_id=channel.guild.id, bot=self.bot)
         description = f"**{t('audit_log', 'field_user')}:** {user.mention} ({user.id})"
-        # Получаем модератора и причину через audit log
         try:
             async for entry in channel.guild.audit_logs(limit=3, action=discord.AuditLogAction.ban):
                 if entry.target and entry.target.id == user.id:

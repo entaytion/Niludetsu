@@ -9,7 +9,6 @@ from Niludetsu.locale import _
 from typing import Optional
 
 class SlowmodeCog(commands.Cog):
-    """Команды управления медленным режимом."""
 
     def __init__(self, bot):
         self.bot = bot

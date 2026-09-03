@@ -24,7 +24,6 @@ class TrackerCooldowns:
     level_notification: Dict[str, datetime]
 
 class LevelTracker:
-    """Отслеживает активность и начисляет опыт."""
 
     LEVEL_ACHIEVEMENTS = ("level_five", "level_ten", "level_twenty", "level_fifty")
     VOICE_ACHIEVEMENTS = ("voice_hour", "voice_ten_hours", "voice_hundred_hours")
@@ -36,7 +35,7 @@ class LevelTracker:
         "excluded_categories": [1363075274018914354]
     }
 
-    _CONFIG_TTL = 60  # секунд
+    _CONFIG_TTL = 60
     def __init__(self, main_guild_id: Optional[int] = None, config_manager=None):
         self.manager = LevelManager()
         self.analytics = AnalyticsManager()
@@ -49,7 +48,6 @@ class LevelTracker:
         self._config_fetched_at: float = 0.0
 
     async def get_config(self) -> Dict[str, Any]:
-        """Повертає конфіг з інстанс-кешем (TTL 60с) — без зайвих DB-запитів."""
         now = time.monotonic()
         if self._cached_config is not None and (now - self._config_fetched_at) < self._CONFIG_TTL:
             return self._cached_config

@@ -10,7 +10,6 @@ import hashlib
 from typing import Optional
 
 class HashAPI:
-    """Класс для генерации хешей"""
 
     def __init__(self):
         self.supported_algorithms = {
@@ -21,7 +20,6 @@ class HashAPI:
         }
 
     def _calculate_hash(self, text: str, algorithm: str) -> Optional[str]:
-        """Вычисляет хеш текста используя указанный алгоритм"""
         try:
             hash_func = self.supported_algorithms.get(algorithm.lower())
             if not hash_func:
@@ -32,9 +30,7 @@ class HashAPI:
             return None
 
     def _create_hash_embed(self, text: str, hashes: dict, t) -> Embed:
-        """Создает embed с результатами хеширования"""
 
-        # Обрезаем длинный текст для отображения
         display_text = text if len(text) <= 50 else text[:47] + "..."
 
         embed = Embed(
@@ -42,7 +38,6 @@ class HashAPI:
             description=f"{t('api_hash', 'source_text')}: `{display_text}`"
         )
 
-        # Добавляем хеши
         for algo, hash_value in hashes.items():
             embed.add_field(
                 name=f"**{algo.upper()}**",
@@ -55,24 +50,11 @@ class HashAPI:
         return embed
 
     async def generate_hash(self, ctx, text: str, algorithm: Optional[str] = None):
-        """
-        Генерирует хеш(и) для текста
-
-        Parameters
-        ----------
-        ctx : Union[discord.Interaction, commands.Context]
-            Контекст команды
-        text : str
-            Текст для хеширования
-        algorithm : Optional[str]
-            Конкретный алгоритм (md5/sha1/sha256/sha512) или None для всех
-        """
         if not text:
             t = _(ctx=ctx)
             await ctx.reply(embed=Embed.error(description=t("api_hash", "specify_text")))
             return
 
-        # Если указан конкретный алгоритм
         if algorithm:
             algorithm = algorithm.lower()
             if algorithm not in self.supported_algorithms:
@@ -91,9 +73,8 @@ class HashAPI:
 
             hashes = {algorithm: hash_value}
         else:
-            # Генерируем все хеши
             hashes = {}
-            for algo in ['md5', 'sha256']:  # Показываем только основные
+            for algo in ['md5', 'sha256']:
                 hash_value = self._calculate_hash(text, algo)
                 if hash_value:
                     hashes[algo] = hash_value
@@ -102,6 +83,5 @@ class HashAPI:
         embed = self._create_hash_embed(text, hashes, t)
         await ctx.reply(embed=embed)
 
-# Глобальный экземпляр
 hash_api = HashAPI()
 

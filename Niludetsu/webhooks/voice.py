@@ -5,7 +5,6 @@ from Niludetsu.locale import _
 from Niludetsu.webhooks.base import BaseLogger
 
 class VoiceLogger(BaseLogger):
-    """Логгер для действий в голосовых каналах."""
 
     async def log_voice_join(self, log_channel: discord.TextChannel, member: discord.Member, channel: discord.VoiceChannel):
         t = _(guild_id=member.guild.id, bot=self.bot)
@@ -65,7 +64,6 @@ class VoiceLogger(BaseLogger):
         )
 
     async def log_voice_move(self, log_channel: discord.TextChannel, member: discord.Member, before: discord.VoiceChannel, after: discord.VoiceChannel, moderator: discord.User = None):
-        """Sapphire: Voice User Move — перемещение модератором."""
         t = _(guild_id=member.guild.id, bot=self.bot)
         description = (
             f"**{t('audit_log', 'field_user')}:** {member.mention} (`{member.id}`)\n"
@@ -82,7 +80,6 @@ class VoiceLogger(BaseLogger):
         )
 
     async def log_voice_disconnect(self, log_channel: discord.TextChannel, member: discord.Member, channel: discord.VoiceChannel, moderator: discord.User = None):
-        """Sapphire: Voice User Kick — отключение модератором."""
         t = _(guild_id=member.guild.id, bot=self.bot)
         description = (
             f"**{t('audit_log', 'field_user')}:** {member.mention} (`{member.id}`)\n"

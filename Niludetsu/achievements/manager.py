@@ -9,7 +9,6 @@ from Niludetsu.embeds.Achievements import AchievementEmbed
 from typing import Dict, Iterable, List, Optional, Set
 
 class AchievementsManager:
-    """Менеджер достижений. Оптимизирован под новую структуру БД."""
     
     def __init__(self):
         self.db = database
@@ -20,7 +19,6 @@ class AchievementsManager:
         return ACHIEVEMENTS
 
     async def get_user_summary(self, guild_id: str, user_id: str) -> Dict[str, Dict]:
-        """Возвращает все определения достижений с пометкой о разблокировке юзером."""
         existing_rows = await self.db.list_achievements(guild_id, user_id)
         unlocked_ids = {row["achievement_id"] for row in existing_rows}
 
@@ -65,7 +63,6 @@ class AchievementsManager:
             if already:
                 return False
 
-        # Атомарная вставка достижения
         record = await self.db.ensure_record(
             "user_achievements",
             guild_id=str(guild_id),
@@ -77,7 +74,6 @@ class AchievementsManager:
         if existing is not None:
             existing.add(achievement_id)
 
-        # Выдаем награду
         await self.economy.add_money(
             user_id,
             guild_id,
@@ -86,7 +82,6 @@ class AchievementsManager:
             share_spousal=True,
         )
 
-        # Инвалидируем кеш бандла юзера, так как достижения изменились
         await self.db.invalidate_user_cache(str(user_id), str(guild_id))
 
         if channel and send_embed:
@@ -121,7 +116,6 @@ class AchievementsManager:
         if not candidates:
             return []
 
-        # Отримуємо досягнення юзера з бази (бажано з кешу бандла, але тут беремо список)
         existing_rows = await self.db.list_achievements(guild_id, user_id)
         unlocked_ids: Set[str] = {row["achievement_id"] for row in existing_rows}
 
@@ -147,7 +141,6 @@ class AchievementsManager:
                 continue
 
             if all(metrics.get(k, 0) >= v for k, v in requirements.items()):
-                # Розблоковуємо без надсилання ембеду тут (зробимо одним паком в кінці)
                 if await self.unlock(guild_id, user_id, achievement_id, send_embed=False):
                     newly_unlocked.append(achievement_id)
                     newly_unlocked_data.append(data)

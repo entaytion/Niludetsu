@@ -12,13 +12,9 @@ from typing import Optional, Dict, Any
 from urllib.parse import urlencode
 
 class QRCodeAPI:
-    """Класс для работы с API QR-кодов"""
 
     def __init__(self):
-        """Инициализация класса"""
-        # Используем API от qrcode.chooyee.co (без API ключа)
         self.base_url = "https://qrcode.chooyee.co/qr"
-        # API для декодирования QR-кодов
         self.decode_url = "https://api.qrserver.com/v1/read-qr-code/"
 
     async def get_qrcode_data(self, 
@@ -27,32 +23,9 @@ class QRCodeAPI:
                              foreground_color: str = "#000000", 
                              background_color: str = "#FFFFFF",
                              logo_url: Optional[str] = None) -> Optional[bytes]:
-        """
-        Получает данные QR-кода через API
-
-        Parameters
-        ----------
-        data : str
-            Данные для QR-кода (текст или URL)
-        size : int
-            Размер QR-кода в пикселях (по умолчанию 256)
-        foreground_color : str
-            Цвет QR-кода в формате HEX (по умолчанию черный)
-        background_color : str
-            Цвет фона в формате HEX (по умолчанию белый)
-        logo_url : Optional[str]
-            URL логотипа для размещения в центре QR-кода
-
-        Returns
-        -------
-        Optional[bytes]
-            Байты изображения QR-кода или None при ошибке
-        """
-        # Очищаем цвета от символа #
         foreground_color = foreground_color.lstrip('#')
         background_color = background_color.lstrip('#')
 
-        # Формируем параметры запроса
         params = {
             "data": data,
             "width": size,
@@ -61,21 +34,16 @@ class QRCodeAPI:
             "backgroundcolor": background_color
         }
 
-        # Добавляем логотип, если указан
         if logo_url:
             params["logo"] = logo_url
 
-        # Формируем URL с параметрами
         url = f"{self.base_url}?{urlencode(params)}"
 
         try:
-            # Выполняем запрос к API
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as response:
                     if response.status == 200:
-                        # Возвращаем байты изображения
                         return await response.read()
-                    # Если произошла ошибка, выводим сообщение
                     error_data = await response.text()
                     print(f"Ошибка API QR-кода: {response.status}, {error_data}")
                     return None
@@ -84,36 +52,18 @@ class QRCodeAPI:
             return None
 
     async def get_decode_data(self, image_data: bytes) -> Optional[Dict[str, Any]]:
-        """
-        Получает данные декодирования QR-кода с помощью API
-
-        Parameters
-        ----------
-        image_data : bytes
-            Байты изображения с QR-кодом
-
-        Returns
-        -------
-        Optional[Dict[str, Any]]
-            Словарь с результатами декодирования или None при ошибке
-        """
         try:
-            # Выполняем запрос к API для декодирования
             async with aiohttp.ClientSession() as session:
-                # Создаем объект FormData для отправки файла
                 data = aiohttp.FormData()
                 data.add_field('file', image_data, filename='qrcode.png', content_type='image/png')
 
                 async with session.post(self.decode_url, data=data) as response:
                     if response.status == 200:
-                        # Получаем JSON с результатом декодирования
                         result = await response.json()
 
-                        # Проверяем наличие данных
                         if result and isinstance(result, list) and len(result) > 0:
                             qr_data = result[0].get('symbol', [{}])[0]
 
-                            # Если QR-код найден
                             if qr_data.get('data'):
                                 return {
                                     'success': True,
@@ -121,7 +71,6 @@ class QRCodeAPI:
                                     'format': qr_data.get('type')
                                 }
 
-                            # Если произошла ошибка
                             if qr_data.get('error'):
                                 return {
                                     'success': False,
@@ -133,7 +82,6 @@ class QRCodeAPI:
                             'error': 'Не удалось декодировать QR-код'
                         }
 
-                    # Если произошла ошибка запроса
                     error_data = await response.text()
                     print(f"Ошибка API декодирования QR-кода: {response.status}, {error_data}")
                     return {
@@ -148,18 +96,6 @@ class QRCodeAPI:
             }
 
     async def generate_qrcode(self, ctx: commands.Context, content: str, color: str = "#000000"):
-        """
-        Генерирует QR-код и отправляет пользователю
-
-        Parameters
-        ----------
-        ctx : commands.Context
-            Контекст команды Discord
-        content : str
-            Содержимое для QR-кода
-        color : str
-            Цвет QR-кода
-        """
         t = _(ctx=ctx)
         
         if not content:
@@ -193,16 +129,6 @@ class QRCodeAPI:
             await ctx.reply(embed=error_embed)
 
     async def decode_qrcode(self, ctx: commands.Context, image: discord.Attachment):
-        """
-        Декодирует QR-код из изображения и отправляет результат пользователю
-
-        Parameters
-        ----------
-        ctx : commands.Context
-            Контекст команды Discord
-        image : discord.Attachment
-            Изображение с QR-кодом
-        """
         t = _(ctx=ctx)
         
         if not image:
@@ -232,19 +158,6 @@ class QRCodeAPI:
             await ctx.reply(embed=error_embed)
 
     def _format_qrcode_embed(self, content: str, t) -> discord.Embed:
-        """
-        Форматирует эмбед для сгенерированного QR-кода
-
-        Parameters
-        ----------
-        content : str
-            Содержимое QR-кода
-
-        Returns
-        -------
-        discord.Embed
-            Отформатированный эмбед
-        """
         is_url = content.startswith(('http://', 'https://', 'www.'))
 
         embed = Embed(
@@ -255,19 +168,6 @@ class QRCodeAPI:
         return embed
 
     def _format_decode_embed(self, decode_result: Dict[str, Any], t) -> discord.Embed:
-        """
-        Форматирует эмбед для декодированного QR-кода
-
-        Parameters
-        ----------
-        decode_result : Dict[str, Any]
-            Результат декодирования
-
-        Returns
-        -------
-        discord.Embed
-            Отформатированный эмбед
-        """
         qr_data = decode_result.get('text', '')
         qr_format = decode_result.get('format', t("api_qrcode", "format_default"))
         is_url = qr_data.startswith(('http://', 'https://', 'www.'))
@@ -282,6 +182,5 @@ class QRCodeAPI:
 
         return embed
 
-# Создаем экземпляр для импорта
 qrcode_api = QRCodeAPI()
 

@@ -5,7 +5,6 @@ from Niludetsu.locale import _
 from Niludetsu.webhooks.base import BaseLogger
 
 class StickerLogger(BaseLogger):
-    """Логгер для действий со стикерами."""
 
     async def log_sticker_create(self, channel: discord.TextChannel, sticker: discord.Sticker):
         t = _(guild_id=sticker.guild.id, bot=self.bot)
@@ -40,7 +39,6 @@ class StickerLogger(BaseLogger):
             fields.append({"name": f"> {t('audit_log', 'changes')}", "value": f"- {t('audit_log', 'field_sticker_name')}: `{before.name}` ➜ `{after.name}`", "inline": False})
         if before.description != after.description:
             fields.append({"name": f"> {t('audit_log', 'changes')}", "value": f"- {t('audit_log', 'field_sticker_desc')}: `{before.description or '—'}` ➜ `{after.description or '—'}`", "inline": False})
-        # Sapphire: Sticker Related Emoji Update
         if getattr(before, 'emoji', None) != getattr(after, 'emoji', None):
             fields.append({"name": f"> {t('audit_log', 'changes')}", "value": f"- {t('audit_log', 'field_sticker_emoji')}: `{getattr(before, 'emoji', '—')}` ➜ `{getattr(after, 'emoji', '—')}`", "inline": False})
         if not fields:

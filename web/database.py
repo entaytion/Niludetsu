@@ -6,10 +6,6 @@ from .bot import get_bot, get_config_manager
 
 
 class WebDatabase:
-    """
-    Проксі для БД, який при записі custom_message одразу оновлює кеш
-    ConfigManager в боті — 0 затримки синхронізації.
-    """
 
     async def is_premium(self, guild_id: str) -> bool:
         cm = get_config_manager()
@@ -57,9 +53,6 @@ class WebDatabase:
     async def set_guild_setting(
         self, guild_id: str, module: str, key: str, value: Any
     ) -> bool:
-        """
-        Записує кастомне налаштування в БД + миттєво оновлює кеш бота.
-        """
         cm = get_config_manager()
         if cm:
             try:
@@ -67,7 +60,6 @@ class WebDatabase:
                 return True
             except Exception:
                 return False
-        # Fallback: direct DB write without cache update
         bot = get_bot()
         if not bot:
             return False

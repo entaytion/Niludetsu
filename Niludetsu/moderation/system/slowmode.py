@@ -13,7 +13,6 @@ from typing import List
 _time = TimeService()
 
 class SlowmodeSystem:
-    """Система управления медленным режимом."""
 
     def __init__(self, bot):
         self.bot = bot
@@ -26,27 +25,6 @@ class SlowmodeSystem:
         duration: str,
         reason: str = "Не указана"
     ) -> Embed:
-        """
-        Устанавливает медленный режим в канале.
-
-        Parameters
-        ----------
-        guild : discord.Guild
-            Сервер
-        moderator : discord.Member
-            Модератор
-        channel : discord.TextChannel
-            Канал для установки slowmode
-        duration : str
-            Длительность (например: "10s", "1m", "1h", "0" или "off")
-        reason : str
-            Причина установки
-
-        Returns
-        -------
-        Embed
-            Результат операции
-        """
 
         if duration == "0" or duration.lower() == "off":
             seconds = 0
@@ -54,7 +32,7 @@ class SlowmodeSystem:
         else:
             seconds, formatted, error = _time.validate(
                 duration,
-                max_seconds=21600,  # Максимум 6 часов (ограничение Discord)
+                max_seconds=21600,
                 min_seconds=0
             )
             if error:
@@ -89,25 +67,6 @@ class SlowmodeSystem:
         duration: str,
         reason: str = "Не указана"
     ) -> tuple[List[discord.TextChannel], List[discord.TextChannel]]:
-        """
-        Устанавливает медленный режим во всех текстовых каналах.
-
-        Parameters
-        ----------
-        guild : discord.Guild
-            Сервер
-        moderator : discord.Member
-            Модератор
-        duration : str
-            Длительность
-        reason : str
-            Причина
-
-        Returns
-        -------
-        tuple[List[discord.TextChannel], List[discord.TextChannel]]
-            (успешные_каналы, неудачные_каналы)
-        """
 
         if duration == "0" or duration.lower() == "off":
             seconds = 0
@@ -163,28 +122,10 @@ class SlowmodeSystem:
         reason: str,
         seconds: int
     ) -> None:
-        """
-        Логирует действие установки slowmode в канал модерации.
-
-        Parameters
-        ----------
-        guild : discord.Guild
-            Сервер
-        moderator : discord.Member
-            Модератор
-        channels : List[discord.TextChannel]
-            Список каналов
-        duration : str
-            Длительность (строка)
-        reason : str
-            Причина
-        seconds : int
-            Длительность в секундах
-        """
         if not channels:
             return
 
-        channels_str = ", ".join([ch.mention for ch in channels[:10]])  # Первые 10 каналов
+        channels_str = ", ".join([ch.mention for ch in channels[:10]])
         if len(channels) > 10:
             channels_str += f" и ещё {len(channels) - 10} каналов"
 
@@ -210,21 +151,17 @@ class SlowmodeSystem:
             icon_url=guild.icon.url if guild.icon else None
         )
 
-        # Ищем канал для логов
         log_channel = None
 
-        # Сначала пробуем NOTIFICATION_CHANNEL_ID из конфига
         if config.NOTIFICATION_CHANNEL_ID:
             log_channel = guild.get_channel(int(config.NOTIFICATION_CHANNEL_ID))
 
-        # Если не нашли, ищем канал "mod-logs" или "модерация"
         if not log_channel:
             log_channel = discord.utils.get(
                 guild.text_channels,
                 name__in=["mod-logs", "модерация", "logs"]
             )
 
-        # Отправляем лог
         if log_channel:
             try:
                 await log_channel.send(embed=embed)

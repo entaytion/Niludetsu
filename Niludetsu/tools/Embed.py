@@ -236,7 +236,6 @@ class Embed(discord.Embed):
         return embed
 
 
-
     @classmethod
     def error(cls, title: Optional[str] = None, **kwargs) -> "Embed":
         return cls._base(title=title or "Ошибка!", emoji=Emojis.ERROR, color=Colors.ERROR, **kwargs)

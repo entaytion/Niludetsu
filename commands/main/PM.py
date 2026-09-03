@@ -3,9 +3,6 @@ from discord.ext import commands
 from Niludetsu import safe_fetch_user, safe_delete, delete_after, Webhooks, config
 
 class PrivateMessageCog(commands.Cog):
-    """
-    Ког для пересылки личных сообщений в баг-канал и ответа пользователям через !pm.
-    """
     def __init__(self, bot):
         self.bot = bot
         self.webhooks = Webhooks(bot)
@@ -39,17 +36,11 @@ class PrivateMessageCog(commands.Cog):
             await channel.send(embed=embed)
 
     def _is_role_id(self, value: str) -> bool:
-        """Проверяет, является ли значение ID роли или упоминанием роли."""
         cleaned = value.replace("<@&", "").replace(">", "")
         return cleaned.isdigit() and (value.startswith("<@&") or len(cleaned) >= 17)
 
     @commands.command(name="pm", ignore_extra=True)
     async def pm(self, ctx, target_id: str = None, *, text: str = None):
-        """
-        Отправить личное сообщение пользователю или всем с ролью.
-        !pm <user_id/role_id> <текст>
-        Только для config.OWNER_ID.
-        """
         if ctx.author.id != config.OWNER_ID:
             await ctx.message.delete()
             return
@@ -60,7 +51,6 @@ class PrivateMessageCog(commands.Cog):
             await delete_after(ctx.message)
             return
 
-        # Чистим ID от ментьонов
         cleaned_id = target_id.replace("<@&", "").replace("<@", "").replace(">", "").replace("!", "")
         try:
             target_int = int(cleaned_id)
@@ -70,7 +60,6 @@ class PrivateMessageCog(commands.Cog):
             await delete_after(ctx.message)
             return
 
-        # Проверяем, это роль или юзер
         is_role = target_id.startswith("<@&") or (not target_id.startswith("<@") and ctx.guild and ctx.guild.get_role(target_int) is not None)
 
         if is_role:
@@ -79,7 +68,6 @@ class PrivateMessageCog(commands.Cog):
             await self._pm_user(ctx, target_int, text)
 
     async def _pm_user(self, ctx, user_id_int: int, text: str):
-        """Отправка ПМ одному юзеру."""
         user = await safe_fetch_user(self.bot, user_id_int)
         if not user:
             await ctx.message.add_reaction("❌")
@@ -95,7 +83,6 @@ class PrivateMessageCog(commands.Cog):
         await delete_after(ctx.message)
 
     async def _pm_role(self, ctx, role_id: int, text: str):
-        """Отправка ПМ всем участникам с указанной ролью."""
         if not ctx.guild:
             await ctx.send("❗ Эта команда работает только на сервере.", delete_after=5)
             return
@@ -114,13 +101,11 @@ class PrivateMessageCog(commands.Cog):
             await delete_after(ctx.message)
             return
 
-        # Отправляем статус
         status_msg = await ctx.send(f"⏳ Отправка сообщений {len(members)} участникам с ролью **{role.name}**...")
 
         success = []
         failed = []
 
-        # Download attachments into memory once
         attachment_bytes = []
         for a in ctx.message.attachments:
             try:

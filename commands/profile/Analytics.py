@@ -7,7 +7,6 @@ from Niludetsu.locale import _
 _time = TimeService()
 
 class Analytics(commands.Cog):
-    """Команды и слушатели аналитики."""
 
     MESSAGE_ACHIEVEMENTS = (
         "first_message",
@@ -31,16 +30,13 @@ class Analytics(commands.Cog):
         self.achievements_manager = AchievementsManager()
 
     def cog_unload(self) -> None:
-        """Очистка ресурсов при выгрузке кога"""
         self.tracker.cog_unload()
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
-        """Отслеживает сообщения для аналитики и начисления опыта"""
         if not message.guild or message.author.bot:
             return
 
-        # Игнорируем команды
         prefixes = await self.bot.command_prefix(self.bot, message)
         if any(message.content.startswith(prefix) for prefix in prefixes):
             return
@@ -57,18 +53,15 @@ class Analytics(commands.Cog):
         await self.tracker.track_message(guild_id, user_id, channel_id)
 
         if not has_violation:
-            # Начисляем опыт (уровни)
             await self.level_tracker.track_message_xp(
                 guild_id, user_id, message.channel
             )
 
-            # Проверяем достижения за сообщения
             await self._check_message_achievements(guild_id, user_id, message.channel)
 
     async def _check_message_achievements(
         self, guild_id: str, user_id: str, channel: discord.abc.Messageable
     ):
-        """Проверяет и выдаёт достижения за количество сообщений (только чистых, без нарушений)"""
         stats = await self.manager.get_user_stats(guild_id, user_id)
         unlocked = await self.achievements_manager.evaluate_requirements(
             guild_id,
@@ -86,7 +79,6 @@ class Analytics(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message) -> None:
-        """Отслеживает удалённые сообщения"""
         if not message.guild or message.author.bot:
             return
 
@@ -103,7 +95,6 @@ class Analytics(commands.Cog):
         before: discord.VoiceState,
         after: discord.VoiceState,
     ) -> None:
-        """Отслеживает активность в голосовых каналах"""
         if member.bot or not member.guild:
             return
 
@@ -111,9 +102,7 @@ class Analytics(commands.Cog):
         user_id = str(member.id)
 
         if before.channel and after.channel and before.channel.id != after.channel.id:
-            # Выходим из старого
             await self._handle_voice_leave(member, before.channel, guild_id, user_id)
-            # Входим в новый
             await self.tracker.track_voice_join(member, after.channel)
             return
 
@@ -132,8 +121,6 @@ class Analytics(commands.Cog):
         guild_id: str,
         user_id: str,
     ):
-        """Обрабатывает выход из голосового канала с начислением опыта"""
-        # Считаем время в канале
         stats = await self.manager.get_user_stats(guild_id, user_id)
         last_join = stats.get("voice", {}).get("last_join")
 
@@ -142,13 +129,11 @@ class Analytics(commands.Cog):
             joined_at = _time.ensure_datetime(last_join)
             minutes = int((now - joined_at).total_seconds() // 60)
 
-            # Начисляем опыт за голос
             if minutes > 0:
                 await self.level_tracker.track_voice_xp(
                     guild_id, user_id, minutes, channel
                 )
 
-        # Обновляем аналитику
         await self.tracker.track_voice_leave(member)
 
     @commands.hybrid_command(
@@ -158,7 +143,6 @@ class Analytics(commands.Cog):
     async def analytics(
         self, ctx: commands.Context, user: discord.User | None = None
     ) -> None:
-        """Показывает статистику активности пользователя"""
         t = _(ctx=ctx)
         target = user or ctx.author
         guild = ctx.guild
@@ -170,7 +154,6 @@ class Analytics(commands.Cog):
             )
             return
 
-        # Получаем статистику
         await self.tracker.flush_user(str(guild.id), str(target.id))
         stats = await self.manager.get_user_stats(str(guild.id), str(target.id))
 
@@ -181,18 +164,15 @@ class Analytics(commands.Cog):
             )
             return
 
-        # Получаем топ пользователей
         top = await self.manager.get_top_users(str(guild.id))
         messages_rank = self._find_rank(top["messages"], str(target.id))
         voice_rank = self._find_rank(top["voice"], str(target.id))
         voice_total = stats["voice"]["total_seconds"]
 
-        # Получаем информацию о пользователе
         member = guild.get_member(target.id)
         display_name = member.display_name if member else target.name
         avatar_url = member.display_avatar.url if member else target.display_avatar.url
 
-        # Создаём embed
         embed = Embed(
             title=t("analytics_title", user_name=display_name),
         )
@@ -242,7 +222,6 @@ class Analytics(commands.Cog):
         return "—"
 
     def _format_text_channels(self, guild: discord.Guild, channels: dict[str, int], t) -> str:
-        """Форматирует топ текстовых каналов"""
         items = sorted(channels.items(), key=lambda item: item[1], reverse=True)[:5]
         lines = []
         medals = ("🥇", "🥈", "🥉")
@@ -259,7 +238,6 @@ class Analytics(commands.Cog):
         return "\n".join(lines) if lines else t("analytics_no_data")
 
     def _format_voice_channels(self, guild: discord.Guild, channels: dict[str, int], t) -> str:
-        """Форматирует топ голосовых каналов"""
         items = sorted(channels.items(), key=lambda item: item[1], reverse=True)[:5]
         lines = []
         temp_total = 0

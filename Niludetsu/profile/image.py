@@ -7,7 +7,6 @@ from PIL import Image, ImageChops, ImageDraw, ImageFont
 from typing import Any, Dict, Optional, Sequence, Tuple
 
 class ProfileGenerator:
-    """Генератор изображения профиля пользователя."""
 
     CANVAS_SIZE: Tuple[int, int] = (1920, 1060)
     AVATAR_OVERLAY_SIZE: Tuple[int, int] = (500, 500)
@@ -28,7 +27,6 @@ class ProfileGenerator:
             )
         self._font_cache: Dict[Tuple[int, int], ImageFont.FreeTypeFont] = {}
 
-    # Загрузка и подготовка изображений 
     async def _load_avatar(self, url: str) -> Optional[Image.Image]:
         if not url:
             return None
@@ -68,30 +66,24 @@ class ProfileGenerator:
         start_alpha: int = 0,
         end_alpha: int = 255,
     ) -> Image.Image:
-        """Создает вертикальный градиент с плавными переходами без артефактов."""
         width, height = size
 
-        # Парсим цвета
         start_rgb = tuple(int(start_color.strip("#")[i:i + 2], 16) for i in (0, 2, 4))
         end_rgb = tuple(int(end_color.strip("#")[i:i + 2], 16) for i in (0, 2, 4))
 
-        # Создаем массив с float значениями для плавного градиента
         y_positions = np.linspace(0, 1, height, dtype=np.float32)
 
-        # Интерполируем каждый канал отдельно (R, G, B, A)
         r_channel = (start_rgb[0] + (end_rgb[0] - start_rgb[0]) * y_positions).astype(np.uint8)
         g_channel = (start_rgb[1] + (end_rgb[1] - start_rgb[1]) * y_positions).astype(np.uint8)
         b_channel = (start_rgb[2] + (end_rgb[2] - start_rgb[2]) * y_positions).astype(np.uint8)
         a_channel = (start_alpha + (end_alpha - start_alpha) * y_positions).astype(np.uint8)
 
-        # Создаем массив градиента (height, width, 4)
         gradient_array = np.zeros((height, width, 4), dtype=np.uint8)
-        gradient_array[:, :, 0] = r_channel[:, np.newaxis]  # R
-        gradient_array[:, :, 1] = g_channel[:, np.newaxis]  # G
-        gradient_array[:, :, 2] = b_channel[:, np.newaxis]  # B
-        gradient_array[:, :, 3] = a_channel[:, np.newaxis]  # A
+        gradient_array[:, :, 0] = r_channel[:, np.newaxis]
+        gradient_array[:, :, 1] = g_channel[:, np.newaxis]
+        gradient_array[:, :, 2] = b_channel[:, np.newaxis]
+        gradient_array[:, :, 3] = a_channel[:, np.newaxis]
 
-        # Конвертируем numpy array в PIL Image
         gradient = Image.fromarray(gradient_array, mode="RGBA")
         return gradient
 
@@ -110,7 +102,6 @@ class ProfileGenerator:
 
     @staticmethod
     def _create_circle_mask(size: Tuple[int, int]) -> Image.Image:
-        """Создает круглую маску для аватара."""
         mask = Image.new("L", size, 0)
         draw = ImageDraw.Draw(mask)
         draw.ellipse((0, 0, size[0], size[1]), fill=255)
@@ -118,7 +109,6 @@ class ProfileGenerator:
 
     @staticmethod
     def _make_circle_image(image: Image.Image) -> Image.Image:
-        """Преобразует изображение в круглое."""
         size = image.size
         mask = ProfileGenerator._create_circle_mask(size)
 
@@ -168,7 +158,6 @@ class ProfileGenerator:
         font: ImageFont.FreeTypeFont, 
         spacing_ratio: float | None
     ) -> Tuple[float, float]:
-        """Измеряет размеры текста с учетом letter-spacing."""
         if not text:
             return 0.0, 0.0
 
@@ -199,7 +188,6 @@ class ProfileGenerator:
         start_y: float,
         spacing_ratio: float | None,
     ) -> None:
-        """Рендерит текст с кастомным letter-spacing."""
         if not text:
             return
 
@@ -269,7 +257,6 @@ class ProfileGenerator:
             self._render_text(draw, line, font, color, start_x, current_y, spacing)
             current_y += line_height + line_gap
 
-    # Рендер профиля 
     async def generate(
         self,
         user: discord.Member,
@@ -291,14 +278,12 @@ class ProfileGenerator:
             if not background_path.exists():
                 raise FileNotFoundError("Не найден шаблон profile.jpg или profile.png в data/images")
 
-            # Загружаем фоновое изображение напрямую через PIL
             background = Image.open(str(background_path)).convert("RGBA")
 
             bold64 = self._get_font(700, 64)
             medium32 = self._get_font(500, 32)
 
             if avatar:
-                # Overlay аватар
                 overlay = avatar.resize(self.AVATAR_OVERLAY_SIZE, Image.LANCZOS)
                 overlay = self._apply_opacity(overlay, 128)
                 mask = self._create_top_rounded_mask(self.AVATAR_OVERLAY_SIZE, self.AVATAR_CORNER_RADIUS)
@@ -314,7 +299,6 @@ class ProfileGenerator:
                 blended_overlay = Image.alpha_composite(overlay, gradient)
                 background.paste(blended_overlay, self.AVATAR_OVERLAY_POS, blended_overlay)
 
-                # Круглый аватар
                 circle_avatar = self._make_circle_image(
                     avatar.copy().resize(self.AVATAR_FOREGROUND_SIZE, Image.LANCZOS)
                 )

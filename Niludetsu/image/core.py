@@ -5,7 +5,6 @@ from PIL import ImageFont
 from typing import Dict
 
 class ImageResources:
-    """Универсальный менеджер ресурсов: шрифты, шаблоны, директории."""
 
     WEIGHT_MAP: Dict[str, int] = {
         "light": 300,
@@ -34,7 +33,6 @@ class ImageResources:
         self._font_cache: Dict[str, ImageFont.FreeTypeFont] = {}
 
     def get_font(self, weight: str, size: int) -> ImageFont.FreeTypeFont:
-        """Возвращает инстанс вариативного шрифта с нужным весом и размером."""
         weight_value = self.WEIGHT_MAP.get(weight.lower(), self.WEIGHT_MAP["regular"])
         cache_key = f"{weight_value}_{size}"
 
@@ -52,6 +50,5 @@ class ImageResources:
         return font
 
     def image_path(self, *parts: str) -> Path:
-        """Возвращает путь к изображению в data/images."""
         return self.images_dir.joinpath(*parts)
 

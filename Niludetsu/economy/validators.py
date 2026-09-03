@@ -5,7 +5,6 @@ from Niludetsu.locale import _
 from typing import Callable, Dict, Optional, Tuple
 
 class GameSessionRegistry:
-    """Хранит активные игровые сессии (game_name + user + guild)."""
 
     def __init__(self) -> None:
         self._sessions: Dict[Tuple[str, str, str], str] = {}
@@ -31,7 +30,6 @@ class GameSessionRegistry:
             return self._key(game_name, user_id, guild_id) in self._sessions
 
 class EconomyValidator:
-    """Управление игровыми сессиями."""
 
     def __init__(self, economy: EconomyManager):
         self.economy = economy

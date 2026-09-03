@@ -7,7 +7,7 @@ from typing import Optional
 import discord
 from discord.ext import commands
 
-from Niludetsu import Colors, Emojis, InfoCard, TimeService, safe_fetch_user, logger, config
+from Niludetsu import Colors, Emojis, Embed, TimeService, safe_fetch_user, logger, config
 from Niludetsu.ai.models import WelcomeQuestionGenerator
 from Niludetsu.database import database
 
@@ -55,7 +55,6 @@ class InviteSource:
         return InviteSource.EMOJI_MAP.get(source.upper(), "❓")
 
 class InviteManager:
-    """Caches invites and determines how a member joined."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -229,60 +228,42 @@ class MemberEventHandler:
     def _channel_url(guild_id: int, channel_id: int) -> str:
         return f"https://discord.com/channels/{guild_id}/{channel_id}"
 
-    def _build_dm_card(self, member: discord.Member, *, is_join: bool) -> InfoCard:
-        card = InfoCard(colour=Colors.PRIMARY)
-        card.thumbnail_url = "https://i.ibb.co/dR0QrPc/nullther.png"
-        card.add_item(discord.ui.ActionRow(self._link_button()))
-
+    def _build_dm_card(self, member: discord.Member, *, is_join: bool) -> Embed:
         if is_join:
-            card.header = "> **# nullther? welcome.**"
-            card.sections = [
-                (
-                    "**Мы — те, кто уже давно забыл, кем быть, но всё равно упорно существует.**\n\n"
-                    "Открыты для всех:\n"
-                    "- для тех, кто помнит своё имя\n"
-                    "- для тех, кто его потерял по дороге в ванную\n"
-                    "- и для тех, кого вообще никогда не звали"
-                ),
-                (
-                    "Особенно для **тебя**.\n"
-                    "Да, именно тебя, который сейчас читает это и думает «это точно не про меня».\n"
-                    "Это про тебя."
-                ),
-                (
-                    "Ты готов войти в комнату, где зеркала показывают не тебя,\n"
-                    "а то, кем ты мог бы быть, если бы не притворялся нормальным?\n\n"
-                    "Ты готов улыбнуться пустоте так искренне,\n"
-                    "чтобы она покраснела и отвернулась?"
-                ),
-                (
-                    "**Nullther ждёт.**\n"
-                    f"Твоё отражение уже зашло первым, **{discord.utils.escape_markdown(member.display_name)}**."
-                ),
-            ]
+            title = "nullther? welcome."
+            desc = (
+                "**Мы — те, кто уже давно забыл, кем быть, но всё равно упорно существует.**\n\n"
+                "Открыты для всех:\n"
+                "- для тех, кто помнит своё имя\n"
+                "- для тех, кто его потерял по дороге в ванную\n"
+                "- и для тех, кого вообще никогда не звали\n\n"
+                "Особенно для **тебя**.\n"
+                "Да, именно тебя, который сейчас читает это и думает «это точно не про меня».\n"
+                "Это про тебя.\n\n"
+                "Ты готов войти в комнату, где зеркала показывают не тебя,\n"
+                "а то, кем ты мог бы быть, если бы не притворялся нормальным?\n\n"
+                "Ты готов улыбнуться пустоте так искренне,\n"
+                "чтобы она покраснела и отвернулась?\n\n"
+                "**Nullther ждёт.**\n"
+                f"Твоё отражение уже зашло первым, **{discord.utils.escape_markdown(member.display_name)}**."
+            )
         else:
-            card.header = "> **# nullther? forgotten.**"
-            card.sections = [
-                (
-                    "**Твой силуэт растворился, так и не успев обрести чёткие грани.**\n\n"
-                    "Пустота в зеркале — это всё, что осталось после твоего ухода."
-                ),
-                (
-                    "Ты думаешь, что ты ушёл?\n"
-                    "- Нет, ты просто перестал резонировать с этой комнатой.\n"
-                    "- Твои слова затихли, но их эхо всё ещё шепчет в углах."
-                ),
-                (
-                    "Мы не будем скучать, потому что мы не помним, кто ты.\n"
-                    "Но мы чувствуем дыру в пространстве, которую ты оставил."
-                ),
-                (
-                    "**Nullther помнит.**\n"
-                    "Даже то, что ты пытался забыть. Возвращайся, если снова захочешь отразиться."
-                ),
-            ]
+            title = "nullther? forgotten."
+            desc = (
+                "**Твой силуэт растворился, так и не успев обрести чёткие грани.**\n\n"
+                "Пустота в зеркале — это всё, что осталось после твоего ухода.\n\n"
+                "Ты думаешь, что ты ушёл?\n"
+                "- Нет, ты просто перестал резонировать с этой комнатой.\n"
+                "- Твои слова затихли, но их эхо всё ещё шепчет в углах.\n\n"
+                "Мы не будем скучать, потому что мы не помним, кто ты.\n"
+                "Но мы чувствуем дыру в пространстве, которую ты оставил.\n\n"
+                "**Nullther помнит.**\n"
+                "Даже то, что ты пытался забыть. Возвращайся, если снова захочешь отразиться."
+            )
 
-        return card
+        embed = Embed.default(title=title, description=desc, color=Colors.PRIMARY)
+        embed.set_thumbnail(url="https://i.ibb.co/dR0QrPc/nullther.png")
+        return embed
 
     def _build_welcome_channel_view(
         self,
@@ -324,15 +305,14 @@ class MemberEventHandler:
         invite: Optional[discord.Invite],
         *,
         dm_sent: bool,
-    ) -> InfoCard:
+    ) -> Embed:
         created_ts = int(member.created_at.timestamp())
         now_ts = int(_time.now().timestamp())
         days = (now_ts - created_ts) // 86400
         account_icon = self._account_icon(days)
 
-        card = InfoCard(colour=Colors.SUCCESS)
-        card.header = f"{Emojis.SUCCESS} **{discord.utils.escape_markdown(member.display_name)} вошёл на сервер**"
-        card.thumbnail_url = member.display_avatar.url
+        embed = Embed.success(title=f"{discord.utils.escape_markdown(member.display_name)} вошёл на сервер")
+        embed.set_thumbnail(url=member.display_avatar.url)
 
         info_lines = [
             f"- **Тип:** `{'бот' if member.bot else 'участник'}`",
@@ -369,9 +349,11 @@ class MemberEventHandler:
             else:
                 invite_lines.append("- **Истекает:** Никогда")
 
-        card.sections = ["\n".join(info_lines), "\n".join(invite_lines)]
-        card.footer = "✅ ЛС отправлено" if dm_sent else "❌ ЛС закрыты"
-        return card
+        embed.add_field(name="Информация об аккаунте", value="\n".join(info_lines), inline=False)
+        embed.add_field(name="Приглашение", value="\n".join(invite_lines), inline=False)
+        footer_text = "✅ ЛС отправлено" if dm_sent else "❌ ЛС закрыты"
+        embed.set_footer(text=footer_text)
+        return embed
 
     async def _build_leave_log_card(
         self,
@@ -379,15 +361,14 @@ class MemberEventHandler:
         invite_data: Optional[dict],
         *,
         dm_sent: bool,
-    ) -> InfoCard:
+    ) -> Embed:
         created_ts = int(member.created_at.timestamp())
         now_ts = int(_time.now().timestamp())
         days = (now_ts - created_ts) // 86400
         account_icon = self._account_icon(days)
 
-        card = InfoCard(colour=Colors.ERROR)
-        card.header = f"{Emojis.ERROR} **{discord.utils.escape_markdown(member.display_name)} покинул сервер**"
-        card.thumbnail_url = member.display_avatar.url
+        embed = Embed.error(title=f"{discord.utils.escape_markdown(member.display_name)} покинул сервер")
+        embed.set_thumbnail(url=member.display_avatar.url)
 
         info_lines = [
             f"- **Тип:** `{'бот' if member.bot else 'участник'}`",
@@ -435,19 +416,18 @@ class MemberEventHandler:
             for role in member.roles
             if role.name != "@everyone"
         ]
-        sections = [
-            "\n".join(info_lines),
-            "\n".join(server_lines) if server_lines else "Нет данных о пребывании на сервере.",
-        ]
+
+        embed.add_field(name="Информация об аккаунте", value="\n".join(info_lines), inline=False)
+        embed.add_field(name="Пребывание на сервере", value="\n".join(server_lines) if server_lines else "Нет данных о пребывании на сервере.", inline=False)
         if roles:
             roles_text = ", ".join(roles)
             if len(roles_text) > 1024:
                 roles_text = f"{len(roles)} ролей"
-            sections.append(f"**Роли:**\n{roles_text}")
+            embed.add_field(name="Роли", value=roles_text, inline=False)
 
-        card.sections = sections
-        card.footer = "✅ Прощальное ЛС отправлено" if dm_sent else "❌ ЛС закрыты"
-        return card
+        footer_text = "✅ Прощальное ЛС отправлено" if dm_sent else "❌ ЛС закрыты"
+        embed.set_footer(text=footer_text)
+        return embed
 
     @staticmethod
     def _account_icon(days: int) -> str:
@@ -465,7 +445,10 @@ class MemberEventHandler:
 
     async def send_dm(self, member: discord.Member, *, is_join: bool) -> bool:
         try:
-            await member.send(view=self._build_dm_card(member, is_join=is_join).build())
+            view = discord.ui.View()
+            view.add_item(self._link_button())
+            embed = self._build_dm_card(member, is_join=is_join)
+            await member.send(embed=embed, view=view)
             return True
         except discord.Forbidden:
             return False
@@ -587,7 +570,7 @@ class MemberEventHandler:
         if not channel:
             return
         await channel.send(
-            view=self._build_join_log_card(member, invite, dm_sent=dm_sent).build(),
+            embed=self._build_join_log_card(member, invite, dm_sent=dm_sent),
             allowed_mentions=discord.AllowedMentions.none(),
         )
 
@@ -601,9 +584,9 @@ class MemberEventHandler:
         channel = self.bot.get_channel(config.INVITES_CHANNEL_ID)
         if not channel:
             return
-        card = await self._build_leave_log_card(member, invite_data, dm_sent=dm_sent)
+        embed = await self._build_leave_log_card(member, invite_data, dm_sent=dm_sent)
         await channel.send(
-            view=card.build(),
+            embed=embed,
             allowed_mentions=discord.AllowedMentions.none(),
         )
 
@@ -702,7 +685,6 @@ class MemberEventHandler:
         self._log_step_errors("leave", member.id, leave_steps)
 
 class InviteTracker(commands.Cog):
-    """Tracks invites and sends welcome/leave cards."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot

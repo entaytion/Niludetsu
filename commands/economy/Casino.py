@@ -63,7 +63,6 @@ class Roulette(commands.Cog):
         res_num = random.randint(0, 36)
         color = "red" if res_num in RED_NUMBERS else "black" if res_num in BLACK_NUMBERS else "green"
         
-        # Простая анимация
         for _ in range(3):
             await interaction.edit_original_response(embed=Embed(description=t("casino", "spinning"), color=Colors.PRIMARY))
             await asyncio.sleep(1)

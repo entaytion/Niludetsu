@@ -13,6 +13,7 @@ CAT_INFO = {
     "tools":       ("Инструменты", "🔧"),
     "partnership": ("Партнерство", "🤝"),
     "marriage":    ("Семья",       "💍"),
+    "customization": ("Кастомизация", "🎨"),
 }
 
 class Help(commands.Cog):
@@ -21,7 +22,6 @@ class Help(commands.Cog):
         bot.remove_command('help')
 
     def build_categories(self):
-        """Динамически собирает команды из бота и группирует по папкам."""
         categories = {}
         for cmd in self.bot.commands:
             if cmd.hidden: continue

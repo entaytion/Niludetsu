@@ -7,18 +7,15 @@ from Niludetsu.database import database
 _time = TimeService()
 
 class LevelManager:
-    """Менеджер уровней. Оптимизирован для атомарных операций и Neon."""
 
     def __init__(self) -> None:
         self.db = database
 
     @staticmethod
     def next_level_xp(level: int) -> int:
-        """Рассчитывает необходимый опыт для следующего уровня."""
         return 5 * (level ** 2) + 50 * level + 100
 
     async def get_profile(self, guild_id: str, user_id: str) -> Dict[str, int]:
-        """Отримує профіль через бандл юзера (кешовано)."""
         user_data = await self.db.get_user(str(user_id), str(guild_id))
         profile = user_data["profile"]
         
@@ -34,12 +31,10 @@ class LevelManager:
         user_id: str,
         amount: int,
     ) -> Tuple[Dict[str, int], bool]:
-        """Атомарно добавляет опыт и рассчитывает уровень."""
         if amount <= 0:
             return await self.get_profile(guild_id, user_id), False
 
         async with self.db.transaction() as conn:
-            # Блокируем строку для обновления
             query_select = """
                 SELECT level, experience, reputation 
                 FROM public.user_profile 
@@ -49,8 +44,6 @@ class LevelManager:
             row = await conn.fetchrow(query_select, str(user_id), str(guild_id))
             
             if not row:
-                # Если записи нет (не должно быть с get_user), создаем ее
-                # Но так как get_user гарантирует наличие, просто вернем пустой профиль
                 return await self.get_profile(guild_id, user_id), False
 
             level = int(row["level"])
@@ -73,7 +66,6 @@ class LevelManager:
             new_row = await conn.fetchrow(query_update, str(user_id), str(guild_id), new_level, exp)
             p = dict(new_row)
         
-        # Обновляем кеш бандла
         await self.db.update_user_cache(str(user_id), str(guild_id), "profile", p)
 
         return {

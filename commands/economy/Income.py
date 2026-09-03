@@ -18,7 +18,6 @@ class IncomeRoles(commands.Cog):
         t = _(ctx=ctx)
         uid, gid = str(ctx.author.id), str(ctx.guild.id)
         
-        # Получаем все роли, которыми владеет юзер
         all_roles = await self.economy.db.get_rows("roles", guild_id=gid, owner_id=uid)
         if not all_roles: return await ctx.reply(t("income", "no_roles"), ephemeral=True)
 
@@ -35,9 +34,7 @@ class IncomeRoles(commands.Cog):
             last_claim = int(cooldowns.get(f"{CD_PREFIX}{rid}", 0))
             
             if now - last_claim >= ROLE_INCOME_INTERVAL:
-                # Считаем владельцев
                 holders = await self.economy.db.get_role_holders(gid, rid)
-                # Только те, кто купил, а не владелец
                 real_holders = sum(1 for h in holders if h["user_id"] != uid)
                 
                 income = real_holders * ROLE_INCOME_AMOUNT
@@ -53,7 +50,6 @@ class IncomeRoles(commands.Cog):
 
         if claimed_total > 0:
             await self.economy.add_money(uid, gid, claimed_total, share_spousal=False, event="role_income")
-            # Обновляем кулдауны точечно
             new_cds = {**cooldowns, **updates}
             await self.economy.db.update_record("user_economy", {"user_id": uid, "guild_id": gid}, {"cooldowns": new_cds})
             await self.economy.db.update_user_cache(uid, gid, "economy", {"cooldowns": new_cds})

@@ -9,7 +9,6 @@ _INVITE_RE = re.compile(r'(?:https?://)?(?:www\.)?discord\.(?:gg|io|com/invite)/
 
 
 class Partnership(commands.Cog):
-    """Команды для управления партнерствами"""
 
     def __init__(self, bot):
         self.bot = bot
@@ -21,7 +20,6 @@ class Partnership(commands.Cog):
         self.creator_id = "636570363605680139"
         self.partnership_manager = PartnershipManager(bot, config.SERVERS["MAIN_ID"])
 
-    # ── Хелпери ─────────────────────────────────────────────────
 
     async def _remove_reaction_after_delay(self, message, emoji: str, delay: int):
         await asyncio.sleep(delay)
@@ -31,7 +29,6 @@ class Partnership(commands.Cog):
             pass
 
     async def _reject_message(self, message) -> None:
-        """Додає ❌, чекає 5с, видаляє."""
         try:
             await message.add_reaction("❌")
             await asyncio.sleep(5)
@@ -98,7 +95,6 @@ class Partnership(commands.Cog):
         except Exception as e:
             print(f"Ошибка при отправке статистики: {e}")
 
-    # ── Обробка повідомлень ────────────────────────────────────
 
     @commands.Cog.listener()
     async def on_message(self, message):

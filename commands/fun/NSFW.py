@@ -5,13 +5,11 @@ from Niludetsu.locale import _
 
 
 class BooruFetcher:
-    """Универсальный фетчер для booru-сайтов."""
 
     def __init__(self, session: aiohttp.ClientSession | None = None):
         self.headers = {
             "User-Agent": "Niludetsu/1.0 (by Entaytion on Discord)"
         }
-        # Лимит размера файла для скачивания (25 МБ — лимит Discord)
         self.max_file_size = 24 * 1024 * 1024
         self.session = session
 
@@ -19,7 +17,6 @@ class BooruFetcher:
         self.session = session
 
     async def _request_text(self, url: str, *, timeout: int = 15) -> str | None:
-        """Shared safe GET helper for booru endpoints."""
         if self.session is None or self.session.closed:
             return None
 
@@ -39,7 +36,6 @@ class BooruFetcher:
             return None
 
     async def _get_json(self, url: str) -> list | dict | None:
-        """GET-запрос, вернуть JSON или None."""
         text = await self._request_text(url)
         if text is None:
             return None
@@ -49,14 +45,9 @@ class BooruFetcher:
             return None
 
     async def _get_html(self, url: str) -> str | None:
-        """GET-запрос, вернуть HTML или None."""
         return await self._request_text(url)
 
     async def download_file(self, url: str) -> tuple[io.BytesIO, str] | None:
-        """
-        Скачать файл в память (BytesIO).
-        Возвращает (BytesIO, filename) или None если файл слишком большой / ошибка.
-        """
         if self.session is None or self.session.closed:
             return None
 
@@ -69,12 +60,10 @@ class BooruFetcher:
                 if resp.status != 200:
                     return None
 
-                # Проверяем размер если сервер его отдает
                 content_length = resp.headers.get("Content-Length")
                 if content_length and int(content_length) > self.max_file_size:
                     return None
 
-                # Читаем файл чанками чтобы не взорвать память
                 data = io.BytesIO()
                 total = 0
                 async for chunk in resp.content.iter_chunked(1024 * 64):
@@ -85,10 +74,8 @@ class BooruFetcher:
 
                 data.seek(0)
 
-                # Определяем имя файла из URL
                 path = urllib.parse.urlparse(url).path
                 filename = path.split("/")[-1] or "file.jpg"
-                # Убираем query-параметры из имени
                 if "?" in filename:
                     filename = filename.split("?")[0]
 
@@ -96,15 +83,10 @@ class BooruFetcher:
         except Exception:
             return None
 
-    # ================================================================
-    #  Xbooru — JSON DAPI (аниме/хентай контент)
-    #  Возвращает: (file_url, post_url, tags)
-    # ================================================================
 
     async def fetch_xbooru(self, tags: str = None) -> tuple[str, str, str] | None:
         safe_tags = urllib.parse.quote(tags, safe="") if tags else ""
 
-        # Рандомная страница, потом fallback на pid=0
         pid = random.randint(0, 5)
         url = (
             f"https://xbooru.com/index.php?page=dapi&s=post&q=index"
@@ -132,15 +114,10 @@ class BooruFetcher:
         post_url = f"https://xbooru.com/index.php?page=post&s=view&id={post_id}" if post_id else ""
         return file_url, post_url, tags or "random"
 
-    # ================================================================
-    #  Realbooru — HTML-скрапинг (реальный контент)
-    #  Возвращает: (file_url, post_url, tags)
-    # ================================================================
 
     async def fetch_realbooru(self, tags: str = None) -> tuple[str, str, str] | None:
         safe_tags = urllib.parse.quote(tags, safe="") if tags else ""
 
-        # Пробуем несколько страниц
         pids_to_try = [0, 42, 84]
         random.shuffle(pids_to_try)
 
@@ -170,7 +147,6 @@ class BooruFetcher:
         if not post_id:
             return None
 
-        # Загружаем страницу поста
         post_url = f"https://realbooru.com/index.php?page=post&s=view&id={post_id}"
         post_html = await self._get_html(post_url)
         if not post_html:
@@ -206,19 +182,15 @@ class NSFW(commands.Cog):
         self.fetcher.bind_session(getattr(self.bot, "http_session", None))
 
     async def _send_posts(self, ctx, source_name: str, fetch_func, count: int, tags: str):
-        """Общая логика: фетчим посты, скачиваем файлы, отправляем как аттачменты."""
         t = _(ctx=ctx)
         if not ctx.channel.is_nsfw():
             await ctx.send(t("general", "nsfw_channel_only"))
             return
 
-        # Отправляем "typing" пока скачиваем
         async with ctx.typing():
-            # Параллельный фетч URL-ов
             tasks = [fetch_func(tags) for _ in range(count)]
             results = await asyncio.gather(*tasks)
 
-            # Фильтруем + дедупликация по file_url
             seen = set()
             posts = []
             for res in results:
@@ -226,7 +198,6 @@ class NSFW(commands.Cog):
                     seen.add(res[0])
                     posts.append(res)
 
-            # Retry если пусто
             if not posts:
                 retry = await fetch_func(tags)
                 if retry and retry[0]:
@@ -239,16 +210,13 @@ class NSFW(commands.Cog):
             )
             return
 
-        # Отправляем по одному файлу
         last_msg = ctx.message
         for i, (file_url, post_url, tags_out) in enumerate(posts, 1):
             async with ctx.typing():
-                # Скачиваем файл в память
                 downloaded = await self.fetcher.download_file(file_url)
 
             if downloaded:
                 data, filename = downloaded
-                # Формируем текст сообщения
                 content = f"**[{i}/{len(posts)}]** с {source_name}\n"
                 if post_url:
                     content += f"-# Оригинал: [ссылка](<{post_url}>)"
@@ -261,13 +229,11 @@ class NSFW(commands.Cog):
                         mention_author=False
                     )
                 except discord.HTTPException:
-                    # Если не удалось отправить файл — отправляем просто URL
                     fallback = f"**[{i}/{len(posts)}]** с {source_name}: <{file_url}>\n"
                     if post_url:
                         fallback += f"-# Оригинал: [ссылка](<{post_url}>)"
                     last_msg = await ctx.send(fallback)
             else:
-                # Файл слишком большой или ошибка скачивания — шлём URL
                 content = f"**[{i}/{len(posts)}]** с {source_name}: <{file_url}>\n"
                 if post_url:
                     content += f"-# Оригинал: [ссылка](<{post_url}>)"
@@ -282,7 +248,6 @@ class NSFW(commands.Cog):
                 except discord.HTTPException:
                     last_msg = await ctx.send(content)
 
-        # Реакция-подсказка на последнем сообщении (3 минуты)
         try:
             await last_msg.add_reaction("❓")
         except discord.HTTPException:
@@ -298,14 +263,12 @@ class NSFW(commands.Cog):
         try:
             await self.bot.wait_for("reaction_add", timeout=180.0, check=check)
         except asyncio.TimeoutError:
-            # Время вышло — убираем реакцию
             try:
                 await last_msg.remove_reaction("❓", self.bot.user)
             except discord.HTTPException:
                 pass
             return
 
-        # Кто-то нажал — убираем реакцию полностью и показываем подсказку на 30 секунд
         try:
             await last_msg.clear_reaction("❓")
         except discord.HTTPException:
@@ -334,7 +297,6 @@ class NSFW(commands.Cog):
         except discord.HTTPException:
             pass
 
-    # --- Команды ---
 
     @commands.command(name="nsfw", description="NSFW контент (аниме/хентай)")
     async def nsfw(self, ctx: commands.Context, count: typing.Optional[int] = 3, *, tags: str = None):

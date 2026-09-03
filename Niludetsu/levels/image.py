@@ -9,7 +9,6 @@ from PIL import Image, ImageChops, ImageDraw, ImageFont
 from typing import Dict, Tuple
 
 class LevelCardRenderer:
-    """Формирует PNG-карточку уровня на основе шаблона и данных профиля."""
 
     PROGRESS_COLOR = "#E6B632"
     PROGRESS_BG = "#433C2D"
@@ -45,7 +44,6 @@ class LevelCardRenderer:
         self.levels = LevelManager()
 
     async def _load_image_async(self, url: str) -> Image.Image | None:
-        """Асинхронная загрузка изображения по URL."""
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as response:
@@ -58,7 +56,6 @@ class LevelCardRenderer:
 
     @staticmethod
     def _make_circle_image(image: Image.Image) -> Image.Image:
-        """Преобразует изображение в круглое."""
         size = image.size
         mask = Image.new("L", size, 0)
         draw = ImageDraw.Draw(mask)
@@ -78,11 +75,9 @@ class LevelCardRenderer:
         color: str,
         radius: int,
     ) -> None:
-        """Рисует скругленный прямоугольник."""
         x, y = position
         width, height = size
 
-        # Создаем временное изображение для прямоугольника
         rect_img = Image.new("RGBA", size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(rect_img)
         draw.rounded_rectangle(
@@ -91,7 +86,6 @@ class LevelCardRenderer:
             fill=color
         )
 
-        # Накладываем на основное изображение
         image.paste(rect_img, (x, y), rect_img)
 
     async def render(
@@ -99,13 +93,11 @@ class LevelCardRenderer:
         member: discord.Member,
         profile: Dict[str, int],
     ) -> bytes:
-        """Строит карточку и возвращает PNG в виде байтов."""
         import asyncio
         avatar_url = member.display_avatar.replace(size=512).url
         avatar = await self._load_image_async(avatar_url)
 
         def render_sync() -> bytes:
-            # Загружаем фоновое изображение
             background = Image.open(str(self.background_path)).convert("RGBA")
 
             level = int(profile.get("level", 1))
@@ -114,7 +106,6 @@ class LevelCardRenderer:
             progress_ratio = min(1.0, exp / needed) if needed else 0.0
 
             if avatar:
-                # Большой полупрозрачный аватар на фоне
                 large_avatar = avatar.resize((500, 500), Image.LANCZOS)
                 translucent = self._apply_opacity(large_avatar, 128)
 
@@ -131,7 +122,6 @@ class LevelCardRenderer:
                 blended.putalpha(ImageChops.multiply(blended_alpha, mask))
                 background.paste(blended, (26, 68), blended)
 
-                # Круглый аватар поверх
                 circle_avatar = self._make_circle_image(avatar.copy().resize((300, 300), Image.LANCZOS))
                 background.paste(circle_avatar, (126, 168), circle_avatar)
 
@@ -139,7 +129,6 @@ class LevelCardRenderer:
             username = self._truncate(f"@{member.name}", 26)
             level_next = level + 1
 
-            # Отрисовка текста
             self._draw_centered_text(
                 background,
                 display_name,
@@ -190,12 +179,10 @@ class LevelCardRenderer:
                 color=self.EXP_TEXT_COLOR,
             )
 
-            # Прогресс-бар
             bar_x, bar_y = 591, 535
             bar_w, bar_h = 500, 40
             radius = 60
 
-            # Фон прогресс-бара
             self._draw_rounded_rectangle(
                 background,
                 (bar_x, bar_y),
@@ -204,10 +191,8 @@ class LevelCardRenderer:
                 radius
             )
 
-            # Заполнение прогресс-бара
             fill_w = int(bar_w * progress_ratio)
             if fill_w > 0:
-                # Создаем полный прогресс-бар
                 fill_layer = Image.new("RGBA", (bar_w, bar_h), (0, 0, 0, 0))
                 draw = ImageDraw.Draw(fill_layer)
                 draw.rounded_rectangle(
@@ -215,11 +200,9 @@ class LevelCardRenderer:
                     radius=radius,
                     fill=self.PROGRESS_COLOR
                 )
-                # Обрезаем до нужной ширины
                 cropped = fill_layer.crop((0, 0, fill_w, bar_h))
                 background.paste(cropped, (bar_x, bar_y), cropped)
 
-            # Сохранение в буфер
             buffer = io.BytesIO()
             background.save(buffer, format="PNG")
             buffer.seek(0)
@@ -249,30 +232,24 @@ class LevelCardRenderer:
         start_alpha: int = 255,
         end_alpha: int = 255,
     ) -> Image.Image:
-        """Создает вертикальный градиент с плавными переходами без артефактов."""
         width, height = size
 
-        # Парсим цвета
         start_rgb = tuple(int(start.strip("#")[i:i + 2], 16) for i in (0, 2, 4))
         end_rgb = tuple(int(end.strip("#")[i:i + 2], 16) for i in (0, 2, 4))
 
-        # Создаем массив с float значениями для плавного градиента
         y_positions = np.linspace(0, 1, height, dtype=np.float32)
 
-        # Интерполируем каждый канал отдельно (R, G, B, A)
         r_channel = (start_rgb[0] + (end_rgb[0] - start_rgb[0]) * y_positions).astype(np.uint8)
         g_channel = (start_rgb[1] + (end_rgb[1] - start_rgb[1]) * y_positions).astype(np.uint8)
         b_channel = (start_rgb[2] + (end_rgb[2] - start_rgb[2]) * y_positions).astype(np.uint8)
         a_channel = (start_alpha + (end_alpha - start_alpha) * y_positions).astype(np.uint8)
 
-        # Создаем массив градиента (height, width, 4)
         gradient_array = np.zeros((height, width, 4), dtype=np.uint8)
-        gradient_array[:, :, 0] = r_channel[:, np.newaxis]  # R
-        gradient_array[:, :, 1] = g_channel[:, np.newaxis]  # G
-        gradient_array[:, :, 2] = b_channel[:, np.newaxis]  # B
-        gradient_array[:, :, 3] = a_channel[:, np.newaxis]  # A
+        gradient_array[:, :, 0] = r_channel[:, np.newaxis]
+        gradient_array[:, :, 1] = g_channel[:, np.newaxis]
+        gradient_array[:, :, 2] = b_channel[:, np.newaxis]
+        gradient_array[:, :, 3] = a_channel[:, np.newaxis]
 
-        # Конвертируем numpy array в PIL Image
         gradient = Image.fromarray(gradient_array, mode="RGBA")
         return gradient
 
@@ -294,7 +271,6 @@ class LevelCardRenderer:
         font: ImageFont.FreeTypeFont, 
         spacing: float | None
     ) -> Tuple[float, float]:
-        """Измеряет размеры текста с учетом letter-spacing."""
         if not text:
             return 0.0, 0.0
 
@@ -325,7 +301,6 @@ class LevelCardRenderer:
         start_y: float,
         spacing: float | None,
     ) -> None:
-        """Рендерит текст с кастомным letter-spacing."""
         if not text:
             return
 

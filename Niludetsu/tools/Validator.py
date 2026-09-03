@@ -4,14 +4,12 @@ from Niludetsu.tools.Embed import Embed
 from Niludetsu.Exceptions import NiludetsuException
 
 class Check:
-    """Один шаг валидации. Подклассы переопределяют run()."""
 
     async def run(self, ctx, data: dict) -> dict:
         return data
 
 
 class ValidationPipeline:
-    """Прогоняет список Check-ов по порядку."""
 
     def __init__(self, *checks: Check):
         self.checks = checks
@@ -24,10 +22,6 @@ class ValidationPipeline:
 
 
 def economy(*checks: Check):
-    """
-    Декоратор для команд экономики. При ошибке автоматически шлёт embed
-    через новую систему Exceptions (розумна сортіровка).
-    """
 
     def decorator(func):
         sig = inspect.signature(func)
@@ -49,7 +43,6 @@ def economy(*checks: Check):
             try:
                 data = await pipeline.execute(ctx, cog=self, **kwargs)
             except Exception as e:
-                # Використовуємо розумну сортіровку
                 error_embed = Embed.exception(error=e, user=ctx.author)
                 await ctx.reply(embed=error_embed, ephemeral=True)
                 return

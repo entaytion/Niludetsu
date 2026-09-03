@@ -1,7 +1,3 @@
-"""
-Базовий клас для всіх логерів.
-Шарений Webhooks інстанс, утиліти для audit log та temp файлів.
-"""
 
 import os
 import tempfile
@@ -21,7 +17,6 @@ class BaseLogger:
         target_id: int,
         limit: int = 3,
     ) -> discord.User | None:
-        """Безпечне отримання юзера з audit log."""
         try:
             async for entry in guild.audit_logs(limit=limit, action=action):
                 if entry.target and entry.target.id == target_id:
@@ -32,7 +27,6 @@ class BaseLogger:
 
     @staticmethod
     def _temp_file(content: str, prefix: str, suffix: str = ".txt") -> tuple[discord.File, str]:
-        """Створити тимчасовий файл, повертає (discord.File, шлях для cleanup)."""
         f = tempfile.NamedTemporaryFile(
             mode='w', prefix=prefix, suffix=suffix,
             delete=False, encoding='utf-8'
@@ -43,7 +37,6 @@ class BaseLogger:
 
     @staticmethod
     def _cleanup(path: str | None):
-        """Безпечне видалення тимчасового файлу."""
         if path:
             try:
                 os.remove(path)

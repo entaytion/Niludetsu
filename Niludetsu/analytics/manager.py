@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Tuple
 _time = Time()
 
 class AnalyticsManager:
-    """Сервис для чтения агрегированной аналитики."""
 
     def __init__(self) -> None:
         self.repo = AnalyticsRepository()

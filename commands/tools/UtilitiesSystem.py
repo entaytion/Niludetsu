@@ -16,7 +16,6 @@ from Niludetsu.locale import _
 from typing import Optional
 
 class UtilitiesSystem(commands.Cog):
-    """Ког с различными утилитами"""
 
     def __init__(self, bot):
         self.bot = bot

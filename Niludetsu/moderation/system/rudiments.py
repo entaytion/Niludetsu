@@ -15,7 +15,6 @@ _time = TimeService()
 
 @dataclass(frozen=True)
 class RudimentRecord:
-    """Нормализованная запись наказания."""
 
     rudiment: str
     user_id: int
@@ -39,7 +38,6 @@ class RudimentRecord:
         return int(dt.timestamp()) if dt else None
 
 class RudimentsSystem:
-    """Утилита для поиска и форматирования наказаний пользователей."""
 
     _ACTION_ALIASES: Dict[str, str] = {
         "warn": ActionType.WARN,
@@ -84,7 +82,6 @@ class RudimentsSystem:
         include_inactive: bool = False,
         rudiment: Optional[str] = None,
     ) -> List[RudimentRecord]:
-        """Получает список наказаний согласно фильтрам."""
 
         normalized_action = self.normalize_action(action)
 
@@ -159,7 +156,6 @@ class RudimentsSystem:
         page: int,
         per_page: int,
     ) -> Embed:
-        """Создаёт embed со списком наказаний."""
 
         title_suffix = self._ACTION_LABELS.get(action or "", "Нарушения") if action else "Нарушения"
         title = f"{Emojis.MODERATION} {title_suffix}".strip()
@@ -185,7 +181,6 @@ class RudimentsSystem:
         )
         embed.set_thumbnail(url=member.display_avatar.url)
 
-        # Футер с пагинацией
         footer_parts = [f"Всего: {total}"]
         if total_pages > 1:
             footer_parts.append(f"Страница {current_page}/{total_pages}")
@@ -199,7 +194,6 @@ class RudimentsSystem:
         guild: discord.Guild,
         record: RudimentRecord
     ) -> Embed:
-        """Создаёт embed для одной записи по её ID."""
 
         action_emoji = self._ACTION_EMOJIS.get(record.action_type, "📘")
         status_emoji = "🟢" if record.active else "⚪"
@@ -215,7 +209,6 @@ class RudimentsSystem:
 
         created_text = self._format_timestamp(record.created_timestamp)
 
-        # Формируем основное описание
         description_parts = [
             f"**Пользователь:** {user_text}",
             f"**Модератор:** {moderator_text}",
@@ -226,12 +219,10 @@ class RudimentsSystem:
             f"**Выдано:** {created_text}",
         ]
 
-        # Добавляем срок истечения только если он есть
         if record.expires_timestamp:
             expires_text = self._format_timestamp(record.expires_timestamp)
             description_parts.append(f"**Истекает:** {expires_text}")
 
-        # Добавляем длительность только если она указана
         if record.duration_minutes:
             duration_text = self._format_duration(record.duration_minutes)
             description_parts.append(f"**Длительность:** {duration_text}")
@@ -247,7 +238,6 @@ class RudimentsSystem:
         return embed
 
     def _format_record_line(self, record: RudimentRecord) -> str:
-        """Форматирует одну запись для списка в компактном виде"""
         emoji = self._ACTION_EMOJIS.get(record.action_type, "📘")
         status_emoji = "🟢" if record.active else "⚪"
         status_text = "Активен" if record.active else "Завершен"
@@ -255,22 +245,18 @@ class RudimentsSystem:
         moderator = self._format_moderator(record.moderator_id)
         created = self._format_timestamp_short(record.created_timestamp)
 
-        # Основная строка: emoji + номер + статус
         header = f"{emoji} **``#{record.rudiment}``** • {status_emoji} {status_text}"
 
-        # Вложенная информация с blockquote
         details = [
             f"> **Модератор:** {moderator}",
             f"> **Причина:** {record.reason}",
             f"> **Выдано:** {created}",
         ]
 
-        # Добавляем длительность только если она указана
         if record.duration_minutes:
             duration = self._format_duration(record.duration_minutes)
             details.append(f"> **Длительность:** {duration}")
 
-        # Добавляем срок истечения только если он есть и наказание активно
         if record.active and record.expires_timestamp:
             expires = self._format_timestamp_short(record.expires_timestamp)
             details.append(f"> **Истекает:** {expires}")
@@ -284,14 +270,12 @@ class RudimentsSystem:
 
     @staticmethod
     def _format_timestamp(value: Optional[int]) -> Optional[str]:
-        """Форматирует timestamp в относительное время + полная дата"""
         if not value:
             return None
         return f"<t:{value}:R> • <t:{value}:f>"
 
     @staticmethod
     def _format_timestamp_short(value: Optional[int]) -> Optional[str]:
-        """Форматирует timestamp только в относительное время (компактно)"""
         if not value:
             return None
         return f"<t:{value}:R>"

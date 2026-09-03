@@ -6,11 +6,10 @@ from typing import Optional, Dict, Any
 from Niludetsu.database import Database, database
 
 MAIN_SERVER_ID = config.SERVERS["MAIN_ID"]
-NEWS_CHANNEL_ID = 1125546966076625038  # Канал новостей
-BOOST_REWARD = 10000  # Награда за буст
+NEWS_CHANNEL_ID = 1125546966076625038
+BOOST_REWARD = 10000
 
 async def get_booster_role_item(db: Database, user_id: str, guild_id: str) -> Optional[Dict[str, Any]]:
-    """Получает запись о бустерской роли из инвентаря"""
     try:
         items = await db.fetch_inventory_items(user_id, guild_id)
         for item in items:
@@ -21,7 +20,6 @@ async def get_booster_role_item(db: Database, user_id: str, guild_id: str) -> Op
     return None
 
 async def delete_booster_role(db: Database, member: discord.Member, guild: discord.Guild, booster_item: Dict[str, Any]) -> bool:
-    """Удаляет бустерскую роль"""
     try:
         role_id = int(booster_item.get("meta", {}).get("role_id"))
         role = guild.get_role(role_id)
@@ -29,7 +27,6 @@ async def delete_booster_role(db: Database, member: discord.Member, guild: disco
         if role:
             await role.delete(reason=f"Удаление бустерской роли {member.name}")
         
-        # Удаляем из инвентаря
         await db.delete_inventory_item(
             user_id=str(member.id),
             guild_id=str(guild.id),
@@ -42,7 +39,6 @@ async def delete_booster_role(db: Database, member: discord.Member, guild: disco
         return False
 
 class Booster(commands.Cog):
-    """Обработка бустов сервера"""
 
     def __init__(self, bot):
         self.bot = bot
@@ -50,13 +46,11 @@ class Booster(commands.Cog):
         self.economy = EconomyManager(database)
 
     async def _handle_boost_add(self, member: discord.Member):
-        """Обрабатывает добавление буста"""
         guild = member.guild
         guild_id = guild.id
         user_id = str(member.id)
         t = _(guild_id=guild_id, bot=self.bot)
 
-        # Main Server Logic
         if guild.id == MAIN_SERVER_ID:
             success, message = await self.economy.add_money(
                 user_id,
@@ -81,7 +75,6 @@ class Booster(commands.Cog):
                     print(f"[Booster] Ошибка отправки в канал новостей: {e}")
             return
 
-        # Public Premium Server Custom Boost Notification Logic
         cm = getattr(self.bot, "config_manager", None)
         if cm and cm.is_premium(guild_id):
             boost_channel_id = cm.get_custom_text(guild_id, "boost", "channel_id", None)
@@ -99,12 +92,10 @@ class Booster(commands.Cog):
                         await channel.send(embed=Embed(**custom))
 
     async def _handle_boost_remove(self, member: discord.Member):
-        """Обрабатывает удаление буста"""
         guild = member.guild
         guild_id = str(guild.id)
         user_id = str(member.id)
 
-        # Получаем бустерскую роль из инвентаря
         booster_item = await get_booster_role_item(self.db, user_id, guild_id)
         
         if booster_item:
@@ -112,7 +103,6 @@ class Booster(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
-        """Отслеживает изменения статуса буста"""
         guild = after.guild
         cm = getattr(self.bot, "config_manager", None)
 

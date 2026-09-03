@@ -37,12 +37,10 @@ class Webhooks:
         if cached:
             return cached
 
-        # Lock per channel щоб не створювати дублі при паралельних евентах
         if channel.id not in self._locks:
             self._locks[channel.id] = asyncio.Lock()
 
         async with self._locks[channel.id]:
-            # Перевіряємо кеш ще раз під локом
             cached = self._webhook_cache.get(channel.id)
             if cached:
                 return cached
@@ -70,10 +68,6 @@ class Webhooks:
         payload: dict,
         name: str,
     ) -> None:
-        """
-        Единоразовая попытка отправить сообщение.
-        Если вебхук пропал, выбрасывает discord.NotFound.
-        """
         await webhook.send(
             username=name,
             avatar_url=self.webhook_avatar_url,
@@ -148,7 +142,6 @@ class Webhooks:
                 name=webhook_name,
             )
         except discord.NotFound:
-            # Вебхук исчез → очищаем кеш и создаём заново
             self._webhook_cache.pop(channel.id, None)
             fresh = await self.get_or_create_webhook(channel, name=webhook_name)
             if fresh is None:

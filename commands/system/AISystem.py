@@ -3,7 +3,6 @@ import discord
 import os
 import re
 
-# Подавляем низкоуровневые предупреждения gRPC/absl до импорта Google SDK
 os.environ.setdefault("GRPC_VERBOSITY", "ERROR")
 os.environ.setdefault("GLOG_minloglevel", "3")
 
@@ -24,7 +23,6 @@ from Niludetsu.database import database
 from putergenai import PuterClient
 
 class ConversationManager:
-    """Управление историей разговоров через базу данных."""
 
     def __init__(self, history_limit: int = HISTORY_LIMIT):
         self.history_limit = history_limit
@@ -65,7 +63,6 @@ class ConversationManager:
         ]
 
 class EmbedFormatter:
-    """Форматирование эмбедов."""
 
     @staticmethod
     def split_into_v2_views(text: str) -> list[discord.ui.View]:
@@ -162,7 +159,6 @@ class EmbedFormatter:
         return parts
 
 class AISystem(commands.Cog):
-    """Основной класс системы ИИ."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot

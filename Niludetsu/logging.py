@@ -1,7 +1,6 @@
 import logging, sys
 from loguru import logger
 
-# Удаляем стандартный stdout-sink, чтобы поставить свой формат
 logger.remove()
 logger.add(
     sys.stderr,
@@ -9,12 +8,11 @@ logger.add(
     format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
            "<level>{level: <8}</level> | "
            "<cyan>{name}</cyan>:<cyan>{function}</cyan> | {message}",
-    enqueue=True,   # безопасно для async
-    backtrace=True, # вкл. подробный стек при исключениях
-    diagnose=True,  # показывает содержимое локальных переменных
+    enqueue=True,
+    backtrace=True,
+    diagnose=True,
 )
 
-# Чтобы сторонние библиотеки (httpx, discord и т.п.) писали через Loguru
 class InterceptHandler(logging.Handler):
     def emit(self, record):
         try:

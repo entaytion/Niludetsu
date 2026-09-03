@@ -45,7 +45,6 @@ WELCOME_FALLBACK_QUESTIONS: tuple[str, ...] = (
 )
 
 class AiohttpSessionMixin:
-    """Small helper for services that optionally share an aiohttp session."""
 
     def _init_session(self, session: Optional[aiohttp.ClientSession] = None) -> None:
         self._session = session

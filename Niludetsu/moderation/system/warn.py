@@ -1,6 +1,3 @@
-"""
-Система предупреждений (варнов) с автоматической эскалацией наказаний.
-"""
 import discord
 from Niludetsu.moderation.config import ActionType
 from Niludetsu.moderation.exceptions import ModerationError
@@ -8,7 +5,6 @@ from Niludetsu.moderation.manager import ModerationManager
 from typing import Optional
 
 class WarnSystem:
-    """Система управления предупреждениями."""
 
     def __init__(self, bot):
         self.bot = bot
@@ -23,14 +19,6 @@ class WarnSystem:
         duration: Optional[int] = None,  
         channel: Optional[discord.TextChannel] = None
     ) -> dict:
-        """
-        Выдаёт предупреждение пользователю.
-
-        Parameters
-        ----------
-        duration : Optional[int]
-            Длительность в минутах (уже распарсенная)
-        """
         result = await self.mod_manager.execute(
             action_type=ActionType.WARN,
             guild=guild,
@@ -52,15 +40,12 @@ class WarnSystem:
         reason: str = "Не указана",
         channel: Optional[discord.TextChannel] = None
     ) -> dict:
-        """Снимает предупреждение с пользователя."""
 
-        # Получаем активные предупреждения пользователя
         all_warns = await self.mod_manager.get_active_punishments(
             user_id=user.id,
             action_type=ActionType.WARN
         )
 
-        # Ищем предупреждение по rudiment
         target_warn = None
         for warn in all_warns:
             if warn.get("rudiment") == str(warn_id):

@@ -5,7 +5,6 @@ from Niludetsu.locale import _
 from Niludetsu.webhooks.base import BaseLogger
 
 class SoundboardLogger(BaseLogger):
-    """Логгер для событий Soundboard."""
 
     async def log_sound_create(self, channel: discord.TextChannel, sound):
         guild = getattr(sound, 'guild', None)

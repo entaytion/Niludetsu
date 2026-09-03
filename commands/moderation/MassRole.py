@@ -8,7 +8,6 @@ from Niludetsu.locale import _
 from typing import Optional
 
 class MassRole(commands.Cog):
-    """Команды массовой выдачи/снятия ролей."""
 
     def __init__(self, bot):
         self.bot = bot
@@ -186,6 +185,5 @@ class MassRole(commands.Cog):
             await confirm_message.clear_reactions()
 
 async def setup(bot):
-    """Загрузка расширения."""
     await bot.add_cog(MassRole(bot))
 

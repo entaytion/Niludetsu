@@ -6,7 +6,6 @@ from Niludetsu.webhooks.base import BaseLogger
 from Niludetsu.webhooks.constants import permissions_list, permissions_diff
 
 class RoleLogger(BaseLogger):
-    """Логгер для событий ролей."""
 
     async def log_role_create(self, channel: discord.TextChannel, role: discord.Role):
         t = _(guild_id=role.guild.id, bot=self.bot)

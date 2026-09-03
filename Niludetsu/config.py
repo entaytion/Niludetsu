@@ -1,18 +1,6 @@
-"""
-config.py — тепер ПРОКСІ поверх settings (БД).
-
-Всі старі `from Niludetsu.config import FOO` і `config.FOO` продовжують
-працювати — просто тепер вони тягнуть значення з Neon (через settings-кеш),
-а не з хардкоду.
-
-⚠ Якщо БД ще не заповнена або settings.load() ще не викликався —
-  повертаємо hardcoded defaults нижче як fallback.
-"""
 from __future__ import annotations
 from typing import Any
 
-
-# ── Fallback defaults (якщо БД порожня або settings не завантажений) ──
 
 _DEFAULTS: dict[str, Any] = {
     "PREFIX": {
@@ -31,7 +19,6 @@ _DEFAULTS: dict[str, Any] = {
     },
     "OWNER_ID": 636570363605680139,
 
-    # Канали
     "NOTIFICATION_CHANNEL_ID": 1414934353087303720,
     "STARBOARD_CHANNEL_ID": 1347917939017388253,
     "LOG_CHANNEL_ID": 1350056714031988736,
@@ -39,12 +26,9 @@ _DEFAULTS: dict[str, Any] = {
     "INVITES_CHANNEL_ID": 1130114236673171476,
     "FREE_GAMES_CHANNEL_ID": 1338873365183594600,
 
-    # Налаштування
     "STARBOARD_MIN_STARS": 1,
     "STARBOARD_EMOJI": "⭐",
-    "VERIFICATION_ENABLED": True,
 
-    # Ролі (склад)
     "BAN_ROLE_ID": 1346899133365227610,
     "PARTNER_MANAGER_ID": 1125344222065725543,
     "EVENT_MANAGER_ID": 1401652941265309838,
@@ -58,15 +42,14 @@ _DEFAULTS: dict[str, Any] = {
     "PM_TEAM_ID": 1401653467625426984,
     "MODER_TEAM_ID": 1401652356277469408,
     "ROLE_PRIORITY": {
-        1125344222065725545: 1,  # Junior Mod
-        1333425575133450241: 2,  # Moderator
-        1401661504901746699: 3,  # Senior Mod
-        1401653709498482818: 4,  # Admin Mod
-        1130108216211157112: 5,  # Administrator
+        1125344222065725545: 1,
+        1333425575133450241: 2,
+        1401661504901746699: 3,
+        1401653709498482818: 4,
+        1130108216211157112: 5,
     },
     "GIVEAWAY_ROLE": 1401652665884213348,
 
-    # Тимчасові канали
     "TEMPROOM_CATEGORY": 1414740540314091621,
     "TEMPROOM_CHANNEL": 1422520098534592553,
     "TEMPROOM_VOICE": 1422520569181765795,
@@ -75,7 +58,6 @@ _DEFAULTS: dict[str, Any] = {
     "TEMPROOM_INVITE_LIFETIME": 86400,
     "TEMPROOM_THREAD_CATEGORY": None,
 
-    # Ролі (панелі)
     "GENDER_ROLES": [
         {"emoji": "♂️", "id": 1125344221960872004, "name": "♂️"},
         {"emoji": "♀️", "id": 1125344221960872003, "name": "♀️"},
@@ -102,14 +84,7 @@ _DEFAULTS: dict[str, Any] = {
 }
 
 
-# ── Проксі-об'єкт ──────────────────────────────────────────────────────
-
 class _ConfigProxy:
-    """
-    Проксі який при зверненні до атрибута:
-    1. Шукає в settings._cache (Neon DB, завантажено при старті).
-    2. Якщо не знайдено — бере з _DEFAULTS (hardcoded fallback).
-    """
 
     def __getattr__(self, key: str) -> Any:
         if key.startswith("_"):
@@ -126,8 +101,6 @@ class _ConfigProxy:
         raise AttributeError(f"config has no attribute '{key}'")
 
     def __setattr__(self, key: str, value: Any) -> None:
-        # Синхронний set — тільки в settings кеш.
-        # Для запису в БД використовуй: await settings.set(key, value)
         try:
             from Niludetsu.settings import settings
             settings._cache[key] = value
@@ -141,9 +114,7 @@ class _ConfigProxy:
             return default
 
 
-# Єдиний екземпляр — замінює старий модульний стиль
 _proxy = _ConfigProxy()
 
-# Це дозволяє робити `from Niludetsu.config import SERVERS` через __getattr__ на рівні модуля
 def __getattr__(key: str) -> Any:
     return _proxy.__getattr__(key)

@@ -27,14 +27,12 @@ class PartnershipProcessResult:
         }
 
 class InviteCache:
-    """Кеш инвайтов для минимизации запросов к Discord API"""
 
     def __init__(self, ttl: int = 3600):
         self.cache: Dict[str, Dict[str, Any]] = {}
         self.ttl = ttl
 
     def get(self, invite_code: str) -> Optional[Dict[str, Any]]:
-        """Получает инвайт из кеша"""
         if invite_code not in self.cache:
             return None
 
@@ -46,22 +44,18 @@ class InviteCache:
         return entry["data"]
 
     def set(self, invite_code: str, data: Dict[str, Any]):
-        """Сохраняет инвайт в кеш"""
         self.cache[invite_code] = {
             "data": data,
             "timestamp": time.time()
         }
 
     def invalidate(self, invite_code: str):
-        """Удаляет инвайт из кеша"""
         self.cache.pop(invite_code, None)
 
     def clear(self):
-        """Очищает весь кеш"""
         self.cache.clear()
 
 class StatsCache:
-    """Кеш статистики ПМов"""
 
     def __init__(self, ttl: int = 300):
         self.cache: Dict[str, Dict[str, Any]] = {}
@@ -69,7 +63,6 @@ class StatsCache:
         self.ttl = ttl
 
     async def get(self, user_id: str) -> Optional[Dict[str, Any]]:
-        """Получает статистику из кеша"""
         if user_id not in self.cache:
             return None
 
@@ -81,7 +74,6 @@ class StatsCache:
         return entry["data"]
 
     async def set(self, user_id: str, data: Dict[str, Any]):
-        """Сохраняет статистику в кеш"""
         async with self.locks[user_id]:
             self.cache[user_id] = {
                 "data": data,
@@ -89,45 +81,37 @@ class StatsCache:
             }
 
     async def invalidate(self, user_id: str):
-        """Удаляет статистику из кеша"""
         self.cache.pop(user_id, None)
 
     async def clear(self):
-        """Очищает весь кеш"""
         self.cache.clear()
 
 class ProcessingQueue:
-    """Очередь обработки для предотвращения дубликатов"""
 
     def __init__(self):
         self.server_locks: Dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
         self.user_locks: Dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 
     async def acquire_server_lock(self, server_id: str) -> asyncio.Lock:
-        """Получает блокировку для сервера"""
         return self.server_locks[server_id]
 
     async def acquire_user_lock(self, user_id: str) -> asyncio.Lock:
-        """Получает блокировку для пользователя"""
         return self.user_locks[user_id]
 
 class PartnershipScoring:
-    """Система подсчёта баллов"""
 
-    POINTS_NEW = 2              # За новое партнёрство
-    POINTS_RENEWAL_12H = 1      # За обновление после 12 часов
-    POINTS_RENEWAL_BEFORE = 0   # За обновление до 12 часов
-    RENEWAL_THRESHOLD = 43200   # 12 часов в секундах
+    POINTS_NEW = 2
+    POINTS_RENEWAL_12H = 1
+    POINTS_RENEWAL_BEFORE = 0
+    RENEWAL_THRESHOLD = 43200
 
     def __init__(self, main_server_id: int):
         self.main_server_id = str(main_server_id)
 
     def calculate_new_points(self) -> int:
-        """Баллы за новое партнёрство"""
         return self.POINTS_NEW
 
     def calculate_renewal_points(self, last_renewal_timestamp: int) -> Tuple[int, str]:
-        """Баллы за обновление партнёрства"""
         now = int(time.time())
         time_since = now - last_renewal_timestamp
 
@@ -144,7 +128,6 @@ class PartnershipScoring:
         )
 
     def check_self_invite(self, server_id: str) -> Tuple[bool, str]:
-        """Проверка на самоинвайт"""
         if server_id == self.main_server_id:
             return (
                 True,
@@ -153,14 +136,12 @@ class PartnershipScoring:
         return (False, "")
 
 class BlacklistManager:
-    """Управление чёрным списком серверов"""
 
     def __init__(self, bot, db):
         self.bot = bot
         self.db = database
 
     async def is_blacklisted(self, server_id: str) -> bool:
-        """Проверяет, в чёрном списке ли сервер"""
         rows = await self.db.where(
             "partnership",
             filters=[
@@ -172,7 +153,6 @@ class BlacklistManager:
         return len(rows) > 0
 
     async def add(self, server_id: str, server_name: str = None) -> bool:
-        """Добавляет сервер в чёрный список"""
         if not server_name:
             server_name = await self._get_server_name(server_id)
 
@@ -203,7 +183,6 @@ class BlacklistManager:
         return True
 
     async def remove(self, server_id: str) -> bool:
-        """Удаляет сервер из чёрного списка"""
         rows = await self.db.where(
             "partnership",
             filters=[{"column": "server_id", "value": server_id}],
@@ -220,7 +199,6 @@ class BlacklistManager:
         return False
 
     async def get_all(self) -> List[Dict[str, str]]:
-        """Получает список всех серверов в чёрном списке"""
         rows = await self.db.where(
             "partnership",
             filters=[{"column": "is_blacklisted", "value": True}]
@@ -244,7 +222,6 @@ class BlacklistManager:
         return blacklisted
 
     async def check_message(self, server_id: str, server_name: str = None) -> Optional[Dict[str, str]]:
-        """Проверяет сервер и возвращает сообщение если в чёрном списке"""
         if await self.is_blacklisted(server_id):
             t = _(bot=self.bot)
             if not server_name:
@@ -257,7 +234,6 @@ class BlacklistManager:
         return None
 
     async def _get_server_name(self, server_id: str) -> Optional[str]:
-        """Получает название сервера через Discord API"""
         try:
             guild = self.bot.get_guild(int(server_id))
             return guild.name if guild else None
@@ -265,14 +241,12 @@ class BlacklistManager:
             return None
 
 class PartnershipManager:
-    """Главный менеджер партнёрств"""
 
     def __init__(self, bot, main_server_id: int):
         self.bot = bot
         self.db = database
         self.main_server_id = str(main_server_id)
 
-        # Подсистемы
         self.scoring = PartnershipScoring(main_server_id)
         self.blacklist = BlacklistManager(bot, self.db)
         self.invite_cache = InviteCache(ttl=3600)
@@ -281,22 +255,16 @@ class PartnershipManager:
         self.queue = self.processing_queue
 
     async def get_invite_info(self, invite_code: str) -> Optional[Dict[str, Any]]:
-        """
-        Получает информацию об инвайте: БД → Кеш → Discord API
-        """
-        # 1️⃣ БД (самый быстрый)
         partnership = await self._get_partnership_by_invite_code(invite_code)
         if partnership:
             info = self._build_db_invite_info(partnership, invite_code)
             self.invite_cache.set(invite_code, info)
             return info
 
-        # 2️⃣ Кеш (быстро)
         cached = self.invite_cache.get(invite_code)
         if cached:
             return cached
 
-        # 3️⃣ Discord API (медленно)
         try:
             invite = await self.bot.fetch_invite(invite_code)
             if not invite or not invite.guild:
@@ -319,7 +287,6 @@ class PartnershipManager:
 
     async def process_partnership(self, server_id: str, server_name: str, 
                                  invite_code: str, manager_id: str) -> Dict[str, Any]:
-        """Обрабатывает создание/обновление партнёрства"""
         validation_error = await self._validate_partnership(server_id, server_name)
         if validation_error:
             return validation_error.to_dict()
@@ -346,7 +313,6 @@ class PartnershipManager:
 
     async def _update_manager_stats(self, manager_id: str, new_points: int = 0, 
                                    renewal_points: int = 0):
-        """Обновляет статистику менеджера (атомарно)"""
         await self._ensure_manager(manager_id)
 
         points_delta = new_points + renewal_points
@@ -370,7 +336,6 @@ class PartnershipManager:
         await self.db._neon.fetchrow(query, *params)
 
     async def _ensure_manager(self, manager_id: str):
-        """Создаёт запись менеджера если не существует"""
         if not await self._get_manager_row(manager_id):
             await self.db.insert("partnermanager", {
                 "id": manager_id,
@@ -381,7 +346,6 @@ class PartnershipManager:
             })
 
     async def get_manager_stats(self, manager_id: str, use_cache: bool = True) -> Dict[str, Any]:
-        """Получает статистику менеджера"""
         if use_cache:
             cached = await self.stats_cache.get(manager_id)
             if cached:
@@ -400,12 +364,10 @@ class PartnershipManager:
         return stats
 
     async def get_user_points(self, user_id: str) -> int:
-        """Получает баллы пользователя"""
         manager = await self._get_or_create_manager(user_id)
         return manager["points"] if manager else 0
 
     async def update_pm_stats(self, user_id: str, points: int = 0):
-        """Обновляет баллы (для системы наград)"""
         manager = await self._get_or_create_manager(user_id)
         if manager:
             new_points = manager["points"] + points
@@ -417,7 +379,6 @@ class PartnershipManager:
             await self.stats_cache.invalidate(user_id)
 
     async def get_leaderboard(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Получает топ менеджеров"""
         capped_limit = min(max(limit or 10, 1), 50)
 
         rows = await self.db.where(
@@ -619,4 +580,4 @@ class PartnershipManager:
         return _time.now().format("YYYY-MM-DDTHH:mm:ssZ")
 
 async def setup(bot):
-    """Пустой setup для совместимости"""
+    pass

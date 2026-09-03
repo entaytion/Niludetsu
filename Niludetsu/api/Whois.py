@@ -13,9 +13,7 @@ from typing import Dict, Any, Tuple, Optional, List
 from urllib.parse import urlparse
 
 class WhoisAPI:
-    """Класс для работы с WhoIs информацией"""
 
-    # Константы класса (используются всеми экземплярами)
     REQUEST_TIMEOUT = 10
     WHOIS_TIMEOUT = 15
     MAX_INPUT_LENGTH = 253
@@ -36,11 +34,9 @@ class WhoisAPI:
     )
 
     def __init__(self):
-        """Инициализация WhoIs API"""
         self._session: Optional[aiohttp.ClientSession] = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
-        """Ленивая инициализация aiohttp сессии"""
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(
                 timeout=aiohttp.ClientTimeout(total=self.REQUEST_TIMEOUT),
@@ -49,32 +45,17 @@ class WhoisAPI:
         return self._session
 
     async def close(self):
-        """Закрытие сессии"""
         if self._session and not self._session.closed:
             await self._session.close()
 
     @staticmethod
     @lru_cache(maxsize=256)
     def normalize_input(target: str) -> str:
-        """
-        Нормализует входную строку (с кешированием)
-
-        Parameters
-        ----------
-        target : str
-            Исходная строка (домен или IP)
-
-        Returns
-        -------
-        str
-            Нормализованная строка
-        """
         if not target:
             return ""
 
         target = target.strip().lower()
 
-        # Извлечение домена из URL
         if target.startswith(('http://', 'https://', 'ftp://', 'ftps://')):
             try:
                 parsed = urlparse(target)
@@ -82,30 +63,15 @@ class WhoisAPI:
             except Exception:
                 pass
 
-        # Удаление порта (если не IPv6)
         if ':' in target and '[' not in target:
             try:
                 ipaddress.IPv6Address(target)
             except ipaddress.AddressValueError:
                 target = target.split(':')[0]
 
-        # Удаление www. префикса
         return target[4:] if target.startswith('www.') else target
 
     def validate_input(self, target: str) -> Tuple[bool, str, str]:
-        """
-        Валидирует входные данные
-
-        Parameters
-        ----------
-        target : str
-            Цель для проверки (домен или IP)
-
-        Returns
-        -------
-        Tuple[bool, str, str]
-            Кортеж (валидность, тип, сообщение об ошибке)
-        """
         if not target:
             return False, "", "Цель не может быть пустой"
 
@@ -115,11 +81,9 @@ class WhoisAPI:
         if target in self.BLOCKED_DOMAINS:
             return False, "", "Эта цель заблокирована"
 
-        # Проверка IP-адреса
         if ip_type := self._validate_ip(target):
             return True, ip_type, ""
 
-        # Проверка домена
         if self._validate_domain(target):
             return True, "domain", ""
 
@@ -127,7 +91,6 @@ class WhoisAPI:
 
     @staticmethod
     def _validate_ip(target: str) -> Optional[str]:
-        """Проверяет, является ли строка корректным IP-адресом"""
         try:
             ip = ipaddress.ip_address(target)
 
@@ -140,7 +103,6 @@ class WhoisAPI:
             return None
 
     def _validate_domain(self, target: str) -> bool:
-        """Проверяет, является ли строка корректным доменом"""
         if not target or len(target) > 253:
             return False
 
@@ -157,19 +119,6 @@ class WhoisAPI:
         )
 
     async def get_ip_info(self, ip: str) -> Dict[str, Any]:
-        """
-        Получает информацию об IP-адресе (асинхронно с aiohttp)
-
-        Parameters
-        ----------
-        ip : str
-            IP-адрес для поиска
-
-        Returns
-        -------
-        Dict[str, Any]
-            Словарь с информацией об IP-адресе
-        """
         session = await self._get_session()
 
         for api_url in self.IP_API_URLS:
@@ -181,7 +130,6 @@ class WhoisAPI:
 
                     data = await response.json()
 
-                    # Нормализация данных
                     if 'ip-api.com' in api_url and data.get('status') == 'success':
                         return self._normalize_ip_api_data(data)
                     elif 'ipapi.co' in api_url and not data.get('error'):
@@ -195,7 +143,6 @@ class WhoisAPI:
 
     @staticmethod
     def _normalize_ip_api_data(data: Dict[str, Any]) -> Dict[str, Any]:
-        """Нормализует данные от ip-api.com"""
         return {
             "status": "success",
             "ip": data.get("query"),
@@ -214,7 +161,6 @@ class WhoisAPI:
 
     @staticmethod
     def _normalize_ipapi_data(data: Dict[str, Any]) -> Dict[str, Any]:
-        """Нормализует данные от ipapi.co"""
         return {
             "status": "success",
             "ip": data.get("ip"),
@@ -231,19 +177,6 @@ class WhoisAPI:
         }
 
     async def get_domain_info(self, domain: str) -> Optional[Any]:
-        """
-        Получает информацию о домене
-
-        Parameters
-        ----------
-        domain : str
-            Домен для поиска
-
-        Returns
-        -------
-        Optional[Any]
-            Объект с информацией о домене или None
-        """
         try:
             loop = asyncio.get_event_loop()
             domain_info = await asyncio.wait_for(
@@ -260,19 +193,6 @@ class WhoisAPI:
             return None
 
     async def get_dns_info(self, domain: str) -> Dict[str, List[str]]:
-        """
-        Получает DNS информацию о домене
-
-        Parameters
-        ----------
-        domain : str
-            Домен для поиска
-
-        Returns
-        -------
-        Dict[str, List[str]]
-            Словарь с DNS записями
-        """
         dns_info = {
             'A': [], 'AAAA': [], 'MX': [],
             'NS': [], 'TXT': [], 'CNAME': []
@@ -283,7 +203,6 @@ class WhoisAPI:
             resolver.timeout = 5
             resolver.lifetime = 5
 
-            # Параллельный запрос всех типов записей
             tasks = [
                 self._resolve_dns_record(resolver, domain, record_type)
                 for record_type in dns_info.keys()
@@ -302,7 +221,6 @@ class WhoisAPI:
 
     @staticmethod
     async def _resolve_dns_record(resolver, domain: str, record_type: str) -> List[str]:
-        """Резолвит конкретный тип DNS записи"""
         try:
             loop = asyncio.get_event_loop()
             answers = await loop.run_in_executor(
@@ -317,7 +235,6 @@ class WhoisAPI:
             return []
 
     def format_ip_embed(self, embed: Embed, ip: str, ip_info: Dict[str, Any], t) -> Embed:
-        """Форматирует эмбед с информацией об IP-адресе"""
         if ip_info.get("status") != "success":
             embed.color = Colors.ERROR
             embed.add_field(
@@ -329,7 +246,6 @@ class WhoisAPI:
 
         embed.color = Colors.SUCCESS
 
-        # Список полей для добавления
         fields = [
             (t("api_whois", "ip_address"), f"`{ip}`", True),
         ]
@@ -362,7 +278,6 @@ class WhoisAPI:
         if as_info := ip_info.get('as'):
             fields.append(("🔗 AS", f"`{as_info}`", False))
 
-        # Массовое добавление полей
         for name, value, inline in fields:
             embed.add_field(name=name, value=value, inline=inline)
 
@@ -376,7 +291,6 @@ class WhoisAPI:
         dns_info: Optional[Dict[str, List[str]]] = None,
         t = None
     ) -> Embed:
-        """Форматирует эмбед с информацией о домене"""
         if t is None:
             from ..locale import _ as _lf
             t = _lf()
@@ -392,17 +306,14 @@ class WhoisAPI:
         embed.color = Colors.SUCCESS
         embed.add_field(name=t("api_whois", "domain"), value=f"`{domain}`", inline=True)
 
-        # Регистратор
         if registrar := self._extract_field(domain_info, 'registrar'):
             embed.add_field(name=t("api_whois", "registrar"), value=f"`{registrar}`", inline=True)
 
-        # Статус
         if status := self._extract_field(domain_info, 'status'):
             if isinstance(status, list):
                 status = ', '.join(status[:3])
             embed.add_field(name=t("api_whois", "status"), value=f"`{status}`", inline=True)
 
-        # Даты
         now = TimeService.now()
 
         if creation_date := self._extract_date(domain_info, 'creation_date'):
@@ -428,7 +339,6 @@ class WhoisAPI:
             formatted = TimeService.format(updated_date, '%d.%m.%Y')
             embed.add_field(name=t("api_whois", "updated_date"), value=f"`{formatted}`", inline=True)
 
-        # Серверы имён
         if ns_list := self._extract_field(domain_info, 'name_servers'):
             if isinstance(ns_list, list):
                 ns_text = '\n'.join([f"`{server.lower()}`" for server in ns_list[:5]])
@@ -438,7 +348,6 @@ class WhoisAPI:
                 ns_text = f"`{ns_list}`"
             embed.add_field(name=t("api_whois", "name_servers"), value=ns_text, inline=False)
 
-        # DNS информация
         if dns_info:
             self._add_dns_info_to_embed(embed, dns_info, t)
 
@@ -446,7 +355,6 @@ class WhoisAPI:
 
     @staticmethod
     def _extract_field(domain_info: Any, field_name: str) -> Any:
-        """Извлекает поле из объекта домена"""
         if not hasattr(domain_info, field_name):
             return None
         value = getattr(domain_info, field_name)
@@ -454,7 +362,6 @@ class WhoisAPI:
 
     @staticmethod
     def _extract_date(domain_info: Any, field_name: str) -> Optional[datetime]:
-        """Извлекает дату из объекта домена"""
         if not hasattr(domain_info, field_name):
             return None
         date_value = getattr(domain_info, field_name)
@@ -462,7 +369,6 @@ class WhoisAPI:
 
     @staticmethod
     def _add_dns_info_to_embed(embed: Embed, dns_info: Dict[str, List[str]], t):
-        """Добавляет DNS информацию в эмбед с локализацией"""
         dns_fields = []
 
         if a_records := dns_info.get('A'):
@@ -484,7 +390,6 @@ class WhoisAPI:
     @staticmethod
     @lru_cache(maxsize=128)
     def _get_country_flag(country_code: str) -> str:
-        """Получает эмодзи флага по коду страны (с кешированием)"""
         if not country_code or len(country_code) != 2:
             return "🏳️"
 
@@ -494,16 +399,6 @@ class WhoisAPI:
             return "🏳️"
 
     async def whois_lookup(self, ctx, target: str):
-        """
-        Выполняет WhoIs поиск и отправляет результат
-
-        Parameters
-        ----------
-        ctx : commands.Context
-            Контекст команды Discord
-        target : str
-            Цель для поиска (домен или IP)
-        """
         t = _(ctx=ctx)
         
         if not target:
@@ -542,7 +437,6 @@ class WhoisAPI:
                 embed = self.format_ip_embed(embed, normalized_target, ip_info, t)
 
             elif target_type == 'domain':
-                # Параллельное выполнение whois и DNS запросов
                 domain_info, dns_info = await asyncio.gather(
                     self.get_domain_info(normalized_target),
                     self.get_dns_info(normalized_target)
@@ -562,6 +456,5 @@ class WhoisAPI:
             await message.edit(embed=error_embed)
             print(f"Ошибка в whois_lookup: {e}")
 
-# Создаем экземпляр для импорта
 whois_api = WhoisAPI()
 

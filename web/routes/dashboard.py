@@ -74,7 +74,6 @@ async def guild_settings(guild_id: str, request: Request, user=Depends(get_curre
     if not guild:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    # ── Отримуємо канали з кешу бота (0 HTTP-запитів до Discord API) ──
     bot = get_bot()
     channels = []
     cogs_states = {}
@@ -89,7 +88,6 @@ async def guild_settings(guild_id: str, request: Request, user=Depends(get_curre
                 {"id": str(c.id), "name": c.name, "type": 0}
                 for c in g.text_channels
             ]
-        # Отримуємо всі завантажені коги, крім Owner
         cogs_list = sorted([name for name in bot.cogs.keys() if name != "Owner"])
         for name in cogs_list:
             cogs_states[name] = settings.get("cogs", {}).get(name, "enabled") != "disabled"
@@ -135,14 +133,12 @@ async def save_guild_settings_api(
 
     gid = str(guild_id)
 
-    # 1. Bump Reminder
     await db.set_guild_setting(gid, "bump_reminder", "notification_embed", {
         "title": body.bump_title,
         "description": body.bump_description,
         "color": color_int,
     })
 
-    # 2. Welcome
     if body.welcome_channel_id is not None:
         await db.set_guild_setting(gid, "welcome", "channel_id", body.welcome_channel_id)
     if body.welcome_title is not None or body.welcome_description is not None:
@@ -152,7 +148,6 @@ async def save_guild_settings_api(
             "color": color_int,
         })
 
-    # 3. Goodbye
     if body.goodbye_channel_id is not None:
         await db.set_guild_setting(gid, "goodbye", "channel_id", body.goodbye_channel_id)
     if body.goodbye_title is not None or body.goodbye_description is not None:
@@ -162,7 +157,6 @@ async def save_guild_settings_api(
             "color": color_int,
         })
 
-    # 4. Level Up
     if body.level_title is not None or body.level_description is not None:
         await db.set_guild_setting(gid, "levels", "level_up_embed", {
             "title": body.level_title or "",
@@ -172,7 +166,6 @@ async def save_guild_settings_api(
     if body.level_message is not None:
         await db.set_guild_setting(gid, "levels", "level_up_message", body.level_message)
 
-    # 5. Boost
     if body.boost_channel_id is not None:
         await db.set_guild_setting(gid, "boost", "channel_id", body.boost_channel_id)
     if body.boost_title is not None or body.boost_description is not None:
@@ -182,7 +175,6 @@ async def save_guild_settings_api(
             "color": color_int,
         })
 
-    # 6. Cogs Toggles
     if body.cogs is not None:
         for name, enabled in body.cogs.items():
             status = "enabled" if enabled else "disabled"

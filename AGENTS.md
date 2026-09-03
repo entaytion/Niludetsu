@@ -1,6 +1,6 @@
 # Niludetsu — Agent Guide
 
-Discord bot (v2.1.1) for the nullther server, written entirely in Python 3.13 with discord.py 2.7+. Also runs a FastAPI web dashboard (Jinja2 templates) for guild settings and locale customization.
+Discord bot (v2.1.2) for the nullther server, written entirely in Python 3.13 with discord.py 2.7+. Also runs a FastAPI web dashboard (Jinja2 templates) for guild settings and locale customization.
 
 ## Quick Start
 
@@ -9,13 +9,10 @@ uv sync            # Install deps (uses uv, not pip)
 uv run main.py     # Run bot + dashboard together (merged process)
 ```
 
-`run_all.py` launches bot and web dashboard as **separate subprocesses** (redundant since `main.py` already runs both in one asyncio loop).
-
 ## Architecture
 
 ### Entry Point
 - **`main.py`** — `NiludetsuBot(commands.Bot)` subclass. `setup_hook()` initializes: database pool, settings cache, ConfigManager, AccessGuard, ModerationManager, Loader, QuestTracker, LevelTracker, then spawns FastAPI (`uvicorn.Server`) as `asyncio.create_task`.
-- **`run_all.py`** — launches bot and web as separate subprocesses via `asyncio.create_subprocess_shell`. Not the recommended way; use `uv run main.py`.
 - **`web/run.py`** — standalone web-only launcher (`uvicorn.run("app:app", reload=True)`).
 
 ### Project Structure
@@ -35,7 +32,6 @@ Niludetsu/               # Core library package
     pool.py               # NeonPool — asyncpg pool with retry logic (3 retries, exp backoff)
     query.py              # QueryBuilder — fluent SELECT builder
     errors.py             # DatabaseConnectionError, RetryExhaustedError
-    supabase_database.py  # Legacy supabase client (may be dead code)
     mixins/
       base.py             # CRUD: get_row, get_rows, insert, upsert, update_record, delete
       economy.py          # EconomyMixin: update_economy, inventory, transactions
@@ -86,33 +82,26 @@ Niludetsu/               # Core library package
   ai/
     __init__.py            # Exports GeminiChatService, PuterImageService, WelcomeQuestionGenerator
     models.py              # AI service clients (Gemini, Mistral, Puter image gen)
-    prompts.py             # System prompts (nilu, verification, welcome questions)
-    verification_service.py # Captcha-style verification via AI
+    prompts.py             # System prompts (nilu, welcome questions)
   image/
     core.py               # Image manipulation helpers (Pillow)
   profile/
     image.py              # Profile card image generation
-  inventory/
-    manager.py            # InventoryManager
-  customization/          # Premium guild customization (empty dir)
   webhooks/
     base.py               # Webhook audit logging infrastructure
     ... (20+ webhook modules)  # Per-event webhook loggers (member join/leave, messages, voice, etc.)
   tools/
     AccessControl.py      # AccessGuard — guild whitelist + per-cog toggle check
-    CommandRegistry.py    # Static registry of commands for help/display
     Discord.py            # resolve_member, safe_edit, safe_delete, safe_fetch_message, etc.
     Embed.py              # Custom Embed subclass (extends discord.Embed) with factory methods
     Emojis.py             # Custom emoji constants (<:aeXXX:123...>)
     Errors.py             # ErrorHandler — hierarchical error reporting to bug channel
     GameView.py           # Generic game view base class
-    InfoCard.py           # Server info card builder
     Loader.py             # Extension auto-discover + slash sync engine
     Patterns.py           # PatternChecker — regex utilities
     SendHybrid.py         # send(), defer(), send_moderation() — unified prefix+slash output
     Time.py               # TimeService — pendulum-based time parsing + formatting
     Validator.py          # Input validation helpers
-    Embed.py              # SEE ABOVE
   embeds/
     Economy.py            # EconomyEmbed factory
     Achievements.py       # AchievementEmbed factory
@@ -132,8 +121,6 @@ commands/                 # Auto-discovered command cogs (organized by category)
   system/                 # System/admin commands (6 files)
   utilities/              # Utility commands (6 files)
   tools/                  # Tool commands (5 files)
-
-cogs/                     # Also auto-discovered (same Loader mechanism)
   customization/          # Customization cogs (Banner, Form, Structure, Views)
 
 web/                      # FastAPI dashboard
@@ -214,7 +201,7 @@ Tables live in `public` schema:
 ## Gotchas & Non-Obvious
 
 1. **Config is dynamic**: `from Niludetsu.config import PREFIX` goes through `_ConfigProxy.__getattr__` → checks `Settings._cache` (loaded from Neon at startup) → falls back to hardcoded `_DEFAULTS` dict. Setting config values at runtime must use `await settings.set("KEY", value)` — direct assignment only touches the in-memory cache, not the DB.
-2. **Loader scans `commands/` AND `cogs/`**: Both top-level dirs are auto-discovered. Each `.py` file (except `__init__.py` and `_`-prefixed) becomes a cog. The Loader also syncs slash commands to main guild and clears them from all others.
+2. **Loader scans `commands/`**: All command cogs live organized by category in `commands/`. Each `.py` file (except `__init__.py` and `_`-prefixed) becomes a cog. The Loader also syncs slash commands to main guild and clears them from all others.
 3. **Web app lives inside the bot process**: `main.py` starts FastAPI via `asyncio.create_task(self._run_web_server())` inside the same event loop. The `web/bot.py` bridge module provides `get_bot()` so web route handlers can access bot internals.
 4. **`web/database.py` != `Niludetsu/database/database.py`**: `WebDatabase` is a proxy that writes through to ConfigManager (cache-aware). It's imported as `from ..database import db` in web routes — not to be confused with the main `database` instance from the core package.
 5. **Premium guilds**: Not all guilds can use custom locale/messages. Check `is_premium` before allowing customization in commands.
@@ -223,7 +210,7 @@ Tables live in `public` schema:
 8. **`@moderationcommand` wrapper**: This isn't a standard discord.py check — it's a custom decorator defined in `Niludetsu/moderation/checks.py` that wraps handlers with hierarchy checks + cooldowns.
 9. **AI image generation**: Uses Puter API (not Discord's). Multiple model fallbacks in `IMAGE_MODEL_CHOICES`. The `PuterImageService` tries models sequentially until one works.
 10. **Polling loops**: ConfigManager reloads from DB every 60s (`_sync_loop`). Settings cache TTL is 300s. Status updates run every 300s.
-11. **`run_all.py` is legacy**: It spawns two subprocesses (bot + web) but `main.py` already does both. Use `uv run main.py` instead.
+11. **Merged Process**: `main.py` runs both Discord bot and FastAPI web dashboard together in the same event loop with zero port conflicts.
 12. **Reaction data in JSON**: `commands/system/ReactionSystem.py` loads reactions from `data/reactions.json`. Edit that file to customize reaction texts; the duplicate `commands/fun/ReactionSystem.py` was deleted.
 13. **Transaction queue**: `EconomyManager._schedule_transaction` pushes to a shared `asyncio.Queue` consumed by a single worker — not fire-and-forget tasks. This prevents task leaks under load.
 14. **`_safe_col` / `_safe_table`**: `BaseMixin` validates all SQL identifiers against `^[a-z_][a-z0-9_]*$` before interpolation. Wrap new CRUD identifiers with these helpers.

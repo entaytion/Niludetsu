@@ -3,22 +3,13 @@ from typing import Union
 class Emojis:
     @staticmethod
     def combine(*emojis: Union[str, 'Emojis']) -> str:
-        """
-        Объединяет несколько эмодзи в одну строку
-
-        Пример:
-        >>> Emojis.combine(Emojis.SUCCESS, Emojis.ERROR, "<:custom:123456>")
-        "✅❌<:custom:123456>"
-        """
         return ''.join(str(emoji) for emoji in emojis) 
 
-    # ——— INFORMATION: commands/
     ERROR = "<:aeError:1433187815801356429>"
     WARNING = "<:aeWarning:1433188023427665920>"
     SUCCESS = "<:aeSuccess:1433188101483790357>"
     UNKNOWN = "<:aeUnknown:1433188218236305468>"
     LOADING = "<:aeAnimeLoading:1363825660715597844>"
-    # ——— ALTERNATIVE: commands/
     NAVIGATOR = "<:aeNavigation:1433203709290086413>"
     NOTIFICATION = "<:aeNotification:1433205707775283251>"
     ANALYTICS = "<:aeAnalytics:1422674487085633566>"
@@ -32,7 +23,6 @@ class Emojis:
     GIVEAWAY = "<:aeGiveaway:1355965781405466886>"
     RULES = "<:aeRules:1356241893977096343>"
     ICON_RULES = "<:aeIconRules:1396872460975997108>"
-    # ——— CATEGORIES: ModerationSystem.py
     MODERATION = "<:aeModeration:1363821388963512492>"
     BAN = "<:aeBan:1430538235758641304>"
     MUTE = "<:aeMute:1430538804074123366>"
@@ -71,15 +61,12 @@ class Emojis:
     DSMONITORING = "<:aeDSMonitoring:1355961868560371983>"
     BUMPING = "<:aeBumPing:1371075842503086201>"
     AUTOPARTNERSHIP = "<:aeAutoPartnership:1371075840728633434>"
-    # ——— CATEGORIES: cogs/games
-    # --- кубики
     DICE_1 = "<:aeDice1:1365718407160266873>"
     DICE_2 = "<:aeDice2:1365718416266367047>"
     DICE_3 = "<:aeDice3:1365718423643881614>"
     DICE_4 = "<:aeDice4:1365718431818584084>"
     DICE_5 = "<:aeDice5:1365718439317995640>"
     DICE_6 = "<:aeDice6:1365718445236420789>"
-    # ——— CATEGORIES: cogs/views
     ICON_EDIT = "<:aeIconEdit:1367440246744158260>"
     ICON_PERMISSIONS = "<:aeIconPerms:1367440079513190440>"
     ICON_STATISTICS = "<:aeIconStats:1367439684422336573>"
@@ -112,7 +99,6 @@ class Emojis:
     ICON_NEWS = "<:aeIconNews:1367887559258148935>"
     ICON_ACHIEVEMENTS = "<:aeIconAchievements:1368554278922485900>"
     ICON_ROLES = "<:aeIconRoles:1368554627397845063>"
-    # ——— CATEGORIES: cogs/
     NAME = "<:aeIconName:1367558167747367113>"
     AGE = "<:aeIconAge:1367558434853097513>"
     EXP = "<:aeIconExperience:1367560596719014009>"

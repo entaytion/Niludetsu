@@ -5,7 +5,6 @@ from Niludetsu.locale import _
 from Niludetsu.webhooks.base import BaseLogger
 
 class ServerLogger(BaseLogger):
-    """Логгер для событий сервера (join/remove/update) с полной детализацией."""
 
     async def log_guild_join(self, channel: discord.TextChannel, guild: discord.Guild):
         t = _(guild_id=guild.id, bot=self.bot)
@@ -35,7 +34,6 @@ class ServerLogger(BaseLogger):
         )
 
     async def log_guild_update(self, channel: discord.TextChannel, before: discord.Guild, after: discord.Guild):
-        """Полная детализация обновлений — максимальное логирование по Sapphire."""
         t = _(guild_id=after.id, bot=self.bot)
         none_label = t('audit_log', 'none')
         on_label = t('audit_log', 'on')
@@ -46,7 +44,6 @@ class ServerLogger(BaseLogger):
 
         changes = []
 
-        # ——— Основное ———
         if before.name != after.name:
             changes.append(f"**{t('audit_log', 'field_name')}:** `{before.name}` → `{after.name}`")
         if before.description != after.description:
@@ -56,7 +53,6 @@ class ServerLogger(BaseLogger):
         if before.preferred_locale != after.preferred_locale:
             changes.append(f"**Язык:** `{before.preferred_locale}` → `{after.preferred_locale}`")
 
-        # ——— Изображения (с кликабельными ссылками) ———
         if before.icon != after.icon:
             before_url = before.icon.url if before.icon else None
             after_url = after.icon.url if after.icon else None
@@ -90,7 +86,6 @@ class ServerLogger(BaseLogger):
                 f"{became_label}: {('[' + open_label + '](' + after_ds + ')') if after_ds else '—'}"
             )
 
-        # ——— Каналы ———
         if before.afk_channel != after.afk_channel:
             bc = before.afk_channel.mention if before.afk_channel else f'`{none_label}`'
             ac = after.afk_channel.mention if after.afk_channel else f'`{none_label}`'
@@ -118,7 +113,6 @@ class ServerLogger(BaseLogger):
             ac = after.safety_alerts_channel.mention if getattr(after, 'safety_alerts_channel', None) else f'`{none_label}`'
             changes.append(f"**Канал безопасности:** {bc} → {ac}")
 
-        # ——— Модерация и фильтры ———
         if before.verification_level != after.verification_level:
             changes.append(f"**{t('audit_log', 'field_verification_level')}:** `{before.verification_level}` → `{after.verification_level}`")
         if before.default_notifications != after.default_notifications:
@@ -130,7 +124,6 @@ class ServerLogger(BaseLogger):
         if getattr(before, 'nsfw_level', None) != getattr(after, 'nsfw_level', None):
             changes.append(f"**NSFW уровень:** `{getattr(before, 'nsfw_level', '—')}` → `{getattr(after, 'nsfw_level', '—')}`")
 
-        # ——— Буст ———
         if before.premium_tier != after.premium_tier:
             changes.append(f"**{t('audit_log', 'field_premium_tier')}:** `{before.premium_tier}` → `{after.premium_tier}`")
         if before.premium_subscription_count != after.premium_subscription_count:
@@ -138,7 +131,6 @@ class ServerLogger(BaseLogger):
         if getattr(before, 'premium_progress_bar_enabled', None) != getattr(after, 'premium_progress_bar_enabled', None):
             changes.append(f"**Прогресс-бар буста:** `{on_label if after.premium_progress_bar_enabled else off_label}`")
 
-        # ——— Vanity / Widget ———
         if getattr(before, 'vanity_url_code', None) != getattr(after, 'vanity_url_code', None):
             changes.append(f"**Vanity URL:** `{getattr(before, 'vanity_url_code', '—')}` → `{getattr(after, 'vanity_url_code', '—')}`")
         if getattr(before, 'widget_enabled', None) != getattr(after, 'widget_enabled', None):
@@ -148,7 +140,6 @@ class ServerLogger(BaseLogger):
             ac = after.widget_channel.mention if getattr(after, 'widget_channel', None) else f'`{none_label}`'
             changes.append(f"**Канал виджета:** {bc} → {ac}")
 
-        # ——— Фичи ———
         if set(before.features) != set(after.features):
             added = set(after.features) - set(before.features)
             removed = set(before.features) - set(after.features)
@@ -157,7 +148,6 @@ class ServerLogger(BaseLogger):
             if removed:
                 changes.append(f"**Фичи (убраны):** {', '.join(f'`{f}`' for f in removed)}")
 
-        # ——— Остальное ———
         if getattr(before, 'max_presences', None) != getattr(after, 'max_presences', None):
             changes.append(f"**Макс. присутствий:** `{getattr(before, 'max_presences', '—')}` → `{getattr(after, 'max_presences', '—')}`")
         if getattr(before, 'max_members', None) != getattr(after, 'max_members', None):
@@ -170,7 +160,6 @@ class ServerLogger(BaseLogger):
 
         description = f"**{t('audit_log', 'field_server')}:** `{after.name}`\n**{t('audit_log', 'field_id')}:** `{after.id}`"
 
-        # Получаем модератора
         updater = None
         try:
             async for entry in after.audit_logs(limit=3, action=discord.AuditLogAction.guild_update):
@@ -189,7 +178,6 @@ class ServerLogger(BaseLogger):
         )
 
     async def log_guild_integrations_update(self, channel: discord.TextChannel, guild: discord.Guild):
-        """Обновление интеграций сервера (общее событие)."""
         t = _(guild_id=guild.id, bot=self.bot)
         description = f"**{t('audit_log', 'field_server')}:** `{guild.name}` (`{guild.id}`)\n{t('audit_log', 'field_integrations_updated')}"
         fields = []

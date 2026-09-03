@@ -433,19 +433,15 @@ class InfoCommands(commands.Cog):
         return embed
 
     async def show_userinfo(self, ctx, user=None):
-        """Показать информацию о пользователе"""
         await ctx.send(embed=await self.build_userinfo_embed(ctx, user))
 
     @commands.hybrid_command(name="user", aliases=["userinfo", "uinfo"])
     async def user_hybrid(self, ctx: commands.Context, *, target: discord.User = None):
-        """Показать информацию о пользователе (доступно всем)"""
         await self.show_userinfo(ctx, target or ctx.author)
 
     @commands.command(name="info", aliases=["инфо", "information"])
     async def info_prefix(self, ctx: commands.Context, *, target: str = None):
-        """Главная команда для получения инфы о чем угодно (только для владельца)"""
         await self._dispatch_info(ctx, target)
-
 
 
 class RoleMembersView(discord.ui.View):
