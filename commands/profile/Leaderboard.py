@@ -314,7 +314,17 @@ class LeaderboardView(View):
     async def update_message(self, interaction: Interaction) -> None:
         await self.update_buttons()
         embed = await self.create_embed()
-        await interaction.response.edit_message(embed=embed, view=self)
+        try:
+            if interaction.response.is_done():
+                await interaction.edit_original_response(embed=embed, view=self)
+            else:
+                await interaction.response.edit_message(embed=embed, view=self)
+        except Exception:
+            try:
+                if hasattr(self, "message") and self.message:
+                    await self.message.edit(embed=embed, view=self)
+            except Exception:
+                pass
 
     async def create_embed(self) -> Embed:
         embed = Embed(
@@ -363,36 +373,37 @@ class LeaderboardView(View):
         user_id = int(entry["key"])
         return await self._get_display_name(user_id)
 
-    async def _get_display_name(self, user_id: int) -> str:
-        if user_id in self._display_cache:
-            return self._display_cache[user_id]
-        name = await self.cog.get_member_display(user_id)
-        self._display_cache[user_id] = name
-        return name
-
     @discord.ui.button(emoji=Emojis.ICON_DOUBLE_ARROW_LEFT, style=discord.ButtonStyle.gray, row=1)
     async def first_page_button(self, interaction: Interaction, _: Button) -> None:
+        if not interaction.response.is_done():
+            await interaction.response.defer()
         if self.current_page != 1:
             self.current_page = 1
-            await self.update_message(interaction)
+        await self.update_message(interaction)
 
     @discord.ui.button(emoji=Emojis.ICON_ARROW_LEFT, style=discord.ButtonStyle.gray, row=1)
     async def prev_page_button(self, interaction: Interaction, _: Button) -> None:
+        if not interaction.response.is_done():
+            await interaction.response.defer()
         if self.current_page > 1:
             self.current_page -= 1
-            await self.update_message(interaction)
+        await self.update_message(interaction)
 
     @discord.ui.button(emoji=Emojis.ICON_ARROW_RIGHT, style=discord.ButtonStyle.gray, row=1)
     async def next_page_button(self, interaction: Interaction, _: Button) -> None:
+        if not interaction.response.is_done():
+            await interaction.response.defer()
         if self.current_page < self.total_pages:
             self.current_page += 1
-            await self.update_message(interaction)
+        await self.update_message(interaction)
 
     @discord.ui.button(emoji=Emojis.ICON_DOUBLE_ARROW_RIGHT, style=discord.ButtonStyle.gray, row=1)
     async def last_page_button(self, interaction: Interaction, _: Button) -> None:
+        if not interaction.response.is_done():
+            await interaction.response.defer()
         if self.current_page != self.total_pages:
             self.current_page = self.total_pages
-            await self.update_message(interaction)
+        await self.update_message(interaction)
 
     @discord.ui.select(
         placeholder=P.get("leaderboard_select", "Выбери категорию"),
@@ -407,12 +418,14 @@ class LeaderboardView(View):
         row=0,
     )
     async def category_select(self, interaction: Interaction, select: Select) -> None:
+        if not interaction.response.is_done():
+            await interaction.response.defer()
         self.current_page = 1
         self.category = select.values[0]
         await self.load_entries()
 
         if not self.entries:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 embed=Embed.warn(
                     title=self.t("profile", "leaderboard_empty_category_title"),
                     description=self.t("profile", "leaderboard_empty_category"),

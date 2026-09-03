@@ -42,27 +42,7 @@ class Database(EconomyMixin, SocialMixin, AnalyticsMixin, QuestsMixin, ShopMixin
             if cached and (time.time() - cached[1] < self._cache_ttl):
                 return cached[0]
 
-        query = """
-            WITH ensure_user AS (
-                INSERT INTO public.users (user_id, guild_id)
-                VALUES ($1, $2)
-                ON CONFLICT (user_id, guild_id) DO NOTHING
-            ),
-            ensure_economy AS (
-                INSERT INTO public.user_economy (user_id, guild_id)
-                VALUES ($1, $2)
-                ON CONFLICT (user_id, guild_id) DO NOTHING
-            ),
-            ensure_profile AS (
-                INSERT INTO public.user_profile (user_id, guild_id)
-                VALUES ($1, $2)
-                ON CONFLICT (user_id, guild_id) DO NOTHING
-            ),
-            ensure_analytics AS (
-                INSERT INTO public.user_analytics (guild_id, user_id)
-                VALUES ($2, $1)
-                ON CONFLICT (guild_id, user_id) DO NOTHING
-            )
+        select_query = """
             SELECT 
                 to_jsonb(u.*) as core,
                 to_jsonb(e.*) as economy,
@@ -72,23 +52,64 @@ class Database(EconomyMixin, SocialMixin, AnalyticsMixin, QuestsMixin, ShopMixin
                  WHERE m.guild_id = $2 AND m.status = 'active' 
                  AND (m.partner_a_id = $1 OR m.partner_b_id = $1) LIMIT 1) as marriage
             FROM public.users u
-            JOIN public.user_economy e ON e.user_id = u.user_id AND e.guild_id = u.guild_id
-            JOIN public.user_profile p ON p.user_id = u.user_id AND p.guild_id = u.guild_id
-            JOIN public.user_analytics a ON a.user_id = u.user_id AND a.guild_id = u.guild_id
+            LEFT JOIN public.user_economy e ON e.user_id = u.user_id AND e.guild_id = u.guild_id
+            LEFT JOIN public.user_profile p ON p.user_id = u.user_id AND p.guild_id = u.guild_id
+            LEFT JOIN public.user_analytics a ON a.user_id = u.user_id AND a.guild_id = u.guild_id
             WHERE u.user_id = $1 AND u.guild_id = $2
             LIMIT 1;
         """
-        
-        row = await self._neon.fetchrow(query, str(user_id), str(guild_id))
-        if not row: return {}
 
-        bundle = {
-            "core": self._ensure_dict(row["core"]),
-            "economy": self._ensure_dict(row["economy"]),
-            "profile": self._ensure_dict(row["profile"]),
-            "analytics": self._ensure_dict(row["analytics"]),
-            "marriage": self._ensure_dict(row["marriage"]) if row["marriage"] else None,
+        row = await self._neon.fetchrow(select_query, str(user_id), str(guild_id))
+        if not row:
+            ensure_query = """
+                INSERT INTO public.users (user_id, guild_id) VALUES ($1, $2) ON CONFLICT (user_id, guild_id) DO NOTHING;
+                INSERT INTO public.user_economy (user_id, guild_id) VALUES ($1, $2) ON CONFLICT (user_id, guild_id) DO NOTHING;
+                INSERT INTO public.user_profile (user_id, guild_id) VALUES ($1, $2) ON CONFLICT (user_id, guild_id) DO NOTHING;
+                INSERT INTO public.user_analytics (guild_id, user_id) VALUES ($2, $1) ON CONFLICT (guild_id, user_id) DO NOTHING;
+            """
+            await self._neon.execute(ensure_query, str(user_id), str(guild_id))
+            row = await self._neon.fetchrow(select_query, str(user_id), str(guild_id))
+
+        default_bundle = {
+            "core": {"user_id": str(user_id), "guild_id": str(guild_id)},
+            "economy": {
+                "user_id": str(user_id),
+                "guild_id": str(guild_id),
+                "balance": 0,
+                "deposit": 0,
+                "spousal_balance": 0,
+                "spousal_enabled": False,
+                "cooldowns": {},
+            },
+            "profile": {
+                "user_id": str(user_id),
+                "guild_id": str(guild_id),
+                "level": 1,
+                "experience": 0,
+                "reputation": 0,
+            },
+            "analytics": {
+                "user_id": str(user_id),
+                "guild_id": str(guild_id),
+                "messages_total": 0,
+                "messages_deleted": 0,
+                "voice_seconds": 0,
+                "message_channels": {},
+                "voice_channels": {},
+            },
+            "marriage": None,
         }
+
+        if not row:
+            bundle = default_bundle
+        else:
+            bundle = {
+                "core": self._ensure_dict(row["core"]) or default_bundle["core"],
+                "economy": self._ensure_dict(row["economy"]) or default_bundle["economy"],
+                "profile": self._ensure_dict(row["profile"]) or default_bundle["profile"],
+                "analytics": self._ensure_dict(row["analytics"]) or default_bundle["analytics"],
+                "marriage": self._ensure_dict(row["marriage"]) if row["marriage"] else None,
+            }
 
         async with self._cache_lock:
             self._user_cache[key] = (bundle, time.time())

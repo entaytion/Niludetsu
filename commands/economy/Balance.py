@@ -10,17 +10,22 @@ class Balance(commands.Cog):
 
     @commands.hybrid_command(name="balance", aliases=("баланс", "b"), description="Показать баланс")
     @app_commands.describe(user="👤 Кого посмотреть")
-    async def balance(self, ctx, user: discord.Member = None):
+    async def balance(self, ctx: commands.Context, user: discord.Member = None):
+        if hasattr(ctx, "interaction") and ctx.interaction:
+            await ctx.defer()
         target = user or ctx.author
         acc = await self.economy.get_account(str(target.id), str(ctx.guild.id))
 
         embed = EconomyEmbed.balance(
             user=target,
-            wallet=acc["balance"],
-            bank=acc["deposit"],
-            family=acc["spousal_balance"] if acc.get("spousal_enabled") else None
+            wallet=acc.get("balance", 0),
+            bank=acc.get("deposit", 0),
+            family=acc.get("spousal_balance", 0) if acc.get("spousal_enabled") else None,
         )
-        await ctx.reply(embed=embed, mention_author=False)
+        if hasattr(ctx, "interaction") and ctx.interaction and ctx.interaction.response.is_done():
+            await ctx.interaction.followup.send(embed=embed)
+        else:
+            await ctx.reply(embed=embed, mention_author=False)
 
 async def setup(bot):
     await bot.add_cog(Balance(bot))
