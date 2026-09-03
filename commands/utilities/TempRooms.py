@@ -21,7 +21,7 @@ class TempRooms(commands.Cog):
 
     async def cog_unload(self) -> None:
         self.cleanup_loop.cancel()
-        self.bot.remove_view(self.actions_view)
+        self.actions_view.stop()
 
     async def _attach_view_message(self) -> None:
         message_id = getattr(config, "TEMPROOM_MESSAGE", None)

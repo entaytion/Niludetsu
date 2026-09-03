@@ -4,7 +4,7 @@ import discord
 from discord.ext import commands
 
 from Niludetsu import Colors, Emojis
-from cogs.customization.Form import PositionSelect
+from .Form import PositionSelect
 from .Views import ProfileButton, ProfileView
 
 MENU_FLAG = "_structure_views_registered"
