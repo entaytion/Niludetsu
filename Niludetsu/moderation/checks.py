@@ -1,5 +1,6 @@
 from Niludetsu.tools.Embed import Embed
 from Niludetsu.tools.Time import TimeService as Time
+from Niludetsu.locale import _
 import Niludetsu.config as config
 
 """
@@ -31,6 +32,7 @@ def moderationcommand(required_level: int = 1, cooldown: int = 0):
     def decorator(func: Callable):
         @functools.wraps(func)
         async def wrapper(self, ctx, *args, **kwargs):
+            t = _(ctx=ctx)
             member = ctx.author if hasattr(ctx, 'author') else ctx.user
             guild = ctx.guild
 
@@ -67,15 +69,15 @@ def moderationcommand(required_level: int = 1, cooldown: int = 0):
             # Проверка строгой иерархии
             if user_level < required_level:
                 role_names = {
-                    1: "Младший модератор",
-                    2: "Модератор", 
-                    3: "Старший модератор",
-                    4: "Админ-модератор",
-                    5: "Администратор"
+                    1: t("moderation_checks", "role_junior"),
+                    2: t("moderation_checks", "role_moderator"),
+                    3: t("moderation_checks", "role_senior"),
+                    4: t("moderation_checks", "role_admin_mod"),
+                    5: t("moderation_checks", "role_admin"),
                 }
                 required_role = role_names.get(required_level, f"Уровень {required_level}")
                 await send_error(Embed.error(
-                    description=f"Недостаточно прав для использования команды. Требуется: **{required_role}**"
+                    description=t("moderation_checks", "insufficient_perms", role=required_role)
                 ))
                 return
 
@@ -95,7 +97,7 @@ def moderationcommand(required_level: int = 1, cooldown: int = 0):
                     # Форматируем оставшееся время
                     remaining_formatted = _time.format_duration(remaining)
                     await send_error(Embed.error(
-                        description=f"Команда на кулдауне. Повторите через: **{remaining_formatted}**"
+                        description=t("moderation_checks", "on_cooldown", time=remaining_formatted)
                     ))
                     return
 

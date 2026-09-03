@@ -1,3 +1,4 @@
+from ..locale import _
 from ..tools.Embed import Colors, Embed
 """
 Модуль для безопасных математических вычислений
@@ -349,15 +350,10 @@ class MathCalculatorAPI:
             Математическое выражение
         """
         if not expression:
+            t = _(ctx=ctx)
             embed = Embed.error(
-                title="Недостаточно параметров",
-                description="Укажите математическое выражение!\n"
-                           "**Примеры:**\n"
-                           "`!calc 2 + 2`\n"
-                           "`!calc sin(pi/2)`\n"
-                           "`!calc sqrt(16) * 3`\n"
-                           "`!calc 2(3+4)` - неявное умножение\n"
-                           "`!calc log(e^2)`"
+                title=t("api_math", "missing_params"),
+                description=t("api_math", "specify_expression"),
             )
             await ctx.reply(embed=embed)
             return
@@ -373,7 +369,7 @@ class MathCalculatorAPI:
             is_valid, error_message = self.validate_expression(expression)
             if not is_valid:
                 await ctx.reply(embed=Embed.error(
-                    title="Ошибка валидации",
+                    title=t("api_math", "validation_error"),
                     description=error_message
                 ))
                 return
@@ -386,62 +382,53 @@ class MathCalculatorAPI:
 
             # Создаем эмбед с результатом
             embed = Embed(
-                title="🔢 Калькулятор",
+                title=t("api_math", "title"),
                 color=Colors.PRIMARY
             )
 
             # Показываем оригинальное и нормализованное выражение если они отличаются
             if original_expression.strip() != expression.strip():
                 embed.add_field(
-                    name="Исходное выражение",
+                    name=t("api_math", "original_expr"),
                     value=f"`{original_expression}`",
                     inline=False
                 )
                 embed.add_field(
-                    name="Обработанное выражение",
+                    name=t("api_math", "processed_expr"),
                     value=f"`{expression}`",
                     inline=False
                 )
             else:
                 embed.add_field(
-                    name="Выражение",
+                    name=t("api_math", "expression"),
                     value=f"`{expression}`",
                     inline=False
                 )
 
             embed.add_field(
-                name="Результат",
+                name=t("api_math", "result"),
                 value=f"```{formatted_result}```",
                 inline=False
             )
 
             # Добавляем дополнительную информацию если результат интересный
-            self._add_result_info(embed, result)
+            self._add_result_info(embed, result, t)
 
             await ctx.reply(embed=embed)
 
         except ValueError as e:
             await ctx.reply(embed=Embed.error(
-                title="Ошибка вычисления",
+                title=t("api_math", "calc_error"),
                 description=str(e)
             ))
         except Exception as e:
             await ctx.reply(embed=Embed.error(
-                title="Неожиданная ошибка",
-                description="Произошла ошибка при вычислении выражения"
+                title=t("api_math", "unexpected_error"),
+                description=t("api_math", "unexpected_error_desc")
             ))
 
-    def _add_result_info(self, embed: Embed, result: Union[float, int]):
-        """
-        Добавляет дополнительную информацию о результате
-
-        Parameters
-        ----------
-        embed : Embed
-            Эмбед для добавления информации
-        result : Union[float, int]
-            Результат вычисления
-        """
+    def _add_result_info(self, embed: Embed, result: Union[float, int], t) -> None:
+        """Добавляет дополнительную информацию о результате."""
         info_parts = []
 
         if isinstance(result, (int, float)):
@@ -449,23 +436,23 @@ class MathCalculatorAPI:
             if isinstance(result, int) and result > 1000000:
                 # Научная нотация
                 scientific = f"{result:.2e}"
-                info_parts.append(f"Научная нотация: `{scientific}`")
+                info_parts.append(f"{t('api_math', 'scientific_notation')}: `{scientific}`")
 
                 # Количество цифр
                 digit_count = len(str(abs(result)))
-                info_parts.append(f"Количество цифр: `{digit_count}`")
+                info_parts.append(f"{t('api_math', 'digit_count')}: `{digit_count}`")
 
             # Информация о дробных числах
             elif isinstance(result, float) and not result.is_integer():
                 # Процентное представление если число меньше 1
                 if 0 < abs(result) < 1:
                     percentage = result * 100
-                    info_parts.append(f"В процентах: `{percentage:.4f}%`")
+                    info_parts.append(f"{t('api_math', 'percentage')}: `{percentage:.4f}%`")
 
         # Добавляем информацию в эмбед если есть что добавить
         if info_parts:
             embed.add_field(
-                name="Дополнительная информация",
+                name=t("api_math", "extra_info"),
                 value="".join(info_parts),
                 inline=False
             )

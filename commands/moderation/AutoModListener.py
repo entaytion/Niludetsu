@@ -9,7 +9,7 @@ import discord
 from discord.ext import commands
 
 from Niludetsu import safe_delete, ModerationManager, AutoModManager, config
-from Niludetsu.moderation.automod.rules import AutoModRuleType, AutoModRule
+from Niludetsu.moderation.automod.rules import AutoModRuleType
 
 MAIN_GUILD = config.SERVERS["MAIN_ID"]
 

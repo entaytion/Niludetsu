@@ -19,7 +19,7 @@ class Coinflip(commands.Cog):
         if val <= 0: return await ctx.reply(t("economy", "invalid_bet"), ephemeral=True)
         
         side = side.lower()
-        if side not in ("орел", "решка", "о", "р"):
+        if side not in (t("economy", "cf_heads"), t("economy", "cf_tails"), "о", "р"):
             return await ctx.reply(t("economy", "invalid_side"), ephemeral=True)
         
         res = await self.economy.remove_money(uid, gid, val, event="cf_bet")
@@ -28,7 +28,7 @@ class Coinflip(commands.Cog):
         elif res.status == "error":
             return await ctx.reply(res.message, ephemeral=True)
         
-        res_side = random.choice(["орел", "решка"])
+        res_side = random.choice([t("economy", "cf_heads"), t("economy", "cf_tails")])
         win = (side.startswith(res_side[0]))
         
         if win:

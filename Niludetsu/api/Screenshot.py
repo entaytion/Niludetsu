@@ -1,3 +1,4 @@
+from ..locale import _
 from ..tools.Embed import Embed
 """
 Модуль для создания скриншотов веб-страниц
@@ -111,16 +112,12 @@ class ScreenshotAPI:
         url : str
             URL страницы для скриншота
         """
+        t = _(ctx=ctx)
+        
         if not url:
             error_embed = Embed.error(
-                title="Недостаточно параметров",
-                description="Укажите URL веб-страницы!\n\n"
-                           "**Использование:**\n"
-                           "`!screenshot <url>`\n\n"
-                           "**Примеры:**\n"
-                           "`!screenshot google.com`\n"
-                           "`!screenshot https://github.com`\n"
-                           "`!screenshot discord.gg`"
+                title=t("api_screenshot", "missing_params_title"),
+                description=t("api_screenshot", "missing_params_desc"),
             )
             return await ctx.reply(embed=error_embed)
 
@@ -129,18 +126,14 @@ class ScreenshotAPI:
 
         if not is_valid:
             error_embed = Embed.error(
-                description=f"URL `{url}` не является корректным.\n\n"
-                           "**Примеры правильных URL:**\n"
-                           "• `google.com`\n"
-                           "• `https://github.com`\n"
-                           "• `discord.gg`"
+                description=t("api_screenshot", "invalid_url_desc", url=url),
             )
             return await ctx.reply(embed=error_embed)
 
         # Индикатор загрузки
         loading_embed = Embed.default(
-            title="📸 Создание скриншота...",
-            description=f"Загружаю страницу: `{normalized_url}`\n⏳ Это может занять до 30 секунд"
+            title=t("api_screenshot", "loading_title"),
+            description=t("api_screenshot", "loading_desc", url=normalized_url),
         )
         message = await ctx.reply(embed=loading_embed)
 
@@ -150,11 +143,7 @@ class ScreenshotAPI:
 
             if not screenshot_bytes:
                 error_embed = Embed.error(
-                    description=f"Не удалось загрузить страницу `{normalized_url}`\n\n"
-                               "**Возможные причины:**\n"
-                               "• Страница недоступна\n"
-                               "• Неверный URL\n"
-                               "• Таймаут загрузки"
+                    description=t("api_screenshot", "fetch_error_desc", url=normalized_url),
                 )
                 return await message.edit(embed=error_embed)
 
@@ -167,20 +156,19 @@ class ScreenshotAPI:
 
             # Создаем embed с результатом
             success_embed = Embed.default(
-                title="📸 Скриншот готов!",
-                description=f"**URL:** {normalized_url}",
+                title=t("api_screenshot", "success_title"),
+                description=t("api_screenshot", "success_desc", url=normalized_url),
             )
             success_embed.set_image(url=f"attachment://{file.filename}")
-            success_embed.set_footer(text="💡 Скриншот: 1024x768 | Сервис: screenshotmachine.com")
+            success_embed.set_footer(text=t("api_screenshot", "footer"))
 
             await message.edit(embed=success_embed, attachments=[file])
 
         except discord.HTTPException:
-            # Если файл слишком большой или другая ошибка Discord
-            error_embed = Embed.error(description="Не удалось загрузить изображение.\nВозможно, файл слишком большой.")
+            error_embed = Embed.error(description=t("api_screenshot", "http_error"))
             await message.edit(embed=error_embed)
         except Exception:
-            error_embed = Embed.error(description="Попробуйте позже или проверьте URL")
+            error_embed = Embed.error(description=t("api_screenshot", "generic_error"))
             await message.edit(embed=error_embed)
 
 # Глобальный экземпляр

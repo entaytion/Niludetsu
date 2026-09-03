@@ -1,8 +1,7 @@
-import asyncio, discord, random, uuid
-from discord import app_commands
+import asyncio, discord, random
 from discord.ext import commands
-from Niludetsu import EconomyManager, EconomyEmbed, Emojis, Embed, Colors, resolve_member
-from Niludetsu.locale import _
+from Niludetsu import EconomyManager, EconomyEmbed, Embed
+from Niludetsu.locale import _, DEFAULT_LOCALE
 
 SUIT_EMOJIS = {"D": "♦️", "H": "♥️", "C": "♣️", "S": "♠️"}
 CARD_VALS = {"A": 11, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "10": 10, "J": 10, "Q": 10, "K": 10}
@@ -40,7 +39,6 @@ class BlackjackView(discord.ui.View):
         await self._end(i, "stand")
 
     def _build_embed(self, final=False):
-        from Niludetsu.locale import DEFAULT_LOCALE
         pv, dv = get_hand_val(self.p_hand), get_hand_val(self.d_hand)
         embed = Embed.info(title=DEFAULT_LOCALE.get("economy", {}).get("bj_title", "Блекджек"))
         embed.add_field(name=f"{DEFAULT_LOCALE.get('economy', {}).get('bj_hand_player', 'Ваша рука ({score})').format(score=pv)}", value=fmt_hand(self.p_hand))
@@ -48,7 +46,6 @@ class BlackjackView(discord.ui.View):
         return embed
 
     async def _end(self, i, reason):
-        from Niludetsu.locale import DEFAULT_LOCALE
         for c in self.children: c.disabled = True
         pv = get_hand_val(self.p_hand)
         if reason == "stand":

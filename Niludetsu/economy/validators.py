@@ -1,7 +1,8 @@
 import asyncio
 from Niludetsu.economy.manager import EconomyManager
 from Niludetsu.tools.Embed import Embed
-from typing import Dict, Optional, Tuple
+from Niludetsu.locale import _
+from typing import Callable, Dict, Optional, Tuple
 
 class GameSessionRegistry:
     """Хранит активные игровые сессии (game_name + user + guild)."""
@@ -36,10 +37,12 @@ class EconomyValidator:
         self.economy = economy
         self._sessions = GameSessionRegistry()
 
-    async def claim_game(self, game_name: str, user_id: str, guild_id: str) -> Tuple[bool, Optional[Embed]]:
+    async def claim_game(self, game_name: str, user_id: str, guild_id: str, t: Optional[Callable] = None) -> Tuple[bool, Optional[Embed]]:
+        if t is None:
+            t = _(guild_id=guild_id)
         if not await self._sessions.claim(game_name, user_id, guild_id):
             return False, Embed.error(
-                f"У вас уже есть активная игра «{game_name}». Завершите её, чтобы начать новую."
+                t("economy_validators", "active_game", game=game_name)
             )
         return True, None
 

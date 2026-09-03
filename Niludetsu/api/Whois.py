@@ -1,3 +1,4 @@
+from ..locale import _
 from ..tools.Embed import Colors, Embed
 from ..tools.Time import TimeService
 """
@@ -315,13 +316,13 @@ class WhoisAPI:
         except dns.exception.DNSException:
             return []
 
-    def format_ip_embed(self, embed: Embed, ip: str, ip_info: Dict[str, Any]) -> Embed:
+    def format_ip_embed(self, embed: Embed, ip: str, ip_info: Dict[str, Any], t) -> Embed:
         """Форматирует эмбед с информацией об IP-адресе"""
         if ip_info.get("status") != "success":
             embed.color = Colors.ERROR
             embed.add_field(
-                name="❌ Ошибка",
-                value=f"`{ip_info.get('message', 'Не удалось получить информацию об IP-адресе')}`",
+                name=t("api_whois", "error"),
+                value=f"`{ip_info.get('message', t('api_whois', 'unknown_ip'))}`",
                 inline=False
             )
             return embed
@@ -330,36 +331,36 @@ class WhoisAPI:
 
         # Список полей для добавления
         fields = [
-            ("🌐 IP-адрес", f"`{ip}`", True),
+            (t("api_whois", "ip_address"), f"`{ip}`", True),
         ]
 
         if country := ip_info.get('country'):
             flag = self._get_country_flag(ip_info.get('country_code', ''))
-            fields.append(("🏳️ Страна", f"{flag} `{country}`", True))
+            fields.append((t("api_whois", "country"), f"{flag} `{country}`", True))
 
         if region := ip_info.get('region'):
-            fields.append(("📍 Регион", f"`{region}`", True))
+            fields.append((t("api_whois", "region"), f"`{region}`", True))
 
         if city := ip_info.get('city'):
-            fields.append(("🏙️ Город", f"`{city}`", True))
+            fields.append((t("api_whois", "city"), f"`{city}`", True))
 
         if isp := ip_info.get('isp'):
-            fields.append(("🏢 Провайдер", f"`{isp}`", True))
+            fields.append((t("api_whois", "provider"), f"`{isp}`", True))
 
         if (org := ip_info.get('org')) and org != ip_info.get('isp'):
-            fields.append(("🏛️ Организация", f"`{org}`", True))
+            fields.append((t("api_whois", "organization"), f"`{org}`", True))
 
         if timezone := ip_info.get('timezone'):
-            fields.append(("🕐 Временная зона", f"`{timezone}`", True))
+            fields.append((t("api_whois", "timezone"), f"`{timezone}`", True))
 
         if (lat := ip_info.get('latitude')) and (lon := ip_info.get('longitude')):
             fields.extend([
-                ("📍 Координаты", f"`{lat}, {lon}`", True),
-                ("🗺️ Карта", f"[Показать на карте](https://www.google.com/maps?q={lat},{lon})", True)
+                (t("api_whois", "coordinates"), f"`{lat}, {lon}`", True),
+                (t("api_whois", "map"), f"[{t('api_whois', 'show_on_map')}](https://www.google.com/maps?q={lat},{lon})", True)
             ])
 
         if as_info := ip_info.get('as'):
-            fields.append(("🔗 AS информация", f"`{as_info}`", False))
+            fields.append(("🔗 AS", f"`{as_info}`", False))
 
         # Массовое добавление полей
         for name, value, inline in fields:
@@ -372,30 +373,34 @@ class WhoisAPI:
         embed: Embed, 
         domain: str, 
         domain_info: Any, 
-        dns_info: Optional[Dict[str, List[str]]] = None
+        dns_info: Optional[Dict[str, List[str]]] = None,
+        t = None
     ) -> Embed:
         """Форматирует эмбед с информацией о домене"""
+        if t is None:
+            from ..locale import _ as _lf
+            t = _lf()
         if not domain_info:
             embed.color = Colors.ERROR
             embed.add_field(
-                name="❌ Ошибка",
-                value="Не удалось получить информацию о домене",
+                name=t("api_whois", "error"),
+                value=t("api_whois", "domain_error"),
                 inline=False
             )
             return embed
 
         embed.color = Colors.SUCCESS
-        embed.add_field(name="🌐 Домен", value=f"`{domain}`", inline=True)
+        embed.add_field(name=t("api_whois", "domain"), value=f"`{domain}`", inline=True)
 
         # Регистратор
         if registrar := self._extract_field(domain_info, 'registrar'):
-            embed.add_field(name="🏢 Регистратор", value=f"`{registrar}`", inline=True)
+            embed.add_field(name=t("api_whois", "registrar"), value=f"`{registrar}`", inline=True)
 
         # Статус
         if status := self._extract_field(domain_info, 'status'):
             if isinstance(status, list):
                 status = ', '.join(status[:3])
-            embed.add_field(name="📊 Статус", value=f"`{status}`", inline=True)
+            embed.add_field(name=t("api_whois", "status"), value=f"`{status}`", inline=True)
 
         # Даты
         now = TimeService.now()
@@ -404,8 +409,8 @@ class WhoisAPI:
             formatted = TimeService.format(creation_date, '%d.%m.%Y')
             days_ago = (now - creation_date).days
             embed.add_field(
-                name="📅 Дата создания",
-                value=f"`{formatted}`\n*({days_ago} дней назад)*",
+                name=t("api_whois", "created_date"),
+                value=f"`{formatted}`\n*({days_ago} {t('api_whois', 'days_ago')})*",
                 inline=True
             )
 
@@ -414,28 +419,28 @@ class WhoisAPI:
             days_left = (expiration_date - now).days
             emoji = "🟢" if days_left > 30 else "🟡" if days_left > 7 else "🔴"
             embed.add_field(
-                name="⏰ Дата истечения",
-                value=f"{emoji} `{formatted}`\n*({days_left} дней осталось)*",
+                name=t("api_whois", "expiration_date"),
+                value=f"{emoji} `{formatted}`\n*({days_left} {t('api_whois', 'days_left')})*",
                 inline=True
             )
 
         if updated_date := self._extract_date(domain_info, 'updated_date'):
             formatted = TimeService.format(updated_date, '%d.%m.%Y')
-            embed.add_field(name="🔄 Обновлен", value=f"`{formatted}`", inline=True)
+            embed.add_field(name=t("api_whois", "updated_date"), value=f"`{formatted}`", inline=True)
 
         # Серверы имён
         if ns_list := self._extract_field(domain_info, 'name_servers'):
             if isinstance(ns_list, list):
                 ns_text = '\n'.join([f"`{server.lower()}`" for server in ns_list[:5]])
                 if len(ns_list) > 5:
-                    ns_text += f"\n*и еще {len(ns_list) - 5} серверов...*"
+                    ns_text += f"\n*{t('api_whois', 'more_servers', count=len(ns_list) - 5)}*"
             else:
                 ns_text = f"`{ns_list}`"
-            embed.add_field(name="🗂️ Серверы имён", value=ns_text, inline=False)
+            embed.add_field(name=t("api_whois", "name_servers"), value=ns_text, inline=False)
 
         # DNS информация
         if dns_info:
-            self._add_dns_info_to_embed(embed, dns_info)
+            self._add_dns_info_to_embed(embed, dns_info, t)
 
         return embed
 
@@ -456,22 +461,22 @@ class WhoisAPI:
         return date_value[0] if isinstance(date_value, list) and date_value else date_value
 
     @staticmethod
-    def _add_dns_info_to_embed(embed: Embed, dns_info: Dict[str, List[str]]):
-        """Добавляет DNS информацию в эмбед"""
+    def _add_dns_info_to_embed(embed: Embed, dns_info: Dict[str, List[str]], t):
+        """Добавляет DNS информацию в эмбед с локализацией"""
         dns_fields = []
 
         if a_records := dns_info.get('A'):
-            dns_fields.append(f"**A записи:** {', '.join([f'`{r}`' for r in a_records[:3]])}")
+            dns_fields.append(f"**A {t('api_whois', 'dns_records')}:** {', '.join([f'`{r}`' for r in a_records[:3]])}")
 
         if aaaa_records := dns_info.get('AAAA'):
-            dns_fields.append(f"**AAAA записи:** {', '.join([f'`{r}`' for r in aaaa_records[:2]])}")
+            dns_fields.append(f"**AAAA {t('api_whois', 'dns_records')}:** {', '.join([f'`{r}`' for r in aaaa_records[:2]])}")
 
         if mx_records := dns_info.get('MX'):
-            dns_fields.append(f"**MX записи:** {', '.join([f'`{r}`' for r in mx_records[:3]])}")
+            dns_fields.append(f"**MX {t('api_whois', 'dns_records')}:** {', '.join([f'`{r}`' for r in mx_records[:3]])}")
 
         if dns_fields:
             embed.add_field(
-                name="🔍 DNS записи",
+                name=t("api_whois", "dns_section"),
                 value='\n'.join(dns_fields),
                 inline=False
             )
@@ -499,17 +504,12 @@ class WhoisAPI:
         target : str
             Цель для поиска (домен или IP)
         """
+        t = _(ctx=ctx)
+        
         if not target:
             embed = Embed.error(
-                title="Недостаточно параметров",
-                description=(
-                    "Укажите домен или IP-адрес для поиска!\n"
-                    "**Примеры:**\n"
-                    "`!whois google.com`\n"
-                    "`!whois 8.8.8.8`\n"
-                    "`!whois https://github.com`\n"
-                    "`!whois discord.gg`"
-                )
+                title=t("api_whois", "missing_params"),
+                description=t("api_whois", "specify_param"),
             )
             await ctx.reply(embed=embed)
             return
@@ -519,27 +519,27 @@ class WhoisAPI:
 
         if not is_valid:
             await ctx.reply(embed=Embed.error(
-                title="Ошибка валидации",
-                description=f"{error_message}\n**Введено:** `{target}`"
+                title=t("api_whois", "validation_error"),
+                description=f"{error_message}\n**{t('api_whois', 'input_was')}:** `{target}`"
             ))
             return
 
         loading_embed = Embed(
-            title="🔍 Поиск информации...",
-            description=f"Получаю информацию для `{normalized_target}`",
+            title=t("api_whois", "searching"),
+            description=t("api_whois", "fetching_info", target=normalized_target),
             color=Colors.WARNING
         )
         message = await ctx.reply(embed=loading_embed)
 
         try:
             embed = Embed(
-                title=f"🔍 WhoIs информация для {normalized_target}",
+                title=t("api_whois", "result_title", target=normalized_target),
                 color=Colors.PRIMARY
             )
 
             if target_type in ('ipv4', 'ipv6'):
                 ip_info = await self.get_ip_info(normalized_target)
-                embed = self.format_ip_embed(embed, normalized_target, ip_info)
+                embed = self.format_ip_embed(embed, normalized_target, ip_info, t)
 
             elif target_type == 'domain':
                 # Параллельное выполнение whois и DNS запросов
@@ -547,7 +547,7 @@ class WhoisAPI:
                     self.get_domain_info(normalized_target),
                     self.get_dns_info(normalized_target)
                 )
-                embed = self.format_domain_embed(embed, normalized_target, domain_info, dns_info)
+                embed = self.format_domain_embed(embed, normalized_target, domain_info, dns_info, t)
 
             if normalized_target != target:
                 embed.set_footer(text=f"Исходный запрос: {target}")

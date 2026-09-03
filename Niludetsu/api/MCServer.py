@@ -1,3 +1,4 @@
+from ..locale import _
 from ..tools.Embed import Embed
 """
 Модуль для взаимодействия с Minecraft серверами
@@ -120,7 +121,7 @@ class MinecraftServerAPI:
                 'error': f"Ошибка подключения: {str(e)}"
             }
 
-    def validate_server_address(self, address: str, port: Optional[int] = None) -> Tuple[bool, str]:
+    def validate_server_address(self, address: str, port: Optional[int] = None, t=None) -> Tuple[bool, str]:
         """
         Валидирует адрес сервера
 
@@ -130,25 +131,32 @@ class MinecraftServerAPI:
             Адрес сервера
         port : Optional[int]
             Порт сервера
+        t : callable, optional
+            Функция локализации
 
         Returns
         -------
         Tuple[bool, str]
             Кортеж (валидность, сообщение об ошибке)
         """
+        if t is None:
+            # Fallback if no locale function provided
+            from ..locale import _ as locale_fn
+            t = locale_fn()
+        
         if not address or not address.strip():
-            return False, "Адрес сервера не может быть пустым"
+            return False, t("api_mcserver", "invalid_address")
 
         if len(address) > 253:
-            return False, "Адрес сервера слишком длинный"
+            return False, t("api_mcserver", "address_too_long")
 
         if port is not None:
             if not isinstance(port, int) or port < 1 or port > 65535:
-                return False, "Порт должен быть числом от 1 до 65535"
+                return False, t("api_mcserver", "invalid_port")
 
         # Проверяем на недопустимые символы
         if any(char in address for char in ['<', '>', '"', '|', '?', '*']):
-            return False, "Адрес содержит недопустимые символы"
+            return False, t("api_mcserver", "invalid_chars")
 
         return True, ""
 
@@ -237,7 +245,7 @@ class MinecraftServerAPI:
             error_embed = Embed.error(description=f"Произошла ошибка: {str(e)}")
             await ctx.reply(embed=error_embed)
 
-    def _format_server_embed(self, server_info: Dict[str, Any], address: str, is_bedrock: bool) -> Embed:
+    def _format_server_embed(self, server_info: Dict[str, Any], address: str, is_bedrock: bool, t) -> Embed:
         """
         Форматирует эмбед с информацией о сервере
 
@@ -265,7 +273,7 @@ class MinecraftServerAPI:
         embed = Embed(title=title, color=color)
 
         # Формируем описание
-        description = self._build_server_description(server_info, is_bedrock)
+        description = self._build_server_description(server_info, is_bedrock, t)
         embed.description = "\n".join(description)
 
         # Добавляем иконку сервера для Java, если доступна
@@ -277,12 +285,12 @@ class MinecraftServerAPI:
                     print(f"Ошибка при установке иконки сервера: {e}")
 
         # Добавляем футер с меткой времени
-        embed.set_footer(text="Запрос выполнен")
+        embed.set_footer(text=t("api_mcserver", "footer_done"))
         embed.timestamp = datetime.datetime.now()
 
         return embed
 
-    def _build_server_description(self, server_info: Dict[str, Any], is_bedrock: bool) -> list:
+    def _build_server_description(self, server_info: Dict[str, Any], is_bedrock: bool, t) -> list:
         """
         Строит описание для эмбеда сервера
 
@@ -301,44 +309,44 @@ class MinecraftServerAPI:
         description = []
 
         # Добавляем информацию о версии
-        version_str = f"**Версия:** `{server_info.get('version', 'Неизвестно')}`"
+        version_str = f"**{t('api_mcserver', 'version')}:** `{server_info.get('version', t('api_mcserver', 'unknown'))}`"
         if server_info.get('protocol'):
-            version_str += f" (протокол: {server_info.get('protocol')})"
+            version_str += f" ({t('api_mcserver', 'protocol')}: {server_info.get('protocol')})"
         description.append(version_str)
 
         # Добавляем информацию об игроках
         players_online = server_info.get('players_online', 0)
         players_max = server_info.get('players_max', 0)
-        players_str = f"**Игроки:** `{players_online}/{players_max}`"
+        players_str = f"**{t('api_mcserver', 'players')}:** `{players_online}/{players_max}`"
         description.append(players_str)
 
         # Добавляем пинг/задержку
         if not is_bedrock and server_info.get('ping') is not None:
-            ping_str = f"**Пинг:** `{round(server_info.get('ping', 0))} мс`"
+            ping_str = f"**{t('api_mcserver', 'ping')}:** `{round(server_info.get('ping', 0))} мс`"
             description.append(ping_str)
         elif is_bedrock and server_info.get('latency') is not None:
-            latency_str = f"**Задержка:** `{round(server_info.get('latency', 0) * 1000)} мс`"
+            latency_str = f"**{t('api_mcserver', 'latency')}:** `{round(server_info.get('latency', 0) * 1000)} мс`"
             description.append(latency_str)
 
         # Дополнительная информация для Bedrock
         if is_bedrock:
             if server_info.get('edition'):
-                description.append(f"**Издание:** `{server_info.get('edition')}`")
+                description.append(f"**{t('api_mcserver', 'edition')}:** `{server_info.get('edition')}`")
             if server_info.get('game_mode'):
-                description.append(f"**Режим игры:** `{server_info.get('game_mode')}`")
+                description.append(f"**{t('api_mcserver', 'game_mode')}:** `{server_info.get('game_mode')}`")
             if server_info.get('map_name'):
-                description.append(f"**Карта:** `{server_info.get('map_name')}`")
+                description.append(f"**{t('api_mcserver', 'map')}:** `{server_info.get('map_name')}`")
 
         # MOTD или описание
         description_text = self._get_server_description_text(server_info, is_bedrock)
         if description_text:
-            description.append(f"**Описание:**\n```{description_text}```")
+            description.append(f"**{t('api_mcserver', 'description')}:**\n```{description_text}```")
 
         # Добавляем список игроков
         if not is_bedrock and server_info.get('players_sample'):
             players_list_str = self._format_players_list(server_info.get('players_sample', []))
             if players_list_str:
-                description.append(f"**Игроки online:** {players_list_str}")
+                description.append(f"**{t('api_mcserver', 'players_online')}:** {players_list_str}")
 
         return description
 

@@ -38,10 +38,12 @@ async def safe_fetch_message(channel: discord.abc.Messageable, message_id: int) 
     except: return None
 
 def owner_check(owner_id: int):
+    from Niludetsu.locale import _
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != owner_id:
             from .Embed import Embed
-            await interaction.response.send_message(embed=Embed.error("Это не твоя панель!"), ephemeral=True)
+            t = _(ctx=interaction)
+            await interaction.response.send_message(embed=Embed.error(t("errors", "not_your_panel")), ephemeral=True)
             return False
         return True
     return interaction_check

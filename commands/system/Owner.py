@@ -6,7 +6,7 @@ import re
 import discord
 from discord.ext import commands
 from datetime import datetime, timedelta, timezone
-from Niludetsu import Embed, Colors
+from Niludetsu import Embed
 from Niludetsu.database import database
 
 class Owner(commands.Cog):

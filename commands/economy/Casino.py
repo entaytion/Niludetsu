@@ -1,6 +1,7 @@
 import asyncio, discord, random
 from discord import app_commands
 from discord.ext import commands
+from Niludetsu.locale import _
 from Niludetsu import EconomyManager, EconomyEmbed, Emojis, Embed, Colors, safe_edit, safe_fetch_message, resolve_member
 
 RED_NUMBERS = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
@@ -13,7 +14,8 @@ class RouletteBetView(discord.ui.View):
 
     async def interaction_check(self, i):
         if i.user.id != self.owner_id:
-            await i.response.send_message(embed=Embed.error("Это не ваша ставка!"), ephemeral=True)
+            t = _(guild_id=i.guild_id, bot=i.client)
+            await i.response.send_message(embed=Embed.error(t("casino", "not_your_bet")), ephemeral=True)
             return False
         return True
 
@@ -42,26 +44,28 @@ class Roulette(commands.Cog):
     @commands.hybrid_command(name="roulette", aliases=("casino", "рулетка"), description="Сыграть в рулетку")
     @app_commands.describe(bet="Сумма ставки")
     async def roulette(self, ctx, bet: str):
+        t = _(ctx=ctx)
         val = int(bet) if bet.isdigit() else 0
-        if val <= 0: return await ctx.reply("Ставка должна быть больше 0", ephemeral=True)
+        if val <= 0: return await ctx.reply(t("casino", "bet_positive"), ephemeral=True)
         
         acc = await self.economy.get_account(str(ctx.author.id), str(ctx.guild.id))
-        if acc["balance"] < val: return await ctx.reply(embed=EconomyEmbed.error("Недостаточно средств"), ephemeral=True)
+        if acc["balance"] < val: return await ctx.reply(embed=EconomyEmbed.error(t("casino", "insufficient_funds")), ephemeral=True)
 
-        embed = EconomyEmbed.game_lobby(action="🎰 Рулетка", user=ctx.author, bet=val, description="Выберите тип ставки кнопками ниже.")
+        embed = EconomyEmbed.game_lobby(action=t("casino", "title"), user=ctx.author, bet=val, description=t("casino", "pick_bet_type"))
         await ctx.reply(embed=embed, view=RouletteBetView(self, ctx.author.id, val))
 
     async def start_spin(self, interaction, uid, bet, code):
+        t = _(guild_id=interaction.guild_id, bot=interaction.client)
         res = await self.economy.remove_money(str(uid), str(interaction.guild_id), bet, event="roulette_bet")
         if res.status != "success":
-            return await interaction.edit_original_response(embed=EconomyEmbed.error("Недостаточно средств для этой ставки!"), view=None)
+            return await interaction.edit_original_response(embed=EconomyEmbed.error(t("casino", "insufficient_funds")), view=None)
         
         res_num = random.randint(0, 36)
         color = "red" if res_num in RED_NUMBERS else "black" if res_num in BLACK_NUMBERS else "green"
         
         # Простая анимация
         for _ in range(3):
-            await interaction.edit_original_response(embed=Embed(description="**Крутим колесо...**", color=Colors.PRIMARY))
+            await interaction.edit_original_response(embed=Embed(description=t("casino", "spinning"), color=Colors.PRIMARY))
             await asyncio.sleep(1)
 
         win = False
@@ -75,10 +79,10 @@ class Roulette(commands.Cog):
         if win:
             payout = int(bet * mult)
             await self.economy.add_money(str(uid), str(interaction.guild_id), payout, event="roulette_win")
-            text = f"🎉 Выпало **{res_num}** ({'🔴' if color=='red' else '⚫' if color=='black' else '🟢'}).\nВы выиграли **{payout:,}** {Emojis.MONEY}!"
+            text = t("casino", "win", num=res_num, payout=f"{payout:,}", currency=Emojis.MONEY)
         else:
-            text = f"💥 Выпало **{res_num}** ({'🔴' if color=='red' else '⚫' if color=='black' else '🟢'}).\nВы проиграли свою ставку."
+            text = t("casino", "lose", num=res_num)
 
-        await interaction.edit_original_response(embed=EconomyEmbed.result(action="Рулетка", user=interaction.user, text=text, color=Colors.SUCCESS if win else Colors.ERROR))
+        await interaction.edit_original_response(embed=EconomyEmbed.result(action=t("casino", "roulette_title"), user=interaction.user, text=text, color=Colors.SUCCESS if win else Colors.ERROR))
 
 async def setup(bot): await bot.add_cog(Roulette(bot))

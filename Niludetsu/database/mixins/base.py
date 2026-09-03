@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Optional
@@ -10,6 +11,23 @@ from loguru import logger
 
 from ..pool import NeonPool
 from ..query import QueryBuilder
+
+
+# ── Column/table name validation (SQL-injection defence) ────────────
+_COL_RE = re.compile(r"^[a-z_][a-z0-9_]*$", re.IGNORECASE)
+_TABLE_RE = re.compile(r"^[a-z_][a-z0-9_]*$", re.IGNORECASE)
+
+
+def _safe_col(name: str) -> str:
+    if not _COL_RE.match(name):
+        raise ValueError(f"Invalid column name: {name!r}")
+    return name
+
+
+def _safe_table(name: str) -> str:
+    if not _TABLE_RE.match(name):
+        raise ValueError(f"Invalid table name: {name!r}")
+    return name
 
 
 class BaseMixin:
@@ -32,8 +50,8 @@ class BaseMixin:
 
     async def get_row(self, table: str, **conditions: Any) -> Optional[dict[str, Any]]:
         keys = list(conditions.keys())
-        where = " AND ".join(f'"{k}" = ${i+1}' for i, k in enumerate(keys))
-        query = f'SELECT * FROM public."{table}" WHERE {where} LIMIT 1'
+        where = " AND ".join(f'"{_safe_col(k)}" = ${i+1}' for i, k in enumerate(keys))
+        query = f'SELECT * FROM public."{_safe_table(table)}" WHERE {where} LIMIT 1'
         row = await self._neon.fetchrow(query, *conditions.values())
         return dict(row) if row else None
 
@@ -51,17 +69,17 @@ class BaseMixin:
 
         if conditions:
             keys = list(conditions.keys())
-            where = " WHERE " + " AND ".join(f'"{k}" = ${i+idx}' for i, k in enumerate(keys))
+            where = " WHERE " + " AND ".join(f'"{_safe_col(k)}" = ${i+idx}' for i, k in enumerate(keys))
             params.extend(conditions.values())
             idx += len(keys)
         else:
             where = ""
 
-        query = f'SELECT * FROM public."{table}"{where}'
+        query = f'SELECT * FROM public."{_safe_table(table)}"{where}'
 
         if order:
             direction = "ASC" if ascending else "DESC"
-            query += f' ORDER BY "{order}" {direction}'
+            query += f' ORDER BY "{_safe_col(order)}" {direction}'
 
         if limit is not None:
             query += f" LIMIT ${idx}"
@@ -73,8 +91,8 @@ class BaseMixin:
     async def insert(self, table: str, values: dict[str, Any]) -> Optional[dict[str, Any]]:
         cols = list(values.keys())
         placeholders = ", ".join(f"${i+1}" for i in range(len(cols)))
-        col_names = ", ".join(f'"{c}"' for c in cols)
-        query = f'INSERT INTO public."{table}" ({col_names}) VALUES ({placeholders}) RETURNING *'
+        col_names = ", ".join(f'"{_safe_col(c)}"' for c in cols)
+        query = f'INSERT INTO public."{_safe_table(table)}" ({col_names}) VALUES ({placeholders}) RETURNING *'
         row = await self._neon.fetchrow(query, *values.values())
         return dict(row) if row else None
 
@@ -110,10 +128,10 @@ class BaseMixin:
         set_cols = list(values.keys())
         where_keys = list(where.keys())
 
-        set_clause = ", ".join(f'"{k}" = ${i+1}' for i, k in enumerate(set_cols))
-        where_clause = " AND ".join(f'"{k}" = ${i+1+len(set_cols)}' for i, k in enumerate(where_keys))
+        set_clause = ", ".join(f'"{_safe_col(k)}" = ${i+1}' for i, k in enumerate(set_cols))
+        where_clause = " AND ".join(f'"{_safe_col(k)}" = ${i+1+len(set_cols)}' for i, k in enumerate(where_keys))
 
-        query = f'UPDATE public."{table}" SET {set_clause} WHERE {where_clause} RETURNING *'
+        query = f'UPDATE public."{_safe_table(table)}" SET {set_clause} WHERE {where_clause} RETURNING *'
         row = await self._neon.fetchrow(query, *values.values(), *where.values())
 
         if row:
@@ -126,8 +144,8 @@ class BaseMixin:
 
     async def delete(self, table: str, **conditions: Any) -> int:
         keys = list(conditions.keys())
-        where = " AND ".join(f'"{k}" = ${i+1}' for i, k in enumerate(keys))
-        query = f'DELETE FROM public."{table}" WHERE {where}'
+        where = " AND ".join(f'"{_safe_col(k)}" = ${i+1}' for i, k in enumerate(keys))
+        query = f'DELETE FROM public."{_safe_table(table)}" WHERE {where}'
         res = await self._neon.execute(query, *conditions.values())
         return int(res.split(" ")[1])
 
@@ -143,18 +161,18 @@ class BaseMixin:
             return []
 
         cols = list(payload[0].keys())
-        col_names = ", ".join(f'"{c}"' for c in cols)
+        col_names = ", ".join(f'"{_safe_col(c)}"' for c in cols)
 
         conflict_clause = ""
         if on_conflict:
             conflict_keys = [k.strip() for k in on_conflict.split(",")]
             update_cols = ", ".join(
-                f'"{c}" = EXCLUDED."{c}"' for c in cols if c not in conflict_keys
+                f'"{_safe_col(c)}" = EXCLUDED."{_safe_col(c)}"' for c in cols if c not in conflict_keys
             )
             if update_cols:
                 conflict_clause = f" ON CONFLICT ({on_conflict}) DO UPDATE SET {update_cols}"
             else:
-                first_key = conflict_keys[0]
+                first_key = _safe_col(conflict_keys[0])
                 conflict_clause = f' ON CONFLICT ({on_conflict}) DO UPDATE SET "{first_key}" = EXCLUDED."{first_key}"'
 
         values_sql: list[str] = []
@@ -170,7 +188,7 @@ class BaseMixin:
             values_sql.append(f"({', '.join(placeholders)})")
 
         query = (
-            f'INSERT INTO public."{table}" ({col_names}) VALUES '
+            f'INSERT INTO public."{_safe_table(table)}" ({col_names}) VALUES '
             f"{', '.join(values_sql)}{conflict_clause} RETURNING *"
         )
         rows = await self._neon.fetch(query, *params)
@@ -180,8 +198,8 @@ class BaseMixin:
         self, table: str, where: dict[str, Any], field: str, amount: int
     ) -> Optional[dict[str, Any]]:
         where_keys = list(where.keys())
-        where_clause = " AND ".join(f'"{k}" = ${i+2}' for i, k in enumerate(where_keys))
-        query = f'UPDATE public."{table}" SET "{field}" = "{field}" + $1 WHERE {where_clause} RETURNING *'
+        where_clause = " AND ".join(f'"{_safe_col(k)}" = ${i+2}' for i, k in enumerate(where_keys))
+        query = f'UPDATE public."{_safe_table(table)}" SET "{_safe_col(field)}" = "{_safe_col(field)}" + $1 WHERE {where_clause} RETURNING *'
         row = await self._neon.fetchrow(query, amount, *where.values())
         return dict(row) if row else None
 

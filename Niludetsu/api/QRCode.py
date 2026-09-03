@@ -1,3 +1,4 @@
+from ..locale import _
 from ..tools.Embed import Embed
 from ..tools.Emojis import Emojis
 """
@@ -159,8 +160,10 @@ class QRCodeAPI:
         color : str
             Цвет QR-кода
         """
+        t = _(ctx=ctx)
+        
         if not content:
-            await ctx.reply(embed=Embed.error(title="Ошибка создания QR-кода", description="Укажите текст или ссылку для QR-кода!"))
+            await ctx.reply(embed=Embed.error(title=t("api_qrcode", "create_error_title"), description=t("api_qrcode", "specify_content")))
             return
 
         try:
@@ -172,21 +175,21 @@ class QRCodeAPI:
             )
 
             if not qr_image_data:
-                error_embed = Embed.error(title="Ошибка создания QR-кода", description="Сервис временно недоступен. Попробуйте позже.")
+                error_embed = Embed.error(title=t("api_qrcode", "create_error_title"), description=t("api_qrcode", "service_unavailable"))
                 await ctx.reply(embed=error_embed)
                 return
 
             img_byte_arr = io.BytesIO(qr_image_data)
             img_byte_arr.seek(0)
 
-            embed = self._format_qrcode_embed(content)
+            embed = self._format_qrcode_embed(content, t)
             file = discord.File(img_byte_arr, filename="qrcode.png")
             embed.set_image(url="attachment://qrcode.png")
 
             await ctx.reply(embed=embed, file=file)
 
         except Exception as e:
-            error_embed = Embed.error(title="Ошибка создания QR-кода", description=f"Произошла ошибка: {str(e)}")
+            error_embed = Embed.error(title=t("api_qrcode", "create_error_title"), description=t("api_qrcode", "generic_error", error=str(e)))
             await ctx.reply(embed=error_embed)
 
     async def decode_qrcode(self, ctx: commands.Context, image: discord.Attachment):
@@ -200,13 +203,15 @@ class QRCodeAPI:
         image : discord.Attachment
             Изображение с QR-кодом
         """
+        t = _(ctx=ctx)
+        
         if not image:
-            await ctx.reply(embed=Embed.error(title="Ошибка декодирования QR-кода", description="Загрузите изображение с QR-кодом!"))
+            await ctx.reply(embed=Embed.error(title=t("api_qrcode", "decode_error_title"), description=t("api_qrcode", "specify_image")))
             return
 
         try:
             if not image.content_type or not image.content_type.startswith('image/'):
-                error_embed = Embed.error(title="Неверный формат", description="Пожалуйста, загрузите изображение с QR-кодом")
+                error_embed = Embed.error(title=t("api_qrcode", "invalid_format"), description=t("api_qrcode", "invalid_format_desc"))
                 await ctx.reply(embed=error_embed)
                 return
 
@@ -214,19 +219,19 @@ class QRCodeAPI:
             decode_result = await self.get_decode_data(img_bytes)
 
             if not decode_result or not decode_result.get('success', False):
-                error_message = decode_result.get('error', 'Не удалось распознать QR-код') if decode_result else 'Не удалось распознать QR-код'
-                error_embed = Embed.error(title="QR-код не распознан", description=error_message)
+                error_message = decode_result.get('error', t("api_qrcode", "unrecognized")) if decode_result else t("api_qrcode", "unrecognized")
+                error_embed = Embed.error(title=t("api_qrcode", "unrecognized_title"), description=error_message)
                 await ctx.reply(embed=error_embed)
                 return
 
-            embed = self._format_decode_embed(decode_result)
+            embed = self._format_decode_embed(decode_result, t)
             await ctx.reply(embed=embed)
 
         except Exception as e:
-            error_embed = Embed.error(title="Ошибка декодирования QR-кода", description=f"Произошла ошибка: {str(e)}")
+            error_embed = Embed.error(title=t("api_qrcode", "decode_error_title"), description=t("api_qrcode", "generic_error", error=str(e)))
             await ctx.reply(embed=error_embed)
 
-    def _format_qrcode_embed(self, content: str) -> discord.Embed:
+    def _format_qrcode_embed(self, content: str, t) -> discord.Embed:
         """
         Форматирует эмбед для сгенерированного QR-кода
 
@@ -243,13 +248,13 @@ class QRCodeAPI:
         is_url = content.startswith(('http://', 'https://', 'www.'))
 
         embed = Embed(
-            title=f"{Emojis.SUCCESS} QR-код создан",
-            description=f"{'🔗 **Ссылка:**' if is_url else '📝 **Содержимое:**'} `{content}`"
+            title=t("api_qrcode", "created_title", emoji=Emojis.SUCCESS),
+            description=f"{t('api_qrcode', 'link_label') if is_url else t('api_qrcode', 'content_label')} `{content}`"
         )
 
         return embed
 
-    def _format_decode_embed(self, decode_result: Dict[str, Any]) -> discord.Embed:
+    def _format_decode_embed(self, decode_result: Dict[str, Any], t) -> discord.Embed:
         """
         Форматирует эмбед для декодированного QR-кода
 
@@ -264,14 +269,14 @@ class QRCodeAPI:
             Отформатированный эмбед
         """
         qr_data = decode_result.get('text', '')
-        qr_format = decode_result.get('format', 'QR-код')
+        qr_format = decode_result.get('format', t("api_qrcode", "format_default"))
         is_url = qr_data.startswith(('http://', 'https://', 'www.'))
 
         embed = Embed(
-            title=f"{Emojis.SUCCESS} QR-код распознан",
+            title=t("api_qrcode", "decoded_title", emoji=Emojis.SUCCESS),
             description=(
-                f"🔎 **Формат:** `{qr_format}`"
-                f"{'🔗 **Ссылка:**' if is_url else '📝 **Текст:**'} `{qr_data}`"
+                f"{t('api_qrcode', 'format_label')} `{qr_format}`\n"
+                f"{t('api_qrcode', 'link_label') if is_url else t('api_qrcode', 'text_label')} `{qr_data}`"
             )
         )
 

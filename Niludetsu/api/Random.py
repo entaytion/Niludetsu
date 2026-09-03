@@ -1,3 +1,4 @@
+from ..locale import _
 from ..tools.Embed import Embed
 """
 Модуль для генерации случайных чисел (API-версия)
@@ -14,13 +15,13 @@ class RandomAPI:
         # Здесь можно добавить конфиг/логирование, если понадобится
         pass
 
-    def _create_result_embed(self, start: int, end: int, result: int) -> Embed:
+    def _create_result_embed(self, start: int, end: int, result: int, t) -> Embed:
         """Создаёт красивый эмбед с результатом"""
         embed = Embed(
-            title="🎲 Случайное число",
-            description=f"В диапазоне от **{start}** до **{end}**."
+            title=t("api_random", "title"),
+            description=t("api_random", "range", start=start, end=end)
         ).add_field(
-            name="Результат:",
+            name=t("api_random", "result"),
             value=f"```{result}```",
             inline=False
         )
@@ -39,27 +40,29 @@ class RandomAPI:
         min_value : Optional[int]
             Минимальное число (необязательно)
         """
+        t = _(ctx=ctx)
+        
         # Валидация входных данных (копия логики из вашего исходного rand.py)
         if max_value is None:
-            await ctx.reply(embed=Embed.error(description="Укажите максимальное число!"))
+            await ctx.reply(embed=Embed.error(description=t("api_random", "specify_max")))
             return
 
         if min_value is not None and min_value >= max_value:
-            await ctx.reply(embed=Embed.error(description="Минимальное число должно быть меньше максимального!"))
+            await ctx.reply(embed=Embed.error(description=t("api_random", "min_vs_max")))
             return
 
         if min_value is None and max_value <= 0:
-            await ctx.reply(embed=Embed.error(description="Число должно быть больше 0!"))
+            await ctx.reply(embed=Embed.error(description=t("api_random", "positive_only")))
             return
 
         start = min_value if min_value is not None else 0
         try:
             result = random.randint(start, max_value)
         except ValueError:
-            await ctx.reply(embed=Embed.error(description="Неверный диапазон чисел."))
+            await ctx.reply(embed=Embed.error(description=t("api_random", "invalid_range")))
             return
 
-        embed = self._create_result_embed(start, max_value, result)
+        embed = self._create_result_embed(start, max_value, result, t)
         await ctx.reply(embed=embed)
 
 # Глобальный экземпляр для использования как API

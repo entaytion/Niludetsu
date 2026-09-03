@@ -1,3 +1,4 @@
+from ..locale import _
 from ..tools.Embed import Embed
 """
 Модуль для генерации хешей из текста
@@ -30,15 +31,15 @@ class HashAPI:
         except Exception:
             return None
 
-    def _create_hash_embed(self, text: str, hashes: dict) -> Embed:
+    def _create_hash_embed(self, text: str, hashes: dict, t) -> Embed:
         """Создает embed с результатами хеширования"""
 
         # Обрезаем длинный текст для отображения
         display_text = text if len(text) <= 50 else text[:47] + "..."
 
         embed = Embed(
-            title="🔐 Хеширование текста",
-            description=f"Исходный текст: `{display_text}`"
+            title=t("api_hash", "title"),
+            description=f"{t('api_hash', 'source_text')}: `{display_text}`"
         )
 
         # Добавляем хеши
@@ -49,7 +50,7 @@ class HashAPI:
                 inline=False
             )
 
-        embed.set_footer(text="💡 Хеши необратимы и используются для проверки целостности данных")
+        embed.set_footer(text=t("api_hash", "footer"))
 
         return embed
 
@@ -67,22 +68,25 @@ class HashAPI:
             Конкретный алгоритм (md5/sha1/sha256/sha512) или None для всех
         """
         if not text:
-            await ctx.reply(embed=Embed.error(description="Укажите текст для хеширования!"))
+            t = _(ctx=ctx)
+            await ctx.reply(embed=Embed.error(description=t("api_hash", "specify_text")))
             return
 
         # Если указан конкретный алгоритм
         if algorithm:
             algorithm = algorithm.lower()
             if algorithm not in self.supported_algorithms:
+                t = _(ctx=ctx)
                 available = ", ".join(self.supported_algorithms.keys())
                 await ctx.reply(embed=Embed.error(
-                    description=f"Неподдерживаемый алгоритм!\nДоступные: `{available}`"
+                    description=t("api_hash", "unsupported_algorithm", available=available)
                 ))
                 return
 
             hash_value = self._calculate_hash(text, algorithm)
             if not hash_value:
-                await ctx.reply(embed=Embed.error(description="Ошибка при вычислении хеша"))
+                t = _(ctx=ctx)
+                await ctx.reply(embed=Embed.error(description=t("api_hash", "calc_error")))
                 return
 
             hashes = {algorithm: hash_value}
@@ -94,7 +98,8 @@ class HashAPI:
                 if hash_value:
                     hashes[algo] = hash_value
 
-        embed = self._create_hash_embed(text, hashes)
+        t = _(ctx=ctx)
+        embed = self._create_hash_embed(text, hashes, t)
         await ctx.reply(embed=embed)
 
 # Глобальный экземпляр

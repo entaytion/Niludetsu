@@ -14,6 +14,16 @@ EMOJI_INFO = "🔍"
 EMOJI_SYNC = "🔄"
 EMOJI_FOLDER = "📁"
 
+# ── Сlash sync hash (уникаємо API-запитів якщо дерево не змінилося) ─
+_last_sync_hash: int = 0
+
+EMOJI_SUCCESS = "✅"
+EMOJI_FAIL = "❌"
+EMOJI_SKIP = "⏭️"
+EMOJI_INFO = "🔍"
+EMOJI_SYNC = "🔄"
+EMOJI_FOLDER = "📁"
+
 @dataclass
 class LoadOutcome:
     module: str
@@ -106,6 +116,7 @@ class Loader:
         self.summary = LoadSummary()
         self.show_first_n = show_first_n  # сколько успешных загрузок показывать сразу
         self._loaded_shown = 0
+        self._loaded_modules: list[str] = []
 
         servers = getattr(config, "SERVERS", {})
         self.main_guild_id: int = servers.get("MAIN_ID", 0)
@@ -125,8 +136,11 @@ class Loader:
 
         print(f"{EMOJI_INFO} Найдено расширений: {len(modules)} — начинаем загрузку...")
 
+        self._loaded_modules = []
         for module, display in modules:
             outcome, status = await self._load_single(module, display)
+            if status != "skip":
+                self._loaded_modules.append(module)
             self.summary.add(outcome, status)
 
         if self._loaded_shown and self._loaded_shown < self.summary.loaded:
@@ -134,6 +148,14 @@ class Loader:
             print(f"{EMOJI_SUCCESS} ... и ещё {remaining} расширений загружено без вывода.")
 
     async def sync_interactions(self) -> None:
+        # Пропускаємо синхронізацію якщо набір модулів не змінився
+        current_hash = hash(tuple(sorted(self._loaded_modules))) if self._loaded_modules else 0
+        global _last_sync_hash
+        if current_hash and current_hash == _last_sync_hash:
+            print(f"{EMOJI_SKIP} Набор расширений не изменился — синхронизация пропущена.")
+            return
+        _last_sync_hash = current_hash
+
         print(f"{EMOJI_SYNC} Синхронизация слеш-команд...")
 
         if not self.main_guild_id:

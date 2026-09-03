@@ -4,10 +4,11 @@ from Niludetsu import config, EconomyManager, QuestTracker
 from Niludetsu import Emojis, Embed, Time
 from Niludetsu.locale import _, DEFAULT_LOCALE
 
-from typing import Optional, Dict, Tuple, Any
+from typing import Optional, Dict, Tuple, Any, Callable
 
 _time = Time()
 B = DEFAULT_LOCALE.get("bump", {})
+
 
 class MonitoringBotsManager:
     """Управление ботами мониторинга и их настройками"""
@@ -81,6 +82,19 @@ class MonitoringBotsManager:
                 return bot_id, cfg
         return None
 
+
+def _extract_content(message: discord.Message) -> str:
+    """Збирає текст з content + всіх embed-ів повідомлення."""
+    content = (message.content or "").lower()
+    if message.embeds:
+        for emb in message.embeds:
+            parts = [emb.description or "", emb.title or ""]
+            parts += [f.name for f in emb.fields]
+            parts += [f.value for f in emb.fields]
+            content += "\n" + "\n".join(p.lower() for p in parts)
+    return content
+
+
 class BumpProcessor:
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -91,6 +105,8 @@ class BumpProcessor:
         self.processing_messages: Dict[int, asyncio.Task] = {}
         self.quest_tracker = QuestTracker()
 
+    # ── Парсеры ────────────────────────────────────────────────
+
     def parse_discord_timestamp(self, content: str):
         match = re.search(r"<t:(\d+):", content)
         if match:
@@ -99,6 +115,121 @@ class BumpProcessor:
             except Exception:
                 pass
         return None
+
+    # ── Хендлери бампів (кожен бот зі своєю логікою) ──────────
+
+    def _handle_dsgroup(self, message: discord.Message):
+        """DSGroup (1059103014025171014) — специфічна логіка."""
+        bot_config = self.bots_manager.get_bot(1059103014025171014)
+        if not message.content and not message.embeds:
+            return _time.add_duration(_time.now(), hours=bot_config["delay"])
+        content = (message.content or "").lower()
+        if any(phrase in content for phrase in ("стой стой", "сервер успешно поднят")):
+            return _time.add_duration(_time.now(), hours=bot_config["delay"])
+        ts_match = re.search(r"<t:(\d+):R>", content)
+        if ts_match:
+            try:
+                return _time.add_duration(_time.from_timestamp(int(ts_match.group(1))), hours=bot_config["delay"])
+            except Exception:
+                pass
+        for pattern in (
+            r"через (\d+) час[а-я]*",
+            r"только через (\d+) час[а-я]*",
+            r"через (\d+) ч[а-я]*",
+        ):
+            time_match = re.search(pattern, content)
+            if time_match:
+                try:
+                    return _time.add_duration(_time.now(), hours=int(time_match.group(1)))
+                except Exception:
+                    pass
+        return None
+
+    def _handle_sdc_monitoring(self, message: discord.Message):
+        """SD.C Monitoring (464272403766444044)."""
+        bot_config = self.bots_manager.get_bot(464272403766444044)
+        content = _extract_content(message)
+        if "время фиксации апа" in content:
+            stamp = self.parse_discord_timestamp(content)
+            if stamp:
+                return _time.add_duration(stamp, hours=4)
+        success_keywords = [
+            "сервер успешно поднят", "bump successful",
+            "успешно забамплен", "сервер поднят",
+        ]
+        if any(keyword in content for keyword in success_keywords):
+            stamp = self.parse_discord_timestamp(content)
+            if stamp:
+                return _time.add_duration(stamp, hours=bot_config["delay"])
+        return None
+
+    def _handle_server_monitoring(self, message: discord.Message):
+        """Server Monitoring (315926021457051650) — embed title."""
+        bot_config = self.bots_manager.get_bot(315926021457051650)
+        if not message.embeds:
+            return None
+        for embed in message.embeds:
+            if embed.title and "server bumped by" in embed.title.lower():
+                return _time.add_duration(_time.now(), hours=bot_config["delay"])
+        return None
+
+    def _handle_bumping(self, message: discord.Message):
+        """BumPing (1327714529223901186)."""
+        bot_config = self.bots_manager.get_bot(1327714529223901186)
+        content = _extract_content(message)
+        if "сервер успешно бампнут" in content or "bump done" in content:
+            return _time.add_duration(_time.now(), hours=bot_config["delay"])
+        return None
+
+    def _handle_autopartnership(self, message: discord.Message):
+        """AutoPartnership (789751844821401630)."""
+        bot_config = self.bots_manager.get_bot(789751844821401630)
+        if not message.embeds:
+            return None
+        for embed in message.embeds:
+            title = (embed.title or "").lower()
+            description = (embed.description or "").lower()
+            if ":rocket:" in title or "рассылается" in description:
+                return _time.add_duration(_time.now(), hours=bot_config["delay"])
+        return None
+
+    # Карта: bot_id → метод-хендлер
+    _SPECIAL_HANDLERS: Dict[int, Callable] = {}
+
+    @classmethod
+    def _init_handlers(cls):
+        if cls._SPECIAL_HANDLERS:
+            return
+        cls._SPECIAL_HANDLERS = {
+            1059103014025171014: lambda self, m: self._handle_dsgroup(m),
+            464272403766444044: lambda self, m: self._handle_sdc_monitoring(m),
+            315926021457051650: lambda self, m: self._handle_server_monitoring(m),
+            1327714529223901186: lambda self, m: self._handle_bumping(m),
+            789751844821401630: lambda self, m: self._handle_autopartnership(m),
+        }
+
+    def process_bump_message(self, message: discord.Message):
+        """Визначає час наступного бампу з повідомлення."""
+        bot_id = message.author.id
+        bot_config = self.bots_manager.get_bot(bot_id)
+        if not bot_config:
+            return None
+
+        self._init_handlers()
+        handler = self._SPECIAL_HANDLERS.get(bot_id)
+        if handler:
+            result = handler(self, message)
+            if result is not None:
+                return result
+
+        # Загальний fallback — success_patterns з конфігу бота
+        content = _extract_content(message)
+        for pattern in bot_config["success_patterns"]:
+            if pattern and re.search(pattern, content):
+                return _time.add_duration(_time.now(), hours=bot_config["delay"])
+        return None
+
+    # ── Решта методів без змін ─────────────────────────────────
 
     async def update_bump_time(self, bot_id: int, guild_id: int, next_bump):
         bot_config = self.bots_manager.get_bot(bot_id)
@@ -128,82 +259,6 @@ class BumpProcessor:
         if bot_id is not None:
             return rows[:1]
         return sorted(rows, key=lambda row: row.get("next_bump") or "")
-
-    def process_bump_message(self, message: discord.Message):
-        bot_id = message.author.id
-        bot_config = self.bots_manager.get_bot(bot_id)
-        if not bot_config:
-            return None
-
-        if bot_id == 1059103014025171014:
-            if not message.content and not message.embeds:
-                return _time.add_duration(_time.now(), hours=bot_config["delay"])
-            content = (message.content or "").lower()
-            if any(phrase in content for phrase in ("стой стой", "сервер успешно поднят")):
-                return _time.add_duration(_time.now(), hours=bot_config["delay"])
-            ts_match = re.search(r"<t:(\d+):R>", content)
-            if ts_match:
-                try:
-                    ts = _time.from_timestamp(int(ts_match.group(1)))
-                    return _time.add_duration(ts, hours=bot_config["delay"])
-                except Exception:
-                    pass
-            for pattern in (
-                r"через (\d+) час[а-я]*",
-                r"только через (\d+) час[а-я]*",
-                r"через (\d+) ч[а-я]*",
-            ):
-                time_match = re.search(pattern, content)
-                if time_match:
-                    try:
-                        return _time.add_duration(_time.now(), hours=int(time_match.group(1)))
-                    except Exception:
-                        pass
-            return None
-
-        content = (message.content or "").lower()
-        if message.embeds:
-            for embed in message.embeds:
-                if embed.description: content += f"\n{embed.description.lower()}"
-                if embed.title: content += f"\n{embed.title.lower()}"
-                for field in embed.fields:
-                    content += f"\n{field.name.lower()}\n{field.value.lower()}"
-
-        if bot_id == 464272403766444044:
-            if "время фиксации апа" in content:
-                stamp = self.parse_discord_timestamp(content)
-                if stamp: return _time.add_duration(stamp, hours=4)
-            success_keywords = [
-                "сервер успешно поднят", "bump successful",
-                "успешно забамплен", "сервер поднят",
-            ]
-            if any(keyword in content for keyword in success_keywords):
-                stamp = self.parse_discord_timestamp(content)
-                if stamp: return _time.add_duration(stamp, hours=bot_config["delay"])
-            return None
-
-        if bot_id == 315926021457051650 and message.embeds:
-            for embed in message.embeds:
-                if embed.title and "server bumped by" in embed.title.lower():
-                    return _time.add_duration(_time.now(), hours=bot_config["delay"])
-
-        if bot_id == 1327714529223901186:
-            if "сервер успешно бампнут" in content or "bump done" in content:
-                return _time.add_duration(_time.now(), hours=bot_config["delay"])
-            return None
-
-        if bot_id == 789751844821401630 and message.embeds:
-            for embed in message.embeds:
-                title = (embed.title or "").lower()
-                description = (embed.description or "").lower()
-                if ":rocket:" in title or "рассылается" in description:
-                    return _time.add_duration(_time.now(), hours=bot_config["delay"])
-            return None
-
-        for pattern in bot_config["success_patterns"]:
-            if pattern and re.search(pattern, content):
-                return _time.add_duration(_time.now(), hours=bot_config["delay"])
-        return None
 
     async def get_interaction_user_id(self, message: discord.Message) -> Optional[str]:
         if message.author.id == 315926021457051650 and message.embeds:
@@ -371,6 +426,7 @@ class BumpProcessor:
             values={"notified": True},
         )
         return True
+
 
 class BumpReminder(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:

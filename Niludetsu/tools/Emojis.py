@@ -17,6 +17,7 @@ class Emojis:
     WARNING = "<:aeWarning:1433188023427665920>"
     SUCCESS = "<:aeSuccess:1433188101483790357>"
     UNKNOWN = "<:aeUnknown:1433188218236305468>"
+    LOADING = "<:aeAnimeLoading:1363825660715597844>"
     # ——— ALTERNATIVE: commands/
     NAVIGATOR = "<:aeNavigation:1433203709290086413>"
     NOTIFICATION = "<:aeNotification:1433205707775283251>"

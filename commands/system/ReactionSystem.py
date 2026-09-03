@@ -1,4 +1,6 @@
+import json
 import random
+from pathlib import Path
 from discord import app_commands
 from discord.ext import commands
 import aiohttp
@@ -6,7 +8,10 @@ import discord
 from Niludetsu.api.Gifs import GifsAPI
 from Niludetsu.marriage.marriage_manager import MarriageManager
 from Niludetsu.tools.Embed import Embed
+from Niludetsu.locale import _
 from typing import Optional
+
+_REACTIONS_PATH = Path(__file__).resolve().parents[2] / "data" / "reactions.json"
 
 class ReactionSystem(commands.Cog):
     """Система реакций и ролевых команд"""
@@ -28,178 +33,9 @@ class ReactionSystem(commands.Cog):
             ],
         }
 
-        # Конфигурация реакций
-        self.reactions = {
-            "bite": {
-                "description": "Укусить пользователя",
-                "messages": [
-                    "{author} нежно кусает {target}! 💕",
-                    "{author} игриво кусает {target}! 🦷",
-                    "{author} делает ням-ням {target}! 😋"
-                ]
-            },
-            "cry": {
-                "description": "Расплакаться",
-                "messages": [
-                    "{author} плачет... 😢",
-                    "{author} расстроился и плачет... 😭",
-                    "У {author} текут слёзки... 💧"
-                ]
-            },
-            "hug": {
-                "description": "Обнять пользователя",
-                "messages": [
-                    "{author} крепко обнимает {target}! 🤗",
-                    "{author} дарит тёплые объятия {target}! 💝",
-                    "{author} заключает в объятия {target}! 🫂"
-                ]
-            },
-            "kiss": {
-                "description": "Поцеловать пользователя",
-                "messages": [
-                    "{author} нежно целует {target}! 💋",
-                    "{author} дарит поцелуй {target}! 😘",
-                    "{author} страстно целует {target}! 💕"
-                ]
-            },
-            "pat": {
-                "description": "Погладить пользователя",
-                "messages": [
-                    "{author} нежно гладит {target}! 🤗",
-                    "{author} ласково гладит {target} по голове! ✨",
-                    "{author} заботливо гладит {target}! 💝"
-                ]
-            },
-            "slap": {
-                "description": "Ударить пользователя",
-                "messages": [
-                    "{author} даёт пощёчину {target}! 👋",
-                    "{author} шлёпает {target}! 😠",
-                    "{author} бьёт {target}! 💢"
-                ]
-            },
-            "dance": {
-                "description": "Танцевать",
-                "messages": [
-                    "{author} танцует! 💃",
-                    "{author} зажигает на танцполе! 🕺",
-                    "{author} показывает свои лучшие движения! ✨"
-                ]
-            },
-            "sorry": {
-                "description": "Извиниться",
-                "messages": [
-                    "{author} извиняется перед {target}! 🙏",
-                    "{author} просит прощения у {target}! 😔",
-                    "{author} раскаивается перед {target}! 💭"
-                ]
-            },
-            "tickle": {
-                "description": "Пощекотать пользователя",
-                "messages": [
-                    "{author} щекочет {target}! 😆",
-                    "{author} начинает щекотать {target}! 😹",
-                    "{author} атакует щекоткой {target}! ✨"
-                ]
-            },
-            "sneeze": {
-                "description": "Чихнуть",
-                "messages": [
-                    "{author} чихает! 🤧",
-                    "{author} громко чихает! 💨",
-                    "{author} говорит: Апчхи! 🤧"
-                ]
-            },
-            "mad": {
-                "description": "Разозлиться",
-                "messages": [
-                    "{author} в ярости! 💢",
-                    "{author} очень зол! 😡"
-                ]
-            },
-            "love": {
-                "description": "Признаться в любви",
-                "messages": [
-                    "{author} признаётся в любви {target}! ❤️",
-                    "{author} говорит {target}: Я тебя люблю! 💕",
-                    "{author} дарит свою любовь {target}! 💖"
-                ]
-            },
-            "nervous": {
-                "description": "Нервничать",
-                "messages": [
-                    "{author} нервничает... 😰",
-                    "{author} очень волнуется... 😨",
-                    "{author} в панике! 😱"
-                ]
-            },
-            "sex": {
-                "description": "Заняться любовью с пользователем",
-                "messages": [
-                    "{author} и {target} занимаются любовью! ❤️‍🔥",
-                    "{author} и {target} слились в экстазе! 🥵",
-                    "{author} и {target} наслаждаются друг другом! 🔞"
-                ],
-                "married_messages": [
-                    "💕 {author} страстно занимается любовью со своим партнером {target}",
-                    "💝 {author} и {target} отдаются друг другу в порыве страсти",
-                    "💖 {author} и {target} разделяют интимный момент как настоящие супруги"
-                ]
-            },
-            "anal": {
-                "description": "Заняться анальным сексом",
-                "messages": [
-                    "{author} глубоко и страстно входит в {target} сзади... 🥵",
-                    "{author} и {target} исследуют новые глубины удовольствия... 🔥",
-                    "{author} доминирует над {target}, доставляя незабываемые ощущения... 😈"
-                ]
-            },
-            "blowjob": {
-                "description": "Сделать минет",
-                "messages": [
-                    "{author} опускается на колени перед {target}... 👄",
-                    "{target} наслаждается умелыми действиями {author}... 🤤",
-                    "{author} дарит {target} незабываемое удовольствие... 💦"
-                ]
-            },
-            "cum": {
-                "description": "Кончить на пользователя",
-                "messages": [
-                    "{author} изливается на {target}... 💦",
-                    "{target} покрыт(а) горячей спермой {author}... 🥵",
-                    "{author} кончает, забрызгивая {target}... 🥛"
-                ]
-            },
-            "fuck": {
-                "description": "Выебать пользователя",
-                "messages": [
-                    "{author} жёстко имеет {target}! 🔞",
-                    "{author} грубо вдалбливает в {target}! 😈",
-                    "{author} и {target} грязно трахаются! 🥵"
-                ],
-                "married_messages": [
-                    "🔥 {author} страстно трахает своего партнера {target}",
-                    "💥 {author} и {target} дико занимаются сексом как супруги",
-                    "😈 {author} жестко имеет свою половинку {target}"
-                ]
-            },
-            "pussylick": {
-                "description": "Сделать куннилингус",
-                "messages": [
-                    "{author} нежно ласкает языком {target}... 👅",
-                    "{target} стонет от удовольствия, пока {author} продолжает... 🤤",
-                    "{author} доставляет {target} райское наслаждение... ✨"
-                ]
-            },
-            "solo": {
-                "description": "Мастурбировать",
-                "messages": [
-                    "{author} уединяется для личных утех... 😏",
-                    "{author} ласкает себя, погружаясь в фантазии... 💭",
-                    "{author} находит способ расслабиться в одиночестве... 💦"
-                ]
-            }
-        }
+        # Конфигурация реакций из data/reactions.json
+        with open(_REACTIONS_PATH, encoding="utf-8") as f:
+            self.reactions = json.load(f)
 
     async def cog_load(self):
         self.gifs_api.bind_session(getattr(self.bot, "http_session", None))
@@ -240,6 +76,7 @@ class ReactionSystem(commands.Cog):
         Returns:
             Embed с ошибкой или None если всё ок
         """
+        t = _(ctx=ctx)
         guild_id = str(ctx.guild.id)
         author_id = str(ctx.author.id)
         target_id = str(target.id)
@@ -266,10 +103,10 @@ class ReactionSystem(commands.Cog):
             partner = ctx.guild.get_member(int(partner_id))
             partner_mention = partner.mention if partner else "вашим партнером"
 
-            action_text = "заниматься любовью" if action_name == "sex" else "трахаться"
+            action_text = t("reactions", "action_sex") if action_name == "sex" else t("reactions", "action_fuck")
 
             return Embed.error(
-                description=f"Вы состоите в браке! Вы можете {action_text} только с {partner_mention}."
+                description=t("reactions", "married_with_other", action=action_text, partner=partner_mention)
             )
 
         # Проверяем, женат ли target на ком-то другом
@@ -278,10 +115,10 @@ class ReactionSystem(commands.Cog):
             partner = ctx.guild.get_member(int(partner_id))
             partner_mention = partner.mention if partner else "своим партнером"
 
-            action_text = "заниматься любовью" if action_name == "sex" else "трахаться"
+            action_text = t("reactions", "action_sex") if action_name == "sex" else t("reactions", "action_fuck")
 
             return Embed.error(
-                description=f"{target.mention} состоит в браке с {partner_mention}! Вы не можете {action_text} с чужим супругом."
+                description=t("reactions", "target_married", target=target.mention, action=action_text, partner=partner_mention)
             )
 
         # Оба не женаты — разрешаем
@@ -308,6 +145,7 @@ class ReactionSystem(commands.Cog):
         target: Optional[discord.Member] = None
     ):
         """Обработчик реакций с поддержкой ответов на сообщения"""
+        t = _(ctx=ctx)
         is_nsfw_channel = ctx.channel.is_nsfw()
         reaction_info = self.reactions[reaction_type]
 
@@ -319,9 +157,9 @@ class ReactionSystem(commands.Cog):
                 pass
 
         if target and (target.id == ctx.author.id or target.bot):
-            error_text = "собой" if target.id == ctx.author.id else "ботом"
+            error_text = t("reactions", "self") if target.id == ctx.author.id else t("reactions", "bot")
             return await ctx.reply(
-                embed=Embed.error(description=f"Вы не можете взаимодействовать с {error_text}!"),
+                embed=Embed.error(description=t("reactions", "self_interact", target=error_text)),
                 ephemeral=True
             )
 
@@ -357,7 +195,7 @@ class ReactionSystem(commands.Cog):
                 message = random.choice(messages).format(author=ctx.author.mention)
             else:
                 return await ctx.reply(
-                    embed=Embed.error(description="Укажите пользователя или ответьте на сообщение!"),
+                    embed=Embed.error(description=t("reactions", "no_target")),
                     ephemeral=True
                 )
 

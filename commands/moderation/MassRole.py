@@ -99,7 +99,7 @@ class MassRole(commands.Cog):
         members_count = len([m for m in ctx.guild.members if not m.bot])
         estimated_time = max(1, members_count // 10)
 
-        confirm_embed = Embed.error(
+        confirm_embed = Embed.warning(
             title=t("moderation", "massrole_confirm_title"),
             description=t("moderation", "massrole_confirm_desc", action=action_text, role=role.mention, count=members_count)
         )
@@ -132,7 +132,7 @@ class MassRole(commands.Cog):
             await confirm_message.clear_reactions()
 
             action_label = action_label_add if action == "add" else action_label_remove
-            progress_embed = Embed.info(
+            progress_embed = Embed.loading(
                 title=t("moderation", "massrole_progress_title"),
                 description=t("moderation", "massrole_progress", role=role.mention, action=action_label, total=members_count, processed="0")
             )

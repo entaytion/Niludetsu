@@ -1,3 +1,4 @@
+from ..locale import _
 from ..tools.Embed import Embed
 """
 Модуль для получения и отображения информации о погоде
@@ -92,12 +93,12 @@ class WeatherAPI:
             'country': data['sys']['country']
         }
 
-    def create_weather_embed(self, weather_data: Dict[str, Any]) -> Embed:
+    def create_weather_embed(self, weather_data: Dict[str, Any], t) -> Embed:
         """Создает красивый эмбед с информацией о погоде"""
 
         # Парсим время
-        sunrise_time = weather_data['sunrise'].split(' ')[1][:5] if isinstance(weather_data['sunrise'], str) else "Н/Д"
-        sunset_time = weather_data['sunset'].split(' ')[1][:5] if isinstance(weather_data['sunset'], str) else "Н/Д"
+        sunrise_time = weather_data['sunrise'].split(' ')[1][:5] if isinstance(weather_data['sunrise'], str) else t("api_weather", "na")
+        sunset_time = weather_data['sunset'].split(' ')[1][:5] if isinstance(weather_data['sunset'], str) else t("api_weather", "na")
 
         # Цвет и флаг
         color = self.get_temperature_color(weather_data['temp'])
@@ -106,49 +107,51 @@ class WeatherAPI:
 
         # Создаем эмбед
         embed = Embed(
-            title=f"{flag} Погода в {weather_data['city_name']}",
-            description=f"{weather_data['icon']} **{weather_data['description'].capitalize()}**\n## 🌡️ {weather_data['temp']}°C\n*Ощущается как {weather_data['feels_like']}°C*",
+            title=t("api_weather", "title", flag=flag, city=weather_data['city_name']),
+            description=f"{weather_data['icon']} **{weather_data['description'].capitalize()}**\n## 🌡️ {weather_data['temp']}°C\n*{t('api_weather', 'feels_like', temp=weather_data['feels_like'])}*",
             color=color
         )
 
         # Поля с информацией
         embed.add_field(
-            name="🌊 Атмосфера", 
-            value=f"💧 **{weather_data['humidity']}%** влажность\n📈 **{weather_data['pressure']}** мм рт.ст.", 
+            name=t("api_weather", "atmosphere"),
+            value=f"💧 **{weather_data['humidity']}%** {t('api_weather', 'humidity')}\n📈 **{weather_data['pressure']}** {t('api_weather', 'pressure')}",
             inline=True
         )
 
         embed.add_field(
-            name="💨 Ветер", 
-            value=f"{wind_desc}\n**{weather_data['wind_speed']} м/с**", 
+            name=t("api_weather", "wind"),
+            value=f"{wind_desc}\n**{weather_data['wind_speed']} м/с**",
             inline=True
         )
 
         embed.add_field(
-            name="👁️ Видимость", 
-            value=f"**{weather_data['visibility']} км**\n{'🌫️ Туман' if weather_data['visibility'] < 5 else '✨ Ясно'}", 
+            name=t("api_weather", "visibility"),
+            value=f"**{weather_data['visibility']} км**\n{'🌫️ ' + t('api_weather', 'foggy') if weather_data['visibility'] < 5 else '✨ ' + t('api_weather', 'clear')}",
             inline=True
         )
 
         embed.add_field(
-            name="🌅 Световой день", 
-            value=f"🌄 **Восход:** {sunrise_time} • 🌆 **Закат:** {sunset_time}", 
+            name=t("api_weather", "daylight"),
+            value=f"{t('api_weather', 'sunrise_time', time=sunrise_time)} • {t('api_weather', 'sunset_time', time=sunset_time)}",
             inline=False
         )
 
         # Thumbnail и footer
         embed.set_thumbnail(url=f"http://openweathermap.org/img/wn/{weather_data['icon_code']}@2x.png")
-        embed.set_footer(text="🕐 Обновлено только что • OpenWeatherMap")
+        embed.set_footer(text=t("api_weather", "footer"))
 
         return embed
 
     async def get_weather_info(self, ctx, city: str):
         """Получает и отображает информацию о погоде"""
+        t = _(ctx=ctx)
+        
         if not city:
-            return await ctx.reply(embed=Embed.error(description="Укажите название города!"))
+            return await ctx.reply(embed=Embed.error(description=t("api_weather", "specify_city")))
 
         # Индикатор загрузки
-        loading_embed = Embed(title="🔄 Загрузка...", description=f"Получаю погоду в **{city}**", color=0x2196F3)
+        loading_embed = Embed(title="🔄 Загрузка...", description=f"{t('api_weather', 'fetch_info', city=city)}", color=0x2196F3)
         message = await ctx.reply(embed=loading_embed)
 
         try:
@@ -156,15 +159,15 @@ class WeatherAPI:
 
             if not weather_info:
                 error_embed = Embed.error(
-                    description=f"Не удалось найти **{city}**\n💡 Попробуйте проверить написание или добавить страну")
+                    description=t("api_weather", "fetch_error", city=city))
                 return await message.edit(embed=error_embed)
 
             formatted_data = self.format_weather_data(weather_info)
-            embed = self.create_weather_embed(formatted_data)
+            embed = self.create_weather_embed(formatted_data, t)
             await message.edit(embed=embed)
 
         except Exception:
-            error_embed = Embed.error(description="Попробуйте позже")
+            error_embed = Embed.error(description=t("api_weather", "generic_error"))
             await message.edit(embed=error_embed)
 
 # Глобальный экземпляр

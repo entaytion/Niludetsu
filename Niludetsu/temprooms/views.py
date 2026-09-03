@@ -1,5 +1,6 @@
 import discord
 from typing import Iterable, Optional
+from Niludetsu.locale import _
 
 TEMP_OPTIONS = [
     discord.SelectOption(
@@ -71,9 +72,10 @@ class RenameModal(discord.ui.Modal, title="Переименовать канал
         self.channel = channel
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
+        t = _(ctx=interaction)
         await interaction.response.defer(ephemeral=True)
         await self.service.rename(self.channel, str(self.new_name.value))
-        await interaction.followup.send("Название обновлено ✅", ephemeral=True)
+        await interaction.followup.send(t("temprooms", "name_updated"), ephemeral=True)
 
 class LimitModal(discord.ui.Modal, title="Изменить лимит"):
     limit = discord.ui.TextInput(
@@ -88,14 +90,16 @@ class LimitModal(discord.ui.Modal, title="Изменить лимит"):
         self.channel = channel
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
+        t = _(ctx=interaction)
         await interaction.response.defer(ephemeral=True)
         try:
             value = int(str(self.limit.value).strip())
         except ValueError:
-            await interaction.followup.send("Нужно ввести число от 0 до 99.", ephemeral=True)
+            await interaction.followup.send(t("temprooms", "limit_invalid"), ephemeral=True)
             return
         await self.service.set_limit(self.channel, value)
-        await interaction.followup.send(f"Лимит установлен на **{value or 'без ограничений'}** ✅", ephemeral=True)
+        limit_text = str(value) if value else t("temprooms", "limit_no_limit")
+        await interaction.followup.send(t("temprooms", "limit_set", limit=limit_text), ephemeral=True)
 
 class AccessModal(discord.ui.Modal, title="Управление доступом"):
     mode = discord.ui.TextInput(
@@ -115,6 +119,7 @@ class AccessModal(discord.ui.Modal, title="Управление доступом
         self.channel = channel
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
+        t = _(ctx=interaction)
         await interaction.response.defer(ephemeral=True)
         raw_users = str(self.users.value or "").replace("<@", "").replace(">", "")
         user_ids: Iterable[int] = []
@@ -127,7 +132,7 @@ class AccessModal(discord.ui.Modal, title="Управление доступом
             user_ids=user_ids,
         )
         await interaction.followup.send(
-            f"Доступ обновлён. Режим: **{room.access_mode}**, участников в списке: **{len(room.access_list)}** ✅",
+            t("temprooms", "access_updated", mode=room.access_mode, count=len(room.access_list)),
             ephemeral=True,
         )
 
@@ -153,25 +158,26 @@ class TransferSelect(discord.ui.Select):
         self.room = room
 
     async def callback(self, interaction: discord.Interaction) -> None:
+        t = _(ctx=interaction)
         if self.values[0] == "none":
             # Обновляем селектор и показываем сообщение об отсутствии кандидатов
             self.disabled = True
-            self.placeholder = "Нет доступных участников"
+            self.placeholder = t("temprooms", "no_members_option")
             try:
                 await interaction.response.edit_message(view=self.view)
             except Exception:
                 pass
-            await interaction.followup.send("Никого нет в канале, передавать нечего.", ephemeral=True)
+            await interaction.followup.send(t("temprooms", "no_one_in_channel"), ephemeral=True)
             return
         new_owner_id = int(self.values[0])
         new_owner = self.channel.guild.get_member(new_owner_id)
         if not new_owner:
             try:
                 self.disabled = True
-                self.placeholder = "Выбранный участник не найден"
+                self.placeholder = t("temprooms", "member_not_found")
                 await interaction.response.edit_message(view=self.view)
             except Exception:
-                await interaction.response.send_message("Не смог найти выбранного участника.", ephemeral=True)
+                await interaction.response.send_message(t("temprooms", "member_not_found_msg"), ephemeral=True)
             return
 
         await self.service.repo.update_room(str(self.channel.id), owner_id=str(new_owner_id))
@@ -180,13 +186,13 @@ class TransferSelect(discord.ui.Select):
 
         # Блокируем селектор для предотвращения повторных действий и обновляем текст
         self.disabled = True
-        self.placeholder = f"Новый владелец: {new_owner.display_name}"
+        self.placeholder = t("temprooms", "new_owner", name=new_owner.display_name)
         try:
             await interaction.response.edit_message(view=self.view)
         except Exception:
             pass
         await interaction.followup.send(
-            f"Права переданы **{new_owner.display_name}** 👑", ephemeral=True
+            t("temprooms", "transferred", name=new_owner.display_name), ephemeral=True
         )
 
 class TransferView(discord.ui.View):
@@ -265,16 +271,17 @@ class TempRoomActions(discord.ui.View):
             pass
 
     async def on_select(self, interaction: discord.Interaction) -> None:
+        t = _(ctx=interaction)
         voice = self._resolve_channel(interaction)
         if voice is None:
-            await interaction.response.send_message("Эта панель работает только из голосового канала.", ephemeral=True)
+            await interaction.response.send_message(t("temprooms", "not_in_voice"), ephemeral=True)
             self._reset_selector()
             await self._edit_via_interaction(interaction)
             return
 
         room = await self.service.get_room(voice.id)
         if not room or str(interaction.user.id) != room.owner_id:
-            await interaction.response.send_message("Ты не владелец этого временного канала.", ephemeral=True)
+            await interaction.response.send_message(t("temprooms", "not_owner"), ephemeral=True)
             self._reset_selector()
             await self._edit_via_interaction(interaction)
             return
@@ -283,7 +290,7 @@ class TempRoomActions(discord.ui.View):
             # Панель подвязана на предыдущего владельца → сбрасываем и сообщаем пользователю
             await self.reset_context()
             await interaction.response.send_message(
-                "Эта панель больше неактивна для тебя. Открой свежую, пожалуйста.",
+                t("temprooms", "panel_expired"),
                 ephemeral=True,
             )
             return
@@ -309,38 +316,38 @@ class TempRoomActions(discord.ui.View):
 
         if action == "lock_channel":
             room = await self.service.toggle_lock(voice)
-            state = "закрыт" if room.locked else "открыт"
-            await interaction.followup.send(f"Канал теперь **{state}**.", ephemeral=True)
+            state = t("temprooms", "channel_closed") if room.locked else t("temprooms", "channel_opened")
+            await interaction.followup.send(t("temprooms", "channel_state", state=state), ephemeral=True)
             return
 
         if action == "invite":
             invite = await self.service.create_invite(voice)
-            await interaction.followup.send(f"Приглашение на 24 часа: {invite.url}", ephemeral=True)
+            await interaction.followup.send(t("temprooms", "invite_created", url=invite.url), ephemeral=True)
             return
 
         if action == "thread":
             room = await self.service.create_thread(voice, owner=interaction.user)  # type: ignore[arg-type]
             if room.thread_id:
-                await interaction.followup.send("Текстовый канал создан ✅", ephemeral=True)
+                await interaction.followup.send(t("temprooms", "thread_created"), ephemeral=True)
             else:
-                await interaction.followup.send("Текстовый канал уже существует.", ephemeral=True)
+                await interaction.followup.send(t("temprooms", "thread_exists"), ephemeral=True)
             return
 
         if action == "remember_toggle":
             room = await self.service.toggle_remember(voice)
-            state = "вкл" if room.remember_settings else "выкл"
-            await interaction.followup.send(f"Сохранение настроек теперь **{state}**.", ephemeral=True)
+            state = t("temprooms", "remember_enabled") if room.remember_settings else t("temprooms", "remember_disabled")
+            await interaction.followup.send(t("temprooms", "remember_state", state=state), ephemeral=True)
             return
 
         if action == "transfer":
             room = await self.service.require_room(voice)
             view = TransferView(self.service, voice, room)
-            await interaction.followup.send("Выбери нового владельца:", view=view, ephemeral=True)
+            await interaction.followup.send(t("temprooms", "select_new_owner"), view=view, ephemeral=True)
             return
 
         if action == "delete":
             await self.service.delete_temp_room(voice)
-            await interaction.followup.send("Канал удалён 🗑️", ephemeral=True)
+            await interaction.followup.send(t("temprooms", "channel_deleted"), ephemeral=True)
             return
 
     def _resolve_channel(self, interaction: discord.Interaction) -> Optional[discord.VoiceChannel]:

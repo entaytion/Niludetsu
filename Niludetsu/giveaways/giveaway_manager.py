@@ -2,6 +2,7 @@ import discord, json, random
 from Niludetsu.tools.Embed import Embed
 from Niludetsu.tools.Emojis import Emojis
 from Niludetsu.tools.Time import TimeService as Time
+from Niludetsu.locale import _
 import Niludetsu.config as config
 
 from dataclasses import dataclass
@@ -146,20 +147,20 @@ class GiveawayManager:
     def _build_mention_content(self, mention_role_id: Optional[int]) -> Optional[str]:
         return f"<@&{mention_role_id}>" if mention_role_id else None
 
-    def _compose_conditions(self, settings: Dict[str, Any]) -> Optional[str]:
+    def _compose_conditions(self, settings: Dict[str, Any], t) -> Optional[str]:
         lines: List[str] = []
         if settings["min_server_time"]:
-            lines.append(f"• Минимум {settings['min_server_time']} дн. на сервере")
+            lines.append(t("giveaways", "conditions_min_server", days=settings["min_server_time"]))
         if settings["min_voice_time"]:
-            lines.append(f"• Голосовой стаж: {settings['min_voice_time']} минут")
+            lines.append(t("giveaways", "conditions_min_voice", minutes=settings["min_voice_time"]))
         if settings["required_role"]:
-            lines.append(f"• Роль: <@&{settings['required_role']}>")
+            lines.append(t("giveaways", "conditions_required_role", role=f"<@&{settings['required_role']}>"))
         if settings["min_level"]:
-            lines.append(f"• Уровень: {settings['min_level']}")
+            lines.append(t("giveaways", "conditions_min_level", level=settings["min_level"]))
         if settings["booster_only"]:
-            lines.append("• Только для бустеров")
+            lines.append(t("giveaways", "conditions_booster"))
         if settings["no_revote"]:
-            lines.append("• Повторное участие запрещено")
+            lines.append(t("giveaways", "conditions_no_revote"))
         return "\n".join(lines) if lines else None
 
     def _build_giveaway_embed(
@@ -170,31 +171,32 @@ class GiveawayManager:
         end_time,
         winners_count: int,
         settings: Dict[str, Any],
+        t,
         participants_count: int = 0,
     ) -> Embed:
         embed = Embed(
             title=f"{Emojis.GIVEAWAY} {prize}",
-            description="Нажмите кнопку ниже, чтобы участвовать!",
+            description=t("giveaways", "embed_description"),
             color=Colors.INFO,
         )
-        embed.add_field(name="> Призовых мест:", value=str(winners_count), inline=True)
+        embed.add_field(name=t("giveaways", "field_prize_places"), value=str(winners_count), inline=True)
         embed.add_field(
-            name="> Завершится:",
+            name=t("giveaways", "field_ends"),
             value=f"<t:{int(end_time.timestamp())}:R>",
             inline=True,
         )
-        embed.add_field(name="> Организатор:", value=f"<@{host_id}>", inline=True)
+        embed.add_field(name=t("giveaways", "field_organizer"), value=f"<@{host_id}>", inline=True)
 
         if participants_count:
             embed.add_field(
-                name="> Участников сейчас:",
+                name=t("giveaways", "field_participants"),
                 value=str(participants_count),
                 inline=True,
             )
 
-        conditions_text = self._compose_conditions(settings)
+        conditions_text = self._compose_conditions(settings, t)
         if conditions_text:
-            embed.add_field(name="> Условия:", value=conditions_text, inline=False)
+            embed.add_field(name=t("giveaways", "field_conditions"), value=conditions_text, inline=False)
         return embed
 
     def _build_finished_embed(
@@ -203,16 +205,17 @@ class GiveawayManager:
         *,
         description: str,
         color,
+        t,
     ) -> Embed:
         embed = Embed(
-            title=f"{Emojis.GIVEAWAY} {giveaway['prize']} | Завершён!",
+            title=t("giveaways", "finished_title", emoji=Emojis.GIVEAWAY, prize=giveaway["prize"]),
             description=description,
             color=color,
         )
         unix_ts = int(_time.now().timestamp())
-        embed.add_field(name="> Призовых мест:", value=str(giveaway["winners_count"]), inline=True)
-        embed.add_field(name="> Организатор:", value=f"<@{giveaway['host_id']}>", inline=True)
-        embed.add_field(name="> Завершён:", value=f"<t:{unix_ts}:F>", inline=True)
+        embed.add_field(name=t("giveaways", "field_prize_places"), value=str(giveaway["winners_count"]), inline=True)
+        embed.add_field(name=t("giveaways", "field_organizer"), value=f"<@{giveaway['host_id']}>", inline=True)
+        embed.add_field(name=t("giveaways", "finished_ends_at"), value=f"<t:{unix_ts}:F>", inline=True)
         return embed
 
     async def _get_active_channel(self, giveaway_id: int) -> Optional[discord.TextChannel]:
@@ -242,7 +245,11 @@ class GiveawayManager:
         participants_count: int = 0,
         mention_role_id: Optional[int] = None,
         view=None,
+        t=None,
     ) -> discord.Message:
+        if t is None:
+            guild_id = channel.guild.id if channel.guild else None
+            t = _(guild_id=guild_id, bot=self.bot)
         embed = self._build_giveaway_embed(
             prize=context.giveaway["prize"],
             host_id=context.giveaway["host_id"],
@@ -250,6 +257,7 @@ class GiveawayManager:
             winners_count=context.giveaway["winners_count"],
             settings=context.settings,
             participants_count=participants_count,
+            t=t,
         )
         return await channel.send(
             content=self._build_mention_content(mention_role_id),
@@ -362,11 +370,16 @@ class GiveawayManager:
         giveaway: Dict[str, Any],
         channel: discord.TextChannel,
         message: Optional[discord.Message],
+        t=None,
     ) -> None:
+        if t is None:
+            guild_id = channel.guild.id if channel.guild else None
+            t = _(guild_id=guild_id, bot=self.bot)
         embed = self._build_finished_embed(
             giveaway,
-            description="- Никто не участвовал, победителей нет.",
+            description=t("giveaways", "no_participants"),
             color=Colors.WARNING,
+            t=t,
         )
         if message:
             await message.edit(embed=embed, view=None)
@@ -380,29 +393,33 @@ class GiveawayManager:
         giveaway: Dict[str, Any],
         message: discord.Message,
         winners: List[str],
+        t=None,
     ) -> None:
+        if t is None:
+            guild_id = message.guild.id if message.guild else None
+            t = _(guild_id=guild_id, bot=self.bot)
         prize = giveaway["prize"]
-        winners_mentions = "\n".join(f"<@{wid}>" for wid in winners) or "— Победителей нет."
+        winners_mentions = "\n".join(f"<@{wid}>" for wid in winners) or t("giveaways", "no_winners")
         winners_count = giveaway["winners_count"]
 
         embed = Embed(
-            title=f"{Emojis.GIVEAWAY} {prize} | Завершён!",
-            description=f"**Победители:**\n{winners_mentions}",
+            title=t("giveaways", "winners_title", emoji=Emojis.GIVEAWAY, prize=prize),
+            description=f"{t('giveaways', 'winners_label')}\n{winners_mentions}",
             color=Colors.SUCCESS if winners else Colors.WARNING,
         )
         unix_ts = int(_time.now().timestamp())
-        embed.add_field(name="> Призовых мест:", value=str(winners_count), inline=True)
+        embed.add_field(name=t("giveaways", "field_prize_places"), value=str(winners_count), inline=True)
         embed.add_field(
-            name="> Организатор:",
+            name=t("giveaways", "field_organizer"),
             value=f"<@{giveaway['host_id']}>",
             inline=True,
         )
-        embed.add_field(name="> Завершён:", value=f"<t:{unix_ts}:F>", inline=True)
+        embed.add_field(name=t("giveaways", "finished_ends_at"), value=f"<t:{unix_ts}:F>", inline=True)
 
         await message.edit(embed=embed, view=None)
         if winners:
             await message.channel.send(
-                f"{Emojis.GIVEAWAY} Победители розыгрыша [{prize}]({message.jump_url}):\n{winners_mentions}"
+                t("giveaways", "announcement", emoji=Emojis.GIVEAWAY, prize=prize, url=message.jump_url, winners=winners_mentions)
             )
 
     async def _notify_users(
@@ -410,7 +427,11 @@ class GiveawayManager:
         winner_ids: List[str],
         giveaway: Dict[str, Any],
         message: discord.Message,
+        t=None,
     ):
+        if t is None:
+            guild_id = message.guild.id if message.guild else None
+            t = _(guild_id=guild_id, bot=self.bot)
         if not winner_ids:
             return
 
@@ -422,12 +443,8 @@ class GiveawayManager:
                 if not user:
                     continue
                 embed = Embed(
-                    title=f"{Emojis.GIVEAWAY} Поздравляем! Вы выиграли!",
-                    description=(
-                        f"Вы победили в розыгрыше **{giveaway['prize']}**\n"
-                        f"- Свяжитесь с организатором: {host_mention}\n"
-                        f"- Сообщение: [перейти]({message.jump_url})"
-                    ),
+                    title=t("giveaways", "notification_title", emoji=Emojis.GIVEAWAY),
+                    description=t("giveaways", "notification_desc", prize=giveaway["prize"], host=host_mention, url=message.jump_url),
                     color=Colors.SUCCESS,
                 )
                 await user.send(embed=embed)
@@ -517,7 +534,7 @@ class GiveawayManager:
         await self._refresh_view(giveaway_id, new_count)
         return status
 
-    async def end_giveaway(self, giveaway_id: int) -> None:
+    async def end_giveaway(self, giveaway_id: int, t=None) -> None:
         giveaway = await self.repo.fetch_one(giveaway_id)
         if not giveaway or giveaway["is_ended"]:
             return
@@ -525,6 +542,8 @@ class GiveawayManager:
         participants = await self.repo.list_participants(giveaway_id, active_only=True)
         context = self._build_context(giveaway_id, giveaway)
         channel = self.bot.get_channel(int(giveaway["channel_id"]))
+        if t is None and channel:
+            t = _(guild_id=channel.guild.id, bot=self.bot)
         if not isinstance(channel, discord.TextChannel):
             await self._finalize_giveaway(giveaway_id)
             return
@@ -532,7 +551,7 @@ class GiveawayManager:
         message = await self._fetch_message(channel, int(giveaway["message_id"]))
 
         if not participants:
-            await self._handle_empty_giveaway(giveaway_id, giveaway, channel, message)
+            await self._handle_empty_giveaway(giveaway_id, giveaway, channel, message, t=t)
             return
 
         winners_count = min(giveaway["winners_count"], len(participants))
@@ -546,30 +565,33 @@ class GiveawayManager:
                 context,
                 participants_count=len(participants),
                 mention_role_id=self._get_mention_role_id(giveaway=giveaway),
+                t=t,
             )
 
-        await self._announce_winners(giveaway, message, winner_ids)
-        await self._notify_users(winner_ids, giveaway, message)
+        await self._announce_winners(giveaway, message, winner_ids, t=t)
+        await self._notify_users(winner_ids, giveaway, message, t=t)
 
-    async def reroll(self, giveaway_id: int) -> List[discord.Member]:
+    async def reroll(self, giveaway_id: int, t=None) -> List[discord.Member]:
+        if t is None:
+            t = _(guild_id=None, bot=self.bot)
         giveaway = await self.repo.fetch_one(giveaway_id)
         if not giveaway:
-            raise ValueError("Розыгрыш не найден.")
+            raise ValueError(t("moderation_rudiments", "reroll_not_found"))
         if not giveaway["is_ended"]:
-            raise ValueError("Розыгрыш ещё активен.")
+            raise ValueError(t("moderation_rudiments", "reroll_active"))
 
         participants = await self.repo.list_participants(giveaway_id, active_only=True)
         if not participants:
-            raise ValueError("Нет участников для перерозыгрыша.")
+            raise ValueError(t("moderation_rudiments", "reroll_no_participants"))
 
         guild = self.bot.get_guild(int(giveaway["guild_id"]))
         if not guild:
-            raise ValueError("Сервер недоступен.")
+            raise ValueError(t("moderation_rudiments", "reroll_guild_unavailable"))
 
         valid_members = await self._collect_valid_members(guild, participants, giveaway)
 
         if not valid_members:
-            raise ValueError("Не найдено участников, соответствующих условиям.")
+            raise ValueError(t("moderation_rudiments", "reroll_no_valid"))
 
         winners_count = min(giveaway["winners_count"], len(valid_members))
         winners = random.sample(valid_members, winners_count)
@@ -588,12 +610,12 @@ class GiveawayManager:
         message = await channel.fetch_message(int(giveaway["message_id"]))
 
         embed = Embed.success(
-            title=f"{Emojis.GIVEAWAY} Перерозыгрыш #{giveaway.get('reroll_count', 0) + 1}",
+            title=t("giveaways", "reroll_title", emoji=Emojis.GIVEAWAY, count=giveaway.get("reroll_count", 0) + 1),
             description="\n".join(f"🎉 {member.mention}" for member in winners),
         )
-        embed.set_footer(text=f"ID розыгрыша: {giveaway_id}")
+        embed.set_footer(text=t("giveaways", "reroll_footer", id=giveaway_id))
         await channel.send(embed=embed)
 
-        await self._notify_users(winner_ids, giveaway, message)
+        await self._notify_users(winner_ids, giveaway, message, t=t)
         return winners
 

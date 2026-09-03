@@ -1,8 +1,57 @@
+import re
 import discord
 from dataclasses import dataclass
 from Niludetsu.tools.Emojis import Emojis
 from Niludetsu.tools.Time import TimeService
 from typing import Optional, Sequence
+
+_LEADING_EMOJI_RE = re.compile(
+    r"^(?:<a?:\w+:\d+>|[\U00010000-\U0010ffff]|[\u2600-\u27bf]|[\u2300-\u23ff]|[\u2b50-\u2b55]|\u200d|\ufe0f|\u20e3|\s)+",
+    re.UNICODE,
+)
+
+_UNICODE_TO_AE_EMOJI = {
+    "✅": Emojis.SUCCESS,
+    "✔️": Emojis.SUCCESS,
+    "☑️": Emojis.SUCCESS,
+    "❌": Emojis.ERROR,
+    "✖️": Emojis.ERROR,
+    "⛔": Emojis.ERROR,
+    "🚫": Emojis.ERROR,
+    "⚠️": Emojis.WARNING,
+    "🚨": Emojis.WARNING,
+    "ℹ️": Emojis.UNKNOWN,
+    "ℹ": Emojis.UNKNOWN,
+    "🔄": Emojis.LOADING,
+    "🔁": Emojis.LOADING,
+    "⏳": Emojis.ICON_CLOCK,
+    "⏰": Emojis.ICON_CLOCK,
+    "⏱️": Emojis.ICON_CLOCK,
+    "⏱": Emojis.ICON_CLOCK,
+    "⚙️": Emojis.ICON_SETTINGS,
+    "⚙": Emojis.ICON_SETTINGS,
+    "💰": Emojis.MONEY,
+    "💵": Emojis.MONEY,
+    "🎁": Emojis.GIVEAWAY,
+    "🎉": Emojis.GIVEAWAY,
+}
+
+def _clean_title(title: Optional[str], emoji: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    if not title:
+        return title, emoji
+
+    if emoji is None:
+        trimmed = title.strip()
+        for u_char, ae_emoji in _UNICODE_TO_AE_EMOJI.items():
+            if trimmed.startswith(u_char):
+                emoji = ae_emoji
+                break
+
+    if emoji:
+        cleaned = _LEADING_EMOJI_RE.sub("", title).strip()
+        title = f"{emoji} {cleaned}" if cleaned else emoji
+
+    return title, emoji
 
 @dataclass(frozen=True)
 class Colors:
@@ -52,8 +101,7 @@ class Embed(discord.Embed):
         image = image or kwargs.pop("image_url", None)
         
         color = Colors.PRIMARY if color is None else color
-        if emoji:
-            title = f"{emoji} {title}" if title else emoji
+        title, emoji = _clean_title(title, emoji)
 
         super().__init__(
             title=title,
@@ -200,3 +248,7 @@ class Embed(discord.Embed):
     @classmethod
     def info(cls, title: Optional[str] = None, **kwargs) -> "Embed":
         return cls._base(title=title or "Информация!", emoji=Emojis.UNKNOWN, color=Colors.INFO, **kwargs)
+
+    @classmethod
+    def loading(cls, title: Optional[str] = None, **kwargs) -> "Embed":
+        return cls._base(title=title or "Загрузка...", emoji=Emojis.LOADING, color=Colors.INFO, **kwargs)

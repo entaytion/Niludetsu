@@ -5,6 +5,29 @@ import asyncio
 from typing import Any, Dict, Optional
 from Niludetsu.database import database
 
+# ── Shared transaction queue ────────────────────────────────────────
+_transaction_queue: asyncio.Queue[tuple] = asyncio.Queue()
+_transaction_worker_task: asyncio.Task | None = None
+
+
+async def _transaction_worker():
+    """Один worker для всіх транзакцій — замість fire-and-forget create_task."""
+    db = database
+    while True:
+        user_id, guild_id, event, amount, balance, metadata = await _transaction_queue.get()
+        try:
+            await db.insert_transaction(user_id, guild_id, event, amount, balance, metadata=metadata)
+        except Exception:
+            pass
+        finally:
+            _transaction_queue.task_done()
+
+
+def _ensure_worker():
+    global _transaction_worker_task
+    if _transaction_worker_task is None or _transaction_worker_task.done():
+        _transaction_worker_task = asyncio.create_task(_transaction_worker(), name="tx-worker")
+
 class EconomyResult:
     """Результат операции экономии для удобной обработки в match/case."""
     __slots__ = ("status", "message", "data")
@@ -72,15 +95,9 @@ class EconomyManager:
     ) -> None:
         if not event:
             return
-        asyncio.create_task(
-            self.db.insert_transaction(
-                user_id,
-                guild_id,
-                event,
-                amount,
-                balance,
-                metadata=metadata,
-            )
+        _ensure_worker()
+        _transaction_queue.put_nowait(
+            (user_id, guild_id, event, amount, balance, metadata)
         )
 
     async def get_config(self) -> Dict[str, Any]:

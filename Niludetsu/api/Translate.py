@@ -1,3 +1,4 @@
+from ..locale import _
 from ..tools.Embed import Embed
 """
 Модуль для перевода текста на различные языки с помощью TranslateAPI
@@ -96,7 +97,8 @@ class TranslateAPI:
             if hasattr(ctx, 'message') and ctx.message.reference and ctx.message.reference.resolved:
                 text = ctx.message.reference.resolved.content
             else:
-                await ctx.reply(embed=Embed.error(description="Укажите текст для перевода или ответьте на сообщение"))
+                t = _(ctx=ctx)
+                await ctx.reply(embed=Embed.error(description=t("api_translate", "specify_text")))
                 return
 
         try:
@@ -105,17 +107,19 @@ class TranslateAPI:
             from_lang: Optional[str] = None
 
             result = await self.get_translation_data(text, to_lang, from_lang)
-            embed = self._format_translation_embed(result)
+            t = _(ctx=ctx)
+            embed = self._format_translation_embed(result, t)
             await ctx.reply(embed=embed)
 
         except Exception as e:
+            t = _(ctx=ctx)
             error_embed = Embed.error(
-                title="Ошибка перевода",
-                description=f"Произошла ошибка при переводе: {str(e)}"
+                title=t("api_translate", "error_title"),
+                description=t("api_translate", "error_desc", error=str(e))
             )
             await ctx.reply(embed=error_embed)
 
-    def _format_translation_embed(self, result: Dict) -> discord.Embed:
+    def _format_translation_embed(self, result: Dict, t) -> discord.Embed:
         """
         Форматирует эмбед с переводом
 
@@ -130,11 +134,11 @@ class TranslateAPI:
             Отформатированный эмбед с переводом
         """
         embed = Embed(
-            title="🌐 Перевод",
+            title=t("api_translate", "title"),
             description=(
-                f"**Оригинал ({self.get_language_name(result['from_lang'])}):**"
-                f"{result['original_text']}"
-                f"**Перевод ({self.get_language_name(result['to_lang'])}):**"
+                f"**{t('api_translate', 'original')} ({self.get_language_name(result['from_lang'])}):**\n"
+                f"{result['original_text']}\n\n"
+                f"**{t('api_translate', 'translation')} ({self.get_language_name(result['to_lang'])}):**\n"
                 f"{result['translated_text']}"
             )
         )

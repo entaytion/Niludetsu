@@ -1,3 +1,4 @@
+from ..locale import _
 from ..tools.Embed import Embed
 """
 Модуль для взаимодействия с TheColorAPI
@@ -103,13 +104,15 @@ class ColorAPI:
             Код цвета для анализа
         """
         if not color:
-            await ctx.reply(embed=Embed.error(description="Укажите цвет!"))
+            t = _(ctx=ctx)
+            await ctx.reply(embed=Embed.error(description=t("api_color", "specify_color")))
             return
 
         try:
             color_data = await self.get_color_data(color)
             if not color_data:
-                error_embed = Embed.error(description="Не удалось получить информацию о цвете. Проверьте формат и попробуйте снова.")
+                t = _(ctx=ctx)
+                error_embed = Embed.error(description=t("api_color", "fetch_error"))
                 await ctx.reply(embed=error_embed)
                 return
 
@@ -117,7 +120,8 @@ class ColorAPI:
             await ctx.reply(embed=embed)
 
         except Exception:
-            error_embed = Embed.error(description="Произошла ошибка при получении информации о цвете. Попробуйте позже.")
+            t = _(ctx=ctx)
+            error_embed = Embed.error(description=t("api_color", "api_error"))
             await ctx.reply(embed=error_embed)
 
     def _convert_api_response(self, api_data: Dict[str, Any]) -> Dict[str, Any]:
